@@ -10,7 +10,7 @@ Contract mã nguồn được cụ thể hóa từ [DDL/API/Event Specification 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 19 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6 của DDL/API/Event v1.0                                            |
+| 23 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6 của DDL/API/Event v1.0 và bốn RPC Trip core API017/018/020/022    |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -24,7 +24,9 @@ Contract mã nguồn được cụ thể hóa từ [DDL/API/Event Specification 
 
 ## gRPC
 
-Phân bổ là Identity 3, Trip 7, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC.
+Phân bổ là Identity 3, Trip 11, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC.
+
+Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip` và `UpdateTrip` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
 Loader chung dùng `keepCase=true`, `longs=String`, `defaults=false`, `arrays=false`, `objects=false`, `oneofs=true`. Cấu hình này giữ `snake_case`, không làm mất optional presence và khớp mã ts-proto sinh với `snakeToCamel=false`, `forceLong=string`, `useDate=false`.
 

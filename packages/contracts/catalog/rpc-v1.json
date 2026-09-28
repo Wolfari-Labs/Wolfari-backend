@@ -26,6 +26,38 @@
   {
     "package": "wolfari.trip.v1",
     "service": "TripService",
+    "method": "CreateTrip",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip core access - API017"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ListTrips",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip core access - API018"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetTrip",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip core access - API020"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "UpdateTrip",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip core access - API022"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
     "method": "GetAccessContext",
     "callers": ["Finance", "Travel", "Automation"],
     "deadline_ms": 2000,
