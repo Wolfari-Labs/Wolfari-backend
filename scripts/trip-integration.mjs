@@ -295,39 +295,49 @@ async function main() {
   assert.equal((await request('/api/v1/me', 'GET', undefined, bearer(owner))).status, 200);
   pass('Identity routes remain reachable through Gateway');
 
-  await query(
-    'trip',
-    `
-    CREATE FUNCTION test_fail_trip_membership() RETURNS trigger LANGUAGE plpgsql AS $$
-    BEGIN RAISE EXCEPTION 'intentional integration rollback'; END $$;
-    CREATE TRIGGER test_fail_trip_membership BEFORE INSERT ON trip_members
-    FOR EACH ROW EXECUTE FUNCTION test_fail_trip_membership()
-  `,
-  );
-  const failedName = `Rollback ${randomUUID()}`;
-  const failedInput = tripBody(failedName);
-  const failed = await request('/api/v1/trips', 'POST', failedInput, bearer(owner));
-  assert.equal(failed.status, 503);
-  assert.equal(
-    (await query('trip', 'SELECT count(*)::int AS n FROM trips WHERE name=$1', [failedName]))[0].n,
-    0,
-  );
-  assert.equal(
-    (
-      await query('trip', 'SELECT count(*)::int AS n FROM trip_operations WHERE operation_id=$1', [
-        failedInput.client_request_id,
-      ])
-    )[0].n,
-    0,
-  );
-  await query(
-    'trip',
-    `
-    DROP TRIGGER test_fail_trip_membership ON trip_members;
-    DROP FUNCTION test_fail_trip_membership()
-  `,
-  );
-  pass('membership failure rolls back Trip, Owner, audit and receipt');
+  for (const [stage, table] of [
+    ['membership', 'trip_members'],
+    ['audit', 'trip_audit_logs'],
+    ['receipt', 'trip_operations'],
+  ]) {
+    const functionName = `test_fail_trip_${stage}`;
+    await query(
+      'trip',
+      `
+      CREATE FUNCTION ${functionName}() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'intentional ${stage} rollback'; END $$;
+      CREATE TRIGGER ${functionName} BEFORE INSERT ON ${table}
+      FOR EACH ROW EXECUTE FUNCTION ${functionName}()
+    `,
+    );
+    const failedName = `Rollback ${stage} ${randomUUID()}`;
+    const failedInput = tripBody(failedName);
+    try {
+      const failed = await request('/api/v1/trips', 'POST', failedInput, bearer(owner));
+      assert.equal(failed.status, 503);
+      const residue = (
+        await query(
+          'trip',
+          `SELECT
+             (SELECT count(*)::int FROM trips WHERE name=$1) AS trips,
+             (SELECT count(*)::int FROM trip_members WHERE user_id=$2) AS members,
+             (SELECT count(*)::int FROM trip_audit_logs WHERE correlation_id=$3) AS audits,
+             (SELECT count(*)::int FROM trip_operations WHERE operation_id=$4) AS receipts`,
+          [failedName, owner.id, failed.body.meta.correlation_id, failedInput.client_request_id],
+        )
+      )[0];
+      assert.deepEqual(residue, { trips: 0, members: 0, audits: 0, receipts: 0 });
+    } finally {
+      await query(
+        'trip',
+        `
+        DROP TRIGGER ${functionName} ON ${table};
+        DROP FUNCTION ${functionName}()
+      `,
+      );
+    }
+  }
+  pass('membership, audit and receipt failures each roll back the complete create transaction');
 
   const createId = randomUUID();
   const createInput = tripBody('Core Access', createId);

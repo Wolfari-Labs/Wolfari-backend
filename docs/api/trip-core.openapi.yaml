@@ -27,6 +27,7 @@ components:
     Membership:
       type: object
       additionalProperties: false
+      description: The caller's active membership used to authorize this Trip projection.
       required: [id, trip_id, user_id, role, joined_at, left_at]
       properties:
         id: { type: string, format: uuid }
@@ -34,7 +35,9 @@ components:
         user_id: { type: string, format: uuid }
         role: { type: string, enum: [OWNER, MEMBER] }
         joined_at: { type: string, format: date-time }
-        left_at: { type: [string, 'null'], format: date-time }
+        left_at:
+          type: 'null'
+          description: Always null because inactive memberships never receive a Trip projection.
     TripPermissions:
       type: object
       additionalProperties: false
@@ -171,7 +174,7 @@ components:
       description: Version, lifecycle or idempotency conflict.
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     Unavailable:
-      description: Identity, Trip or a required database is unavailable.
+      description: Identity, Trip or a required database is unavailable. Retry writes with the same idempotency key.
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 paths:
   /trips:

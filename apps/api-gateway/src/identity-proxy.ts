@@ -17,6 +17,13 @@ const allowed: Array<[string, RegExp]> = [
   ['DELETE', /^\/api\/v1\/me\/sessions\/[0-9a-f-]{36}$/i],
 ];
 
+function isLoopbackGrpcTarget(value: string): boolean {
+  const match = /^127\.0\.0\.1:(\d+)$/.exec(value);
+  if (!match) return false;
+  const port = Number(match[1]);
+  return Number.isInteger(port) && port >= 1024 && port <= 65535;
+}
+
 function cookie(request: IncomingMessage): string | undefined {
   return request.headers.cookie
     ?.split(';')
@@ -72,20 +79,18 @@ export class IdentityProxy {
     this.secret = process.env.GATEWAY_IDENTITY_SECRET ?? '';
     this.csrfKey = process.env.GATEWAY_CSRF_KEY ?? '';
     this.origin = process.env.WEB_ORIGIN ?? '';
+    const grpcTarget = process.env.IDENTITY_GRPC_TARGET ?? '127.0.0.1:3201';
     if (
       !/^http:\/\/127\.0\.0\.1:\d+$/.test(this.target) ||
-      !this.secret ||
+      !isLoopbackGrpcTarget(grpcTarget) ||
+      this.secret.length < 32 ||
       !this.csrfKey ||
       !this.origin
     )
       throw new Error('Gateway Identity configuration invalid');
     if (process.env.NODE_ENV === 'production')
       throw new Error('Gateway Identity transport requires TLS in production');
-    this.client = new IdentityClient(
-      process.env.IDENTITY_GRPC_TARGET ?? '127.0.0.1:3201',
-      'ApiGateway',
-      this.secret,
-    );
+    this.client = new IdentityClient(grpcTarget, 'ApiGateway', this.secret);
   }
 
   validateSession(

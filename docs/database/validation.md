@@ -1,6 +1,6 @@
 # Kết quả kiểm tra nền database Wolfari
 
-Kết quả dưới đây được chạy lại ngày 23-09-2026 trên Docker Desktop, không chỉ kế thừa ghi nhận của bộ bàn giao cũ.
+Kết quả dưới đây được chạy lại ngày 29-09-2026 trên Docker Desktop, không chỉ kế thừa ghi nhận của bộ bàn giao cũ.
 
 ## Kết quả
 
@@ -8,7 +8,7 @@ Kết quả dưới đây được chạy lại ngày 23-09-2026 trên Docker De
 | ---------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
 | Cài dependency bằng lockfile | PASS       | pnpm 10.34.5 hoàn tất với Node.js 24.                                                         |
 | Lint                         | PASS       | Toàn workspace không có lỗi lint.                                                             |
-| Unit test                    | PASS       | 8 file, 34 test; gồm 24 test contract.                                                        |
+| Unit test                    | PASS       | 9 file, 54 test; contract gate riêng có 4 file, 29 test.                                      |
 | Build                        | PASS       | 7 app và package dùng chung biên dịch thành công.                                             |
 | Migration tích hợp           | PASS       | 5 database nhận V001, chạy lại không ghi trùng.                                               |
 | Schema                       | PASS       | 54 bảng mô hình, 5 bảng `schema_migrations`, 46 FK nội bộ database.                           |

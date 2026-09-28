@@ -15,9 +15,9 @@ Contract request, response và lỗi nằm tại [OpenAPI Trip core](../api/trip
 
 ## Transaction và chống lặp
 
-`POST /trips` dùng `client_request_id` làm `operation_id`. Nếu có `Idempotency-Key`, hai UUID phải bằng nhau. Trip, membership `OWNER`, audit và receipt `trip_operations` được ghi cùng transaction. Advisory lock theo operation ID tuần tự hóa retry đồng thời; cùng actor và request hash trả kết quả đã commit, còn tái sử dụng key cho intent khác trả `IDEMPOTENCY_CONFLICT`.
+`POST /trips` dùng `client_request_id` làm `operation_id`. Nếu có `Idempotency-Key`, hai UUID phải bằng nhau. Trip, membership `OWNER`, audit và receipt `trip_operations` được ghi cùng transaction. Advisory lock theo operation ID tuần tự hóa retry đồng thời. Khi replay, service xác minh receipt bất biến rồi truy vấn lại projection theo membership hiện hành; cùng actor và request hash trả Trip đã commit, mất membership trả `RESOURCE_NOT_FOUND`, còn tái sử dụng key cho intent khác trả `IDEMPOTENCY_CONFLICT`.
 
-`PATCH /trips/{trip_id}` yêu cầu `Idempotency-Key`, `expected_plan_version` và `expected_export_revision`. Service khóa Trip, kiểm tra membership Owner hiện hành rồi mới đọc receipt hoặc version. Thay đổi metadata tăng `export_revision` đúng một lần; `plan_version` và `membership_revision` không đổi. Request không làm thay đổi giá trị vẫn ghi receipt nhưng không tăng revision hoặc tạo audit thay đổi giả.
+`PATCH /trips/{trip_id}` yêu cầu `Idempotency-Key`, `expected_plan_version` và `expected_export_revision`. Service khóa cả Trip và membership, kiểm tra Owner hiện hành rồi mới đọc receipt hoặc version. Thay đổi metadata tăng `export_revision` đúng một lần; `plan_version` và `membership_revision` không đổi. Request không làm thay đổi giá trị vẫn ghi receipt nhưng không tăng revision hoặc tạo audit thay đổi giả.
 
 Receipt không cấp quyền. Retry chỉ được replay khi actor vẫn là Owner đang hoạt động của Trip chưa bị xóa. Dữ liệu operation và audit không đi ra projection REST.
 

@@ -269,10 +269,9 @@ export function parseCursor(
   if (raw === undefined || raw === null || raw === '') return { createdAt: null, id: null };
   if (typeof raw !== 'string' || raw.length > 2048) return fail('VALIDATION_FAILED', 400);
   try {
-    const value = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as Record<
-      string,
-      unknown
-    >;
+    const decoded = Buffer.from(raw, 'base64url');
+    if (decoded.toString('base64url') !== raw) return fail('VALIDATION_FAILED', 400);
+    const value = JSON.parse(decoded.toString('utf8')) as Record<string, unknown>;
     if (
       !value ||
       Array.isArray(value) ||
@@ -573,7 +572,7 @@ export class TripService {
 
     return this.database.withTransaction(async (client) => {
       await lockOperation(client, operationId);
-      const access = await client.query<TripRow>(`${SELECT_TRIP} FOR UPDATE OF t`, [
+      const access = await client.query<TripRow>(`${SELECT_TRIP} FOR UPDATE OF t,m`, [
         tripId,
         actorUserId,
       ]);
@@ -583,12 +582,13 @@ export class TripService {
 
       const receipt = await receiptById(client, operationId);
       if (receipt) {
-        return verifyReplay(receipt, {
+        verifyReplay(receipt, {
           operationType: UPDATE_OPERATION,
           actorUserId,
           requestHash,
           tripId,
         });
+        return project(row);
       }
       if (row.archived_at !== null) return fail('STATE_CONFLICT', 409);
       if (

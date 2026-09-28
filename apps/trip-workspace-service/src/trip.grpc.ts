@@ -253,52 +253,31 @@ export class TripGrpcController implements TripV1.TripServiceController {
     throw new RpcException({ code: status.UNIMPLEMENTED, message: 'RPC is not implemented' });
   }
 
-  getAccessContext(
-    _request: TripV1.GetAccessContextRequest,
-    _metadata?: Metadata,
-  ): TripV1.GetAccessContextResponse {
+  getAccessContext(): TripV1.GetAccessContextResponse {
     return this.unimplemented();
   }
 
-  beginFinanceOperation(
-    _request: TripV1.BeginFinanceOperationRequest,
-    _metadata?: Metadata,
-  ): TripV1.BeginFinanceOperationResponse {
+  beginFinanceOperation(): TripV1.BeginFinanceOperationResponse {
     return this.unimplemented();
   }
 
-  completeOperation(
-    _request: TripV1.CompleteOperationRequest,
-    _metadata?: Metadata,
-  ): TripV1.CompleteOperationResponse {
+  completeOperation(): TripV1.CompleteOperationResponse {
     return this.unimplemented();
   }
 
-  getOperationResult(
-    _request: TripV1.GetOperationResultRequest,
-    _metadata?: Metadata,
-  ): TripV1.GetOperationResultResponse {
+  getOperationResult(): TripV1.GetOperationResultResponse {
     return this.unimplemented();
   }
 
-  getAutomationContext(
-    _request: TripV1.GetAutomationContextRequest,
-    _metadata?: Metadata,
-  ): TripV1.GetAutomationContextResponse {
+  getAutomationContext(): TripV1.GetAutomationContextResponse {
     return this.unimplemented();
   }
 
-  getInvitationDelivery(
-    _request: TripV1.GetInvitationDeliveryRequest,
-    _metadata?: Metadata,
-  ): TripV1.GetInvitationDeliveryResponse {
+  getInvitationDelivery(): TripV1.GetInvitationDeliveryResponse {
     return this.unimplemented();
   }
 
-  getExportWorkerContext(
-    _request: TripV1.GetExportWorkerContextRequest,
-    _metadata?: Metadata,
-  ): TripV1.GetExportWorkerContextResponse {
+  getExportWorkerContext(): TripV1.GetExportWorkerContextResponse {
     return this.unimplemented();
   }
 }

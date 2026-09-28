@@ -32,6 +32,13 @@ const planPolicies: Record<number, string> = {
 
 class RequestError extends Error {}
 
+function isLoopbackGrpcTarget(value: string): boolean {
+  const match = /^127\.0\.0\.1:(\d+)$/.exec(value);
+  if (!match) return false;
+  const port = Number(match[1]);
+  return Number.isInteger(port) && port >= 1024 && port <= 65535;
+}
+
 function record(value: unknown): RpcMessage {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     throw new RequestError('Expected an object');
@@ -407,7 +414,7 @@ export class TripProxy {
   constructor(private readonly validateSession: SessionValidator) {
     const target = process.env.TRIP_GRPC_TARGET ?? '127.0.0.1:3202';
     const secret = process.env.GATEWAY_TRIP_SECRET ?? '';
-    if (!/^127\.0\.0\.1:\d+$/.test(target) || !secret)
+    if (!isLoopbackGrpcTarget(target) || secret.length < 32)
       throw new Error('Gateway Trip configuration invalid');
     if (process.env.NODE_ENV === 'production')
       throw new Error('Gateway Trip transport requires TLS in production');
