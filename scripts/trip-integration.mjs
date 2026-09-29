@@ -234,7 +234,7 @@ async function main() {
     { mode: 0o600 },
   );
   created = true;
-  await docker(['up', '-d', '--wait', '--wait-timeout', '180']);
+  await docker(['up', '-d', '--wait', '--wait-timeout', '180', 'postgres']);
   for (const service of ['identity', 'trip']) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
   }
