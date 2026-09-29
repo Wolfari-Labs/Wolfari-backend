@@ -12,16 +12,28 @@ const generator = resolve(contracts, 'tools/generate-events.mjs');
 
 function run(command, args, options = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { cwd: options.cwd ?? root, stdio: options.stdio ?? 'inherit', windowsHide: true });
+    const child = spawn(command, args, {
+      cwd: options.cwd ?? root,
+      stdio: options.stdio ?? 'inherit',
+      windowsHide: true,
+    });
     let stdout = '';
-    if (options.stdio === 'pipe') child.stdout.on('data', chunk => { stdout += chunk; });
+    if (options.stdio === 'pipe')
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk;
+      });
     child.once('error', reject);
-    child.once('exit', code => code === 0 ? resolvePromise(stdout) : reject(new Error(`${command} exited with code ${code}`)));
+    child.once('exit', (code) =>
+      code === 0
+        ? resolvePromise(stdout)
+        : reject(new Error(`${command} exited with code ${code}`)),
+    );
     if (options.input !== undefined) child.stdin.end(options.input);
   });
 }
 
-const runBuf = (args, options = {}) => run(process.execPath, [buf, ...args], { cwd: contracts, ...options });
+const runBuf = (args, options = {}) =>
+  run(process.execPath, [buf, ...args], { cwd: contracts, ...options });
 
 async function generate(outputRoot) {
   const args = ['generate', '.'];
@@ -37,7 +49,7 @@ async function files(directory, base = directory) {
   const result = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) result.push(...await files(path, base));
+    if (entry.isDirectory()) result.push(...(await files(path, base)));
     else result.push(relative(base, path).replaceAll('\\', '/'));
   }
   return result.sort();
@@ -48,7 +60,9 @@ async function compareGenerated(expectedRoot) {
   const expectedFiles = await files(expectedRoot);
   const committedFiles = await files(committedRoot);
   if (JSON.stringify(expectedFiles) !== JSON.stringify(committedFiles)) {
-    throw new Error(`GENERATED_DRIFT: file list differs\nexpected=${expectedFiles.join(',')}\ncommitted=${committedFiles.join(',')}`);
+    throw new Error(
+      `GENERATED_DRIFT: file list differs\nexpected=${expectedFiles.join(',')}\ncommitted=${committedFiles.join(',')}`,
+    );
   }
   for (const name of expectedFiles) {
     const [expected, committed] = await Promise.all([
@@ -56,7 +70,7 @@ async function compareGenerated(expectedRoot) {
       readFile(resolve(committedRoot, name)),
     ]);
     // Git may check out committed text with CRLF on Windows; generators write LF.
-    const normalizeLineEndings = bytes => bytes.toString('utf8').replace(/\r\n/g, '\n');
+    const normalizeLineEndings = (bytes) => bytes.toString('utf8').replace(/\r\n/g, '\n');
     if (normalizeLineEndings(expected) !== normalizeLineEndings(committed)) {
       throw new Error(`GENERATED_DRIFT: ${name}`);
     }
@@ -70,23 +84,46 @@ async function validateCatalogs() {
     readJson('catalog/topology-v1.json'),
     readJson('schemas/events-v1.schema.json'),
   ]);
-  if (rpc.length !== 19 || new Set(rpc.map(item => `${item.package}.${item.service}/${item.method}`)).size !== 19) {
-    throw new Error('RPC_CATALOG_INVALID: expected 19 unique RPCs');
+  const catalogRpcKeys = rpc.map((item) => `${item.package}.${item.service}/${item.method}`).sort();
+  if (rpc.length !== 23 || new Set(catalogRpcKeys).size !== 23) {
+    throw new Error('RPC_CATALOG_INVALID: expected 23 unique RPCs');
   }
-  if (events.length !== 19 || new Set(events.map(item => item.event_type)).size !== 19) {
+  if (events.length !== 19 || new Set(events.map((item) => item.event_type)).size !== 19) {
     throw new Error('EVENT_CATALOG_INVALID: expected 19 unique events');
   }
-  const bindings = topology.queues.flatMap(queue => queue.bindings);
-  if (bindings.length !== 19 || new Set(bindings).size !== 19 || events.some(item => !bindings.includes(item.event_type))) {
+  const bindings = topology.queues.flatMap((queue) => queue.bindings);
+  if (
+    bindings.length !== 19 ||
+    new Set(bindings).size !== 19 ||
+    events.some((item) => !bindings.includes(item.event_type))
+  ) {
     throw new Error('TOPOLOGY_INVALID: every event must have exactly one consumer binding');
   }
-  const variants = schema.allOf.find(item => Array.isArray(item.oneOf) && item.oneOf.some(value => value.properties?.event_type?.const))?.oneOf ?? [];
+  const variants =
+    schema.allOf.find(
+      (item) =>
+        Array.isArray(item.oneOf) &&
+        item.oneOf.some((value) => value.properties?.event_type?.const),
+    )?.oneOf ?? [];
   if (variants.length !== 19) throw new Error('EVENT_SCHEMA_INVALID: expected 19 event variants');
-  const protoText = (await Promise.all((await files(resolve(contracts, 'proto')))
-    .filter(name => name.endsWith('.proto'))
-    .map(name => readFile(resolve(contracts, 'proto', name), 'utf8')))).join('\n');
-  const rpcCount = [...protoText.matchAll(/^\s*rpc\s+\w+\s*\(/gm)].length;
-  if (rpcCount !== 19) throw new Error(`PROTO_CATALOG_INVALID: expected 19 RPCs, found ${rpcCount}`);
+  const protoRpcKeys = [];
+  for (const name of (await files(resolve(contracts, 'proto'))).filter((value) =>
+    value.endsWith('.proto'),
+  )) {
+    const protoText = await readFile(resolve(contracts, 'proto', name), 'utf8');
+    const packageName = protoText.match(/^\s*package\s+([\w.]+)\s*;/m)?.[1];
+    for (const service of protoText.matchAll(/\bservice\s+(\w+)\s*\{([\s\S]*?)\}/g)) {
+      for (const method of service[2].matchAll(/^\s*rpc\s+(\w+)\s*\(/gm)) {
+        protoRpcKeys.push(`${packageName}.${service[1]}/${method[1]}`);
+      }
+    }
+  }
+  protoRpcKeys.sort();
+  if (JSON.stringify(protoRpcKeys) !== JSON.stringify(catalogRpcKeys)) {
+    throw new Error(
+      `PROTO_CATALOG_INVALID: RPC methods differ\nproto=${protoRpcKeys.join(',')}\ncatalog=${catalogRpcKeys.join(',')}`,
+    );
+  }
 }
 
 function readJson(path) {
@@ -101,7 +138,8 @@ async function check() {
     await generate(temporary);
     await compareGenerated(resolve(temporary, 'src/generated'));
   } finally {
-    if (!temporary.startsWith(resolve(root, '.cache', 'contracts-check-'))) throw new Error('Unsafe temporary path');
+    if (!temporary.startsWith(resolve(root, '.cache', 'contracts-check-')))
+      throw new Error('Unsafe temporary path');
     await rm(temporary, { recursive: true, force: true });
   }
   console.log('PASS contract catalogs and generated sources are reproducible.');
@@ -116,14 +154,24 @@ async function breaking(reference) {
     throw new Error('Usage: pnpm contracts:breaking --against <git-ref>');
   }
   await git(['rev-parse', '--verify', `${reference}^{commit}`]);
-  const paths = (await git(['ls-tree', '-r', '--name-only', reference, '--', 'packages/contracts/proto']))
-    .split(/\r?\n/).filter(path => path.endsWith('.proto'));
+  const paths = (
+    await git(['ls-tree', '-r', '--name-only', reference, '--', 'packages/contracts/proto'])
+  )
+    .split(/\r?\n/)
+    .filter((path) => path.endsWith('.proto'));
   let previousSchema;
-  try { previousSchema = JSON.parse(await git(['show', `${reference}:packages/contracts/schemas/events-v1.schema.json`])); }
-  catch { throw new Error(`NO_BASELINE: ${reference} has no event schema`); }
+  try {
+    previousSchema = JSON.parse(
+      await git(['show', `${reference}:packages/contracts/schemas/events-v1.schema.json`]),
+    );
+  } catch {
+    throw new Error(`NO_BASELINE: ${reference} has no event schema`);
+  }
   if (!paths.length) throw new Error(`NO_BASELINE: ${reference} has no Protobuf contracts`);
   await mkdir(resolve(root, '.cache'), { recursive: true });
-  const temporary = await mkdtemp(resolve(root, '.cache', `contracts-breaking-${randomBytes(3).toString('hex')}-`));
+  const temporary = await mkdtemp(
+    resolve(root, '.cache', `contracts-breaking-${randomBytes(3).toString('hex')}-`),
+  );
   try {
     const baselineProto = resolve(temporary, 'proto');
     for (const path of paths) {
@@ -134,9 +182,11 @@ async function breaking(reference) {
     await runBuf(['breaking', 'proto', '--against', baselineProto]);
     const currentSchema = await readJson('schemas/events-v1.schema.json');
     const errors = eventCompatibilityErrors(previousSchema, currentSchema);
-    if (errors.length) throw new Error(`EVENT_BREAKING_CHANGE:\n${errors.map(error => `- ${error}`).join('\n')}`);
+    if (errors.length)
+      throw new Error(`EVENT_BREAKING_CHANGE:\n${errors.map((error) => `- ${error}`).join('\n')}`);
   } finally {
-    if (!temporary.startsWith(resolve(root, '.cache', 'contracts-breaking-'))) throw new Error('Unsafe temporary path');
+    if (!temporary.startsWith(resolve(root, '.cache', 'contracts-breaking-')))
+      throw new Error('Unsafe temporary path');
     await rm(temporary, { recursive: true, force: true });
   }
   console.log(`PASS no breaking contract changes against ${reference}.`);
@@ -152,6 +202,9 @@ try {
     await breaking(index >= 0 ? args[index + 1] : undefined);
   } else throw new Error('Usage: node scripts/contracts.mjs <lint|generate|check|breaking>');
 } catch (error) {
-  console.error(`FAIL contracts:${command ?? 'unknown'}:`, error instanceof Error ? error.message : error);
+  console.error(
+    `FAIL contracts:${command ?? 'unknown'}:`,
+    error instanceof Error ? error.message : error,
+  );
   process.exitCode = 1;
 }

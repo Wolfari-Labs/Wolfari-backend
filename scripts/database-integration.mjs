@@ -98,10 +98,13 @@ async function health(app, endpoint, status = 200) {
 async function launchApps() {
   for (const app of apps) app.testPort = await port();
   const grpcPort = await port();
+  const tripGrpcPort = await port();
   const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const secrets = Object.fromEntries(['GATEWAY', 'AUTOMATION', 'TRIP', 'FINANCE', 'TRAVEL', 'EXPORT'].map(caller => [`${caller}_IDENTITY_SECRET`, randomBytes(32).toString('hex')]));
+  const gatewayTripSecret = randomBytes(32).toString('hex');
   const gatewayPort = apps.find(app => app.name === 'api-gateway').testPort;
   const identityPort = apps.find(app => app.name === 'identity-service').testPort;
+  const tripPort = apps.find(app => app.name === 'trip-workspace-service').testPort;
   for (const app of apps) {
     const values = {
       NODE_ENV: 'test', [app.portKey]: String(app.testPort),
@@ -120,11 +123,17 @@ async function launchApps() {
         IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`, RABBITMQ_URL: 'amqp://127.0.0.1:9',
         SMTP_HOST: '127.0.0.1', SMTP_PORT: '9',
       } : {}),
+      ...(app.name === 'trip-workspace-service' ? {
+        TRIP_GRPC_PORT: String(tripGrpcPort), GATEWAY_TRIP_SECRET: gatewayTripSecret,
+      } : {}),
       ...(app.name === 'api-gateway' ? {
         GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
+        GATEWAY_TRIP_SECRET: gatewayTripSecret,
         GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
         IDENTITY_HTTP_URL: `http://127.0.0.1:${identityPort}`,
         IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`,
+        TRIP_HTTP_URL: `http://127.0.0.1:${tripPort}`,
+        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
         WEB_ORIGIN: `http://127.0.0.1:${gatewayPort}`,
       } : {}),
     };

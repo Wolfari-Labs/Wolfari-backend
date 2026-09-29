@@ -262,6 +262,9 @@ importers:
 
   apps/trip-workspace-service:
     dependencies:
+      '@grpc/grpc-js':
+        specifier: 1.14.5
+        version: 1.14.5
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -271,12 +274,18 @@ importers:
       '@nestjs/core':
         specifier: 11.2.5
         version: 11.2.5(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.2.5)(@nestjs/platform-express@11.2.5)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/microservices':
+        specifier: 11.2.5
+        version: 11.2.5(@grpc/grpc-js@1.14.5)(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.5)(amqplib@2.0.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-express':
         specifier: 11.2.5
         version: 11.2.5(@nestjs/common@11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.5)
       '@wolfari/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@wolfari/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@wolfari/database':
         specifier: workspace:*
         version: link:../../packages/database

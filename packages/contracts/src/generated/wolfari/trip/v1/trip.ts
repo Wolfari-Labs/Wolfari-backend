@@ -17,12 +17,23 @@ import {
   Coordinate,
   ExportFormat,
   ExportTemplate,
+  Membership,
   Operation,
   OperationOutcome,
+  PlanPolicy,
   SourceContext,
 } from "../../common/v1/types";
 
 export const protobufPackage = "wolfari.trip.v1";
+
+export enum TripLifecycle {
+  TRIP_LIFECYCLE_UNSPECIFIED = 0,
+  TRIP_LIFECYCLE_UPCOMING = 1,
+  TRIP_LIFECYCLE_ONGOING = 2,
+  TRIP_LIFECYCLE_COMPLETED = 3,
+  TRIP_LIFECYCLE_ARCHIVED = 4,
+  UNRECOGNIZED = -1,
+}
 
 /** Typed Plan projection used by Travel; not a live database entity. */
 export enum ActivityStatus {
@@ -46,6 +57,88 @@ export enum DressScope {
   DRESS_SCOPE_DAY = 2,
   DRESS_SCOPE_ACTIVITY = 3,
   UNRECOGNIZED = -1,
+}
+
+/** A message field supplies outer presence; the oneof preserves set-versus-clear. */
+export interface StringPatch {
+  value?: string | undefined;
+  clear?: boolean | undefined;
+}
+
+export interface TripPermissions {
+  can_read?: boolean | undefined;
+  can_update?: boolean | undefined;
+}
+
+/** Public application projection. Internal receipt and audit data are excluded. */
+export interface Trip {
+  id?: string | undefined;
+  name?: string | undefined;
+  description?: string | undefined;
+  start_at?: Timestamp | undefined;
+  end_at?: Timestamp | undefined;
+  timezone?: string | undefined;
+  lifecycle?: TripLifecycle | undefined;
+  archived_at?: Timestamp | undefined;
+  public_description?: string | undefined;
+  plan_edit_policy?: PlanPolicy | undefined;
+  plan_version?: number | undefined;
+  membership_revision?: number | undefined;
+  export_revision?: number | undefined;
+  current_membership?: Membership | undefined;
+  permissions?: TripPermissions | undefined;
+}
+
+export interface CreateTripRequest {
+  /** The HTTP client_request_id/idempotency key. */
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  name?: string | undefined;
+  start_at?: Timestamp | undefined;
+  end_at?: Timestamp | undefined;
+  timezone?: string | undefined;
+  description?: string | undefined;
+}
+
+export interface CreateTripResponse {
+  trip?: Trip | undefined;
+}
+
+export interface ListTripsRequest {
+  actor_user_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  lifecycle?: TripLifecycle | undefined;
+}
+
+export interface ListTripsResponse {
+  items?: Trip[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface GetTripRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+}
+
+export interface GetTripResponse {
+  trip?: Trip | undefined;
+}
+
+export interface UpdateTripRequest {
+  /** The HTTP Idempotency-Key. */
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_export_revision?: number | undefined;
+  expected_plan_version?: number | undefined;
+  name?: string | undefined;
+  description?: StringPatch | undefined;
+  public_description?: StringPatch | undefined;
+}
+
+export interface UpdateTripResponse {
+  trip?: Trip | undefined;
 }
 
 export interface GetAccessContextRequest {
@@ -214,6 +307,14 @@ export interface PlanSnapshot {
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
+  createTrip(request: CreateTripRequest, metadata?: Metadata): Observable<CreateTripResponse>;
+
+  listTrips(request: ListTripsRequest, metadata?: Metadata): Observable<ListTripsResponse>;
+
+  getTrip(request: GetTripRequest, metadata?: Metadata): Observable<GetTripResponse>;
+
+  updateTrip(request: UpdateTripRequest, metadata?: Metadata): Observable<UpdateTripResponse>;
+
   getAccessContext(request: GetAccessContextRequest, metadata?: Metadata): Observable<GetAccessContextResponse>;
 
   beginFinanceOperation(
@@ -242,6 +343,26 @@ export interface TripServiceClient {
 }
 
 export interface TripServiceController {
+  createTrip(
+    request: CreateTripRequest,
+    metadata?: Metadata,
+  ): Promise<CreateTripResponse> | Observable<CreateTripResponse> | CreateTripResponse;
+
+  listTrips(
+    request: ListTripsRequest,
+    metadata?: Metadata,
+  ): Promise<ListTripsResponse> | Observable<ListTripsResponse> | ListTripsResponse;
+
+  getTrip(
+    request: GetTripRequest,
+    metadata?: Metadata,
+  ): Promise<GetTripResponse> | Observable<GetTripResponse> | GetTripResponse;
+
+  updateTrip(
+    request: UpdateTripRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateTripResponse> | Observable<UpdateTripResponse> | UpdateTripResponse;
+
   getAccessContext(
     request: GetAccessContextRequest,
     metadata?: Metadata,
@@ -284,6 +405,10 @@ export interface TripServiceController {
 export function TripServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "createTrip",
+      "listTrips",
+      "getTrip",
+      "updateTrip",
       "getAccessContext",
       "beginFinanceOperation",
       "completeOperation",
