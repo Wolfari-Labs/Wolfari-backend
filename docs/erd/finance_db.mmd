@@ -1,0 +1,278 @@
+erDiagram
+  funds {
+    uuid id PK
+    uuid trip_id
+    uuid holder_user_id
+    char_3_ currency
+    bigint budget_amount
+    bigint current_balance
+    varchar_16_ status
+    integer finance_version
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz closed_at
+  }
+  payment_destinations {
+    uuid id PK
+    uuid fund_id FK
+    varchar_20_ destination_type
+    varchar_30_ bank_code
+    varchar_80_ account_number
+    varchar_150_ account_name
+    varchar_30_ momo_phone
+    boolean is_default
+    boolean active
+    integer version
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz confirmed_by_holder_at
+  }
+  contribution_requests {
+    uuid id PK
+    uuid fund_id FK
+    varchar_200_ title
+    bigint amount_per_member
+    timestamptz due_at
+    varchar_16_ status
+    uuid created_by_user_id
+    timestamptz created_at
+    timestamptz closed_at
+    text note
+    integer version
+  }
+  contributions {
+    uuid id PK
+    uuid request_id FK
+    uuid fund_id FK
+    uuid member_user_id
+    bigint amount
+    varchar_24_ status
+    jsonb destination_snapshot
+    integer destination_version
+    timestamptz member_reported_at
+    uuid confirmed_by_user_id
+    timestamptz confirmed_at
+    text waived_reason
+    text cancelled_reason
+    timestamptz created_at
+    timestamptz updated_at
+    integer version
+    boolean self_contribution
+    text transfer_evidence_object_key
+    text rejected_reason
+    timestamptz waived_at
+    timestamptz cancelled_at
+    timestamptz reversed_at
+  }
+  payment_attempts {
+    uuid id PK
+    uuid contribution_id FK
+    varchar_30_ provider
+    varchar_16_ environment
+    bigint amount
+    char_3_ currency
+    varchar_100_ client_request_id
+    varchar_150_ provider_transaction_id
+    varchar_20_ status
+    jsonb provider_payload
+    timestamptz created_at
+    timestamptz updated_at
+    varchar_100_ merchant_id
+    varchar_100_ provider_order_id
+    jsonb destination_snapshot
+    boolean needs_reconciliation
+    timestamptz expires_at
+    timestamptz reconciled_at
+    varchar_60_ error_code
+  }
+  payment_webhook_receipts {
+    uuid id PK
+    varchar_30_ provider
+    varchar_16_ environment
+    varchar_180_ dedupe_key
+    uuid payment_attempt_id FK
+    boolean signature_valid
+    bigint received_amount
+    jsonb payload
+    varchar_20_ processing_status
+    text review_reason
+    uuid reviewed_by_user_id
+    timestamptz reviewed_at
+    timestamptz received_at
+    timestamptz processed_at
+  }
+  fund_expenses {
+    uuid id PK
+    uuid fund_id FK
+    varchar_200_ title
+    text description
+    bigint amount
+    text receipt_object_key
+    varchar_16_ status
+    uuid created_by_user_id
+    timestamptz submitted_at
+    uuid confirmed_by_user_id
+    timestamptz confirmed_at
+    timestamptz cancelled_at
+    text cancelled_reason
+    timestamptz created_at
+    timestamptz updated_at
+    integer version
+    varchar_80_ category
+    timestamptz paid_at
+    varchar_30_ payment_method
+    uuid paid_by_user_id
+    text rejected_reason
+    timestamptz deleted_at
+    varchar_20_ source
+  }
+  financial_notes {
+    uuid id PK
+    uuid fund_id FK
+    uuid payer_user_id
+    bigint amount
+    text description
+    uuid created_by_user_id
+    integer version
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz deleted_at
+  }
+  fund_refunds {
+    uuid id PK
+    uuid fund_id FK
+    uuid member_user_id
+    bigint amount
+    varchar_24_ status
+    text reason
+    uuid requested_by_user_id
+    timestamptz holder_reported_at
+    uuid confirmed_by_user_id
+    timestamptz confirmed_at
+    timestamptz cancelled_at
+    timestamptz created_at
+    timestamptz updated_at
+    integer version
+    timestamptz nonreceipt_confirmed_at
+    timestamptz reversal_consented_at
+    timestamptz reversal_requested_at
+    text reversal_reason
+    text cancelled_reason
+  }
+  fund_transactions {
+    uuid id PK
+    uuid fund_id FK
+    bigint sequence
+    char_3_ direction
+    varchar_20_ transaction_type
+    bigint amount
+    bigint balance_after
+    uuid contribution_id FK
+    uuid expense_id FK
+    uuid refund_id FK
+    uuid reversal_of_id FK
+    uuid actor_user_id
+    text reason
+    varchar_180_ business_key
+    timestamptz created_at
+  }
+  finance_closures {
+    uuid id PK
+    uuid fund_id FK
+    uuid requested_by_user_id
+    varchar_24_ status
+    integer snapshot_finance_version
+    smallint snapshot_schema_version
+    jsonb snapshot_json
+    varchar_128_ snapshot_hash
+    timestamptz requested_at
+    timestamptz cancelled_at
+    text cancelled_reason
+    timestamptz closed_at
+  }
+  closure_confirmations {
+    uuid closure_id PK,FK
+    uuid user_id PK
+    varchar_128_ snapshot_hash
+    timestamptz confirmed_at
+    timestamptz created_at
+  }
+  command_receipts {
+    uuid id PK
+    uuid operation_id
+    uuid actor_user_id
+    varchar_60_ command_scope
+    varchar_120_ idempotency_key
+    varchar_128_ request_hash
+    varchar_16_ status
+    jsonb response
+    timestamptz created_at
+    timestamptz completed_at
+    varchar_60_ system_actor
+  }
+  payment_provider_configs {
+    varchar_30_ provider PK
+    varchar_16_ environment PK
+    boolean enabled
+    jsonb config
+    uuid updated_by_user_id
+    integer version
+    timestamptz updated_at
+  }
+  outbox_events {
+    uuid event_id PK
+    varchar_100_ event_type
+    smallint schema_version
+    uuid aggregate_id
+    integer aggregate_version
+    uuid correlation_id
+    jsonb payload
+    varchar_16_ status
+    integer attempt_count
+    timestamptz next_attempt_at
+    timestamptz published_at
+    timestamptz created_at
+    text last_error
+    varchar_40_ aggregate_type
+    varchar_40_ producer
+    timestamptz occurred_at
+    uuid causation_id
+    uuid operation_id
+    uuid trip_id
+    uuid actor_user_id
+    varchar_60_ system_actor
+    varchar_100_ claim_owner
+    timestamptz claim_until
+  }
+  finance_audit_logs {
+    uuid id PK
+    uuid fund_id FK
+    uuid actor_user_id
+    varchar_60_ action
+    varchar_40_ entity_type
+    uuid entity_id
+    integer from_version
+    integer to_version
+    text reason
+    jsonb details
+    timestamptz occurred_at
+    uuid correlation_id
+    varchar_60_ system_actor
+  }
+  funds ||--o{ payment_destinations : "fund_id"
+  funds ||--o{ contribution_requests : "fund_id"
+  funds ||--o{ contributions : "fund_id"
+  contribution_requests ||--o{ contributions : "request_id, fund_id"
+  contributions ||--o{ payment_attempts : "contribution_id"
+  payment_attempts |o--o{ payment_webhook_receipts : "payment_attempt_id"
+  funds ||--o{ fund_expenses : "fund_id"
+  funds ||--o{ financial_notes : "fund_id"
+  funds ||--o{ fund_refunds : "fund_id"
+  funds ||--o{ fund_transactions : "fund_id"
+  contributions |o--o| fund_transactions : "contribution_id, fund_id"
+  fund_expenses |o--o| fund_transactions : "expense_id, fund_id"
+  fund_refunds |o--o| fund_transactions : "refund_id, fund_id"
+  fund_transactions |o--o| fund_transactions : "reversal_of_id, fund_id"
+  funds ||--o{ finance_closures : "fund_id"
+  finance_closures ||--o{ closure_confirmations : "closure_id"
+  funds ||--o{ finance_audit_logs : "fund_id"

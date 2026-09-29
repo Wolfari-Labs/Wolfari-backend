@@ -1,6 +1,30 @@
 {
   "name": "@wolfari/contracts",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./events": { "types": "./dist/events.d.ts", "default": "./dist/events.js" },
+    "./grpc": { "types": "./dist/grpc.d.ts", "default": "./dist/grpc.js" },
+    "./identity-client": { "types": "./dist/identity-client.d.ts", "default": "./dist/identity-client.js" }
+  },
+  "scripts": { "build": "tsc -p tsconfig.json && node tools/copy-assets.mjs" },
+  "dependencies": {
+    "@grpc/grpc-js": "1.14.5",
+    "@grpc/proto-loader": "0.8.1",
+    "@nestjs/common": "11.2.5",
+    "@nestjs/microservices": "11.2.5",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "1.73.0",
+    "ts-proto": "2.12.4",
+    "json-schema-to-typescript": "16.0.0",
+    "protobufjs": "7.5.4"
+  }
 }
-

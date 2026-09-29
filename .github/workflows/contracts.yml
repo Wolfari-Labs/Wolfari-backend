@@ -1,0 +1,59 @@
+name: Contracts and foundation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm env:init
+      # Workspace packages resolve to dist, so build them before running Vitest.
+      - run: corepack pnpm build
+      - run: corepack pnpm contracts:lint
+      - run: corepack pnpm contracts:check
+      - run: corepack pnpm contracts:test
+      - run: corepack pnpm test
+      - run: corepack pnpm lint
+      - run: corepack pnpm dev:test
+      - name: Contract compatibility against pull-request base
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci-contract-breaking.mjs "origin/${{ github.base_ref }}"
+
+  database-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm db:test
+
+  identity-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm identity:test

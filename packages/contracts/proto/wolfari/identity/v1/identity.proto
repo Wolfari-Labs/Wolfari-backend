@@ -1,0 +1,37 @@
+syntax = "proto3";
+package wolfari.identity.v1;
+import "google/protobuf/timestamp.proto";
+import "wolfari/common/v1/types.proto";
+
+// Source: DDL/API/Event v1.0 section 6. Authorization is enforced by the owner.
+service IdentityService {
+  rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);
+  rpc GetProfiles(GetProfilesRequest) returns (GetProfilesResponse);
+  rpc GetAccountEmailDelivery(GetAccountEmailDeliveryRequest) returns (GetAccountEmailDeliveryResponse);
+}
+message ValidateSessionRequest { string access_token = 1; }
+message ValidateSessionResponse {
+  string user_id = 1;
+  wolfari.common.v1.SystemRole system_role = 2;
+  wolfari.common.v1.AccountStatus status = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+message GetProfilesRequest { repeated string user_ids = 1; }
+message Profile {
+  string id = 1;
+  string display_name = 2; // Projection of Identity users.full_name.
+  optional string avatar = 3;
+}
+message GetProfilesResponse { repeated Profile profiles = 1; }
+message GetAccountEmailDeliveryRequest { string token_id = 1; }
+message AccountEmailDelivery {
+  string user_id = 1;
+  string recipient_email = 2;
+  wolfari.common.v1.EmailPurpose purpose = 3;
+  string one_time_link = 4; // Sensitive RPC-only field: never publish in events.
+  google.protobuf.Timestamp expires_at = 5;
+}
+message GetAccountEmailDeliveryResponse {
+  bool valid = 1;
+  AccountEmailDelivery delivery = 2; // Present iff valid.
+}

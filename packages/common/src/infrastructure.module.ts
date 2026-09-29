@@ -1,5 +1,6 @@
 import { Controller, DynamicModule, Get, Header, Inject, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { resolve } from 'node:path';
 import { validateAppEnvironment, type AppName } from './environment';
 
 const APP_NAME = Symbol('APP_NAME');
@@ -23,7 +24,7 @@ export class InfrastructureModule {
       imports: [
         ConfigModule.forRoot({
           isGlobal: true,
-          ignoreEnvFile: true,
+          envFilePath: resolve(__dirname, '../../../apps', appName, '.env'),
           validate: (values) => validateAppEnvironment(values, appName),
         }),
       ],

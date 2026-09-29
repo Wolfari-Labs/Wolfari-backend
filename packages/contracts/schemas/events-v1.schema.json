@@ -1,0 +1,931 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wolfari.local/contracts/events/v1/event.schema.json",
+  "title": "WolfariEventV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "producer",
+    "aggregate_type",
+    "aggregate_id",
+    "aggregate_version",
+    "correlation_id",
+    "causation_id",
+    "operation_id",
+    "trip_id",
+    "actor_user_id",
+    "system_actor",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "$ref": "#/definitions/uuid"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "$ref": "#/definitions/instant"
+    },
+    "producer": {
+      "enum": [
+        "Identity",
+        "Trip",
+        "Finance",
+        "ExportWorker"
+      ]
+    },
+    "aggregate_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "aggregate_id": {
+      "$ref": "#/definitions/uuid"
+    },
+    "aggregate_version": {
+      "$ref": "#/definitions/positiveInt"
+    },
+    "correlation_id": {
+      "$ref": "#/definitions/uuid"
+    },
+    "causation_id": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "operation_id": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "trip_id": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "actor_user_id": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_actor": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "actor_user_id": {
+              "$ref": "#/definitions/uuid"
+            },
+            "system_actor": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "actor_user_id": {
+              "type": "null"
+            },
+            "system_actor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            }
+          }
+        }
+      ]
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "event_type": {
+              "const": "AccountStatusChanged"
+            },
+            "producer": {
+              "const": "Identity"
+            },
+            "aggregate_type": {
+              "const": "User"
+            },
+            "payload": {
+              "$ref": "#/definitions/accountStatusChanged"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "MemberInvited"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Invitation"
+            },
+            "payload": {
+              "$ref": "#/definitions/memberInvited"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "PlanUpdated"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Plan"
+            },
+            "payload": {
+              "$ref": "#/definitions/planUpdated"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "MemberLeft"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Membership"
+            },
+            "payload": {
+              "$ref": "#/definitions/membershipChanged"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "MemberRemoved"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Membership"
+            },
+            "payload": {
+              "$ref": "#/definitions/membershipChanged"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "TripArchived"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Trip"
+            },
+            "payload": {
+              "$ref": "#/definitions/tripRevision"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "TripDeleted"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Trip"
+            },
+            "payload": {
+              "$ref": "#/definitions/tripDeleted"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "TripReopened"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Trip"
+            },
+            "payload": {
+              "$ref": "#/definitions/tripRevision"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "ContributionRequested"
+            },
+            "producer": {
+              "const": "Finance"
+            },
+            "aggregate_type": {
+              "const": "Fund"
+            },
+            "payload": {
+              "$ref": "#/definitions/contributionRequested"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "ContributionUpdated"
+            },
+            "producer": {
+              "const": "Finance"
+            },
+            "aggregate_type": {
+              "const": "Fund"
+            },
+            "payload": {
+              "$ref": "#/definitions/contributionUpdated"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "ClosureRequested"
+            },
+            "producer": {
+              "const": "Finance"
+            },
+            "aggregate_type": {
+              "const": "Fund"
+            },
+            "payload": {
+              "$ref": "#/definitions/closureRequested"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "ClosureCancelled"
+            },
+            "producer": {
+              "const": "Finance"
+            },
+            "aggregate_type": {
+              "const": "Fund"
+            },
+            "payload": {
+              "$ref": "#/definitions/closureState"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "FinanceClosed"
+            },
+            "producer": {
+              "const": "Finance"
+            },
+            "aggregate_type": {
+              "const": "Fund"
+            },
+            "payload": {
+              "$ref": "#/definitions/closureState"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "GenerateExport"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "ExportJob"
+            },
+            "payload": {
+              "$ref": "#/definitions/generateExport"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "ExportStarted"
+            },
+            "producer": {
+              "const": "ExportWorker"
+            },
+            "aggregate_type": {
+              "const": "ExportJob"
+            },
+            "payload": {
+              "$ref": "#/definitions/exportStarted"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "ExportCompleted"
+            },
+            "producer": {
+              "const": "ExportWorker"
+            },
+            "aggregate_type": {
+              "const": "ExportJob"
+            },
+            "payload": {
+              "$ref": "#/definitions/exportCompleted"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "ExportFailed"
+            },
+            "producer": {
+              "const": "ExportWorker"
+            },
+            "aggregate_type": {
+              "const": "ExportJob"
+            },
+            "payload": {
+              "$ref": "#/definitions/exportFailed"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "MemberJoined"
+            },
+            "producer": {
+              "const": "Trip"
+            },
+            "aggregate_type": {
+              "const": "Membership"
+            },
+            "payload": {
+              "$ref": "#/definitions/membershipChanged"
+            }
+          }
+        },
+        {
+          "properties": {
+            "event_type": {
+              "const": "AccountEmailRequested"
+            },
+            "producer": {
+              "const": "Identity"
+            },
+            "aggregate_type": {
+              "const": "User"
+            },
+            "payload": {
+              "$ref": "#/definitions/accountEmailRequested"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "instant": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "positiveInt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nonNegativeInt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "accountStatusChanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user_id",
+        "status",
+        "user_version"
+      ],
+      "properties": {
+        "user_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "status": {
+          "enum": [
+            "ACTIVE",
+            "LOCKED",
+            "DELETION_PENDING",
+            "ANONYMIZED"
+          ]
+        },
+        "user_version": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "memberInvited": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invitation_id",
+        "trip_id",
+        "invitation_version"
+      ],
+      "properties": {
+        "invitation_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "invitation_version": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "changedEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "action"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "action": {
+          "enum": [
+            "UPSERT",
+            "DELETE"
+          ]
+        }
+      }
+    },
+    "tombstone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "source_version"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "source_version": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "planUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trip_id",
+        "plan_version",
+        "changed_entities",
+        "source_version",
+        "tombstones"
+      ],
+      "properties": {
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "plan_version": {
+          "$ref": "#/definitions/positiveInt"
+        },
+        "changed_entities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/changedEntity"
+          }
+        },
+        "source_version": {
+          "$ref": "#/definitions/positiveInt"
+        },
+        "tombstones": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/tombstone"
+          }
+        }
+      }
+    },
+    "membershipChanged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trip_id",
+        "user_id",
+        "membership_revision"
+      ],
+      "properties": {
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "user_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "membership_revision": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "tripRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trip_id",
+        "export_revision"
+      ],
+      "properties": {
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "export_revision": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "tripDeleted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trip_id",
+        "export_revision",
+        "deleted_at"
+      ],
+      "properties": {
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "export_revision": {
+          "$ref": "#/definitions/positiveInt"
+        },
+        "deleted_at": {
+          "$ref": "#/definitions/instant"
+        }
+      }
+    },
+    "contributionRequested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fund_id",
+        "trip_id",
+        "request_id",
+        "contribution_ids",
+        "finance_version"
+      ],
+      "properties": {
+        "fund_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "request_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "contribution_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/uuid"
+          }
+        },
+        "finance_version": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "contributionUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fund_id",
+        "trip_id",
+        "contribution_id",
+        "status",
+        "finance_version"
+      ],
+      "properties": {
+        "fund_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "contribution_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "status": {
+          "enum": [
+            "PENDING",
+            "TRANSFER_REPORTED",
+            "CONFIRMED",
+            "WAIVED",
+            "CANCELLED"
+          ]
+        },
+        "finance_version": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "closureRequested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fund_id",
+        "trip_id",
+        "closure_id",
+        "snapshot_hash",
+        "finance_version"
+      ],
+      "properties": {
+        "fund_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "closure_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "snapshot_hash": {
+          "$ref": "#/definitions/sha256"
+        },
+        "finance_version": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "closureState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fund_id",
+        "trip_id",
+        "closure_id",
+        "finance_version"
+      ],
+      "properties": {
+        "fund_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "trip_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "closure_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "finance_version": {
+          "$ref": "#/definitions/positiveInt"
+        }
+      }
+    },
+    "generateExport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "attempt_id",
+        "job_version",
+        "snapshot_key",
+        "snapshot_hash",
+        "snapshot_schema_version",
+        "format",
+        "preset_version",
+        "result_key"
+      ],
+      "properties": {
+        "job_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "attempt_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "job_version": {
+          "$ref": "#/definitions/positiveInt"
+        },
+        "snapshot_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "snapshot_hash": {
+          "$ref": "#/definitions/sha256"
+        },
+        "snapshot_schema_version": {
+          "$ref": "#/definitions/positiveInt"
+        },
+        "format": {
+          "enum": [
+            "XLSX",
+            "PDF",
+            "PNG"
+          ]
+        },
+        "preset_version": {
+          "$ref": "#/definitions/positiveInt"
+        },
+        "result_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    },
+    "exportStarted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "attempt_id"
+      ],
+      "properties": {
+        "job_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "attempt_id": {
+          "$ref": "#/definitions/uuid"
+        }
+      }
+    },
+    "exportCompleted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "attempt_id",
+        "result_key",
+        "sha256",
+        "mime_type",
+        "size_bytes",
+        "completed_at"
+      ],
+      "properties": {
+        "job_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "attempt_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "result_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "sha256": {
+          "$ref": "#/definitions/sha256"
+        },
+        "mime_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "size_bytes": {
+          "$ref": "#/definitions/nonNegativeInt"
+        },
+        "completed_at": {
+          "$ref": "#/definitions/instant"
+        }
+      }
+    },
+    "exportFailed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "attempt_id",
+        "error_code",
+        "retryable"
+      ],
+      "properties": {
+        "job_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "attempt_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "retryable": {
+          "const": false
+        }
+      }
+    },
+    "accountEmailRequested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user_id",
+        "token_id",
+        "purpose"
+      ],
+      "properties": {
+        "user_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "token_id": {
+          "$ref": "#/definitions/uuid"
+        },
+        "purpose": {
+          "enum": [
+            "VERIFY_EMAIL",
+            "RESET_PASSWORD"
+          ]
+        }
+      }
+    }
+  }
+}

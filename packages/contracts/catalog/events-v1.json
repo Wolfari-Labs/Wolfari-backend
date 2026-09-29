@@ -1,0 +1,211 @@
+[
+  {
+    "event_type": "AccountStatusChanged",
+    "producer": "Identity",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "User",
+    "aggregate_id_field": "user_id",
+    "version_field": "user_version",
+    "source": "DDL/API/Event v1.0 7 AccountStatusChanged"
+  },
+  {
+    "event_type": "MemberInvited",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Invitation",
+    "aggregate_id_field": "invitation_id",
+    "version_field": "invitation_version",
+    "source": "DDL/API/Event v1.0 7 MemberInvited"
+  },
+  {
+    "event_type": "PlanUpdated",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Plan",
+    "aggregate_id_field": "trip_id",
+    "version_field": "plan_version",
+    "source": "DDL/API/Event v1.0 7 PlanUpdated"
+  },
+  {
+    "event_type": "MemberLeft",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Membership",
+    "aggregate_id_field": null,
+    "version_field": "membership_revision",
+    "source": "DDL/API/Event v1.0 7 MemberLeft"
+  },
+  {
+    "event_type": "MemberRemoved",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Membership",
+    "aggregate_id_field": null,
+    "version_field": "membership_revision",
+    "source": "DDL/API/Event v1.0 7 MemberRemoved"
+  },
+  {
+    "event_type": "TripArchived",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Trip",
+    "aggregate_id_field": "trip_id",
+    "version_field": "export_revision",
+    "source": "DDL/API/Event v1.0 7 TripArchived"
+  },
+  {
+    "event_type": "TripDeleted",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Trip",
+    "aggregate_id_field": "trip_id",
+    "version_field": "export_revision",
+    "source": "DDL/API/Event v1.0 7 TripDeleted"
+  },
+  {
+    "event_type": "TripReopened",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Trip",
+    "aggregate_id_field": "trip_id",
+    "version_field": "export_revision",
+    "source": "DDL/API/Event v1.0 7 TripReopened"
+  },
+  {
+    "event_type": "ContributionRequested",
+    "producer": "Finance",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Fund",
+    "aggregate_id_field": "fund_id",
+    "version_field": "finance_version",
+    "source": "DDL/API/Event v1.0 7 ContributionRequested"
+  },
+  {
+    "event_type": "ContributionUpdated",
+    "producer": "Finance",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Fund",
+    "aggregate_id_field": "fund_id",
+    "version_field": "finance_version",
+    "source": "DDL/API/Event v1.0 7 ContributionUpdated"
+  },
+  {
+    "event_type": "ClosureRequested",
+    "producer": "Finance",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Fund",
+    "aggregate_id_field": "fund_id",
+    "version_field": "finance_version",
+    "source": "DDL/API/Event v1.0 7 ClosureRequested"
+  },
+  {
+    "event_type": "ClosureCancelled",
+    "producer": "Finance",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Fund",
+    "aggregate_id_field": "fund_id",
+    "version_field": "finance_version",
+    "source": "DDL/API/Event v1.0 7 ClosureCancelled"
+  },
+  {
+    "event_type": "FinanceClosed",
+    "producer": "Finance",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Fund",
+    "aggregate_id_field": "fund_id",
+    "version_field": "finance_version",
+    "source": "DDL/API/Event v1.0 7 FinanceClosed"
+  },
+  {
+    "event_type": "GenerateExport",
+    "producer": "Trip",
+    "consumers": [
+      "ExportWorker"
+    ],
+    "aggregate_type": "ExportJob",
+    "aggregate_id_field": "job_id",
+    "version_field": "job_version",
+    "source": "DDL/API/Event v1.0 7 GenerateExport"
+  },
+  {
+    "event_type": "ExportStarted",
+    "producer": "ExportWorker",
+    "consumers": [
+      "Trip"
+    ],
+    "aggregate_type": "ExportJob",
+    "aggregate_id_field": "job_id",
+    "version_field": null,
+    "source": "DDL/API/Event v1.0 7 ExportStarted"
+  },
+  {
+    "event_type": "ExportCompleted",
+    "producer": "ExportWorker",
+    "consumers": [
+      "Trip"
+    ],
+    "aggregate_type": "ExportJob",
+    "aggregate_id_field": "job_id",
+    "version_field": null,
+    "source": "DDL/API/Event v1.0 7 ExportCompleted"
+  },
+  {
+    "event_type": "ExportFailed",
+    "producer": "ExportWorker",
+    "consumers": [
+      "Trip"
+    ],
+    "aggregate_type": "ExportJob",
+    "aggregate_id_field": "job_id",
+    "version_field": null,
+    "source": "DDL/API/Event v1.0 7 ExportFailed"
+  },
+  {
+    "event_type": "MemberJoined",
+    "producer": "Trip",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "Membership",
+    "aggregate_id_field": null,
+    "version_field": "membership_revision",
+    "source": "DDL/API/Event v1.0 7 MemberJoined"
+  },
+  {
+    "event_type": "AccountEmailRequested",
+    "producer": "Identity",
+    "consumers": [
+      "Automation"
+    ],
+    "aggregate_type": "User",
+    "aggregate_id_field": "user_id",
+    "version_field": null,
+    "source": "DDL/API/Event v1.0 7 AccountEmailRequested"
+  }
+]

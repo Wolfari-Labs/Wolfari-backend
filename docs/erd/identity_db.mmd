@@ -1,0 +1,98 @@
+erDiagram
+  users {
+    uuid id PK
+    varchar_255_ email
+    varchar_150_ full_name
+    text avatar_object_key
+    varchar_20_ system_role
+    varchar_24_ status
+    timestamptz email_verified_at
+    timestamptz deletion_requested_at
+    timestamptz anonymized_at
+    timestamptz created_at
+    timestamptz updated_at
+    integer version
+  }
+  credentials {
+    uuid user_id PK,FK
+    text password_hash
+    timestamptz password_changed_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  oauth_accounts {
+    uuid id PK
+    uuid user_id FK
+    varchar_30_ provider
+    varchar_255_ provider_user_id
+    varchar_255_ provider_email
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  refresh_sessions {
+    uuid id PK
+    uuid user_id FK
+    uuid family_id
+    varchar_128_ token_hash
+    uuid replaced_by_session_id FK
+    timestamptz expires_at
+    timestamptz revoked_at
+    timestamptz created_at
+    timestamptz last_used_at
+  }
+  one_time_tokens {
+    uuid id PK
+    uuid user_id FK
+    varchar_30_ purpose
+    varchar_128_ token_hash
+    timestamptz expires_at
+    timestamptz used_at
+    timestamptz revoked_at
+    timestamptz created_at
+    varchar_255_ requested_email
+    text delivery_token_ciphertext
+    timestamptz delivery_token_expires_at
+  }
+  admin_audit_logs {
+    uuid id PK
+    uuid actor_user_id FK
+    varchar_80_ action
+    varchar_50_ target_type
+    varchar_100_ target_id
+    text reason
+    uuid correlation_id
+    jsonb metadata
+    timestamptz occurred_at
+    varchar_60_ system_actor
+  }
+  outbox_events {
+    uuid event_id PK
+    varchar_100_ event_type
+    smallint schema_version
+    uuid aggregate_id
+    integer aggregate_version
+    uuid correlation_id
+    jsonb payload
+    varchar_16_ status
+    integer attempt_count
+    timestamptz next_attempt_at
+    timestamptz published_at
+    timestamptz created_at
+    text last_error
+    varchar_40_ aggregate_type
+    varchar_40_ producer
+    timestamptz occurred_at
+    uuid causation_id
+    uuid operation_id
+    uuid trip_id
+    uuid actor_user_id
+    varchar_60_ system_actor
+    varchar_100_ claim_owner
+    timestamptz claim_until
+  }
+  users ||--o| credentials : "user_id"
+  users ||--o{ oauth_accounts : "user_id"
+  users ||--o{ refresh_sessions : "user_id"
+  refresh_sessions |o--o{ refresh_sessions : "replaced_by_session_id"
+  users ||--o{ one_time_tokens : "user_id"
+  users |o--o{ admin_audit_logs : "actor_user_id"

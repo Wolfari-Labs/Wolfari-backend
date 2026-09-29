@@ -1,0 +1,103 @@
+syntax = "proto3";
+package wolfari.travel.v1;
+import "google/protobuf/timestamp.proto";
+import "wolfari/common/v1/types.proto";
+import "wolfari/trip/v1/trip.proto";
+
+service TravelService {
+  rpc SearchPlaces(SearchPlacesRequest) returns (SearchPlacesResponse);
+  rpc GetRoute(GetRouteRequest) returns (GetRouteResponse);
+  rpc GetWeather(GetWeatherRequest) returns (GetWeatherResponse);
+  rpc GetRecommendation(GetRecommendationRequest) returns (GetRecommendationResponse);
+}
+enum ProviderStatus {
+  PROVIDER_STATUS_UNSPECIFIED = 0;
+  PROVIDER_STATUS_SUCCESS = 1;
+  PROVIDER_STATUS_NO_RESULT = 2;
+  PROVIDER_STATUS_ERROR = 3;
+}
+enum RouteMode {
+  ROUTE_MODE_UNSPECIFIED = 0;
+  ROUTE_MODE_WALKING = 1;
+  ROUTE_MODE_DRIVING = 2;
+  ROUTE_MODE_CYCLING = 3;
+}
+message ProviderMetadata {
+  ProviderStatus status = 1;
+  string provider = 2;
+  google.protobuf.Timestamp fetched_at = 3;
+  bool stale = 4;
+  bool is_mock = 5;
+  repeated string warnings = 6;
+}
+message Place {
+  string id = 1; // External provider ID, not a Wolfari UUID.
+  string name = 2;
+  string address = 3;
+  wolfari.common.v1.Coordinate coordinates = 4;
+  repeated wolfari.trip.v1.OpeningPeriod opening_hours = 5;
+}
+message SearchPlacesRequest {
+  string query = 1;
+  wolfari.common.v1.Coordinate coordinates = 2;
+  optional double radius_m = 3;
+}
+message SearchPlacesResponse {
+  repeated Place data = 1;
+  ProviderMetadata meta = 2;
+}
+message GetRouteRequest {
+  repeated wolfari.common.v1.Coordinate coordinates = 1;
+  RouteMode mode = 2;
+  google.protobuf.Timestamp departure_at = 3;
+}
+message Route {
+  double distance_m = 1;
+  double duration_seconds = 2;
+  repeated wolfari.common.v1.Coordinate geometry = 3;
+}
+message GetRouteResponse {
+  Route data = 1;
+  ProviderMetadata meta = 2;
+}
+message GetWeatherRequest {
+  wolfari.common.v1.Coordinate coordinate = 1;
+  string date = 2;
+}
+message Weather {
+  google.protobuf.Timestamp forecast_at = 1;
+  double temperature_c = 2;
+  double rain_probability = 3;
+  optional double uv_index = 4;
+}
+message GetWeatherResponse {
+  Weather data = 1;
+  ProviderMetadata meta = 2;
+}
+message RecommendationScope {
+  optional string date = 1;
+  repeated string selected_location_ids = 2;
+  repeated string activity_ids = 3;
+}
+message GetRecommendationRequest {
+  wolfari.trip.v1.PlanSnapshot plan = 1;
+  string type = 2;
+  RecommendationScope scope = 3;
+}
+message ProposalItem {
+  string id = 1;
+  oneof values {
+    wolfari.trip.v1.Activity activity = 2;
+    wolfari.trip.v1.DressCode dress_code = 3;
+    wolfari.trip.v1.PackingItem packing_item = 4;
+  }
+  string reason = 5;
+  repeated string rule_ids = 6;
+}
+message GetRecommendationResponse {
+  repeated ProposalItem proposal = 1;
+  string rule_version = 2;
+  string input_hash = 3;
+  repeated string warnings = 4;
+  repeated ProviderMetadata provider_sources = 5;
+}

@@ -1,0 +1,155 @@
+erDiagram
+  device_tokens {
+    uuid id PK
+    uuid user_id
+    varchar_20_ platform
+    text token
+    boolean active
+    timestamptz last_seen_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  notification_preferences {
+    uuid user_id PK
+    boolean push_enabled
+    boolean email_enabled
+    timestamptz updated_at
+    integer version
+    jsonb group_overrides
+  }
+  notifications {
+    uuid id PK
+    uuid user_id
+    uuid trip_id
+    varchar_60_ type
+    varchar_255_ title
+    text body
+    varchar_100_ source_id
+    uuid event_id
+    varchar_16_ status
+    timestamptz created_at
+    timestamptz read_at
+    varchar_255_ recipient_email
+    varchar_180_ dedupe_key
+  }
+  notification_deliveries {
+    uuid id PK
+    uuid notification_id FK
+    varchar_16_ channel
+    varchar_180_ delivery_key
+    varchar_16_ status
+    integer attempt_count
+    varchar_180_ provider_reference
+    text last_error
+    timestamptz next_attempt_at
+    timestamptz sent_at
+    timestamptz created_at
+    timestamptz updated_at
+    varchar_100_ claim_owner
+    timestamptz claim_until
+    jsonb private_context
+  }
+  reminders {
+    uuid id PK
+    uuid user_id
+    uuid trip_id
+    varchar_50_ type
+    varchar_100_ source_id
+    integer source_revision
+    varchar_100_ occurrence_key
+    timestamptz remind_at
+    varchar_16_ status
+    varchar_100_ claim_owner
+    timestamptz claim_until
+    integer attempt_count
+    text last_error
+    timestamptz cancelled_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  price_query_groups {
+    uuid id PK
+    varchar_50_ provider
+    varchar_30_ transport_type
+    varchar_128_ canonical_key
+    varchar_120_ origin
+    varchar_120_ destination
+    date departure_date
+    date return_date
+    smallint passenger_count
+    varchar_30_ cabin_class
+    char_3_ currency
+    jsonb params
+    boolean active
+    timestamptz next_check_at
+    timestamptz last_checked_at
+    text last_error
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  price_query_attempts {
+    uuid id PK
+    uuid query_group_id FK
+    timestamptz scheduled_slot
+    varchar_16_ status
+    varchar_100_ claim_owner
+    timestamptz claim_until
+    integer attempt_count
+    timestamptz started_at
+    timestamptz completed_at
+    varchar_60_ error_code
+    timestamptz created_at
+  }
+  price_watches {
+    uuid id PK
+    uuid query_group_id FK
+    uuid user_id
+    uuid trip_id
+    bigint threshold_price
+    char_3_ currency
+    varchar_16_ status
+    varchar_40_ status_reason
+    integer version
+    timestamptz expires_at
+    bigint last_alert_price
+    timestamptz last_alert_at
+    timestamptz created_at
+    timestamptz updated_at
+    boolean alert_armed
+    uuid client_request_id
+    varchar_128_ request_hash
+  }
+  price_observations {
+    uuid id PK
+    uuid query_group_id FK
+    uuid query_attempt_id FK
+    bigint price
+    char_3_ currency
+    varchar_50_ provider
+    jsonb fare_metadata
+    timestamptz observed_at
+    timestamptz fetched_at
+  }
+  inbox_events {
+    varchar_80_ consumer_name PK
+    uuid event_id PK
+    varchar_100_ event_type
+    uuid aggregate_id
+    integer aggregate_version
+    timestamptz processed_at
+    jsonb result
+  }
+  automation_configs {
+    varchar_30_ module PK
+    varchar_60_ config_key PK
+    boolean enabled
+    jsonb config
+    uuid updated_by_user_id
+    integer version
+    timestamptz updated_at
+  }
+  notifications ||--o{ notification_deliveries : "notification_id"
+  price_query_groups ||--o{ price_query_attempts : "query_group_id"
+  price_query_groups ||--o{ price_watches : "query_group_id"
+  price_query_groups ||--o{ price_observations : "query_group_id"
+  price_query_attempts ||--o{ price_observations : "query_attempt_id, query_group_id"

@@ -1,0 +1,430 @@
+openapi: 3.1.0
+info:
+  title: Wolfari Identity API — phase 1
+  version: 1.0.0
+  description: >-
+    Gateway REST contract for email authentication, profile, sessions and private avatar.
+    Identity owns the data. This phase intentionally excludes OAuth, account linking,
+    email change, deletion and admin account controls.
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+    description: Local only; production requires HTTPS and Secure cookies.
+tags:
+  - name: Auth
+  - name: Profile
+  - name: Sessions
+  - name: Avatar
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    webRefresh:
+      type: apiKey
+      in: cookie
+      name: wolfari_refresh
+      description: HttpOnly, SameSite=Lax. Secure is required outside local development.
+  parameters:
+    clientType:
+      name: X-Client-Type
+      in: header
+      required: false
+      schema: { type: string, enum: [web, mobile], default: web }
+      description: Web gets refresh cookie; mobile gets refresh_token in JSON.
+    csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string }
+      description: Token from GET /auth/csrf; web refresh/logout also require allowed Origin.
+    expectedVersion:
+      name: expected_version
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1 }
+  schemas:
+    Profile:
+      type: object
+      additionalProperties: false
+      required: [id, email, full_name, avatar, system_role, status, email_verified_at, version]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        full_name: { type: string }
+        avatar:
+          {
+            type: [string, 'null'],
+            description: Private GET /me/avatar URL; never a public object URL.,
+          }
+        system_role: { type: string, enum: [USER, ADMIN] }
+        status: { type: string, enum: [ACTIVE, LOCKED, ANONYMIZED] }
+        email_verified_at: { type: [string, 'null'], format: date-time }
+        version: { type: integer, minimum: 1 }
+    Error:
+      type: object
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          required: [code, message, details, retryable]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: 'null' }
+            retryable: { type: boolean }
+        meta:
+          type: object
+          properties:
+            correlation_id: { type: string, format: uuid }
+    AuthResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [access_token, token_type, expires_in, profile]
+          properties:
+            access_token:
+              { type: string, description: 15-minute RS256 JWT; do not persist in web storage. }
+            refresh_token: { type: string, description: Mobile only; absent from web JSON. }
+            token_type: { type: string, const: Bearer }
+            expires_in: { type: integer, const: 900 }
+            profile: { $ref: '#/components/schemas/Profile' }
+        meta:
+          type: object
+          properties:
+            correlation_id: { type: string, format: uuid }
+    JsonBody:
+      type: object
+      additionalProperties: false
+    Accepted:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            message_code: { type: string, const: REQUEST_ACCEPTED }
+            correlation_id: { type: string, format: uuid }
+        meta:
+          type: object
+          properties:
+            correlation_id: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Invalid request; unknown fields and ambiguous cookie/body refresh are rejected.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Invalid credentials, expired token or revoked session.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: VERSION_CONFLICT.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unavailable:
+      description: Identity or database cannot validate the request.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register without creating a session; response does not reveal a duplicate email.
+      parameters: [{ $ref: '#/components/parameters/clientType' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, full_name, password]
+              properties:
+                email: { type: string, format: email }
+                full_name: { type: string, minLength: 1, maxLength: 150 }
+                password: { type: string, minLength: 15, maxLength: 128, writeOnly: true }
+      responses:
+        '202':
+          {
+            description: Accepted for new or existing email,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Accepted' } } },
+          }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/BadRequest' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in an ACTIVE account; email verification is not required.
+      parameters: [{ $ref: '#/components/parameters/clientType' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, writeOnly: true }
+      responses:
+        '200':
+          {
+            description: Tokens and profile,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/BadRequest' }
+  /auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Issue a signed CSRF token bound to the current web refresh cookie.
+      security: [{ webRefresh: [] }]
+      responses:
+        '200': { description: JSON data.csrf_token }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate a refresh token without extending the 30-day family lifetime.
+      description: Web requires refresh cookie, allowed Origin and X-CSRF-Token; mobile sends refresh_token in JSON. Never send both.
+      parameters:
+        [{ $ref: '#/components/parameters/clientType' }, { $ref: '#/components/parameters/csrf' }]
+      security: [{ webRefresh: [] }, {}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                refresh_token: { type: string, writeOnly: true, description: Mobile only. }
+      responses:
+        '200':
+          {
+            description: Rotated tokens,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/AuthResponse' } } },
+          }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the selected session family and clear the web refresh cookie.
+      security: [{ bearer: [] }]
+      parameters:
+        [{ $ref: '#/components/parameters/clientType' }, { $ref: '#/components/parameters/csrf' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [session_id]
+              properties:
+                session_id: { type: string, format: uuid }
+      responses:
+        '204': { description: Revoked }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/email-verifications:
+    post:
+      tags: [Auth]
+      summary: Resend verification email to the authenticated account.
+      security: [{ bearer: [] }]
+      responses:
+        '202':
+          {
+            description: Accepted,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Accepted' } } },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/email-verifications/confirm:
+    post:
+      tags: [Auth]
+      summary: Consume a verification token once; GET on the link never consumes it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [token],
+                properties: { token: { type: string, writeOnly: true } },
+              }
+      responses:
+        '200': { description: Confirmed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/password-reset-requests:
+    post:
+      tags: [Auth]
+      summary: Request a reset with the same response for known and unknown email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [email],
+                properties: { email: { type: string, format: email } },
+              }
+      responses:
+        '202':
+          {
+            description: Accepted,
+            content: { application/json: { schema: { $ref: '#/components/schemas/Accepted' } } },
+          }
+        '429': { $ref: '#/components/responses/BadRequest' }
+  /auth/password-resets:
+    post:
+      tags: [Auth]
+      summary: Consume a reset token once and revoke all existing sessions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, new_password]
+              properties:
+                token: { type: string, writeOnly: true }
+                new_password: { type: string, minLength: 15, maxLength: 128, writeOnly: true }
+      responses:
+        '200': { description: Password changed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/local/{action}:
+    get:
+      tags: [Auth]
+      summary: Development-only confirmation page; does not consume the token on GET.
+      parameters:
+        - {
+            name: action,
+            in: path,
+            required: true,
+            schema: { type: string, enum: [verify, reset] },
+          }
+        - { name: token, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: HTML form }
+        '404': { description: Unavailable outside local development }
+  /me:
+    get:
+      tags: [Profile]
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          {
+            description: Self profile,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        properties: { data: { $ref: '#/components/schemas/Profile' } },
+                      },
+                  },
+              },
+          }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    patch:
+      tags: [Profile]
+      summary: Update only allowed Self fields using optimistic version.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version]
+              properties:
+                expected_version: { type: integer, minimum: 1 }
+                full_name: { type: string, minLength: 1, maxLength: 150 }
+                avatar_object_key:
+                  {
+                    type: [string, 'null'],
+                    description: Key returned by POST /me/avatar; must belong to Self.,
+                  }
+      responses:
+        '200': { description: Updated profile }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /me/password-change:
+    post:
+      tags: [Profile]
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string, writeOnly: true }
+                new_password: { type: string, minLength: 15, maxLength: 128, writeOnly: true }
+      responses:
+        '200': { description: AcceptedMessage; all prior sessions revoked }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /me/sessions:
+    get:
+      tags: [Sessions]
+      security: [{ bearer: [] }]
+      parameters:
+        - {
+            name: limit,
+            in: query,
+            required: false,
+            schema: { type: integer, minimum: 1, maximum: 100, default: 20 },
+          }
+        - { name: cursor, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: Current sessions and next_cursor, no token hashes }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /me/sessions/{session_id}:
+    delete:
+      tags: [Sessions]
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: session_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Session family revoked }
+        '404': { description: Session is not owned by caller }
+  /me/avatar:
+    post:
+      tags: [Avatar]
+      summary: Upload a private JPEG/PNG and return a FileReference; profile is not changed yet.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: JPEG or PNG, up to 10 MiB. }
+      responses:
+        '201': { description: data.object_key, data.mime_type and data.size_bytes }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    get:
+      tags: [Avatar]
+      summary: Stream the current Self avatar with Cache-Control private, no-store.
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          {
+            description: PNG bytes,
+            content: { image/png: { schema: { type: string, format: binary } } },
+          }
+        '404': { description: No avatar attached }

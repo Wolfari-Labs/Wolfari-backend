@@ -1,0 +1,150 @@
+syntax = "proto3";
+package wolfari.common.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// UUID fields are strings; validation belongs to the contract boundary.
+message Actor {
+  oneof identity {
+    string actor_user_id = 1;
+    string system_actor = 2;
+  }
+}
+enum SystemRole {
+  SYSTEM_ROLE_UNSPECIFIED = 0;
+  SYSTEM_ROLE_USER = 1;
+  SYSTEM_ROLE_ADMIN = 2;
+}
+enum AccountStatus {
+  ACCOUNT_STATUS_UNSPECIFIED = 0;
+  ACCOUNT_STATUS_ACTIVE = 1;
+  ACCOUNT_STATUS_LOCKED = 2;
+  ACCOUNT_STATUS_DELETION_PENDING = 3;
+  ACCOUNT_STATUS_ANONYMIZED = 4;
+}
+enum MembershipRole {
+  MEMBERSHIP_ROLE_UNSPECIFIED = 0;
+  MEMBERSHIP_ROLE_OWNER = 1;
+  MEMBERSHIP_ROLE_MEMBER = 2;
+}
+enum PlanPolicy {
+  PLAN_POLICY_UNSPECIFIED = 0;
+  PLAN_POLICY_OWNER_ONLY = 1;
+  PLAN_POLICY_SELECTED_MEMBERS = 2;
+  PLAN_POLICY_ALL_MEMBERS = 3;
+}
+enum TripState {
+  TRIP_STATE_UNSPECIFIED = 0;
+  TRIP_STATE_ACTIVE = 1;
+  TRIP_STATE_ARCHIVED = 2;
+  TRIP_STATE_DELETED = 3;
+}
+enum OperationState {
+  OPERATION_STATE_UNSPECIFIED = 0;
+  OPERATION_STATE_PROCESSING = 1;
+  OPERATION_STATE_PENDING_RECOVERY = 2;
+  OPERATION_STATE_SUCCEEDED = 3;
+  OPERATION_STATE_FAILED = 4;
+  OPERATION_STATE_NEEDS_REVIEW = 5;
+}
+enum ReceiptStatus {
+  RECEIPT_STATUS_UNSPECIFIED = 0;
+  RECEIPT_STATUS_COMMITTED = 1;
+  RECEIPT_STATUS_REJECTED = 2;
+  RECEIPT_STATUS_CANCELLED = 3;
+}
+enum ExportFormat {
+  EXPORT_FORMAT_UNSPECIFIED = 0;
+  EXPORT_FORMAT_XLSX = 1;
+  EXPORT_FORMAT_PDF = 2;
+  EXPORT_FORMAT_PNG = 3;
+}
+enum ExportScope {
+  EXPORT_SCOPE_UNSPECIFIED = 0;
+  EXPORT_SCOPE_PLAN = 1;
+  EXPORT_SCOPE_PLAN_FINANCE = 2;
+}
+enum EmailPurpose {
+  EMAIL_PURPOSE_UNSPECIFIED = 0;
+  EMAIL_PURPOSE_VERIFY_EMAIL = 1;
+  EMAIL_PURPOSE_RESET_PASSWORD = 2;
+}
+message Revisions {
+  int32 plan_version = 1;
+  int32 membership_revision = 2;
+  int32 export_revision = 3;
+}
+message Membership {
+  string id = 1;
+  string trip_id = 2;
+  string user_id = 3;
+  MembershipRole role = 4;
+  google.protobuf.Timestamp joined_at = 5;
+  google.protobuf.Timestamp left_at = 6;
+}
+message AccessContext {
+  string trip_id = 1;
+  Membership membership = 2;
+  PlanPolicy policy = 3;
+  TripState trip_state = 4;
+  Revisions revisions = 5;
+  bool allowed = 6;
+  repeated string permissions = 7;
+}
+message AuthorizationContext {
+  Actor actor = 1;
+  string trip_id = 2;
+  int32 context_revision = 3;
+  repeated string active_user_ids = 4;
+  string command_scope = 5;
+}
+message ClosureEffect {
+  oneof effect {
+    string set_closure_lock_id = 1;
+    string release_closure_lock_id = 2;
+  }
+}
+message OperationOutcome {
+  ReceiptStatus status = 1;
+  optional string error_code = 2;
+  repeated string blocking_ids = 3;
+  optional int32 finance_version = 4;
+  ClosureEffect closure_effect = 5;
+}
+message Receipt {
+  string operation_id = 1;
+  string request_hash = 2;
+  OperationOutcome outcome = 3;
+  google.protobuf.Timestamp completed_at = 4;
+}
+message NotFound {}
+message Operation {
+  string operation_id = 1;
+  string trip_id = 2;
+  OperationState state = 3;
+  OperationOutcome outcome = 4;
+  optional string error_code = 5;
+  google.protobuf.Timestamp next_retry_at = 6;
+}
+message Coordinate {
+  double latitude = 1;
+  double longitude = 2;
+}
+message Recipient {
+  string user_id = 1;
+}
+message SourceContext {
+  string source_type = 1;
+  string source_id = 2;
+  int32 source_revision = 3;
+  string state = 4;
+  repeated Recipient recipients = 5;
+  google.protobuf.Timestamp remind_at = 6;
+  bool allowed = 7;
+}
+message ExportTemplate {
+  string code = 1;
+  int32 version = 2;
+  optional string theme_code = 3;
+  optional string title = 4;
+}

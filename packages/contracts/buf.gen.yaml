@@ -1,0 +1,11 @@
+version: v2
+plugins:
+  - local: [node, node_modules/ts-proto/protoc-gen-ts_proto]
+    out: src/generated
+    opt:
+      - nestJs=true
+      - snakeToCamel=false
+      - forceLong=string
+      - useDate=false
+      - addGrpcMetadata=true
+      - useOptionals=all

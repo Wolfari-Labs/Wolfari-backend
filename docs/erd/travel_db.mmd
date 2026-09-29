@@ -1,0 +1,35 @@
+erDiagram
+  provider_cache {
+    uuid id PK
+    varchar_50_ provider
+    varchar_30_ data_type
+    varchar_128_ canonical_key
+    jsonb payload
+    varchar_16_ status
+    varchar_60_ error_code
+    timestamptz fetched_at
+    timestamptz expires_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  provider_configs {
+    varchar_50_ provider PK
+    varchar_30_ module PK
+    boolean enabled
+    jsonb config
+    uuid updated_by_user_id
+    timestamptz updated_at
+    integer version
+  }
+  public_amenity_categories {
+    uuid id PK
+    varchar_60_ code
+    varchar_120_ name
+    varchar_40_ amenity_type
+    jsonb provider_mappings
+    boolean active
+    integer sort_order
+    timestamptz created_at
+    timestamptz updated_at
+    integer version
+  }

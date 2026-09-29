@@ -5,19 +5,38 @@
   "type": "module",
   "packageManager": "pnpm@10.34.5",
   "engines": {
-    "node": ">=22"
+    "node": ">=24 <25"
   },
   "scripts": {
-    "build": "pnpm -r --if-present build",
+    "build": "corepack pnpm -r --if-present build",
     "lint": "eslint .",
     "test": "vitest run",
-    "dev": "pnpm --filter @wolfari/common build && pnpm -r --parallel --filter ./apps/* dev",
-    "infra:up": "docker compose --env-file .env -f infrastructure/docker-compose.yml up -d",
-    "infra:down": "docker compose --env-file .env -f infrastructure/docker-compose.yml down"
+    "dev": "node scripts/dev.mjs",
+    "dev:check": "node scripts/cli.mjs dev:check",
+    "env:init": "node scripts/cli.mjs env:init",
+    "infra:up": "node scripts/cli.mjs infra:up",
+    "infra:down": "node scripts/cli.mjs infra:down",
+    "infra:check": "node scripts/cli.mjs infra:check",
+    "db:status": "node scripts/cli.mjs db:status",
+    "db:migrate": "node scripts/cli.mjs db:migrate",
+    "db:inspect": "node scripts/cli.mjs db:inspect",
+    "db:test": "corepack pnpm build && node scripts/database-integration.mjs",
+    "identity:test": "corepack pnpm build && node scripts/identity-integration.mjs",
+    "identity:replay-email": "node scripts/identity-replay-email.mjs",
+    "contracts:lint": "node scripts/contracts.mjs lint",
+    "contracts:generate": "node scripts/contracts.mjs generate",
+    "contracts:check": "node scripts/contracts.mjs check",
+    "contracts:test": "vitest run packages/contracts scripts/contracts.test.ts",
+    "contracts:breaking": "node scripts/contracts.mjs breaking",
+    "dev:test": "node scripts/launcher-test.mjs"
   },
   "devDependencies": {
     "@types/node": "24.13.5",
+    "@types/pg": "8.23.1",
+    "amqplib": "2.0.1",
     "eslint": "10.10.0",
+    "minio": "8.0.7",
+    "pg": "8.23.0",
     "prettier": "3.9.7",
     "tsx": "4.23.13",
     "typescript": "5.9.3",
@@ -25,4 +44,3 @@
     "vitest": "5.0.1"
   }
 }
-

@@ -1,0 +1,154 @@
+[
+  {
+    "package": "wolfari.identity.v1",
+    "service": "IdentityService",
+    "method": "ValidateSession",
+    "callers": ["ApiGateway", "Trip", "Travel", "Finance", "Automation", "ExportWorker"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Identity.ValidateSession"
+  },
+  {
+    "package": "wolfari.identity.v1",
+    "service": "IdentityService",
+    "method": "GetProfiles",
+    "callers": ["Trip", "Finance"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Identity.GetProfiles"
+  },
+  {
+    "package": "wolfari.identity.v1",
+    "service": "IdentityService",
+    "method": "GetAccountEmailDelivery",
+    "callers": ["Automation"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Identity.GetAccountEmailDelivery"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetAccessContext",
+    "callers": ["Finance", "Travel", "Automation"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Trip.GetAccessContext"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "BeginFinanceOperation",
+    "callers": ["Finance"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Trip.BeginFinanceOperation"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "CompleteOperation",
+    "callers": ["Finance"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Trip.CompleteOperation"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetOperationResult",
+    "callers": ["ApiGateway", "Trip"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Trip.GetOperationResult"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetAutomationContext",
+    "callers": ["Automation"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Trip.GetAutomationContext"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetInvitationDelivery",
+    "callers": ["Automation"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Trip.GetInvitationDelivery"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetExportWorkerContext",
+    "callers": ["ExportWorker"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Trip.GetExportWorkerContext"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ExecuteTripOperation",
+    "callers": ["Trip"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Finance.ExecuteTripOperation"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetOperationResult",
+    "callers": ["Trip"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Finance.GetOperationResult"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CancelOperationIfNotCommitted",
+    "callers": ["Trip"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Finance.CancelOperationIfNotCommitted"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetExportSnapshot",
+    "callers": ["Trip"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Finance.GetExportSnapshot"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetAutomationContext",
+    "callers": ["Automation"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Finance.GetAutomationContext"
+  },
+  {
+    "package": "wolfari.travel.v1",
+    "service": "TravelService",
+    "method": "SearchPlaces",
+    "callers": ["Trip", "ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Travel.SearchPlaces"
+  },
+  {
+    "package": "wolfari.travel.v1",
+    "service": "TravelService",
+    "method": "GetRoute",
+    "callers": ["Trip", "ApiGateway"],
+    "deadline_ms": 10000,
+    "source": "DDL/API/Event v1.0 section 6 - Travel.GetRoute"
+  },
+  {
+    "package": "wolfari.travel.v1",
+    "service": "TravelService",
+    "method": "GetWeather",
+    "callers": ["Trip", "ApiGateway"],
+    "deadline_ms": 10000,
+    "source": "DDL/API/Event v1.0 section 6 - Travel.GetWeather"
+  },
+  {
+    "package": "wolfari.travel.v1",
+    "service": "TravelService",
+    "method": "GetRecommendation",
+    "callers": ["Trip"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 section 6 - Travel.GetRecommendation"
+  }
+]

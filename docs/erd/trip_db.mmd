@@ -1,0 +1,291 @@
+erDiagram
+  trips {
+    uuid id PK
+    varchar_200_ name
+    text description
+    timestamptz start_at
+    timestamptz end_at
+    varchar_64_ timezone
+    varchar_24_ plan_edit_policy
+    uuid source_template_id FK
+    integer source_template_version
+    uuid created_by_user_id
+    integer plan_version
+    integer membership_revision
+    integer export_revision
+    uuid closure_lock_id
+    timestamptz archived_at
+    timestamptz deleted_at
+    timestamptz created_at
+    timestamptz updated_at
+    text public_description
+  }
+  trip_templates {
+    uuid id PK
+    varchar_60_ code
+    varchar_150_ name
+    text description
+    varchar_40_ category
+    jsonb plan_blueprint
+    smallint schema_version
+    integer version
+    boolean active
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  trip_members {
+    uuid id PK
+    uuid trip_id FK
+    uuid user_id
+    varchar_16_ role
+    timestamptz joined_at
+    timestamptz left_at
+    varchar_40_ left_reason
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  invitations {
+    uuid id PK
+    uuid trip_id FK
+    varchar_255_ email
+    uuid invited_by_user_id
+    varchar_128_ token_hash
+    varchar_16_ status
+    timestamptz expires_at
+    uuid resolved_by_user_id
+    timestamptz resolved_at
+    timestamptz created_at
+    varchar_10_ invitation_type
+    integer version
+    text delivery_token_ciphertext
+    timestamptz delivery_token_expires_at
+  }
+  trip_plan_editors {
+    uuid trip_id PK,FK
+    uuid trip_member_id PK,FK
+    uuid granted_by_user_id
+    timestamptz created_at
+  }
+  selected_locations {
+    uuid id PK
+    uuid trip_id FK
+    varchar_40_ provider
+    varchar_255_ provider_place_id
+    varchar_255_ name
+    text address
+    numeric_9_6_ latitude
+    numeric_9_6_ longitude
+    jsonb metadata
+    uuid created_by_user_id
+    timestamptz created_at
+    timestamptz updated_at
+    varchar_20_ source
+    jsonb opening_hours
+    timestamptz fetched_at
+  }
+  activities {
+    uuid id PK
+    uuid trip_id FK
+    uuid selected_location_id FK
+    varchar_255_ title
+    text description
+    timestamptz starts_at
+    timestamptz ends_at
+    integer position
+    varchar_16_ status
+    uuid completed_by_user_id
+    timestamptz completed_at
+    uuid created_by_user_id
+    timestamptz created_at
+    timestamptz updated_at
+    varchar_20_ source
+    text public_description
+    varchar_40_ activity_type
+  }
+  dress_codes {
+    uuid id PK
+    uuid trip_id FK
+    varchar_16_ scope_type
+    date plan_date
+    uuid activity_id FK
+    varchar_100_ label
+    text description
+    uuid created_by_user_id
+    timestamptz created_at
+    timestamptz updated_at
+    varchar_20_ source
+    text public_description
+  }
+  packing_items {
+    uuid id PK
+    uuid trip_id FK
+    varchar_200_ name
+    numeric_10_2_ quantity
+    varchar_30_ unit
+    uuid assigned_member_id FK
+    varchar_20_ source
+    timestamptz due_at
+    varchar_16_ status
+    uuid completed_by_user_id
+    timestamptz completed_at
+    uuid created_by_user_id
+    timestamptz created_at
+    timestamptz updated_at
+    text note
+    varchar_80_ category
+  }
+  share_links {
+    uuid id PK
+    uuid trip_id FK
+    varchar_128_ token_hash
+    text password_hash
+    boolean show_timeline
+    boolean show_locations
+    boolean show_dress_code
+    boolean show_packing
+    timestamptz expires_at
+    timestamptz revoked_at
+    uuid created_by_user_id
+    timestamptz created_at
+  }
+  recommendation_receipts {
+    uuid id PK
+    uuid trip_id FK
+    uuid requested_by_user_id
+    varchar_40_ rule_version
+    integer base_plan_version
+    jsonb proposal
+    uuid apply_request_id
+    varchar_16_ status
+    integer applied_plan_version
+    timestamptz created_at
+    timestamptz applied_at
+    varchar_128_ input_hash
+    varchar_30_ recommendation_type
+    timestamptz expires_at
+  }
+  export_jobs {
+    uuid id PK
+    uuid trip_id FK
+    uuid requested_by_user_id
+    varchar_16_ format
+    varchar_20_ scope
+    varchar_16_ status
+    uuid export_preset_id FK
+    integer export_preset_version
+    uuid attempt_id
+    smallint snapshot_schema_version
+    timestamptz snapshot_captured_at
+    integer snapshot_plan_version
+    integer snapshot_finance_version
+    text snapshot_object_key
+    varchar_128_ snapshot_hash
+    text result_object_key
+    varchar_60_ error_code
+    timestamptz expires_at
+    timestamptz created_at
+    timestamptz updated_at
+    integer snapshot_export_revision
+    uuid client_request_id
+    varchar_128_ request_hash
+    varchar_100_ claim_owner
+    timestamptz claim_until
+    jsonb options
+    integer version
+    timestamptz completed_at
+  }
+  export_presets {
+    uuid id PK
+    varchar_60_ code
+    varchar_150_ name
+    varchar_20_ preset_type
+    jsonb config
+    integer version
+    boolean active
+    uuid updated_by_user_id
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  trip_audit_logs {
+    uuid id PK
+    uuid trip_id FK
+    uuid actor_user_id
+    varchar_60_ action
+    varchar_40_ entity_type
+    uuid entity_id
+    integer from_version
+    integer to_version
+    text reason
+    jsonb details
+    timestamptz occurred_at
+    uuid correlation_id
+    varchar_60_ system_actor
+  }
+  trip_operations {
+    uuid operation_id PK
+    uuid trip_id FK
+    varchar_40_ operation_type
+    uuid actor_user_id
+    varchar_128_ request_hash
+    varchar_24_ state
+    integer context_revision
+    jsonb outcome
+    timestamptz started_at
+    timestamptz updated_at
+    timestamptz completed_at
+    integer retry_count
+    timestamptz next_retry_at
+    jsonb command_payload
+    varchar_60_ system_actor
+  }
+  outbox_events {
+    uuid event_id PK
+    varchar_100_ event_type
+    smallint schema_version
+    uuid aggregate_id
+    integer aggregate_version
+    uuid correlation_id
+    jsonb payload
+    varchar_16_ status
+    integer attempt_count
+    timestamptz next_attempt_at
+    timestamptz published_at
+    timestamptz created_at
+    text last_error
+    varchar_40_ aggregate_type
+    varchar_40_ producer
+    timestamptz occurred_at
+    uuid causation_id
+    uuid operation_id
+    uuid trip_id
+    uuid actor_user_id
+    varchar_60_ system_actor
+    varchar_100_ claim_owner
+    timestamptz claim_until
+  }
+  inbox_events {
+    varchar_80_ consumer_name PK
+    uuid event_id PK
+    varchar_100_ event_type
+    integer aggregate_version
+    timestamptz processed_at
+    jsonb result
+  }
+  trip_templates |o--o{ trips : "source_template_id"
+  trips ||--o{ trip_members : "trip_id"
+  trips ||--o{ invitations : "trip_id"
+  trips ||--o{ trip_plan_editors : "trip_id"
+  trip_members ||--o| trip_plan_editors : "trip_member_id, trip_id"
+  trips ||--o{ selected_locations : "trip_id"
+  trips ||--o{ activities : "trip_id"
+  selected_locations |o--o{ activities : "selected_location_id, trip_id"
+  trips ||--o{ dress_codes : "trip_id"
+  activities |o--o{ dress_codes : "activity_id, trip_id"
+  trips ||--o{ packing_items : "trip_id"
+  trip_members |o--o{ packing_items : "assigned_member_id, trip_id"
+  trips ||--o{ share_links : "trip_id"
+  trips ||--o{ recommendation_receipts : "trip_id"
+  trips ||--o{ export_jobs : "trip_id"
+  export_presets |o--o{ export_jobs : "export_preset_id"
+  trips ||--o{ trip_audit_logs : "trip_id"
+  trips ||--o{ trip_operations : "trip_id"

@@ -1,0 +1,143 @@
+syntax = "proto3";
+package wolfari.finance.v1;
+import "google/protobuf/timestamp.proto";
+import "wolfari/common/v1/types.proto";
+
+service FinanceService {
+  rpc ExecuteTripOperation(ExecuteTripOperationRequest) returns (ExecuteTripOperationResponse);
+  rpc GetOperationResult(GetOperationResultRequest) returns (GetOperationResultResponse);
+  rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
+  rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
+  rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+}
+message ExecuteTripOperationRequest {
+  string operation_id = 1;
+  string request_hash = 2;
+  string operation_type = 3;
+  wolfari.common.v1.AuthorizationContext authorization_context = 4;
+}
+message ExecuteTripOperationResponse { wolfari.common.v1.Receipt receipt = 1; }
+message GetOperationResultRequest { string operation_id = 1; }
+message GetOperationResultResponse {
+  oneof result {
+    wolfari.common.v1.NotFound not_found = 1;
+    wolfari.common.v1.Receipt receipt = 2;
+  }
+}
+message CancelOperationIfNotCommittedRequest {
+  string operation_id = 1;
+  string request_hash = 2;
+  string command_scope = 3;
+  wolfari.common.v1.AuthorizationContext authorization_context = 4;
+}
+message CancelOperationIfNotCommittedResponse { wolfari.common.v1.Receipt receipt = 1; }
+message GetExportSnapshotRequest {
+  string trip_id = 1;
+  string authorized_user_id = 2;
+  wolfari.common.v1.ExportScope scope = 3;
+}
+message GetExportSnapshotResponse {
+  FinanceSnapshot snapshot = 1;
+  int32 finance_version = 2;
+  google.protobuf.Timestamp captured_at = 3;
+}
+message GetAutomationContextRequest {
+  string fund_id = 1;
+  string source_type = 2;
+  string source_id = 3;
+}
+message GetAutomationContextResponse {
+  int32 finance_version = 1;
+  FundStatus status = 2;
+  repeated wolfari.common.v1.Recipient authorized_recipients = 3;
+  google.protobuf.Timestamp due_at = 4;
+}
+enum FundStatus {
+  FUND_STATUS_UNSPECIFIED = 0;
+  FUND_STATUS_OPEN = 1;
+  FUND_STATUS_CLOSING = 2;
+  FUND_STATUS_CLOSED = 3;
+}
+enum ContributionStatus {
+  CONTRIBUTION_STATUS_UNSPECIFIED = 0;
+  CONTRIBUTION_STATUS_PENDING = 1;
+  CONTRIBUTION_STATUS_TRANSFER_REPORTED = 2;
+  CONTRIBUTION_STATUS_CONFIRMED = 3;
+  CONTRIBUTION_STATUS_WAIVED = 4;
+  CONTRIBUTION_STATUS_CANCELLED = 5;
+}
+enum LedgerDirection {
+  LEDGER_DIRECTION_UNSPECIFIED = 0;
+  LEDGER_DIRECTION_IN = 1;
+  LEDGER_DIRECTION_OUT = 2;
+}
+message Fund {
+  string id = 1;
+  string trip_id = 2;
+  string holder_user_id = 3;
+  string currency = 4;
+  string budget_amount = 5;
+  string current_balance = 6;
+  string reserved_refund = 7;
+  string available_balance = 8;
+  FundStatus status = 9;
+  int32 finance_version = 10;
+}
+message Contribution {
+  string id = 1;
+  string request_id = 2;
+  string member_user_id = 3;
+  string amount = 4;
+  ContributionStatus status = 5;
+  bool self_contribution = 6;
+  int32 version = 7;
+}
+message Expense {
+  string id = 1;
+  string title = 2;
+  optional string description = 3;
+  string amount = 4;
+  string status = 5;
+  optional string category = 6;
+  google.protobuf.Timestamp paid_at = 7;
+  int32 version = 8;
+}
+message FinancialNote {
+  string id = 1;
+  string description = 2;
+  optional string amount = 3;
+  optional string payer_user_id = 4;
+  int32 version = 5;
+}
+message Refund {
+  string id = 1;
+  string member_user_id = 2;
+  string amount = 3;
+  string status = 4;
+  optional string reason = 5;
+  int32 version = 6;
+}
+message LedgerEntry {
+  string id = 1;
+  int64 sequence = 2;
+  LedgerDirection direction = 3;
+  string transaction_type = 4;
+  string amount = 5;
+  string balance_after = 6;
+  optional string contribution_id = 7;
+  optional string expense_id = 8;
+  optional string refund_id = 9;
+  optional string reversal_of_id = 10;
+  optional string actor_user_id = 11;
+  optional string reason = 12;
+  google.protobuf.Timestamp created_at = 13;
+}
+message FinanceSnapshot {
+  Fund fund = 1;
+  repeated Contribution contributions = 2;
+  repeated Expense expenses = 3;
+  repeated FinancialNote notes = 4;
+  repeated Refund refunds = 5;
+  repeated LedgerEntry ledger = 6;
+  string environment = 7; // TEST/SANDBOX only for this MVP.
+}

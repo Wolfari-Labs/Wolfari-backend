@@ -1,0 +1,3 @@
+*.sh text eol=lf
+# SQL baseline checksums use the exact committed bytes.
+*.sql -text

@@ -1,0 +1,155 @@
+syntax = "proto3";
+package wolfari.trip.v1;
+import "google/protobuf/timestamp.proto";
+import "wolfari/common/v1/types.proto";
+
+service TripService {
+  rpc GetAccessContext(GetAccessContextRequest) returns (GetAccessContextResponse);
+  rpc BeginFinanceOperation(BeginFinanceOperationRequest) returns (BeginFinanceOperationResponse);
+  rpc CompleteOperation(CompleteOperationRequest) returns (CompleteOperationResponse);
+  rpc GetOperationResult(GetOperationResultRequest) returns (GetOperationResultResponse);
+  rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+  rpc GetInvitationDelivery(GetInvitationDeliveryRequest) returns (GetInvitationDeliveryResponse);
+  rpc GetExportWorkerContext(GetExportWorkerContextRequest) returns (GetExportWorkerContextResponse);
+}
+message GetAccessContextRequest {
+  string trip_id = 1;
+  string user_id = 2;
+  string action = 3;
+}
+message GetAccessContextResponse { wolfari.common.v1.AccessContext context = 1; }
+message BeginFinanceOperationRequest {
+  string operation_id = 1;
+  string trip_id = 2;
+  wolfari.common.v1.Actor actor = 3;
+  string command = 4;
+  string request_hash = 5;
+  optional int32 expected_context_revision = 6;
+}
+message BeginFinanceOperationResponse {
+  wolfari.common.v1.AuthorizationContext context = 1;
+  repeated string active_user_ids = 2;
+  optional string closure_lock_id = 3;
+}
+message CompleteOperationRequest {
+  string operation_id = 1;
+  wolfari.common.v1.OperationOutcome finance_outcome = 2;
+  wolfari.common.v1.ClosureEffect closure_effect = 3;
+  // Added by the write-request convention in section 6.
+  string request_hash = 4;
+  wolfari.common.v1.Actor actor = 5;
+}
+message CompleteOperationResponse { wolfari.common.v1.Operation operation = 1; }
+message GetOperationResultRequest { string operation_id = 1; }
+message GetOperationResultResponse { wolfari.common.v1.Operation operation = 1; }
+message GetAutomationContextRequest {
+  string trip_id = 1;
+  string source_type = 2;
+  string source_id = 3;
+  optional string user_id = 4;
+}
+message GetAutomationContextResponse { wolfari.common.v1.SourceContext context = 1; }
+message GetInvitationDeliveryRequest { string invitation_id = 1; }
+message InvitationDelivery {
+  string recipient_email = 1;
+  string link = 2; // Sensitive RPC-only data.
+  google.protobuf.Timestamp expires_at = 3;
+}
+message GetInvitationDeliveryResponse {
+  bool valid = 1;
+  InvitationDelivery delivery = 2;
+}
+message GetExportWorkerContextRequest {
+  string job_id = 1;
+  string attempt_id = 2;
+}
+message GetExportWorkerContextResponse {
+  string snapshot_key = 1;
+  string snapshot_hash = 2;
+  int32 snapshot_schema_version = 3;
+  wolfari.common.v1.ExportFormat format = 4;
+  wolfari.common.v1.ExportTemplate template = 5;
+  string result_key = 6;
+}
+
+// Typed Plan projection used by Travel; not a live database entity.
+enum ActivityStatus {
+  ACTIVITY_STATUS_UNSPECIFIED = 0;
+  ACTIVITY_STATUS_TODO = 1;
+  ACTIVITY_STATUS_COMPLETED = 2;
+}
+enum EntitySource {
+  ENTITY_SOURCE_UNSPECIFIED = 0;
+  ENTITY_SOURCE_MANUAL = 1;
+  ENTITY_SOURCE_PROVIDER = 2;
+  ENTITY_SOURCE_DSS = 3;
+}
+enum DressScope {
+  DRESS_SCOPE_UNSPECIFIED = 0;
+  DRESS_SCOPE_TRIP = 1;
+  DRESS_SCOPE_DAY = 2;
+  DRESS_SCOPE_ACTIVITY = 3;
+}
+message Activity {
+  string id = 1;
+  string title = 2;
+  string activity_type = 3;
+  optional string description = 4;
+  optional string public_description = 5;
+  optional string selected_location_id = 6;
+  google.protobuf.Timestamp starts_at = 7;
+  google.protobuf.Timestamp ends_at = 8;
+  int32 position = 9;
+  ActivityStatus status = 10;
+  EntitySource source = 11;
+}
+message OpeningPeriod {
+  int32 weekday = 1;
+  string opens_at = 2;
+  string closes_at = 3;
+}
+message SelectedLocation {
+  string id = 1;
+  string name = 2;
+  optional string address = 3;
+  wolfari.common.v1.Coordinate coordinates = 4;
+  optional string provider = 5;
+  optional string provider_place_id = 6;
+  EntitySource source = 7;
+  repeated OpeningPeriod opening_hours = 8;
+  google.protobuf.Timestamp fetched_at = 9;
+}
+message DressCode {
+  string id = 1;
+  DressScope scope_type = 2;
+  string label = 3;
+  optional string description = 4;
+  optional string public_description = 5;
+  optional string plan_date = 6;
+  optional string activity_id = 7;
+  EntitySource source = 8;
+}
+message PackingItem {
+  string id = 1;
+  string name = 2;
+  string quantity = 3; // Positive exact decimal, not a floating-point amount.
+  optional string unit = 4;
+  optional string note = 5;
+  optional string category = 6;
+  optional string assigned_member_id = 7;
+  google.protobuf.Timestamp due_at = 8;
+  ActivityStatus status = 9;
+  EntitySource source = 10;
+}
+message PlanSnapshot {
+  string trip_id = 1;
+  int32 plan_version = 2;
+  int32 export_revision = 3;
+  string timezone = 4;
+  google.protobuf.Timestamp start_at = 5;
+  google.protobuf.Timestamp end_at = 6;
+  repeated Activity activities = 7;
+  repeated SelectedLocation selected_locations = 8;
+  repeated DressCode dress_codes = 9;
+  repeated PackingItem packing_items = 10;
+}

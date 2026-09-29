@@ -1,0 +1,60 @@
+{
+  "exchange": {
+    "name": "wolfari.events.v1",
+    "type": "topic",
+    "durable": true,
+    "persistent_messages": true,
+    "mandatory": true,
+    "publisher_confirms": true
+  },
+  "retry_delays_ms": [
+    10000,
+    30000,
+    120000,
+    300000,
+    900000
+  ],
+  "queues": [
+    {
+      "name": "wolfari.automation.v1",
+      "consumer": "Automation",
+      "durable": true,
+      "bindings": [
+        "AccountStatusChanged",
+        "MemberInvited",
+        "PlanUpdated",
+        "MemberLeft",
+        "MemberRemoved",
+        "TripArchived",
+        "TripDeleted",
+        "TripReopened",
+        "ContributionRequested",
+        "ContributionUpdated",
+        "ClosureRequested",
+        "ClosureCancelled",
+        "FinanceClosed",
+        "MemberJoined",
+        "AccountEmailRequested"
+      ]
+    },
+    {
+      "name": "wolfari.export-worker.v1",
+      "consumer": "ExportWorker",
+      "durable": true,
+      "bindings": [
+        "GenerateExport"
+      ]
+    },
+    {
+      "name": "wolfari.trip.export-results.v1",
+      "consumer": "Trip",
+      "durable": true,
+      "bindings": [
+        "ExportStarted",
+        "ExportCompleted",
+        "ExportFailed"
+      ]
+    }
+  ],
+  "unknown_contract_action": "DLQ"
+}

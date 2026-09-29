@@ -1,0 +1,17 @@
+{
+  "name": "@wolfari/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "scripts": { "build": "tsc -p tsconfig.json" },
+  "dependencies": {
+    "@nestjs/common": "11.2.5",
+    "@nestjs/config": "4.0.4",
+    "@wolfari/common": "workspace:*",
+    "pg": "8.23.0"
+  },
+  "devDependencies": { "@types/pg": "8.23.1" }
+}
