@@ -5,7 +5,7 @@
 
 Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm nhỏ. Sản phẩm hướng tới việc cùng xây dựng lịch trình, lưu địa điểm, quản lý quỹ, nhận nhắc việc và xuất kế hoạch.
 
-Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1** và **Trip core**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
+Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1** và **Trip core**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision.
 
 > Identity đợt 1 và một phần Trip core đã có runtime qua Gateway. Travel/Finance, phần lớn nghiệp vụ Automation, event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. SRS v2.2 vẫn thiếu; phần hiện có dùng V001 cùng tài liệu v2.0/v1.x trong repository.
 
@@ -105,7 +105,7 @@ corepack pnpm build
 
 `db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
-`trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency và quyền Owner/Member/người ngoài qua Gateway.
+`trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.
 
 ## Tài liệu
 
@@ -119,6 +119,9 @@ corepack pnpm build
 - [Trip core và phân quyền](docs/architecture/trip-core.md)
 - [OpenAPI Trip core](docs/api/trip-core.openapi.yaml)
 - [Kết quả kiểm tra Trip core](docs/architecture/trip-core-validation.md)
+- [Trip Plan access control](docs/architecture/trip-plan-access-control.md)
+- [Bàn giao Plan access cho Planning](docs/architecture/trip-plan-access-control-handoff.md)
+- [Kết quả kiểm tra Trip Plan access](docs/architecture/trip-plan-access-control-validation.md)
 - [Database và migration](docs/database/README.md)
 - [Kết quả kiểm tra database](docs/database/validation.md)
 - [SRS v2.0](docs/Wolfari_SRS_v2.0_ChinhThuc.docx)
@@ -135,6 +138,7 @@ SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong rep
 - [x] Protobuf/event contract v1, mã sinh, validator và kiểm tra tương thích.
 - [x] Identity đợt 1: email auth, hồ sơ, phiên, avatar và gửi email local.
 - [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
+- [x] Trip Plan access: access context, ba policy và danh sách selected Plan Editor.
 - [ ] Đối chiếu đầy đủ với SRS v2.2.
 - [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.
 

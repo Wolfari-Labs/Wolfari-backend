@@ -6,7 +6,7 @@ import { TripClient } from './trip-client';
 type RpcMessage = Record<string, unknown>;
 type Session = { user_id?: string; system_role?: number };
 type SessionValidator = (accessToken: string, correlationId: string) => Promise<Session>;
-type Route = 'create' | 'list' | 'get' | 'update';
+type Route = 'create' | 'list' | 'get' | 'update' | 'planPolicy';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const rfc3339 =
@@ -28,6 +28,11 @@ const planPolicies: Record<number, string> = {
   1: 'OWNER_ONLY',
   2: 'SELECTED_MEMBERS',
   3: 'ALL_MEMBERS',
+};
+const planPolicyValues: Record<string, number> = {
+  OWNER_ONLY: 1,
+  SELECTED_MEMBERS: 2,
+  ALL_MEMBERS: 3,
 };
 
 class RequestError extends Error {}
@@ -156,6 +161,22 @@ function projectTrip(value: unknown) {
   };
 }
 
+function projectPlanPolicy(value: unknown) {
+  const planPolicy = responseRecord(value);
+  if (planPolicy.editor_member_ids !== undefined && !Array.isArray(planPolicy.editor_member_ids)) {
+    throw new Error('Invalid Trip response');
+  }
+  const editorMemberIds = (planPolicy.editor_member_ids ?? []).map(requiredString);
+  if (new Set(editorMemberIds).size !== editorMemberIds.length) {
+    throw new Error('Invalid Trip response');
+  }
+  return {
+    policy: enumValue(planPolicy.policy, planPolicies),
+    editor_member_ids: editorMemberIds,
+    membership_revision: requiredInteger(planPolicy.membership_revision),
+  };
+}
+
 function json(response: ServerResponse, statusCode: number, body: unknown) {
   response.statusCode = statusCode;
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -198,7 +219,7 @@ function domainFailure(
         : responseRecord(parsed.details);
     const revisions: Record<string, number> = {};
     if (details) {
-      for (const key of ['plan_version', 'export_revision'] as const) {
+      for (const key of ['plan_version', 'membership_revision', 'export_revision'] as const) {
         const value = details[key];
         if (Number.isSafeInteger(value) && Number(value) >= 1) revisions[key] = Number(value);
       }
@@ -309,11 +330,65 @@ function routeFor(method: string, pathname: string): { route: Route; tripId?: st
     if (method === 'GET') return { route: 'list' };
     return null;
   }
+  const planPolicyMatch = /^\/api\/v1\/trips\/([^/]+)\/plan-policy$/.exec(pathname);
+  if (planPolicyMatch) {
+    if (method !== 'PUT') return null;
+    if (!uuid.test(planPolicyMatch[1]!)) throw new RequestError('Invalid trip id');
+    return { route: 'planPolicy', tripId: planPolicyMatch[1]!.toLowerCase() };
+  }
   const match = /^\/api\/v1\/trips\/([^/]+)$/.exec(pathname);
   if (!match) return null;
   if (method !== 'GET' && method !== 'PATCH') return null;
   if (!uuid.test(match[1]!)) throw new RequestError('Invalid trip id');
   return { route: method === 'GET' ? 'get' : 'update', tripId: match[1]!.toLowerCase() };
+}
+
+function planPolicyRequest(
+  body: RpcMessage,
+  actorUserId: string,
+  tripId: string,
+  operationId: string,
+): RpcMessage {
+  onlyKeys(body, ['policy', 'editor_member_ids', 'expected_membership_revision']);
+  if (!Object.hasOwn(body, 'policy') || !Object.hasOwn(body, 'editor_member_ids')) {
+    throw new RequestError('Missing plan policy fields');
+  }
+  if (!Object.hasOwn(body, 'expected_membership_revision')) {
+    throw new RequestError('Missing membership revision');
+  }
+  const policy = body.policy;
+  if (typeof policy !== 'string' || planPolicyValues[policy] === undefined) {
+    throw new RequestError('Invalid plan policy');
+  }
+  if (!Array.isArray(body.editor_member_ids)) throw new RequestError('Invalid editor list');
+  const editorMemberIds = body.editor_member_ids.map((value) => {
+    if (typeof value !== 'string' || !uuid.test(value)) {
+      throw new RequestError('Invalid editor member id');
+    }
+    return value.toLowerCase();
+  });
+  if (new Set(editorMemberIds).size !== editorMemberIds.length) {
+    throw new RequestError('Duplicate editor member id');
+  }
+  editorMemberIds.sort();
+  if (policy !== 'SELECTED_MEMBERS' && editorMemberIds.length > 0) {
+    throw new RequestError('Editor list requires SELECTED_MEMBERS');
+  }
+  if (
+    !Number.isSafeInteger(body.expected_membership_revision) ||
+    Number(body.expected_membership_revision) < 1 ||
+    Number(body.expected_membership_revision) > 2_147_483_647
+  ) {
+    throw new RequestError('Invalid membership revision');
+  }
+  return {
+    operation_id: operationId,
+    actor_user_id: actorUserId,
+    trip_id: tripId,
+    policy: planPolicyValues[policy],
+    editor_member_ids: editorMemberIds,
+    expected_membership_revision: body.expected_membership_revision,
+  };
 }
 
 function ensureQuery(url: URL, allowed: readonly string[]) {
@@ -446,6 +521,8 @@ export class TripProxy {
       return fail(response, 404, 'RESOURCE_NOT_FOUND');
     }
     if (!route) return fail(response, 404, 'RESOURCE_NOT_FOUND');
+    const write =
+      route.route === 'create' || route.route === 'update' || route.route === 'planPolicy';
 
     const authorization = request.headers.authorization;
     const bearer =
@@ -455,7 +532,7 @@ export class TripProxy {
     if (!correlationId)
       return fail(response, 503, 'SERVICE_UNAVAILABLE', {
         retryable: true,
-        write: route.route === 'create' || route.route === 'update',
+        write,
       });
     let actorUserId: string;
     try {
@@ -468,7 +545,7 @@ export class TripProxy {
       if (code === status.UNAUTHENTICATED) return fail(response, 401, 'UNAUTHENTICATED');
       return fail(response, 503, 'SERVICE_UNAVAILABLE', {
         retryable: true,
-        write: route.route === 'create' || route.route === 'update',
+        write,
       });
     }
 
@@ -527,6 +604,19 @@ export class TripProxy {
           meta: { correlation_id: correlationId },
         });
       }
+      if (route.route === 'planPolicy') {
+        ensureQuery(url, []);
+        const operationId = idempotencyKey(request, true)!;
+        const body = await requestBody(request);
+        result = await this.client.updatePlanPolicy(
+          planPolicyRequest(body, actorUserId, route.tripId!, operationId),
+          correlationId,
+        );
+        return json(response, 200, {
+          data: projectPlanPolicy(result.plan_policy),
+          meta: { correlation_id: correlationId },
+        });
+      }
       ensureQuery(url, []);
       const operationId = idempotencyKey(request, true)!;
       const body = await requestBody(request);
@@ -540,7 +630,7 @@ export class TripProxy {
       });
     } catch (cause) {
       if (cause instanceof RequestError) return fail(response, 400, 'VALIDATION_FAILED');
-      return grpcFailure(response, cause, route.route === 'create' || route.route === 'update');
+      return grpcFailure(response, cause, write);
     }
   }
 
