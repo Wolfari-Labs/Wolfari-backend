@@ -4,6 +4,10 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service TripService {
+  rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
+  rpc ListTrips(ListTripsRequest) returns (ListTripsResponse);
+  rpc GetTrip(GetTripRequest) returns (GetTripResponse);
+  rpc UpdateTrip(UpdateTripRequest) returns (UpdateTripResponse);
   rpc GetAccessContext(GetAccessContextRequest) returns (GetAccessContextResponse);
   rpc BeginFinanceOperation(BeginFinanceOperationRequest) returns (BeginFinanceOperationResponse);
   rpc CompleteOperation(CompleteOperationRequest) returns (CompleteOperationResponse);
@@ -12,6 +16,87 @@ service TripService {
   rpc GetInvitationDelivery(GetInvitationDeliveryRequest) returns (GetInvitationDeliveryResponse);
   rpc GetExportWorkerContext(GetExportWorkerContextRequest) returns (GetExportWorkerContextResponse);
 }
+
+enum TripLifecycle {
+  TRIP_LIFECYCLE_UNSPECIFIED = 0;
+  TRIP_LIFECYCLE_UPCOMING = 1;
+  TRIP_LIFECYCLE_ONGOING = 2;
+  TRIP_LIFECYCLE_COMPLETED = 3;
+  TRIP_LIFECYCLE_ARCHIVED = 4;
+}
+
+// A message field supplies outer presence; the oneof preserves set-versus-clear.
+message StringPatch {
+  oneof change {
+    string value = 1;
+    bool clear = 2;
+  }
+}
+
+message TripPermissions {
+  bool can_read = 1;
+  bool can_update = 2;
+}
+
+// Public application projection. Internal receipt and audit data are excluded.
+message Trip {
+  string id = 1;
+  string name = 2;
+  optional string description = 3;
+  google.protobuf.Timestamp start_at = 4;
+  google.protobuf.Timestamp end_at = 5;
+  string timezone = 6;
+  TripLifecycle lifecycle = 7;
+  google.protobuf.Timestamp archived_at = 8;
+  optional string public_description = 9;
+  wolfari.common.v1.PlanPolicy plan_edit_policy = 10;
+  int32 plan_version = 11;
+  int32 membership_revision = 12;
+  int32 export_revision = 13;
+  wolfari.common.v1.Membership current_membership = 14;
+  TripPermissions permissions = 15;
+}
+
+message CreateTripRequest {
+  string operation_id = 1; // The HTTP client_request_id/idempotency key.
+  string actor_user_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp start_at = 4;
+  google.protobuf.Timestamp end_at = 5;
+  optional string timezone = 6;
+  optional string description = 7;
+}
+message CreateTripResponse { Trip trip = 1; }
+
+message ListTripsRequest {
+  string actor_user_id = 1;
+  int32 limit = 2;
+  optional string cursor = 3;
+  optional TripLifecycle lifecycle = 4;
+}
+message ListTripsResponse {
+  repeated Trip items = 1;
+  optional string next_cursor = 2;
+}
+
+message GetTripRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+}
+message GetTripResponse { Trip trip = 1; }
+
+message UpdateTripRequest {
+  string operation_id = 1; // The HTTP Idempotency-Key.
+  string actor_user_id = 2;
+  string trip_id = 3;
+  int32 expected_export_revision = 4;
+  int32 expected_plan_version = 5;
+  optional string name = 6;
+  StringPatch description = 7;
+  StringPatch public_description = 8;
+}
+message UpdateTripResponse { Trip trip = 1; }
+
 message GetAccessContextRequest {
   string trip_id = 1;
   string user_id = 2;

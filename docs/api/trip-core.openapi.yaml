@@ -1,0 +1,299 @@
+openapi: 3.1.0
+info:
+  title: Wolfari Trip Core API
+  version: 1.0.0
+  description: >-
+    Gateway REST contract for creating a Trip with its Owner, listing and reading Trips by
+    active membership, and updating Trip metadata with optimistic concurrency control.
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+    description: Local development
+tags:
+  - name: Trips
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    idempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+      description: Retry the same write with the same key and body.
+  schemas:
+    Membership:
+      type: object
+      additionalProperties: false
+      description: The caller's active membership used to authorize this Trip projection.
+      required: [id, trip_id, user_id, role, joined_at, left_at]
+      properties:
+        id: { type: string, format: uuid }
+        trip_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        role: { type: string, enum: [OWNER, MEMBER] }
+        joined_at: { type: string, format: date-time }
+        left_at:
+          type: 'null'
+          description: Always null because inactive memberships never receive a Trip projection.
+    TripPermissions:
+      type: object
+      additionalProperties: false
+      required: [can_read, can_update]
+      properties:
+        can_read:
+          type: boolean
+          description: True for every active Owner or Member projection returned by this API.
+        can_update:
+          type: boolean
+          description: True only for the active Owner while the Trip is not archived.
+    Trip:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - description
+        - start_at
+        - end_at
+        - timezone
+        - lifecycle
+        - archived_at
+        - public_description
+        - plan_edit_policy
+        - plan_version
+        - membership_revision
+        - export_revision
+        - current_membership
+        - permissions
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'] }
+        start_at: { type: string, format: date-time }
+        end_at: { type: string, format: date-time }
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Valid IANA time zone name.
+        lifecycle: { type: string, enum: [UPCOMING, ONGOING, COMPLETED, ARCHIVED] }
+        archived_at: { type: [string, 'null'], format: date-time }
+        public_description: { type: [string, 'null'] }
+        plan_edit_policy: { type: string, enum: [OWNER_ONLY, SELECTED_MEMBERS, ALL_MEMBERS] }
+        plan_version: { type: integer, minimum: 1, maximum: 2147483647 }
+        membership_revision: { type: integer, minimum: 1, maximum: 2147483647 }
+        export_revision: { type: integer, minimum: 1, maximum: 2147483647 }
+        current_membership: { $ref: '#/components/schemas/Membership' }
+        permissions: { $ref: '#/components/schemas/TripPermissions' }
+    TripResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Trip' }
+        meta:
+          type: object
+          additionalProperties: false
+          required: [correlation_id]
+          properties:
+            correlation_id: { type: string, format: uuid }
+    TripPageResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, next_cursor]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Trip' }
+            next_cursor: { type: [string, 'null'] }
+        meta:
+          type: object
+          additionalProperties: false
+          required: [correlation_id]
+          properties:
+            correlation_id: { type: string, format: uuid }
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details, retryable]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_FAILED
+                - UNAUTHENTICATED
+                - PERMISSION_DENIED
+                - RESOURCE_NOT_FOUND
+                - VERSION_CONFLICT
+                - STATE_CONFLICT
+                - IDEMPOTENCY_CONFLICT
+                - SERVICE_UNAVAILABLE
+            message: { type: string }
+            details:
+              oneOf:
+                - type: 'null'
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    plan_version: { type: integer, minimum: 1, maximum: 2147483647 }
+                    export_revision: { type: integer, minimum: 1, maximum: 2147483647 }
+            retryable: { type: boolean }
+        meta:
+          type: object
+          additionalProperties: false
+          required: [correlation_id]
+          properties:
+            correlation_id: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Invalid body, header, query or cursor.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Missing, expired or revoked access session.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Active Member attempted an Owner-only action.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Missing Trip, deleted Trip or no active membership.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Version, lifecycle or idempotency conflict.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unavailable:
+      description: Identity, Trip or a required database is unavailable. Retry writes with the same idempotency key.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+paths:
+  /trips:
+    post:
+      tags: [Trips]
+      summary: Create a Trip and its single active Owner in one transaction.
+      security: [{ bearer: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, format: uuid }
+          description: If supplied, it must equal client_request_id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, start_at, end_at, client_request_id]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                description: { type: string }
+                start_at:
+                  type: string
+                  format: date-time
+                  description: RFC 3339 instant with an explicit UTC offset.
+                end_at:
+                  type: string
+                  format: date-time
+                  description: RFC 3339 instant with an explicit UTC offset; must be after start_at.
+                timezone:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                  default: Asia/Ho_Chi_Minh
+                  description: Valid IANA time zone name.
+                client_request_id: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Trip committed together with its Owner membership and receipt.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TripResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    get:
+      tags: [Trips]
+      summary: List Trips for which the caller has an active membership.
+      security: [{ bearer: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          description: Opaque cursor bound to the caller and the lifecycle filter.
+          schema: { type: string, minLength: 1, maxLength: 4096 }
+        - name: lifecycle
+          in: query
+          description: Omit to exclude archived and deleted Trips. Deleted Trips are never returned.
+          schema: { type: string, enum: [UPCOMING, ONGOING, COMPLETED, ARCHIVED] }
+      responses:
+        '200':
+          description: Membership-scoped Trip page.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/TripPageResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /trips/{trip_id}:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Trips]
+      summary: Read one Trip through a current Owner or Member membership.
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: Trip projection for the active member.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TripResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    patch:
+      tags: [Trips]
+      summary: Update Trip metadata as the current active Owner.
+      security: [{ bearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_plan_version, expected_export_revision]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                description: { type: [string, 'null'] }
+                public_description: { type: [string, 'null'] }
+                expected_plan_version: { type: integer, minimum: 1, maximum: 2147483647 }
+                expected_export_revision: { type: integer, minimum: 1, maximum: 2147483647 }
+              anyOf:
+                - required: [name]
+                - required: [description]
+                - required: [public_description]
+      responses:
+        '200':
+          description: Updated or idempotently replayed Trip projection.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TripResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }

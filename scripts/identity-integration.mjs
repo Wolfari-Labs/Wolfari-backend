@@ -79,13 +79,14 @@ function tokenFromMail(text) {
   return new URL(match[0]).searchParams.get('token');
 }
 
-const ports = { gateway: 0, identity: 0, automation: 0, grpc: 0 };
+const ports = { gateway: 0, identity: 0, trip: 0, automation: 0, grpc: 0, tripGrpc: 0 };
 const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const secrets = {
   IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64'),
   IDENTITY_ACCESS_PUBLIC_KEY: pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64'),
   IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
   GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
+  GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   TRIP_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   FINANCE_IDENTITY_SECRET: randomBytes(32).toString('hex'),
@@ -126,8 +127,8 @@ async function main() {
   await writeFile(resolve(directory, '.env'), Object.entries(infra).map(([key, value]) => `${key}=${value}`).join('\n'), { mode: 0o600 });
   created = true;
   await docker(['up', '-d', '--wait', '--wait-timeout', '180']);
-  for (const service of ['identity', 'automation']) await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
-  pass('isolated Compose and V001 identity/automation');
+  for (const service of ['identity', 'trip', 'automation']) await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
+  pass('isolated Compose and V001 identity/trip/automation');
 
   const identityBase = {
     IDENTITY_PORT: String(ports.identity), IDENTITY_GRPC_PORT: String(ports.grpc), DATABASE_URL: databaseUrl(infra, 'identity'),
@@ -136,6 +137,10 @@ async function main() {
     IDENTITY_LINK_BASE_URL: `http://127.0.0.1:${ports.gateway}`, ...secrets,
   };
   await start('identity-service', identityBase);
+  await start('trip-workspace-service', {
+    TRIP_PORT: String(ports.trip), TRIP_GRPC_PORT: String(ports.tripGrpc), DATABASE_URL: databaseUrl(infra, 'trip'),
+    GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
+  });
   await start('automation-service', {
     AUTOMATION_PORT: String(ports.automation), DATABASE_URL: databaseUrl(infra, 'automation'),
     IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.grpc}`, AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
@@ -144,9 +149,11 @@ async function main() {
   await start('api-gateway', {
     GATEWAY_PORT: String(ports.gateway), IDENTITY_HTTP_URL: `http://127.0.0.1:${ports.identity}`,
     IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.grpc}`, GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
+    TRIP_HTTP_URL: `http://127.0.0.1:${ports.trip}`, TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
+    GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
     GATEWAY_CSRF_KEY: secrets.GATEWAY_CSRF_KEY, WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
   });
-  pass('Gateway, Identity, Automation ready');
+  pass('Gateway, Identity, Trip, Automation ready');
 
   const email = `identity-${randomUUID()}@example.test`;
   const originalPassword = 'Long-local-test-password-42!';

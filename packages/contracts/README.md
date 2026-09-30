@@ -2,7 +2,7 @@
 
 `@wolfari/contracts` là nguồn contract dùng trong mã nguồn, chưa tự mở kết nối gRPC, RabbitMQ hay database. Package hiện cung cấp:
 
-- 19 RPC trong bốn package `wolfari.<service>.v1`, sinh TypeScript bằng Buf và ts-proto;
+- 23 RPC trong bốn package `wolfari.<service>.v1`, sinh TypeScript bằng Buf và ts-proto;
 - 19 message JSON v1, type sinh từ JSON Schema và validator Ajv cho publish/consume;
 - catalog caller, deadline, producer, consumer và topology RabbitMQ;
 - helper UUIDv5 ổn định cho `ExportStarted`, `ExportCompleted`, `ExportFailed`.
