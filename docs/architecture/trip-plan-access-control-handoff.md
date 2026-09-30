@@ -69,15 +69,19 @@ Grant và revoke đều dùng API này. `SELECTED_MEMBERS` thay toàn bộ danh 
 
 `GetAccessContext` là projection tại thời điểm đọc, không phải capability token. Mỗi mutation Planning phải:
 
-1. Mở transaction Trip.
-2. Dùng `getContextForUpdate` để khóa Trip và membership rồi kiểm tra `can_edit_plan`.
+1. Mở transaction Trip `READ COMMITTED`, truyền đúng client của transaction cho helper.
+2. Dùng `getContextForUpdate` để khóa Trip và membership, sau đó đọc quyền bằng câu SQL riêng với snapshot mới. Nếu `can_edit_plan=false`, từ chối mutation bằng `PERMISSION_DENIED`.
 3. Kiểm tra `expected_plan_version` trong cùng transaction.
 4. Ghi Plan, history/audit và outbox cần thiết; tăng `plan_version` và `export_revision` đúng một lần.
 5. Commit trước khi gọi Travel, broker hoặc provider.
 
+Giữ transaction và lock từ bước 2 đến hết bước 5; không gọi helper bằng pool/autocommit hoặc tách permission check và Plan write thành hai transaction. Không gộp truy vấn assignment vào câu SQL lấy lock. Regression PostgreSQL đã kiểm tra Plan request thực sự chờ transaction revoke rồi nhận quyền mới sau commit. Mutation membership/policy tương lai phải cùng khóa Trip trước khi thay đổi quyền.
+
 Mutation Plan gửi `expected_plan_version`; mutation policy/editor gửi `expected_membership_revision`. Planning không được gửi membership/role để backend tin theo và không được retry bằng revision mới nếu chưa có xác nhận của người dùng.
 
 Các lỗi cần xử lý gồm `VALIDATION_FAILED`, `RESOURCE_NOT_FOUND`, `PERMISSION_DENIED`, `VERSION_CONFLICT`, `STATE_CONFLICT`, `IDEMPOTENCY_CONFLICT` và `SERVICE_UNAVAILABLE`. Với 503 sau write, retry cùng idempotency key và cùng payload. Với 409 version conflict, tải lại projection và yêu cầu người dùng xác nhận thay đổi mới.
+
+Replay API policy trả kết quả gốc của idempotency key, không phải policy/revision mới nhất; backend vẫn kiểm tra Owner active hiện tại trước khi trả receipt. Khi cần quyền hiện hành, đọc lại access context thay vì suy ra quyền từ response replay. Regression đã kiểm tra replay sau một mutation policy khác vẫn trả response gốc và không thay đổi state/audit/receipt.
 
 ## Phần vẫn chờ
 

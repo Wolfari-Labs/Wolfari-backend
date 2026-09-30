@@ -89,7 +89,7 @@ async function receiptById(
 function verifyReplay(
   receipt: OperationRow,
   values: { actorUserId: string; tripId: string; requestHash: string },
-): void {
+): PlanPolicyView {
   if (
     receipt.operation_type !== UPDATE_PLAN_POLICY ||
     receipt.actor_user_id !== values.actorUserId ||
@@ -107,6 +107,18 @@ function verifyReplay(
     !Array.isArray((outcome as Partial<PlanPolicyView>).editor_member_ids) ||
     typeof (outcome as Partial<PlanPolicyView>).membership_revision !== 'number'
   ) {
+    throw new Error('Invalid operation outcome');
+  }
+  const stored = outcome as Partial<PlanPolicyView>;
+  try {
+    // Whitelist the persisted response; do not expose receipt metadata or rebuild
+    // it from current state, which may have changed since this command succeeded.
+    return {
+      policy: planEditPolicy(stored.policy),
+      editor_member_ids: editorMemberIds(stored.editor_member_ids),
+      membership_revision: accessRevision(stored.membership_revision),
+    };
+  } catch {
     throw new Error('Invalid operation outcome');
   }
 }
@@ -179,8 +191,7 @@ export class TripPlanAccessService {
 
       const receipt = await receiptById(client, operationId);
       if (receipt) {
-        verifyReplay(receipt, { actorUserId, tripId, requestHash });
-        return policyView(client, row);
+        return verifyReplay(receipt, { actorUserId, tripId, requestHash });
       }
       if (row.archived_at !== null) return fail('STATE_CONFLICT', 409);
       if (row.membership_revision !== expectedRevision) {

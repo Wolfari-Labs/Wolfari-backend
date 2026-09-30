@@ -14,6 +14,10 @@ import { migrate, migrationFiles } from './migrations.mjs';
 const require = createRequire(import.meta.url);
 const { TripClient } = require('../apps/api-gateway/dist/trip-client.js');
 const { TripAccessClient } = require('../packages/contracts/dist/trip-client.js');
+const { TripAccessService } = require('../apps/trip-workspace-service/dist/trip-access.service.js');
+const {
+  TripPlanAccessService,
+} = require('../apps/trip-workspace-service/dist/trip-plan-access.service.js');
 
 const project = `wolfari-trip-test-${randomBytes(5).toString('hex')}`;
 const children = [];
@@ -709,7 +713,9 @@ async function main() {
            ARRAY(SELECT pe.trip_member_id FROM trip_plan_editors pe
                  WHERE pe.trip_id=t.id ORDER BY pe.trip_member_id) AS editor_member_ids,
            (SELECT count(*)::int FROM trip_audit_logs a
-            WHERE a.trip_id=t.id AND a.action='PLAN_ACCESS_UPDATED') AS policy_audits
+            WHERE a.trip_id=t.id AND a.action='PLAN_ACCESS_UPDATED') AS policy_audits,
+           (SELECT count(*)::int FROM trip_operations o
+            WHERE o.trip_id=t.id AND o.operation_type='UPDATE_PLAN_POLICY') AS policy_receipts
          FROM trips t WHERE t.id=$1`,
         [trip.id],
       )
@@ -920,11 +926,86 @@ async function main() {
   assert.deepEqual(ownerOnly.body.data.editor_member_ids, [memberMembershipId]);
   pass('Owner can grant, revoke and switch all three Plan policies with immediate effect');
 
+  // Force the Plan check to start before revocation commits and verify it really
+  // waits on the revoker, rather than relying on timing or a sequential read.
+  policyState = await currentPolicyState();
+  const beforeRaceGrant = await putPolicy(
+    owner,
+    policyBody('SELECTED_MEMBERS', [memberMembershipId], policyState.membership_revision),
+  );
+  assert.equal(beforeRaceGrant.status, 200);
+  const revoker = new pg.Client({ connectionString: databaseUrl(infra, 'trip') });
+  const planWriter = new pg.Client({ connectionString: databaseUrl(infra, 'trip') });
+  let pendingPlanCheck;
+  try {
+    await revoker.connect();
+    await planWriter.connect();
+    await revoker.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    await planWriter.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    await planWriter.query("SET LOCAL statement_timeout = '15s'");
+    const revokerPid = (await revoker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const writerPid = (await planWriter.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const policyService = new TripPlanAccessService({ withTransaction: (work) => work(revoker) });
+    const revokedPolicy = await policyService.updatePolicy({
+      operationId: randomUUID(),
+      actorUserId: owner.id,
+      tripId: trip.id,
+      policy: 'SELECTED_MEMBERS',
+      editorMemberIds: [],
+      expectedMembershipRevision: beforeRaceGrant.body.data.membership_revision,
+      correlationId: randomUUID(),
+    });
+    let planCheckSettled = false;
+    pendingPlanCheck = new TripAccessService({})
+      .getContextForUpdate(planWriter, {
+        tripId: trip.id,
+        userId: member.id,
+        action: 'PLAN_EDIT',
+      })
+      .then(
+        (context) => {
+          planCheckSettled = true;
+          return { context };
+        },
+        (error) => {
+          planCheckSettled = true;
+          return { error };
+        },
+      );
+    await waitFor(
+      async () =>
+        (
+          await query('trip', 'SELECT $1::int = ANY(pg_blocking_pids($2::int)) AS blocked', [
+            revokerPid,
+            writerPid,
+          ])
+        )[0].blocked,
+      10_000,
+    );
+    assert.equal(planCheckSettled, false, 'Plan check must be waiting for the revocation lock');
+    await revoker.query('COMMIT');
+    const checked = await pendingPlanCheck;
+    if (checked.error) throw checked.error;
+    assert.equal(checked.context.revisions.membership_revision, revokedPolicy.membership_revision);
+    assert.equal(checked.context.can_edit_plan, false);
+    assert.equal(checked.context.allowed, false);
+    assert.deepEqual(revokedPolicy.editor_member_ids, []);
+    await planWriter.query('COMMIT');
+  } finally {
+    await revoker.query('ROLLBACK').catch(() => {});
+    if (pendingPlanCheck) await pendingPlanCheck;
+    await planWriter.query('ROLLBACK').catch(() => {});
+    await Promise.all([revoker.end(), planWriter.end()]);
+  }
+  pass(
+    'Plan write check waiting behind editor revocation uses the post-commit permission snapshot',
+  );
+
   policyState = await currentPolicyState();
   const noOpKey = randomUUID();
   const noOp = await putPolicy(
     owner,
-    policyBody('OWNER_ONLY', [], policyState.membership_revision),
+    policyBody(policyState.plan_edit_policy, [], policyState.membership_revision),
     noOpKey,
   );
   assert.equal(noOp.status, 200);
@@ -1016,6 +1097,25 @@ async function main() {
   const replayByMember = await putPolicy(member, duplicateBody, duplicateKey);
   assert.equal(replayByMember.status, 403);
   pass('policy races have one winner and receipt replay cannot bypass current Owner permission');
+
+  const laterPolicy = policyState.plan_edit_policy === 'OWNER_ONLY' ? 'ALL_MEMBERS' : 'OWNER_ONLY';
+  const laterMutation = await putPolicy(
+    owner,
+    policyBody(laterPolicy, [], policyState.membership_revision),
+  );
+  assert.equal(laterMutation.status, 200);
+  const beforeHistoricalReplay = await currentPolicyState();
+  const historicalReplay = await putPolicy(owner, duplicateBody, duplicateKey);
+  assert.equal(historicalReplay.status, 200);
+  assert.deepEqual(historicalReplay.body.data, duplicateRequests[0].body.data);
+  assert.notEqual(
+    historicalReplay.body.data.membership_revision,
+    laterMutation.body.data.membership_revision,
+  );
+  assert.deepEqual(await currentPolicyState(), beforeHistoricalReplay);
+  pass(
+    'policy replay after a later mutation returns its original response without changing current state',
+  );
 
   for (const [stage, table] of [
     ['audit', 'trip_audit_logs'],

@@ -93,6 +93,36 @@ describe('Trip access context', () => {
     );
     expect(context).not.toHaveProperty('selected_editor');
     expect(query.mock.calls[0]?.[0]).toContain('FOR UPDATE OF t,m');
+    expect(query.mock.calls[0]?.[0]).not.toContain('trip_plan_editors');
+    expect(query.mock.calls[1]?.[0]).toContain('FROM trip_plan_editors pe');
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the fresh permission snapshot after acquiring the write locks', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: tripId }] })
+      .mockResolvedValueOnce({ rows: [accessRow('MEMBER', 'SELECTED_MEMBERS', false)] });
+    const service = new TripAccessService({ query } as unknown as DatabaseProvider);
+    const context = await service.getContextForUpdate(
+      { query },
+      {
+        tripId,
+        userId: memberId,
+        action: 'PLAN_EDIT',
+      },
+    );
+    expect(context.can_edit_plan).toBe(false);
+    expect(context.allowed).toBe(false);
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops before reading assignments when the write lock finds no active membership', async () => {
+    const { query, service } = accessService();
+    await expect(
+      service.getContextForUpdate({ query }, { tripId, userId: memberId, action: 'PLAN_EDIT' }),
+    ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+    expect(query).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -148,6 +178,83 @@ function updateInput(overrides: Record<string, unknown> = {}) {
 }
 
 describe('Trip Plan policy mutation', () => {
+  const replayOutcome = {
+    policy: 'SELECTED_MEMBERS',
+    editor_member_ids: [editorId],
+    membership_revision: 2,
+  };
+
+  function replayService(outcome: unknown, actor: Record<string, unknown> = {}) {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('SELECT t.id AS trip_id')) {
+        return {
+          rows: [ownerRow({ plan_edit_policy: 'ALL_MEMBERS', membership_revision: 3, ...actor })],
+        };
+      }
+      if (sql.includes('FROM trip_operations WHERE')) {
+        return {
+          rows: [
+            {
+              operation_id: operationId,
+              trip_id: tripId,
+              operation_type: 'UPDATE_PLAN_POLICY',
+              actor_user_id: ownerId,
+              request_hash: planPolicyRequestHash(
+                updateInput() as Parameters<typeof planPolicyRequestHash>[0],
+              ),
+              state: 'SUCCEEDED',
+              outcome,
+            },
+          ],
+        };
+      }
+      if (sql.includes('trip_plan_editors'))
+        throw new Error('Replay must not read current editors');
+      return { rows: [] };
+    });
+    const database = {
+      withTransaction: async (work: Parameters<DatabaseProvider['withTransaction']>[0]) =>
+        work({ query } as never),
+    } as unknown as DatabaseProvider;
+    return { query, service: new TripPlanAccessService(database) };
+  }
+
+  it.each(['jsonb', 'json string'])(
+    'replays the original whitelisted outcome from %s after a later mutation',
+    async (format) => {
+      const stored = { ...replayOutcome, internal_data: 'must not leak' };
+      const { query, service } = replayService(
+        format === 'jsonb' ? stored : JSON.stringify(stored),
+      );
+      expect(await service.updatePolicy(updateInput())).toEqual(replayOutcome);
+      expect(query).toHaveBeenCalledTimes(3);
+    },
+  );
+
+  it.each([
+    { ...replayOutcome, policy: 'UNKNOWN' },
+    { ...replayOutcome, editor_member_ids: ['invalid'] },
+    { ...replayOutcome, editor_member_ids: [editorId, editorId] },
+    { ...replayOutcome, membership_revision: 0 },
+    { ...replayOutcome, membership_revision: '2' },
+  ])(
+    'rejects a malformed stored outcome instead of projecting current state: %j',
+    async (outcome) => {
+      const { service } = replayService(outcome);
+      await expect(service.updatePolicy(updateInput())).rejects.toThrow(
+        'Invalid operation outcome',
+      );
+    },
+  );
+
+  it('checks current Owner permission before returning a stored replay', async () => {
+    const { query, service } = replayService(replayOutcome, { membership_role: 'MEMBER' });
+    await expect(service.updatePolicy(updateInput())).rejects.toMatchObject({
+      code: 'PERMISSION_DENIED',
+    });
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ['VALIDATION_FAILED', 3], // INVALID_ARGUMENT
     ['RESOURCE_NOT_FOUND', 5], // NOT_FOUND

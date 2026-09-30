@@ -136,10 +136,19 @@ export class TripAccessService {
     const tripId = accessUuid(input.tripId);
     const userId = accessUuid(input.userId);
     const action = accessAction(input.action);
-    const result = await executor.query<AccessRow>(
-      `${SELECT_ACCESS}${lock ? ' FOR UPDATE OF t,m' : ''}`,
-      [tripId, userId],
-    );
+    if (lock) {
+      // Caller must keep this transaction open through the Plan mutation. Read
+      // assignments in a separate statement so READ COMMITTED refreshes the
+      // snapshot after waiting for an in-flight policy change to release its lock.
+      const locked = await executor.query(
+        `SELECT t.id FROM trips t
+         JOIN trip_members m ON m.trip_id=t.id AND m.user_id=$2 AND m.left_at IS NULL
+         WHERE t.id=$1 AND t.deleted_at IS NULL FOR UPDATE OF t,m`,
+        [tripId, userId],
+      );
+      if (!locked.rows[0]) return fail('RESOURCE_NOT_FOUND', 404);
+    }
+    const result = await executor.query<AccessRow>(SELECT_ACCESS, [tripId, userId]);
     const row = result.rows[0];
     if (!row) return fail('RESOURCE_NOT_FOUND', 404);
     return projectAccess(row, action);
