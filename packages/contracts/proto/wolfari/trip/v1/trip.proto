@@ -15,6 +15,12 @@ service TripService {
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
   rpc GetInvitationDelivery(GetInvitationDeliveryRequest) returns (GetInvitationDeliveryResponse);
   rpc GetExportWorkerContext(GetExportWorkerContextRequest) returns (GetExportWorkerContextResponse);
+  rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
+  rpc CreateActivity(CreateActivityRequest) returns (CreateActivityResponse);
+  rpc UpdateActivity(UpdateActivityRequest) returns (UpdateActivityResponse);
+  rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
+  rpc ReorderActivities(ReorderActivitiesRequest) returns (ReorderActivitiesResponse);
+  rpc SetActivityCompletion(SetActivityCompletionRequest) returns (SetActivityCompletionResponse);
 }
 
 enum TripLifecycle {
@@ -238,3 +244,84 @@ message PlanSnapshot {
   repeated DressCode dress_codes = 9;
   repeated PackingItem packing_items = 10;
 }
+
+message TimestampPatch { oneof change { google.protobuf.Timestamp value = 1; bool clear = 2; } }
+message PlanPermissions { bool can_read = 1; bool can_edit = 2; bool can_complete = 3; }
+
+message PlanActivity {
+  string id = 1; string trip_id = 2; string title = 3;
+  optional string description = 4; optional string public_description = 5;
+  string activity_type = 6; optional string selected_location_id = 7;
+  google.protobuf.Timestamp starts_at = 8; google.protobuf.Timestamp ends_at = 9;
+  int32 position = 10; ActivityStatus status = 11; EntitySource source = 12;
+  optional string completed_by_user_id = 13; google.protobuf.Timestamp completed_at = 14;
+  string created_by_user_id = 15; int32 plan_version = 16;
+}
+message PlanLocation {
+  string id = 1; string trip_id = 2; string name = 3; optional string address = 4;
+  optional string latitude = 5; optional string longitude = 6;   // chuỗi thập phân chính xác
+  optional string provider = 7; optional string provider_place_id = 8; EntitySource source = 9;
+  optional string opening_hours_json = 10; google.protobuf.Timestamp fetched_at = 11;
+  string metadata_json = 12; int32 plan_version = 13;
+}
+message PlanDressCode {
+  string id = 1; string trip_id = 2; DressScope scope_type = 3; optional string plan_date = 4;
+  optional string activity_id = 5; string label = 6; optional string description = 7;
+  optional string public_description = 8; EntitySource source = 9; int32 plan_version = 10;
+}
+message PlanPackingItem {
+  string id = 1; string trip_id = 2; string name = 3; string quantity = 4; optional string unit = 5;
+  optional string note = 6; optional string category = 7; optional string assigned_member_id = 8;
+  google.protobuf.Timestamp due_at = 9; ActivityStatus status = 10; EntitySource source = 11;
+  optional string completed_by_user_id = 12; google.protobuf.Timestamp completed_at = 13;
+  int32 plan_version = 14;
+}
+message Plan {
+  string trip_id = 1; int32 plan_version = 2; int32 export_revision = 3;
+  repeated PlanActivity activities = 4; repeated PlanLocation selected_locations = 5;
+  repeated PlanDressCode dress_codes = 6; repeated PlanPackingItem packing_items = 7;
+  PlanPermissions permissions = 8;
+}
+message PlanVersion { string trip_id = 1; int32 plan_version = 2; int32 export_revision = 3; }
+
+message GetPlanRequest { string actor_user_id = 1; string trip_id = 2; }
+message GetPlanResponse { Plan plan = 1; }
+
+message CreateActivityRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3;
+  int32 expected_plan_version = 4; string title = 5; string activity_type = 6;
+  optional string description = 7; optional string public_description = 8;
+  optional string selected_location_id = 9;
+  google.protobuf.Timestamp starts_at = 10; google.protobuf.Timestamp ends_at = 11;
+  int32 position = 12;
+}
+message CreateActivityResponse { PlanActivity activity = 1; int32 export_revision = 2; }
+
+message UpdateActivityRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3; string activity_id = 4;
+  int32 expected_plan_version = 5;
+  optional string title = 6; optional string activity_type = 7;
+  StringPatch description = 8; StringPatch public_description = 9;
+  StringPatch selected_location_id = 10;
+  TimestampPatch starts_at = 11; TimestampPatch ends_at = 12;
+  optional int32 position = 13;
+}
+message UpdateActivityResponse { PlanActivity activity = 1; int32 export_revision = 2; }
+
+message DeleteActivityRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3; string activity_id = 4;
+  int32 expected_plan_version = 5; bool confirmed = 6;
+}
+message DeleteActivityResponse { PlanVersion version = 1; }
+
+message ReorderActivitiesRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3;
+  int32 expected_plan_version = 4; repeated string activity_ids = 5;
+}
+message ReorderActivitiesResponse { PlanVersion version = 1; }
+
+message SetActivityCompletionRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3; string activity_id = 4;
+  int32 expected_plan_version = 5; ActivityStatus status = 6;
+}
+message SetActivityCompletionResponse { PlanActivity activity = 1; int32 export_revision = 2; }

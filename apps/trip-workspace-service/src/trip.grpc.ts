@@ -164,6 +164,30 @@ export class TripGrpcController implements TripV1.TripServiceController {
     });
   }
 
+  getPlan(): TripV1.GetPlanResponse {
+    return this.unimplemented();
+  }
+
+  createActivity(): TripV1.CreateActivityResponse {
+    return this.unimplemented();
+  }
+
+  updateActivity(): TripV1.UpdateActivityResponse {
+    return this.unimplemented();
+  }
+
+  deleteActivity(): TripV1.DeleteActivityResponse {
+    return this.unimplemented();
+  }
+
+  reorderActivities(): TripV1.ReorderActivitiesResponse {
+    return this.unimplemented();
+  }
+
+  setActivityCompletion(): TripV1.SetActivityCompletionResponse {
+    return this.unimplemented();
+  }
+
   private unimplemented(): never {
     throw new RpcException({ code: status.UNIMPLEMENTED, message: 'RPC is not implemented' });
   }
