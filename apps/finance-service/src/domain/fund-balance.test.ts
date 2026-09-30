@@ -2,11 +2,26 @@ import { describe, expect, it } from 'vitest';
 import {
   assertCanSpend,
   calculateFundBalance,
+  calculateFundBalanceFromReservation,
   InsufficientAvailableBalanceError,
   type RefundForBalance,
 } from './fund-balance';
 
 describe('fund balance and refund reservations', () => {
+  it('accepts an exact database reservation total, including zero and full reservation', () => {
+    expect(calculateFundBalanceFromReservation(0n, 0n).availableBalance).toBe(0n);
+    expect(calculateFundBalanceFromReservation(9007199254740993n, 9007199254740992n)).toEqual({
+      currentBalance: 9007199254740993n,
+      reservedRefund: 9007199254740992n,
+      availableBalance: 1n,
+    });
+    expect(calculateFundBalanceFromReservation(100n, 100n).availableBalance).toBe(0n);
+  });
+
+  it.each([-1n, 101n, 9223372036854775808n])('rejects invalid reservation total %s', (reserved) => {
+    expect(() => calculateFundBalanceFromReservation(100n, reserved)).toThrow(RangeError);
+  });
+
   it('makes the whole balance available when there are no refunds', () => {
     expect(calculateFundBalance(300_000n, [])).toEqual({
       currentBalance: 300_000n,

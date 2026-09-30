@@ -22,6 +22,51 @@ function repositoryWithRows(rows: unknown[]) {
 }
 
 describe('FundRepository', () => {
+  it('returns no summary for a Trip without a Fund using one parameterized read', async () => {
+    const { repository, query } = repositoryWithRows([]);
+    expect(await repository.findSummaryByTripId(tripId)).toBeNull();
+    expect(query).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('f.trip_id = $1'), [
+      tripId,
+    ]);
+  });
+
+  it('preserves Fund metadata and exact one-dong differences in a summary', async () => {
+    const { repository } = repositoryWithRows([{ ...row(), reserved_refund: '9007199254740992' }]);
+    expect(await repository.findSummaryByTripId(tripId)).toEqual({
+      ...(await repository.findByTripId(tripId)),
+      reservedRefund: 9007199254740992n,
+      availableBalance: 1n,
+    });
+  });
+
+  it.each([null, '0'])('keeps summary budget %s and zero reservations', async (budget) => {
+    const { repository } = repositoryWithRows([
+      { ...row(), budget_amount: budget, current_balance: '0', reserved_refund: '0' },
+    ]);
+    expect(await repository.findSummaryByTripId(tripId)).toMatchObject({
+      budgetAmount: budget === null ? null : 0n,
+      currentBalance: 0n,
+      reservedRefund: 0n,
+      availableBalance: 0n,
+    });
+  });
+
+  it.each([
+    { value: '9007199254740994', error: RangeError },
+    { value: '9223372036854775808', error: RangeError },
+    { value: '-1', error: TypeError },
+    { value: 100, error: TypeError },
+  ])('rejects invalid summary reservation $value', async ({ value, error }) => {
+    const { repository } = repositoryWithRows([{ ...row(), reserved_refund: value }]);
+    await expect(repository.findSummaryByTripId(tripId)).rejects.toThrow(error);
+  });
+
+  it('does not turn a summary database failure into an absent Fund', async () => {
+    const failure = new Error('database timeout');
+    const repository = new FundRepository({ query: vi.fn().mockRejectedValue(failure) });
+    await expect(repository.findSummaryByTripId(tripId)).rejects.toBe(failure);
+  });
+
   it('returns null when the Trip has no Fund', async () => {
     const { repository } = repositoryWithRows([]);
     expect(await repository.findByTripId(tripId)).toBeNull();

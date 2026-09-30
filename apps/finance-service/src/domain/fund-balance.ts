@@ -51,6 +51,16 @@ export function calculateFundBalance(
     }
   }
 
+  return calculateFundBalanceFromReservation(currentBalance, reservedRefund);
+}
+
+/** Apply the same balance invariant to an exact reservation total read from the database. */
+export function calculateFundBalanceFromReservation(
+  currentBalance: bigint,
+  reservedRefund: bigint,
+): FundBalance {
+  assertVndAmount(currentBalance);
+  assertVndAmount(reservedRefund);
   if (reservedRefund > currentBalance) {
     throw new RangeError('Reserved refunds cannot exceed the current fund balance');
   }

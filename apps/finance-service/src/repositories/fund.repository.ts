@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
 import { parseVndAmount } from '../domain/money';
+import { calculateFundBalanceFromReservation, type FundBalance } from '../domain/fund-balance';
 
 /** Internal persistence snapshot, not an API response or a locked write context. */
 export type FundRecord = Readonly<{
@@ -32,6 +33,24 @@ type FundRow = {
   closed_at: Date | null;
 };
 
+export type FundSummary = FundRecord & FundBalance;
+
+function mapFund(row: FundRow): FundRecord {
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    holderUserId: row.holder_user_id,
+    currency: row.currency,
+    budgetAmount: row.budget_amount === null ? null : parseVndAmount(row.budget_amount),
+    currentBalance: parseVndAmount(row.current_balance),
+    status: row.status,
+    financeVersion: row.finance_version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    closedAt: row.closed_at,
+  };
+}
+
 @Injectable()
 export class FundRepository {
   constructor(@Inject(DatabaseProvider) private readonly db: Pick<DatabaseProvider, 'query'>) {}
@@ -52,18 +71,35 @@ export class FundRepository {
     const row = rows[0];
     if (!row) return null;
 
+    return mapFund(row);
+  }
+
+  /**
+   * One SELECT reads Fund and reservations from the same statement snapshot.
+   * Same caller authorization requirements as findByTripId; not a locked write guard.
+   */
+  async findSummaryByTripId(tripId: string): Promise<FundSummary | null> {
+    const { rows } = await this.db.query<FundRow & { reserved_refund: string }>(
+      `SELECT f.id, f.trip_id, f.holder_user_id, f.currency, f.budget_amount,
+              f.current_balance, f.status, f.finance_version,
+              f.created_at, f.updated_at, f.closed_at,
+              (SELECT COALESCE(SUM(r.amount), 0)::text
+                 FROM public.fund_refunds r
+                WHERE r.fund_id = f.id
+                  AND r.status IN ('PENDING', 'HOLDER_REPORTED')) AS reserved_refund
+         FROM public.funds f
+        WHERE f.trip_id = $1`,
+      [tripId],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    const fund = mapFund(row);
     return {
-      id: row.id,
-      tripId: row.trip_id,
-      holderUserId: row.holder_user_id,
-      currency: row.currency,
-      budgetAmount: row.budget_amount === null ? null : parseVndAmount(row.budget_amount),
-      currentBalance: parseVndAmount(row.current_balance),
-      status: row.status,
-      financeVersion: row.finance_version,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      closedAt: row.closed_at,
+      ...fund,
+      ...calculateFundBalanceFromReservation(
+        fund.currentBalance,
+        parseVndAmount(row.reserved_refund),
+      ),
     };
   }
 }

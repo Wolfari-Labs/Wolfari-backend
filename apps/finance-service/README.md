@@ -77,11 +77,43 @@ là snapshot nội bộ `FundRecord`: tiền dùng `bigint`, ngân sách chưa �
 thời gian dùng `Date`; không serialize trực tiếp snapshot này ra JSON.
 
 Caller phải kiểm tra UUID và quyền truy cập trước khi trả dữ liệu cho client.
-Repository không kiểm membership/Holder, không tính số dư khả dụng, không khóa
+Repository không kiểm membership/Holder, không khóa
 dòng và không dùng để bảo vệ một giao dịch ghi tiền. Nó đọc cả quỹ đã đóng;
 lỗi DB hoặc dữ liệu tiền không hợp lệ được trả về caller dưới dạng exception.
+
+`findSummaryByTripId(tripId)` trả thêm `reservedRefund` và `availableBalance`.
+Một câu SELECT đọc Fund và tổng khoản hoàn `PENDING`/`HOLDER_REPORTED` của đúng
+Fund từ cùng snapshot; các khoản `CONFIRMED`/`CANCELLED`/`REVERSED` không giữ tiền.
+Số dư khả dụng bằng số dư hiện tại trừ tiền giữ hoàn dư, qua helper domain chung.
+Tổng tiền vượt miền VND hoặc vượt số dư gây lỗi, không bị làm tròn hay ép về 0.
+Summary vẫn là dữ liệu nội bộ, không thay thế kiểm tra quyền hoặc khóa khi ghi tiền.
 
 Unit test chạy qua `pnpm.cmd test`. `pnpm.cmd db:test` còn kiểm tra repository
 trên PostgreSQL thử riêng, bao gồm tiền vượt giới hạn chính xác của `number`,
 ngân sách `null`/0, quỹ khác Trip, quỹ không tồn tại và thời gian đóng quỹ.
+Kiểm thử summary bao gồm các trạng thái hoàn dư, cách ly giữa quỹ, giữ toàn bộ
+số dư, dữ liệu giữ vượt số dư và tổng vượt giới hạn int8.
 Dữ liệu fixture nằm trong transaction ROLLBACK; không seed vào Finance local.
+
+## Đọc lịch sử ledger
+
+`LedgerRepository.listByFundId(fundId, { limit?, cursor? })` trả `items` và
+`nextCursor`. Theo PageQuery của đặc tả DDL/API/Event v1.0, mặc định 20 dòng,
+giới hạn 1–100 và sắp theo `sequence DESC`. Reader lấy thêm một dòng để biết còn
+trang tiếp; cursor chứa phiên bản, Fund và sequence cuối đã trả. Cursor sai định
+dạng hoặc dùng cho quỹ khác bị từ chối trước khi query.
+
+Tiền và sequence dùng `bigint`; các liên kết nguồn/đảo giao dịch, actor, reason
+và thời gian được giữ nguyên. Không trả `business_key`. Đọc cả lịch sử quỹ CLOSED.
+Quỹ không tồn tại và quỹ chưa có giao dịch đều trả danh sách rỗng ở tầng repository;
+caller cần resolve Fund và kiểm tra quyền Trip ở **mỗi trang** trước khi trả dữ liệu.
+Cursor chỉ dùng điều hướng, không phải bằng chứng quyền hay token đã ký.
+
+Phân trang dùng điều kiện `sequence < sequence cuối`, nên các bút toán mới có
+sequence lớn hơn không đẩy lệch trang cũ; mở lại trang đầu để xem bút toán mới.
+Điều này dựa trên quy tắc writer tăng sequence trong từng Fund khi giữ khóa quỹ;
+reader không thay thế quy tắc ghi đó. Không dùng chuỗi trang này làm snapshot export
+nhất quán hoặc làm căn cứ ghi tiền. Chưa mở route/API và chưa thêm filter nghiệp vụ.
+
+Unit test và DB integration kiểm cursor/limit, số lớn, thứ tự cùng timestamp,
+liên kết reversal, cách ly Fund và append giữa hai trang. Fixture DB được rollback.
