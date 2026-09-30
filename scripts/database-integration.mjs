@@ -183,8 +183,9 @@ async function main() {
   assert.equal(fks, 46); pass('54 bảng mô hình + 5 lịch sử, 46 FK');
   for (const service of ['identity', 'trip', 'finance']) await db(service, async client => {
     await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
+    if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
   });
-  pass('3 fixture constraint hiện có (ROLLBACK)');
+  pass('3 fixture constraint hiện có và Planning (ROLLBACK)');
   stage = 'database-isolation';
   for (const source of services) for (const target of services.filter(s => s !== source)) {
     const url = new URL(databaseUrl(env, source)); url.pathname = `/${target}_db`;

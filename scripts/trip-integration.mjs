@@ -1,3 +1,4 @@
+import { runPlanScenarios } from './plan-integration.mjs';
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -98,7 +99,10 @@ async function start(name, values) {
   const app = apps.find((item) => item.name === name);
   const child = fork(resolve(root, 'apps', name, 'dist/main.js'), [], {
     cwd: root,
-    env: appEnvironment(app, { NODE_ENV: 'test', ...values }),
+    env: {
+      ...appEnvironment(app, { NODE_ENV: 'test', ...values }),
+      ...(values.TZ ? { TZ: values.TZ } : {}),
+    },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     windowsHide: true,
   });
@@ -257,6 +261,7 @@ async function main() {
     ...secrets,
   });
   const tripProcess = await start('trip-workspace-service', {
+    TZ: 'America/Los_Angeles',
     TRIP_PORT: String(ports.trip),
     TRIP_GRPC_PORT: String(ports.tripGrpc),
     DATABASE_URL: databaseUrl(infra, 'trip'),
@@ -672,6 +677,18 @@ async function main() {
     200,
   );
   pass('receipt replay cannot restore revoked Owner or departed membership access');
+
+  // Reuse authenticated actors so this suite stays below Identity's registration rate limit.
+  await runPlanScenarios({
+    request,
+    query,
+    transaction,
+    account,
+    bearer,
+    tripBody,
+    pass,
+    users: { owner, member, editor: admin, outsider },
+  });
 
   await query('identity', 'UPDATE refresh_sessions SET revoked_at=now() WHERE user_id=$1', [
     outsider.id,

@@ -1,3 +1,4 @@
+import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { status } from '@grpc/grpc-js';
@@ -74,6 +75,7 @@ function protobufTrip(value: TripView): TripV1.Trip {
 export class TripGrpcController implements TripV1.TripServiceController {
   constructor(
     private readonly trips: TripService,
+    private readonly plans: PlanGrpcHandlers,
     private readonly config: ConfigService,
   ) {}
 
@@ -164,28 +166,28 @@ export class TripGrpcController implements TripV1.TripServiceController {
     });
   }
 
-  getPlan(): TripV1.GetPlanResponse {
-    return this.unimplemented();
+  getPlan(request: TripV1.GetPlanRequest, metadata?: Metadata) {
+    return this.plans.getPlan(request, metadata);
   }
 
-  createActivity(): TripV1.CreateActivityResponse {
-    return this.unimplemented();
+  createActivity(request: TripV1.CreateActivityRequest, metadata?: Metadata) {
+    return this.plans.createActivity(request, metadata);
   }
 
-  updateActivity(): TripV1.UpdateActivityResponse {
-    return this.unimplemented();
+  updateActivity(request: TripV1.UpdateActivityRequest, metadata?: Metadata) {
+    return this.plans.updateActivity(request, metadata);
   }
 
-  deleteActivity(): TripV1.DeleteActivityResponse {
-    return this.unimplemented();
+  deleteActivity(request: TripV1.DeleteActivityRequest, metadata?: Metadata) {
+    return this.plans.deleteActivity(request, metadata);
   }
 
-  reorderActivities(): TripV1.ReorderActivitiesResponse {
-    return this.unimplemented();
+  reorderActivities(request: TripV1.ReorderActivitiesRequest, metadata?: Metadata) {
+    return this.plans.reorderActivities(request, metadata);
   }
 
-  setActivityCompletion(): TripV1.SetActivityCompletionResponse {
-    return this.unimplemented();
+  setActivityCompletion(request: TripV1.SetActivityCompletionRequest, metadata?: Metadata) {
+    return this.plans.setActivityCompletion(request, metadata);
   }
 
   private unimplemented(): never {

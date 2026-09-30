@@ -105,7 +105,7 @@ corepack pnpm build
 
 `db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
-`trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency và quyền Owner/Member/người ngoài qua Gateway.
+`trip:test` tạo project riêng để kiểm thử Trip core và Planning timeline qua Gateway: transaction, idempotency, optimistic concurrency, policy, completion, reorder, audit/outbox và rollback.
 
 ## Tài liệu
 
@@ -119,6 +119,9 @@ corepack pnpm build
 - [Trip core và phân quyền](docs/architecture/trip-core.md)
 - [OpenAPI Trip core](docs/api/trip-core.openapi.yaml)
 - [Kết quả kiểm tra Trip core](docs/architecture/trip-core-validation.md)
+- [Planning timeline và transaction](docs/architecture/planning-timeline.md)
+- [OpenAPI Planning](docs/api/planning.openapi.yaml)
+- [Kết quả kiểm tra Planning](docs/architecture/planning-timeline-validation.md)
 - [Database và migration](docs/database/README.md)
 - [Kết quả kiểm tra database](docs/database/validation.md)
 - [SRS v2.0](docs/Wolfari_SRS_v2.0_ChinhThuc.docx)
@@ -135,6 +138,7 @@ SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong rep
 - [x] Protobuf/event contract v1, mã sinh, validator và kiểm tra tương thích.
 - [x] Identity đợt 1: email auth, hồ sơ, phiên, avatar và gửi email local.
 - [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
+- [x] Planning timeline API039–044: đọc Plan, CRUD activity, reorder, completion và outbox PlanUpdated.
 - [ ] Đối chiếu đầy đủ với SRS v2.2.
 - [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.
 

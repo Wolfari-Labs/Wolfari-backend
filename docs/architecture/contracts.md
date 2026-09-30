@@ -4,13 +4,13 @@
 
 Contract mã nguồn được cụ thể hóa từ [DDL/API/Event Specification v1.0](../Wolfari_DDL_API_Event_Specification_v1.0.docx), đối chiếu [ERD v1.1](../Wolfari_ERD_Database_v1.1_ChinhThuc.docx) và năm V001 hiện có. SRS v2.2 được tài liệu nguồn nhắc đến nhưng chưa có trong repository; các quyết định biểu diễn dưới đây là baseline kỹ thuật, không được xem là nội dung bổ sung của SRS.
 
-Package contract chỉ chứa contract, type, validator, fixture và metadata topology; bản thân package không tự mở kết nối runtime. Identity đợt 1 và bốn RPC Trip core hiện đã dùng các contract này qua gRPC, còn phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
+Package contract chỉ chứa contract, type, validator, fixture và metadata topology; bản thân package không tự mở kết nối runtime. Identity đợt 1, bốn RPC Trip core và sáu RPC Planning timeline hiện đã dùng các contract này qua gRPC; các handler nghiệp vụ khác chưa được triển khai đầy đủ.
 
 ## Quyết định biểu diễn
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 23 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6 của DDL/API/Event v1.0 và bốn RPC Trip core API017/018/020/022    |
+| 29 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6 của DDL/API/Event v1.0, Trip core API017/018/020/022 và Planning API039–044 |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -24,13 +24,17 @@ Package contract chỉ chứa contract, type, validator, fixture và metadata to
 
 ## gRPC
 
-Phân bổ là Identity 3, Trip 11, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC.
+Phân bổ là Identity 3, Trip 17, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip` và `UpdateTrip` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
+Sáu RPC Planning dùng `Plan`, `PlanActivity`, `PlanLocation`, `PlanDressCode` và
+`PlanPackingItem` riêng với projection Travel. `TimestampPatch` giữ presence cho từng
+mốc giờ. Response ghi trả export_revision để client cập nhật metadata Trip tiếp theo.
+
 Loader chung dùng `keepCase=true`, `longs=String`, `defaults=false`, `arrays=false`, `objects=false`, `oneofs=true`. Cấu hình này giữ `snake_case`, không làm mất optional presence và khớp mã ts-proto sinh với `snakeToCamel=false`, `forceLong=string`, `useDate=false`.
 
-Metadata bắt buộc theo quy ước runtime (ba RPC Identity và bốn RPC Trip core hiện đã bật):
+Metadata bắt buộc theo quy ước runtime (ba RPC Identity, bốn RPC Trip core và sáu RPC Planning hiện đã bật):
 
 - `x-correlation-id`: UUID xuyên suốt request;
 - `x-caller-service`: tên caller khai báo, phải được lớp vận chuyển xác thực;
@@ -52,4 +56,4 @@ Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result 
 
 Buf kiểm tra breaking Protobuf ở mức `FILE`. Event v1 chỉ cho phép thêm field payload optional; xóa field/event, thêm required, đổi kiểu/required hoặc thu hẹp enum đều thất bại. Mã sinh được commit và `contracts:check` xác minh tái lập trong thư mục tạm.
 
-Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip core đã hiện thực bốn RPC qua Gateway với service secret riêng; bảy RPC Trip cũ vẫn chưa có handler nghiệp vụ. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md) và [Trip core](trip-core.md).
+Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip có bốn RPC core và sáu RPC Planning qua Gateway với service secret riêng; bảy RPC Trip cũ vẫn chưa có handler nghiệp vụ. PlanUpdated được ghi vào outbox PENDING; relay Trip chưa triển khai. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md), [Trip core](trip-core.md) và [Planning](planning-timeline.md).
