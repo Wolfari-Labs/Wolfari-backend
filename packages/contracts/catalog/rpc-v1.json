@@ -2,6 +2,78 @@
   {
     "package": "wolfari.identity.v1",
     "service": "IdentityService",
+    "method": "GetInvitationIdentity",
+    "callers": ["Trip"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "CreateInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ListInvitations",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "PreviewInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "AcceptInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "DeclineInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "RevokeInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ResendInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "AcknowledgeInvitationDelivery",
+    "callers": ["Automation"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.identity.v1",
+    "service": "IdentityService",
     "method": "ValidateSession",
     "callers": ["ApiGateway", "Trip", "Travel", "Finance", "Automation", "ExportWorker"],
     "deadline_ms": 2000,

@@ -2,7 +2,7 @@
 
 `@wolfari/contracts` là nguồn contract dùng trong mã nguồn, chưa tự mở kết nối gRPC, RabbitMQ hay database. Package hiện cung cấp:
 
-- 24 RPC trong bốn package `wolfari.<service>.v1`, sinh TypeScript bằng Buf và ts-proto;
+- 33 RPC trong bốn package `wolfari.<service>.v1`, sinh TypeScript bằng Buf và ts-proto;
 - 19 message JSON v1, type sinh từ JSON Schema và validator Ajv cho publish/consume;
 - catalog caller, deadline, producer, consumer và topology RabbitMQ;
 - helper UUIDv5 ổn định cho `ExportStarted`, `ExportCompleted`, `ExportFailed`.
@@ -23,6 +23,8 @@ corepack pnpm contracts:breaking --against origin/main
 
 - Import `@wolfari/contracts/grpc` để lấy `PROTO_PATHS`, `GRPC_LOADER_OPTIONS`, catalog RPC và namespace type sinh tự động.
 - Import `@wolfari/contracts/trip-client` để gọi `GetAccessContext` bằng caller Finance, Travel hoặc Automation với metadata chuẩn.
+- `TripInvitationClient` chỉ dành Automation: lấy delivery context theo version và ACK sau SENT. `Identity.GetInvitationIdentity` chỉ dành Trip. Không chuyển link/token sang event.
+- Queue invitations tách MemberInvited/MemberJoined khỏi general queue; 19 event/schema v1 vẫn giữ nguyên.
 - Import `@wolfari/contracts/events` để gọi `validateEventForPublish` trước publish hoặc `validateEventForConsume` trước xử lý.
 - Consumer chấp nhận field optional mới trong version 1; publisher dùng schema chặt. Event hoặc version không biết được phân loại bằng `ContractValidationError` để runtime sau này đưa vào DLQ.
 - `correlation_id` và các ID là UUID. Money/bigint giữ dạng chuỗi. Enum nghiệp vụ bắt buộc phải qua `assertSpecifiedEnum`, không dùng giá trị `UNSPECIFIED=0`.

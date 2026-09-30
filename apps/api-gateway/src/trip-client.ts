@@ -17,7 +17,7 @@ export class TripClient {
     this.client = new Client(target, credentials.createInsecure());
   }
 
-  private call<Request extends RpcMessage, Response extends RpcMessage>(
+  call<Request extends RpcMessage, Response extends RpcMessage>(
     methodName: string,
     request: Request,
     correlationId: string,

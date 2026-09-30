@@ -4,13 +4,13 @@
 
 Contract mã nguồn được cụ thể hóa từ [DDL/API/Event Specification v1.0](../Wolfari_DDL_API_Event_Specification_v1.0.docx), đối chiếu [ERD v1.1](../Wolfari_ERD_Database_v1.1_ChinhThuc.docx) và năm V001 hiện có. SRS v2.2 được tài liệu nguồn nhắc đến nhưng chưa có trong repository; các quyết định biểu diễn dưới đây là baseline kỹ thuật, không được xem là nội dung bổ sung của SRS.
 
-Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, bốn RPC Trip core, `GetAccessContext` và `UpdatePlanPolicy` hiện đã có handler; phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
+Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, Trip core, Plan access và [Trip invitations](trip-invitations.md) đã có handler tương ứng; phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
 
 ## Quyết định biểu diễn
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 24 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6, bốn RPC Trip core và API031                                      |
+| 33 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6, Trip core, API031 và vertical slice invitations đã chốt          |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -24,7 +24,7 @@ Package contract chứa contract, type, validator, fixture, metadata topology v�
 
 ## gRPC
 
-Phân bổ là Identity 3, Trip 12, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC.
+Phân bổ là Identity 4, Trip 20, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
@@ -46,7 +46,7 @@ Publisher phải qua schema chặt và kiểm tra bất biến producer, aggrega
 
 Consumer chấp nhận field optional bổ sung trong cùng version, nhưng vẫn từ chối thiếu field bắt buộc, sai kiểu, event lạ hoặc version lạ. Hai trường hợp lạ có mã lỗi riêng để runtime chuyển DLQ; package không tự thao tác queue.
 
-Topology metadata dùng exchange topic durable `wolfari.events.v1`, message persistent, mandatory và publisher confirm. Automation nhận 15 event, Export Worker nhận `GenerateExport`, Trip nhận ba kết quả export. Retry metadata là 10 giây, 30 giây, 2 phút, 5 phút và 15 phút.
+Topology metadata dùng exchange topic durable `wolfari.events.v1`, message persistent, mandatory và publisher confirm. Automation nhận 15 event: 2 event invitation ở queue riêng, 13 binding còn lại ở general queue. Export Worker nhận `GenerateExport`, Trip nhận ba kết quả export. Retry metadata là 10 giây, 30 giây, 2 phút, 5 phút và 15 phút.
 
 Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result trong cùng attempt. Trip không được loại terminal result chỉ vì cùng version với progress. `ExportFailed.retryable` cố định `false` trong catalog v1 hiện hành.
 

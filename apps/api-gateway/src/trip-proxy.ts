@@ -219,7 +219,12 @@ function domainFailure(
         : responseRecord(parsed.details);
     const revisions: Record<string, number> = {};
     if (details) {
-      for (const key of ['plan_version', 'membership_revision', 'export_revision'] as const) {
+      for (const key of [
+        'plan_version',
+        'membership_revision',
+        'export_revision',
+        'invitation_version',
+      ] as const) {
         const value = details[key];
         if (Number.isSafeInteger(value) && Number(value) >= 1) revisions[key] = Number(value);
       }
@@ -229,6 +234,26 @@ function domainFailure(
     return null;
   }
 }
+
+export {
+  RequestError,
+  uuid,
+  isLoopbackGrpcTarget,
+  record,
+  responseRecord,
+  onlyKeys,
+  requiredString,
+  requiredInteger,
+  timestampToIso,
+  projectMembership,
+  json,
+  fail,
+  grpcFailure,
+  parseTimestamp,
+  idempotencyKey,
+  requestBody,
+  ensureQuery,
+};
 
 function grpcFailure(response: ServerResponse, cause: unknown, write: boolean) {
   const error = cause as Partial<ServiceError>;

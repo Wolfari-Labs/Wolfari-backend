@@ -16,15 +16,15 @@ corepack pnpm db:test
 
 Status/migrate/inspect hỗ trợ `--service identity|trip|travel|finance|automation`; mặc định chạy lần lượt cả năm. Runner lấy credential riêng từ app .env, không cần psql, không in secret. db:test tạo môi trường PostgreSQL riêng và dọn volume thử khi kết thúc.
 
-| Database | Role | Tổng bảng gồm schema_migrations |
-| --- | --- | ---: |
-| identity_db | identity_app | 8 |
-| trip_db | trip_app | 18 |
-| travel_db | travel_app | 4 |
-| finance_db | finance_app | 17 |
-| automation_db | automation_app | 12 |
+| Database      | Role           | Tổng bảng gồm schema_migrations |
+| ------------- | -------------- | ------------------------------: |
+| identity_db   | identity_app   |                               8 |
+| trip_db       | trip_app       |                              18 |
+| travel_db     | travel_app     |                               4 |
+| finance_db    | finance_app    |                              17 |
+| automation_db | automation_app |                              12 |
 
-Có 54 bảng mô hình, 5 bảng lịch sử và 46 FK cùng database. Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
+Có 54 bảng mô hình, 5 bảng lịch sử và 47 FK cùng database sau Trip V002 (baseline V001 có 46 FK). Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
 
 ## Hợp đồng runner
 
@@ -36,6 +36,8 @@ Có 54 bảng mô hình, 5 bảng lịch sử và 46 FK cùng database. Mỗi ro
 - Checksum bảo vệ nguồn SQL, không chứng minh schema đang chạy chưa bị sửa thủ công. Dùng db:inspect để điều tra schema drift.
 
 ## Thêm migration
+
+Trip V002 thêm liên kết acceptance cùng Trip, unique EMAIL/PENDING chuẩn hóa và index expiry. Readiness Trip yêu cầu cả V001/V002. Runner đọc thêm [manifest forward](SHA256SUMS.forward.txt), từ chối ghi đè baseline hoặc trùng đường dẫn. Không sửa manifest baseline hoặc V001. ACCEPTED legacy thiếu liên kết và duplicate pending phải xử lý có chủ đích trước khi migrate; runner dừng, không tự backfill/xóa dữ liệu. Xem [invitations](../architecture/trip-invitations.md).
 
 Giữ V001 bất biến; thêm V002.sql, V003.sql ở service sở hữu. Mỗi file kiểm tra đúng DB, có BEGIN/COMMIT và INSERT schema_migrations cùng transaction. Thêm SHA-256 theo đường dẫn root vào manifest trong cùng thay đổi có review. .gitattributes giữ byte SQL khi checkout Windows/Linux. Lệnh cần chạy ngoài transaction phải dùng quy trình DBA riêng.
 

@@ -90,6 +90,7 @@ corepack pnpm db:inspect
 corepack pnpm db:test
 corepack pnpm identity:test
 corepack pnpm trip:test
+corepack pnpm trip:invitations:test
 
 # Contract
 corepack pnpm contracts:lint
@@ -106,6 +107,7 @@ corepack pnpm build
 `db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
 `trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.
+`trip:invitations:test` bổ sung RabbitMQ/Mailpit riêng để kiểm thử vòng đời lời mời, rejoin, rollback, race, email, retry và ACK. Trip cần migration V002; baseline V001 được giữ nguyên.
 
 ## Tài liệu
 
@@ -120,6 +122,10 @@ corepack pnpm build
 - [OpenAPI Trip core](docs/api/trip-core.openapi.yaml)
 - [Kết quả kiểm tra Trip core](docs/architecture/trip-core-validation.md)
 - [Trip Plan access control](docs/architecture/trip-plan-access-control.md)
+- [Trip invitations và email](docs/architecture/trip-invitations.md)
+- [OpenAPI invitations](docs/api/trip-invitations.openapi.json)
+- [Kiểm chứng invitations](docs/architecture/trip-invitations-validation.md)
+- [Bàn giao invitations](docs/architecture/trip-invitations-handoff.md)
 - [Bàn giao Plan access cho Planning](docs/architecture/trip-plan-access-control-handoff.md)
 - [Kết quả kiểm tra Trip Plan access](docs/architecture/trip-plan-access-control-validation.md)
 - [Database và migration](docs/database/README.md)
@@ -139,6 +145,7 @@ SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong rep
 - [x] Identity đợt 1: email auth, hồ sơ, phiên, avatar và gửi email local.
 - [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
 - [x] Trip Plan access: access context, ba policy và danh sách selected Plan Editor.
+- [x] Trip invitations local: EMAIL/LINK, accept/decline/revoke/resend, email qua outbox và SMTP; xem validation để phân biệt local/CI/production.
 - [ ] Đối chiếu đầy đủ với SRS v2.2.
 - [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.
 

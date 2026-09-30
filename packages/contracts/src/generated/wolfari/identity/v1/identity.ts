@@ -13,6 +13,19 @@ import { AccountStatus, EmailPurpose, SystemRole } from "../../common/v1/types";
 
 export const protobufPackage = "wolfari.identity.v1";
 
+export interface GetInvitationIdentityRequest {
+  user_id?: string | undefined;
+  email?: string | undefined;
+}
+
+export interface GetInvitationIdentityResponse {
+  found?: boolean | undefined;
+  user_id?: string | undefined;
+  normalized_email?: string | undefined;
+  status?: AccountStatus | undefined;
+  email_verified_at?: Timestamp | undefined;
+}
+
 export interface ValidateSessionRequest {
   access_token?: string | undefined;
 }
@@ -69,6 +82,11 @@ export const WOLFARI_IDENTITY_V1_PACKAGE_NAME = "wolfari.identity.v1";
 /** Source: DDL/API/Event v1.0 section 6. Authorization is enforced by the owner. */
 
 export interface IdentityServiceClient {
+  getInvitationIdentity(
+    request: GetInvitationIdentityRequest,
+    metadata?: Metadata,
+  ): Observable<GetInvitationIdentityResponse>;
+
   validateSession(request: ValidateSessionRequest, metadata?: Metadata): Observable<ValidateSessionResponse>;
 
   getProfiles(request: GetProfilesRequest, metadata?: Metadata): Observable<GetProfilesResponse>;
@@ -82,6 +100,11 @@ export interface IdentityServiceClient {
 /** Source: DDL/API/Event v1.0 section 6. Authorization is enforced by the owner. */
 
 export interface IdentityServiceController {
+  getInvitationIdentity(
+    request: GetInvitationIdentityRequest,
+    metadata?: Metadata,
+  ): Promise<GetInvitationIdentityResponse> | Observable<GetInvitationIdentityResponse> | GetInvitationIdentityResponse;
+
   validateSession(
     request: ValidateSessionRequest,
     metadata?: Metadata,
@@ -103,7 +126,12 @@ export interface IdentityServiceController {
 
 export function IdentityServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["validateSession", "getProfiles", "getAccountEmailDelivery"];
+    const grpcMethods: string[] = [
+      "getInvitationIdentity",
+      "validateSession",
+      "getProfiles",
+      "getAccountEmailDelivery",
+    ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("IdentityService", method)(constructor.prototype[method], method, descriptor);

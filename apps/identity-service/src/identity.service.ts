@@ -243,6 +243,19 @@ export class IdentityService {
     const { rows } = await this.db.query<User>('SELECT id,full_name FROM users WHERE id=ANY($1::uuid[]) AND status<>\'ANONYMIZED\'', [userIds]);
     return { profiles: rows.map(user => ({ id: user.id, display_name: user.full_name })) };
   }
+  async invitationIdentity(input: { user_id?: string; email?: string }) {
+    if ((input.user_id !== undefined) === (input.email !== undefined)) throw new IdentityError('VALIDATION_FAILED', 400);
+    if (input.user_id !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.user_id)) throw new IdentityError('VALIDATION_FAILED', 400);
+    const value = input.email === undefined ? input.user_id : normalizeEmail(input.email);
+    const { rows } = await this.db.query<User>(`SELECT id,email,status,email_verified_at FROM users WHERE ${input.email === undefined ? 'id=$1' : 'lower(btrim(email))=$1'}`, [value]);
+    const user = rows[0];
+    if (!user) return { found: false, user_id: '', normalized_email: '', status: 0 };
+    return {
+      found: true, user_id: user.id, normalized_email: user.email.trim().toLowerCase(),
+      status: user.status === 'ACTIVE' ? 1 : user.status === 'LOCKED' ? 2 : user.status === 'DELETION_PENDING' ? 3 : 4,
+      email_verified_at: user.email_verified_at ? { seconds: String(Math.floor(new Date(user.email_verified_at).getTime() / 1000)), nanos: 0 } : undefined,
+    };
+  }
 
   async emailDelivery(tokenId: unknown) {
     if (typeof tokenId !== 'string' || !uuid.test(tokenId)) return { valid: false };
