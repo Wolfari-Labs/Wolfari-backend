@@ -323,6 +323,191 @@ export interface PlanSnapshot {
   packing_items?: PackingItem[] | undefined;
 }
 
+export interface TimestampPatch {
+  value?: Timestamp | undefined;
+  clear?: boolean | undefined;
+}
+
+export interface PlanPermissions {
+  can_read?: boolean | undefined;
+  can_edit?: boolean | undefined;
+  can_complete?: boolean | undefined;
+}
+
+export interface PlanActivity {
+  id?: string | undefined;
+  trip_id?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
+  public_description?: string | undefined;
+  activity_type?: string | undefined;
+  selected_location_id?: string | undefined;
+  starts_at?: Timestamp | undefined;
+  ends_at?: Timestamp | undefined;
+  position?: number | undefined;
+  status?: ActivityStatus | undefined;
+  source?: EntitySource | undefined;
+  completed_by_user_id?: string | undefined;
+  completed_at?: Timestamp | undefined;
+  created_by_user_id?: string | undefined;
+  plan_version?: number | undefined;
+}
+
+export interface PlanLocation {
+  id?: string | undefined;
+  trip_id?: string | undefined;
+  name?: string | undefined;
+  address?: string | undefined;
+  latitude?:
+    | string
+    | undefined;
+  /** chuỗi thập phân chính xác */
+  longitude?: string | undefined;
+  provider?: string | undefined;
+  provider_place_id?: string | undefined;
+  source?: EntitySource | undefined;
+  opening_hours_json?: string | undefined;
+  fetched_at?: Timestamp | undefined;
+  metadata_json?: string | undefined;
+  plan_version?: number | undefined;
+}
+
+export interface PlanDressCode {
+  id?: string | undefined;
+  trip_id?: string | undefined;
+  scope_type?: DressScope | undefined;
+  plan_date?: string | undefined;
+  activity_id?: string | undefined;
+  label?: string | undefined;
+  description?: string | undefined;
+  public_description?: string | undefined;
+  source?: EntitySource | undefined;
+  plan_version?: number | undefined;
+}
+
+export interface PlanPackingItem {
+  id?: string | undefined;
+  trip_id?: string | undefined;
+  name?: string | undefined;
+  quantity?: string | undefined;
+  unit?: string | undefined;
+  note?: string | undefined;
+  category?: string | undefined;
+  assigned_member_id?: string | undefined;
+  due_at?: Timestamp | undefined;
+  status?: ActivityStatus | undefined;
+  source?: EntitySource | undefined;
+  completed_by_user_id?: string | undefined;
+  completed_at?: Timestamp | undefined;
+  plan_version?: number | undefined;
+}
+
+export interface Plan {
+  trip_id?: string | undefined;
+  plan_version?: number | undefined;
+  export_revision?: number | undefined;
+  activities?: PlanActivity[] | undefined;
+  selected_locations?: PlanLocation[] | undefined;
+  dress_codes?: PlanDressCode[] | undefined;
+  packing_items?: PlanPackingItem[] | undefined;
+  permissions?: PlanPermissions | undefined;
+}
+
+export interface PlanVersion {
+  trip_id?: string | undefined;
+  plan_version?: number | undefined;
+  export_revision?: number | undefined;
+}
+
+export interface GetPlanRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+}
+
+export interface GetPlanResponse {
+  plan?: Plan | undefined;
+}
+
+export interface CreateActivityRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  title?: string | undefined;
+  activity_type?: string | undefined;
+  description?: string | undefined;
+  public_description?: string | undefined;
+  selected_location_id?: string | undefined;
+  starts_at?: Timestamp | undefined;
+  ends_at?: Timestamp | undefined;
+  position?: number | undefined;
+}
+
+export interface CreateActivityResponse {
+  activity?: PlanActivity | undefined;
+  export_revision?: number | undefined;
+}
+
+export interface UpdateActivityRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  activity_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  title?: string | undefined;
+  activity_type?: string | undefined;
+  description?: StringPatch | undefined;
+  public_description?: StringPatch | undefined;
+  selected_location_id?: StringPatch | undefined;
+  starts_at?: TimestampPatch | undefined;
+  ends_at?: TimestampPatch | undefined;
+  position?: number | undefined;
+}
+
+export interface UpdateActivityResponse {
+  activity?: PlanActivity | undefined;
+  export_revision?: number | undefined;
+}
+
+export interface DeleteActivityRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  activity_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  confirmed?: boolean | undefined;
+}
+
+export interface DeleteActivityResponse {
+  version?: PlanVersion | undefined;
+}
+
+export interface ReorderActivitiesRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  activity_ids?: string[] | undefined;
+}
+
+export interface ReorderActivitiesResponse {
+  version?: PlanVersion | undefined;
+}
+
+export interface SetActivityCompletionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  activity_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  status?: ActivityStatus | undefined;
+}
+
+export interface SetActivityCompletionResponse {
+  activity?: PlanActivity | undefined;
+  export_revision?: number | undefined;
+}
+
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
@@ -361,6 +546,21 @@ export interface TripServiceClient {
     request: GetExportWorkerContextRequest,
     metadata?: Metadata,
   ): Observable<GetExportWorkerContextResponse>;
+
+  getPlan(request: GetPlanRequest, metadata?: Metadata): Observable<GetPlanResponse>;
+
+  createActivity(request: CreateActivityRequest, metadata?: Metadata): Observable<CreateActivityResponse>;
+
+  updateActivity(request: UpdateActivityRequest, metadata?: Metadata): Observable<UpdateActivityResponse>;
+
+  deleteActivity(request: DeleteActivityRequest, metadata?: Metadata): Observable<DeleteActivityResponse>;
+
+  reorderActivities(request: ReorderActivitiesRequest, metadata?: Metadata): Observable<ReorderActivitiesResponse>;
+
+  setActivityCompletion(
+    request: SetActivityCompletionRequest,
+    metadata?: Metadata,
+  ): Observable<SetActivityCompletionResponse>;
 }
 
 export interface TripServiceController {
@@ -426,6 +626,36 @@ export interface TripServiceController {
     | Promise<GetExportWorkerContextResponse>
     | Observable<GetExportWorkerContextResponse>
     | GetExportWorkerContextResponse;
+
+  getPlan(
+    request: GetPlanRequest,
+    metadata?: Metadata,
+  ): Promise<GetPlanResponse> | Observable<GetPlanResponse> | GetPlanResponse;
+
+  createActivity(
+    request: CreateActivityRequest,
+    metadata?: Metadata,
+  ): Promise<CreateActivityResponse> | Observable<CreateActivityResponse> | CreateActivityResponse;
+
+  updateActivity(
+    request: UpdateActivityRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateActivityResponse> | Observable<UpdateActivityResponse> | UpdateActivityResponse;
+
+  deleteActivity(
+    request: DeleteActivityRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteActivityResponse> | Observable<DeleteActivityResponse> | DeleteActivityResponse;
+
+  reorderActivities(
+    request: ReorderActivitiesRequest,
+    metadata?: Metadata,
+  ): Promise<ReorderActivitiesResponse> | Observable<ReorderActivitiesResponse> | ReorderActivitiesResponse;
+
+  setActivityCompletion(
+    request: SetActivityCompletionRequest,
+    metadata?: Metadata,
+  ): Promise<SetActivityCompletionResponse> | Observable<SetActivityCompletionResponse> | SetActivityCompletionResponse;
 }
 
 export function TripServiceControllerMethods() {
@@ -443,6 +673,12 @@ export function TripServiceControllerMethods() {
       "getAutomationContext",
       "getInvitationDelivery",
       "getExportWorkerContext",
+      "getPlan",
+      "createActivity",
+      "updateActivity",
+      "deleteActivity",
+      "reorderActivities",
+      "setActivityCompletion",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

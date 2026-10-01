@@ -1,0 +1,921 @@
+openapi: 3.1.0
+info:
+  title: Wolfari Planning Timeline API
+  version: 1.0.0
+  description: >-
+    API039-044. Active membership is required. Structural writes require a Plan Editor; completion
+    can be marked by any active member and reopened by its author, Owner or Editor. Writes use the
+    shared Plan version. Archived Trips are read-only. Idempotent retries return the stored outcome;
+    no-op writes do not advance revisions.
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+    description: Local development
+security:
+  - bearer: []
+tags:
+  - name: Planning
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    idempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Retry the same write using the same key and body.
+  schemas:
+    PlanVersion:
+      type: object
+      additionalProperties: false
+      required:
+        - trip_id
+        - plan_version
+        - export_revision
+      properties:
+        trip_id:
+          type: string
+          format: uuid
+        plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        export_revision:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    Activity:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - trip_id
+        - title
+        - activity_type
+        - description
+        - public_description
+        - selected_location_id
+        - starts_at
+        - ends_at
+        - position
+        - status
+        - source
+        - completed_by_user_id
+        - completed_at
+        - created_by_user_id
+        - plan_version
+      properties:
+        id:
+          type: string
+          format: uuid
+        trip_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        activity_type:
+          type: string
+          minLength: 1
+          maxLength: 40
+        description:
+          type:
+            - string
+            - 'null'
+        public_description:
+          type:
+            - string
+            - 'null'
+        selected_location_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        starts_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        ends_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        position:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        status:
+          type: string
+          enum:
+            - TODO
+            - COMPLETED
+        source:
+          type: string
+          enum:
+            - MANUAL
+            - DSS
+        completed_by_user_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        completed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        created_by_user_id:
+          type: string
+          format: uuid
+        plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    Location:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - trip_id
+        - name
+        - address
+        - latitude
+        - longitude
+        - provider
+        - provider_place_id
+        - source
+        - opening_hours
+        - fetched_at
+        - metadata
+        - plan_version
+      properties:
+        id:
+          type: string
+          format: uuid
+        trip_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type:
+            - string
+            - 'null'
+        latitude:
+          type:
+            - string
+            - 'null'
+        longitude:
+          type:
+            - string
+            - 'null'
+        provider:
+          type:
+            - string
+            - 'null'
+        provider_place_id:
+          type:
+            - string
+            - 'null'
+        source:
+          type: string
+          enum:
+            - MANUAL
+            - PROVIDER
+        opening_hours: {}
+        fetched_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: false
+          required: []
+          properties: {}
+        plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    DressCode:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - trip_id
+        - scope_type
+        - plan_date
+        - activity_id
+        - label
+        - description
+        - public_description
+        - source
+        - plan_version
+      properties:
+        id:
+          type: string
+          format: uuid
+        trip_id:
+          type: string
+          format: uuid
+        scope_type:
+          type: string
+          enum:
+            - TRIP
+            - DAY
+            - ACTIVITY
+        plan_date:
+          type:
+            - string
+            - 'null'
+          format: date
+        activity_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        label:
+          type: string
+        description:
+          type:
+            - string
+            - 'null'
+        public_description:
+          type:
+            - string
+            - 'null'
+        source:
+          type: string
+          enum:
+            - MANUAL
+            - DSS
+        plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    PackingItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - trip_id
+        - name
+        - quantity
+        - unit
+        - note
+        - category
+        - assigned_member_id
+        - due_at
+        - status
+        - source
+        - completed_by_user_id
+        - completed_at
+        - plan_version
+      properties:
+        id:
+          type: string
+          format: uuid
+        trip_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        quantity:
+          type: string
+          description: Exact decimal string, for example 2.50.
+        unit:
+          type:
+            - string
+            - 'null'
+        note:
+          type:
+            - string
+            - 'null'
+        category:
+          type:
+            - string
+            - 'null'
+        assigned_member_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        due_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        status:
+          type: string
+          enum:
+            - TODO
+            - COMPLETED
+        source:
+          type: string
+          enum:
+            - MANUAL
+            - DSS
+        completed_by_user_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        completed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    Permissions:
+      type: object
+      additionalProperties: false
+      required:
+        - can_read
+        - can_edit
+        - can_complete
+      properties:
+        can_read:
+          type: boolean
+        can_edit:
+          type: boolean
+        can_complete:
+          type: boolean
+    Plan:
+      type: object
+      additionalProperties: false
+      required:
+        - trip_id
+        - plan_version
+        - export_revision
+        - activities
+        - selected_locations
+        - dress_codes
+        - packing_items
+        - permissions
+      properties:
+        trip_id:
+          type: string
+          format: uuid
+        plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        export_revision:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Activity'
+        selected_locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        dress_codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DressCode'
+        packing_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackingItem'
+        permissions:
+          $ref: '#/components/schemas/Permissions'
+    CreateActivity:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_plan_version
+        - title
+        - activity_type
+        - position
+      properties:
+        expected_plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        activity_type:
+          type: string
+          minLength: 1
+          maxLength: 40
+        description:
+          type:
+            - string
+            - 'null'
+        public_description:
+          type:
+            - string
+            - 'null'
+        selected_location_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        starts_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        ends_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        position:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+    UpdateActivity:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_plan_version
+      properties:
+        expected_plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        activity_type:
+          type: string
+          minLength: 1
+          maxLength: 40
+        description:
+          type:
+            - string
+            - 'null'
+        public_description:
+          type:
+            - string
+            - 'null'
+        selected_location_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        starts_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        ends_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        position:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+      minProperties: 2
+      description: >-
+        Omitted fields stay unchanged; null clears nullable fields. Time bounds are checked after
+        merging with the existing activity.
+    DeleteActivity:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_plan_version
+        - confirmed
+      properties:
+        expected_plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        confirmed:
+          type: boolean
+          const: true
+    ReorderActivities:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_plan_version
+        - activity_ids
+      properties:
+        expected_plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        activity_ids:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+          description: >-
+            A complete permutation of all activity IDs. Empty is valid only for an empty Plan. Does
+            not change activity times.
+    SetActivityCompletion:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_plan_version
+        - status
+      properties:
+        expected_plan_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        status:
+          type: string
+          enum:
+            - TODO
+            - COMPLETED
+    Meta:
+      type: object
+      additionalProperties: false
+      required:
+        - correlation_id
+        - export_revision
+      properties:
+        correlation_id:
+          type: string
+          format: uuid
+        export_revision:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+        - meta
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+            - details
+            - retryable
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_FAILED
+                - UNAUTHENTICATED
+                - PERMISSION_DENIED
+                - RESOURCE_NOT_FOUND
+                - VERSION_CONFLICT
+                - IDEMPOTENCY_CONFLICT
+                - STATE_CONFLICT
+                - SERVICE_UNAVAILABLE
+            message:
+              type: string
+            details:
+              oneOf:
+                - type: 'null'
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - plan_version
+                    - export_revision
+                  properties:
+                    plan_version:
+                      type: integer
+                      minimum: 1
+                      maximum: 2147483647
+                    export_revision:
+                      type: integer
+                      minimum: 1
+                      maximum: 2147483647
+            retryable:
+              type: boolean
+        meta:
+          type: object
+          additionalProperties: false
+          required:
+            - correlation_id
+          properties:
+            correlation_id:
+              type:
+                - string
+                - 'null'
+              format: uuid
+    PlanResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/Plan'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ActivityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/Activity'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PlanVersionResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/PlanVersion'
+        meta:
+          $ref: '#/components/schemas/Meta'
+  responses:
+    Error400:
+      description: Invalid fields, time bounds, location, order or confirmation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error401:
+      description: Missing or invalid session.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error403:
+      description: Insufficient Plan permissions.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error404:
+      description: Trip/activity unavailable to this member, or unsupported route.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error409:
+      description: Version, idempotency or archived-state conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error503:
+      description: Dependency unavailable. Retry writes with the same idempotency key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+paths:
+  /trips/{trip_id}/plan:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getPlan
+      summary: Read all four Plan groups in one snapshot
+      tags:
+        - Planning
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /trips/{trip_id}/activities:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createActivity
+      summary: Create an activity at position 0 through n
+      tags:
+        - Planning
+      parameters:
+        - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivity'
+      responses:
+        '201':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /trips/{trip_id}/activities/{id}:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateActivity
+      summary: Patch activity structure; position is 0 through n-1
+      tags:
+        - Planning
+      parameters:
+        - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActivity'
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '503':
+          $ref: '#/components/responses/Error503'
+    delete:
+      operationId: deleteActivity
+      summary: Delete activity and its ACTIVITY-scoped dress codes using a confirmed JSON body
+      tags:
+        - Planning
+      parameters:
+        - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteActivity'
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanVersionResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /trips/{trip_id}/activities/order:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: reorderActivities
+      summary: Reorder all activities without changing times
+      tags:
+        - Planning
+      parameters:
+        - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderActivities'
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanVersionResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /trips/{trip_id}/activities/{id}/completion:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: setActivityCompletion
+      summary: Mark complete or reopen an activity
+      tags:
+        - Planning
+      parameters:
+        - $ref: '#/components/parameters/idempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetActivityCompletion'
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '503':
+          $ref: '#/components/responses/Error503'

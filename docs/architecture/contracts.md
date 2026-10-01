@@ -4,31 +4,35 @@
 
 Contract mã nguồn được cụ thể hóa từ [DDL/API/Event Specification v1.0](../Wolfari_DDL_API_Event_Specification_v1.0.docx), đối chiếu [ERD v1.1](../Wolfari_ERD_Database_v1.1_ChinhThuc.docx) và năm V001 hiện có. SRS v2.2 được tài liệu nguồn nhắc đến nhưng chưa có trong repository; các quyết định biểu diễn dưới đây là baseline kỹ thuật, không được xem là nội dung bổ sung của SRS.
 
-Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, bốn RPC Trip core, `GetAccessContext` và `UpdatePlanPolicy` hiện đã có handler; phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
+Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, bốn RPC Trip core, sáu RPC Planning timeline, `GetAccessContext` và `UpdatePlanPolicy` hiện đã có handler; các handler nghiệp vụ khác chưa được triển khai đầy đủ.
 
 ## Quyết định biểu diễn
 
-| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
-| ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 24 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6, bốn RPC Trip core và API031                                      |
-| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
-| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
-| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
-| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                     |
-| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định |
-| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.0                                            |
-| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                               |
-| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                              |
-| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                              |
-| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                             |
+| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                                  |
+| ------------------------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| 30 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6 của DDL/API/Event v1.0, Trip core API017/018/020/022 và Planning API039–044 |
+| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                              |
+| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                             |
+| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                              |
+| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                               |
+| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định           |
+| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.0                                                      |
+| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                                         |
+| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                                        |
+| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                                        |
+| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                                       |
 
 ## gRPC
 
-Phân bổ là Identity 3, Trip 12, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC.
+Phân bổ là Identity 3, Trip 18, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
 `GetAccessContext` trả membership, policy, trạng thái Trip, ba revision và các cờ quyền whitelist. RPC này chỉ cho Finance, Travel và Automation. API Gateway dùng `UpdatePlanPolicy`; không có REST route công khai cho access context.
+
+Sáu RPC Planning dùng `Plan`, `PlanActivity`, `PlanLocation`, `PlanDressCode` và
+`PlanPackingItem` riêng với projection Travel. `TimestampPatch` giữ presence cho từng
+mốc giờ. Response ghi trả export_revision để client cập nhật metadata Trip tiếp theo.
 
 Loader chung dùng `keepCase=true`, `longs=String`, `defaults=false`, `arrays=false`, `objects=false`, `oneofs=true`. Cấu hình này giữ `snake_case`, không làm mất optional presence và khớp mã ts-proto sinh với `snakeToCamel=false`, `forceLong=string`, `useDate=false`.
 
@@ -54,4 +58,4 @@ Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result 
 
 Buf kiểm tra breaking Protobuf ở mức `FILE`. Event v1 chỉ cho phép thêm field payload optional; xóa field/event, thêm required, đổi kiểu/required hoặc thu hẹp enum đều thất bại. Mã sinh được commit và `contracts:check` xác minh tái lập trong thư mục tạm.
 
-Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip đã hiện thực sáu RPC: bốn RPC core, `GetAccessContext` và `UpdatePlanPolicy`; sáu RPC Trip khác vẫn chưa có handler nghiệp vụ. Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md), [Trip core](trip-core.md) và [Trip Plan access](trip-plan-access-control.md).
+Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip đã hiện thực 12 RPC: bốn RPC core, sáu RPC Planning, `GetAccessContext` và `UpdatePlanPolicy`; sáu RPC Trip khác vẫn chưa có handler nghiệp vụ. Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog. PlanUpdated được ghi vào outbox PENDING; relay Trip chưa triển khai. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md), [Trip core](trip-core.md), [Planning](planning-timeline.md) và [Trip Plan access](trip-plan-access-control.md).

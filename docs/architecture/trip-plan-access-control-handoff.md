@@ -2,7 +2,7 @@
 
 ## Nội dung dùng được ngay
 
-Planning có thể dùng `Trip.GetAccessContext` để lấy projection quyền hiện hành và dùng `TripAccessService.getContextForUpdate` trong Trip Workspace khi triển khai mutation Plan. Contract và helper đã tách khỏi `trip.service.ts`; membership fixture có thể được tạo trực tiếp trong integration test cho tới khi Invitation và membership lifecycle được triển khai.
+Planning timeline API039–044 đã có trong branch đã merge. Gateway đọc quyền hiển thị từ `GET /api/v1/trips/{tripId}/plan`; các caller Finance, Travel và Automation dùng `Trip.GetAccessContext` để lấy projection quyền hiện hành. `PlanService` kiểm tra lại quyền trong transaction bằng cách khóa Trip trước, rồi đọc membership/policy/editor với snapshot mới. `TripAccessService.getContextForUpdate` cung cấp cùng quy tắc cho các mutation Plan tiếp theo. Membership fixture có thể được tạo trực tiếp trong integration test cho tới khi Invitation và membership lifecycle được triển khai.
 
 ### Đọc access context
 
@@ -70,7 +70,7 @@ Grant và revoke đều dùng API này. `SELECTED_MEMBERS` thay toàn bộ danh 
 `GetAccessContext` là projection tại thời điểm đọc, không phải capability token. Mỗi mutation Planning phải:
 
 1. Mở transaction Trip `READ COMMITTED`, truyền đúng client của transaction cho helper.
-2. Dùng `getContextForUpdate` để khóa Trip và membership, sau đó đọc quyền bằng câu SQL riêng với snapshot mới. Nếu `can_edit_plan=false`, từ chối mutation bằng `PERMISSION_DENIED`.
+2. Khóa Trip và membership, sau đó đọc quyền bằng câu SQL riêng với snapshot mới, như `PlanService` hoặc `getContextForUpdate`. Mutation cấu trúc yêu cầu quyền editor; completion có quy tắc riêng theo [Planning timeline](planning-timeline.md). Trip archived từ chối lệnh ghi mới; mã lỗi còn phụ thuộc thứ tự kiểm tra quyền và trạng thái trong `PlanService`.
 3. Kiểm tra `expected_plan_version` trong cùng transaction.
 4. Ghi Plan, history/audit và outbox cần thiết; tăng `plan_version` và `export_revision` đúng một lần.
 5. Commit trước khi gọi Travel, broker hoặc provider.
@@ -85,12 +85,12 @@ Replay API policy trả kết quả gốc của idempotency key, không phải p
 
 ## Phần vẫn chờ
 
-Tân có thể bắt đầu Activity/Location/Packing/DSS Apply dựa trên helper quyền và `plan_version`. Các phần sau chưa có trong branch này:
+Activity CRUD, reorder và completion đã có; selected locations, dress codes và packing items hiện chỉ đọc. Các phần sau vẫn chưa có:
 
 - Invitation và accept tạo membership production;
 - danh sách thành viên và membership lifecycle endpoint;
 - Owner transfer, leave/remove member và cleanup packing khi rời;
-- Planning CRUD, recommendation Apply và event runtime;
+- Location/Dress code/Packing mutation, recommendation Apply và relay outbox PlanUpdated;
 - TLS hoặc mTLS production cho RPC nội bộ.
 
 Fixture SQL chỉ dùng trong test. Không thêm endpoint production để tạo membership hoặc gây lỗi audit/receipt.

@@ -105,7 +105,7 @@ corepack pnpm build
 
 `db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
-`trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.
+`trip:test` tạo project riêng để kiểm thử Trip core, Planning timeline và Plan access qua Gateway/gRPC: transaction, idempotency, optimistic concurrency, access context, policy/editor, completion, reorder, audit/outbox và rollback.
 
 ## Tài liệu
 
@@ -119,6 +119,9 @@ corepack pnpm build
 - [Trip core và phân quyền](docs/architecture/trip-core.md)
 - [OpenAPI Trip core](docs/api/trip-core.openapi.yaml)
 - [Kết quả kiểm tra Trip core](docs/architecture/trip-core-validation.md)
+- [Planning timeline và transaction](docs/architecture/planning-timeline.md)
+- [OpenAPI Planning](docs/api/planning.openapi.yaml)
+- [Kết quả kiểm tra Planning](docs/architecture/planning-timeline-validation.md)
 - [Trip Plan access control](docs/architecture/trip-plan-access-control.md)
 - [Bàn giao Plan access cho Planning](docs/architecture/trip-plan-access-control-handoff.md)
 - [Kết quả kiểm tra Trip Plan access](docs/architecture/trip-plan-access-control-validation.md)
@@ -138,6 +141,7 @@ SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong rep
 - [x] Protobuf/event contract v1, mã sinh, validator và kiểm tra tương thích.
 - [x] Identity đợt 1: email auth, hồ sơ, phiên, avatar và gửi email local.
 - [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
+- [x] Planning timeline API039–044: đọc Plan, CRUD activity, reorder, completion và outbox PlanUpdated.
 - [x] Trip Plan access: access context, ba policy và danh sách selected Plan Editor.
 - [ ] Đối chiếu đầy đủ với SRS v2.2.
 - [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.

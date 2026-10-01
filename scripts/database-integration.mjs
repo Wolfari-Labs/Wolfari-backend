@@ -190,6 +190,7 @@ async function main() {
   assert.equal(fks, 46); pass('54 bảng mô hình + 5 lịch sử, 46 FK');
   for (const service of ['identity', 'trip', 'finance']) await db(service, async client => {
     await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
+    if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
   });
   pass('3 fixture constraint hiện có (ROLLBACK)');
   stage = 'finance-fund-repository';

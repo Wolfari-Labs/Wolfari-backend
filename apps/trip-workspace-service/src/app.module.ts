@@ -1,3 +1,5 @@
+import { PlanService } from './planning/plan.service';
+import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
@@ -12,6 +14,6 @@ import { TripService } from './trip.service';
     DatabaseModule.forService('trip'),
   ],
   controllers: [TripGrpcController],
-  providers: [TripService, TripAccessService, TripPlanAccessService],
+  providers: [TripService, PlanService, PlanGrpcHandlers, TripAccessService, TripPlanAccessService],
 })
 export class AppModule {}
