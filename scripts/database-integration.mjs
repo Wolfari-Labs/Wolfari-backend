@@ -13,6 +13,7 @@ import { migrate, migrationFiles, connectDatabase, history, safeError } from './
 import { checkFundRepository } from '../apps/finance-service/tests/database/fund-repository.integration.mjs';
 import { checkLedgerRepository } from '../apps/finance-service/tests/database/ledger-repository.integration.mjs';
 import { checkContributionRepository } from '../apps/finance-service/tests/database/contribution-repository.integration.mjs';
+import { checkPaymentDestinationRepository } from '../apps/finance-service/tests/database/payment-destination-repository.integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -197,6 +198,9 @@ async function main() {
   stage = 'finance-contribution-repository';
   await db('finance', checkContributionRepository);
   pass('Finance ContributionRepository: đúng Fund/Request, bigint, lịch sử và rollback');
+  stage = 'finance-payment-destination-repository';
+  await db('finance', checkPaymentDestinationRepository);
+  pass('Finance PaymentDestinationRepository: đúng Fund/IDs, cấu hình và rollback');
   stage = 'database-isolation';
   for (const source of services) for (const target of services.filter(s => s !== source)) {
     const url = new URL(databaseUrl(env, source)); url.pathname = `/${target}_db`;

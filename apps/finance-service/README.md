@@ -118,6 +118,32 @@ nhất quán hoặc làm căn cứ ghi tiền. Chưa mở route/API và chưa th
 Unit test và DB integration kiểm cursor/limit, số lớn, thứ tự cùng timestamp,
 liên kết reversal, cách ly Fund và append giữa hai trang. Fixture DB được rollback.
 
+## Đọc cấu hình đích nhận tiền cho đóng góp
+
+`PaymentDestinationRepository.findByIds({ fundId, destinationIds })` dùng DB chung,
+đã đăng ký trong AppModule. Một query chỉ lấy các ID được yêu cầu trong đúng Fund,
+sắp theo ID; ID trùng chỉ trả một record. Danh sách rỗng không query; ID không có
+hoặc khác Fund bị bỏ khỏi kết quả, không thay bằng đích mặc định hay đích khác.
+Caller phải đối chiếu mọi allocation với kết quả, không tự bỏ người có đích thiếu.
+
+Record nội bộ giữ cấu hình VIETQR/MOMO_SANDBOX, các chuỗi tài khoản/điện thoại
+(kể cả số 0 đầu), field nullable, version, cờ active/default và timestamp `Date`.
+Reader trả cả đích inactive/chưa xác nhận để domain quyết định đủ điều kiện.
+Khi lập `ContributionDestination` cho validation, đổi `confirmedByHolderAt` qua
+`?.toISOString() ?? null`. Reader không tự cấp quyền hoặc khẳng định Fund OPEN.
+
+Đây là cấu hình hiện tại có thông tin thanh toán riêng: không log hoặc serialize
+thẳng thành API response. Caller phải kiểm UUID/quyền/phạm vi Trip. Reader không
+giữ lock, không tạo context an toàn cho ghi tiền; luồng tạo request vẫn phải đọc
+lại cấu hình dưới lock và lưu snapshot/version cùng contributions trong transaction.
+Khoản đã phát hành phải dùng `destination_snapshot` đã lưu, không đọc cấu hình
+hiện tại này để thay hướng dẫn thanh toán cũ. Chưa có API quản lý đích hoặc tạo QR.
+
+Unit test và DB integration kiểm scope Fund/IDs, selected subset/ID trùng,
+nullable và hai loại đích, inactive/chưa xác nhận, thay cấu hình/version,
+đọc quỹ CLOSED và ghép validation allocations. Fixture chỉ dùng dữ liệu giả trong
+PostgreSQL thử riêng và rollback; không seed tài khoản vào DB phát triển.
+
 ## Kiểm tra tạo đợt đóng góp
 
 `assertCanCreateContributionRequest` trong `src/domain/contribution-request-creation.ts`
@@ -164,6 +190,25 @@ Parser không truy cập DB và không xác minh quyền. Adapter tương lai v�
 Fund ID từ path, identity/header idempotency, rồi gọi domain bằng context tin cậy.
 Unit test có kiểm ghép parser → domain: JSON hợp lệ vẫn bị từ chối nếu sai Owner,
 mất membership hoặc đích nhận không hợp lệ. Chưa có route API078 hoặc transaction tạo request.
+
+## Chuẩn bị dữ liệu tạo request
+
+`prepareContributionRequest` trong `src/application/prepare-contribution-request.ts`
+ghép command đã parse, context Trip/Fund tin cậy và records đích nhận. Hàm gọi lại
+domain tạo request, ghép theo destination ID trong đúng Fund, giữ thứ tự từng
+allocation và số tiền bigint. Đích thiếu/sai Fund/inactive/chưa xác nhận bị từ chối
+cho cả lệnh; không bỏ allocation hoặc dùng đích mặc định thay thế.
+
+Kiểm version và chi tiết bắt buộc VIETQR/MOMO_SANDBOX trước khi trả dữ liệu. Kết quả
+sao chép từng cấu hình và Date để thay đổi input hoặc một allocation không làm đổi
+allocation khác. Dữ liệu vẫn là đối tượng nội bộ có thông tin thanh toán riêng,
+không log/serialize thành response và không coi TypeScript readonly là khóa runtime.
+
+Đây chưa phải schema JSON cho `destination_snapshot`: tài liệu hiện chỉ định cột
+jsonb và yêu cầu giữ snapshot, chưa mô tả cấu trúc field/version bên trong. Cần đối
+chiếu/thống nhất cấu trúc đó trước khi thêm writer. Hàm không sinh ID, không ghi DB,
+không lấy Trip guard hoặc xử lý replay; luồng ghi tương lai phải truyền dữ liệu vừa
+đọc dưới lock và lưu request/contributions/snapshot/receipt/outbox nguyên tử.
 
 ## Quy tắc đóng góp thủ công
 
