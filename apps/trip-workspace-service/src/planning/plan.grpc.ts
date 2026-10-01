@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Metadata } from '@grpc/grpc-js';
 import { TripV1 } from '@wolfari/contracts/grpc';
 import {
-  authorizeGatewayCall,
+  authorizeTripCall,
   executeTripCall,
   patchValue,
   protobufTimestamp,
@@ -123,7 +123,7 @@ export class PlanGrpcHandlers {
     metadata: Metadata | undefined,
     work: (id: string) => Promise<T>,
   ): Promise<T> {
-    const id = authorizeGatewayCall(this.config, method, metadata);
+    const id = authorizeTripCall(this.config, method, metadata);
     return executeTripCall(() => work(id));
   }
   getPlan(request: TripV1.GetPlanRequest, metadata?: Metadata): Promise<TripV1.GetPlanResponse> {

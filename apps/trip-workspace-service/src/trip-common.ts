@@ -1,5 +1,8 @@
 import { DatabaseProvider } from '@wolfari/database';
 import { createHash } from 'node:crypto';
+import { fail } from './trip.errors';
+
+export { fail, TripError } from './trip.errors';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const RFC3339 =
@@ -17,30 +20,6 @@ export type OperationRow = {
 };
 
 export type QueryClient = Parameters<Parameters<DatabaseProvider['withTransaction']>[0]>[0];
-
-export class TripError extends Error {
-  constructor(
-    public readonly code:
-      | 'VALIDATION_FAILED'
-      | 'RESOURCE_NOT_FOUND'
-      | 'PERMISSION_DENIED'
-      | 'VERSION_CONFLICT'
-      | 'STATE_CONFLICT'
-      | 'IDEMPOTENCY_CONFLICT',
-    public readonly status: number,
-    public readonly details: { plan_version: number; export_revision: number } | null = null,
-  ) {
-    super(code);
-  }
-}
-
-export const fail = (
-  code: TripError['code'],
-  status: number,
-  details: TripError['details'] = null,
-): never => {
-  throw new TripError(code, status, details);
-};
 
 export function uuid(value: unknown): string {
   if (typeof value !== 'string' || !UUID.test(value)) return fail('VALIDATION_FAILED', 400);

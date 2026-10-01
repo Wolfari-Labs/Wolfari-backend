@@ -8,8 +8,14 @@ void bootstrapApp(AppModule, 'trip-workspace-service', async (app) => {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Trip internal gRPC requires TLS in production');
   }
-  const secret = process.env.GATEWAY_TRIP_SECRET;
-  if (!secret || secret.length < 32) throw new Error('GATEWAY_TRIP_SECRET missing');
+  for (const key of [
+    'GATEWAY_TRIP_SECRET',
+    'FINANCE_TRIP_SECRET',
+    'TRAVEL_TRIP_SECRET',
+    'AUTOMATION_TRIP_SECRET',
+  ]) {
+    if (!process.env[key] || process.env[key]!.length < 32) throw new Error(`${key} missing`);
+  }
   const port = Number(process.env.TRIP_GRPC_PORT ?? 3202);
   if (!Number.isInteger(port) || port < 1024 || port > 65535) {
     throw new Error('TRIP_GRPC_PORT must be between 1024 and 65535');

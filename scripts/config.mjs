@@ -97,7 +97,13 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MINIO_SECRET_KEY',
     'IDENTITY_LINK_BASE_URL',
   ];
-  const tripKeys = ['GATEWAY_TRIP_SECRET', 'TRIP_GRPC_PORT'];
+  const tripKeys = [
+    'GATEWAY_TRIP_SECRET',
+    'FINANCE_TRIP_SECRET',
+    'TRAVEL_TRIP_SECRET',
+    'AUTOMATION_TRIP_SECRET',
+    'TRIP_GRPC_PORT',
+  ];
   const gatewayKeys = [
     'IDENTITY_HTTP_URL',
     'IDENTITY_GRPC_TARGET',
@@ -111,10 +117,14 @@ export function appEnvironment(app, values, inherited = process.env) {
   const automationKeys = [
     'IDENTITY_GRPC_TARGET',
     'AUTOMATION_IDENTITY_SECRET',
+    'TRIP_GRPC_TARGET',
+    'AUTOMATION_TRIP_SECRET',
     'RABBITMQ_URL',
     'SMTP_HOST',
     'SMTP_PORT',
   ];
+  const financeKeys = ['TRIP_GRPC_TARGET', 'FINANCE_TRIP_SECRET'];
+  const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET'];
   const allowed = [
     'NODE_ENV',
     app.portKey,
@@ -135,7 +145,11 @@ export function appEnvironment(app, values, inherited = process.env) {
           ? gatewayKeys
           : app.name === 'automation-service'
             ? automationKeys
-            : []),
+            : app.name === 'finance-service'
+              ? financeKeys
+              : app.name === 'travel-intelligence-service'
+                ? travelKeys
+                : []),
   ];
   for (const key of allowed) if (values[key] !== undefined) clean[key] = values[key];
   return clean;
@@ -161,6 +175,9 @@ export async function initEnvironment(base = root) {
     MAILPIT_UI_PORT: '8025',
     GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+    FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
+    TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
+    AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
     AUTOMATION_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     TRIP_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     FINANCE_IDENTITY_SECRET: randomBytes(32).toString('hex'),
@@ -212,6 +229,9 @@ export async function initEnvironment(base = root) {
           ? {
               TRIP_GRPC_PORT: '3202',
               GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
+              FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
+              TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
+              AUTOMATION_TRIP_SECRET: shared.AUTOMATION_TRIP_SECRET,
             }
           : app.name === 'api-gateway'
             ? {
@@ -228,11 +248,23 @@ export async function initEnvironment(base = root) {
               ? {
                   AUTOMATION_IDENTITY_SECRET: shared.AUTOMATION_IDENTITY_SECRET,
                   IDENTITY_GRPC_TARGET: '127.0.0.1:3201',
+                  TRIP_GRPC_TARGET: '127.0.0.1:3202',
+                  AUTOMATION_TRIP_SECRET: shared.AUTOMATION_TRIP_SECRET,
                   RABBITMQ_URL: brokerUrl(shared),
                   SMTP_HOST: '127.0.0.1',
                   SMTP_PORT: shared.MAILPIT_SMTP_PORT ?? '1025',
                 }
-              : {};
+              : app.name === 'finance-service'
+                ? {
+                    TRIP_GRPC_TARGET: '127.0.0.1:3202',
+                    FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
+                  }
+                : app.name === 'travel-intelligence-service'
+                  ? {
+                      TRIP_GRPC_TARGET: '127.0.0.1:3202',
+                      TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
+                    }
+                  : {};
     const current = await readEnv(path);
     const additions = Object.entries(runtime).filter(([key]) => !current[key]);
     if (additions.length)

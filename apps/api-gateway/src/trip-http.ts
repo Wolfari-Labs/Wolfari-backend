@@ -134,7 +134,7 @@ export function domainFailure(
         : responseRecord(parsed.details);
     const revisions: Record<string, number> = {};
     if (details) {
-      for (const key of ['plan_version', 'export_revision'] as const) {
+      for (const key of ['plan_version', 'membership_revision', 'export_revision'] as const) {
         const value = details[key];
         if (Number.isSafeInteger(value) && Number(value) >= 1) revisions[key] = Number(value);
       }

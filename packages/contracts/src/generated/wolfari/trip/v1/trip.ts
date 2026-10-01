@@ -151,6 +151,25 @@ export interface GetAccessContextResponse {
   context?: AccessContext | undefined;
 }
 
+export interface PlanPolicySettings {
+  policy?: PlanPolicy | undefined;
+  editor_member_ids?: string[] | undefined;
+  membership_revision?: number | undefined;
+}
+
+export interface UpdatePlanPolicyRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  policy?: PlanPolicy | undefined;
+  editor_member_ids?: string[] | undefined;
+  expected_membership_revision?: number | undefined;
+}
+
+export interface UpdatePlanPolicyResponse {
+  plan_policy?: PlanPolicySettings | undefined;
+}
+
 export interface BeginFinanceOperationRequest {
   operation_id?: string | undefined;
   trip_id?: string | undefined;
@@ -502,6 +521,8 @@ export interface TripServiceClient {
 
   getAccessContext(request: GetAccessContextRequest, metadata?: Metadata): Observable<GetAccessContextResponse>;
 
+  updatePlanPolicy(request: UpdatePlanPolicyRequest, metadata?: Metadata): Observable<UpdatePlanPolicyResponse>;
+
   beginFinanceOperation(
     request: BeginFinanceOperationRequest,
     metadata?: Metadata,
@@ -567,6 +588,11 @@ export interface TripServiceController {
     request: GetAccessContextRequest,
     metadata?: Metadata,
   ): Promise<GetAccessContextResponse> | Observable<GetAccessContextResponse> | GetAccessContextResponse;
+
+  updatePlanPolicy(
+    request: UpdatePlanPolicyRequest,
+    metadata?: Metadata,
+  ): Promise<UpdatePlanPolicyResponse> | Observable<UpdatePlanPolicyResponse> | UpdatePlanPolicyResponse;
 
   beginFinanceOperation(
     request: BeginFinanceOperationRequest,
@@ -640,6 +666,7 @@ export function TripServiceControllerMethods() {
       "getTrip",
       "updateTrip",
       "getAccessContext",
+      "updatePlanPolicy",
       "beginFinanceOperation",
       "completeOperation",
       "getOperationResult",

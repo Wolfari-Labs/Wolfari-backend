@@ -33,7 +33,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 29 RPCs declared by the catalog', () => {
+  it('loads exactly the 30 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -67,7 +67,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(29);
+    expect(RPC_CATALOG).toHaveLength(30);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)
@@ -104,6 +104,53 @@ describe('gRPC contracts', () => {
     expect(changes.name).toBe('');
     expect(changes.description).toEqual({ value: '', change: 'value' });
     expect(changes.public_description).toEqual({ clear: true, change: 'clear' });
+  });
+
+  it('round-trips Trip access flags and Plan policy mutation without changing existing fields', () => {
+    const service = methods(PROTO_PATHS.trip, GRPC_PACKAGES.trip, 'TripService');
+    const access = service.GetAccessContext as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const context = access.responseDeserialize(
+      access.responseSerialize({
+        context: {
+          trip_id: '00000000-0000-4000-8000-000000000003',
+          allowed: false,
+          permissions: ['TRIP_VIEW'],
+          can_read_trip: true,
+          can_update_trip_metadata: false,
+          can_edit_plan: false,
+        },
+      }),
+    ) as { context: Record<string, unknown> };
+    expect(context.context).toMatchObject({
+      allowed: false,
+      permissions: ['TRIP_VIEW'],
+      can_read_trip: true,
+      can_update_trip_metadata: false,
+      can_edit_plan: false,
+    });
+
+    const update = service.UpdatePlanPolicy as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const request = update.requestDeserialize(
+      update.requestSerialize({
+        operation_id: '00000000-0000-4000-8000-000000000011',
+        actor_user_id: '00000000-0000-4000-8000-000000000002',
+        trip_id: '00000000-0000-4000-8000-000000000003',
+        policy: 2,
+        editor_member_ids: ['00000000-0000-4000-8000-000000000004'],
+        expected_membership_revision: 7,
+      }),
+    );
+    expect(request).toMatchObject({
+      policy: 2,
+      editor_member_ids: ['00000000-0000-4000-8000-000000000004'],
+      expected_membership_revision: 7,
+    });
   });
 
   it('round-trips snake_case, optional presence, Timestamp, enums and large integer strings', () => {

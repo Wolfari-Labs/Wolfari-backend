@@ -4,14 +4,14 @@
 
 Đợt này hiện thực một phần FR-TR01 và FR-TR02: tạo Trip cùng Owner trong một transaction, liệt kê và đọc Trip theo membership đang hoạt động, và sửa metadata bởi Owner với optimistic concurrency. Các route REST đi qua API Gateway; Gateway xác thực access token bằng `Identity.ValidateSession`, sau đó gọi Trip bằng gRPC.
 
-Các route hiện có:
+Các route Trip core ban đầu:
 
 - `POST /api/v1/trips`;
 - `GET /api/v1/trips`;
 - `GET /api/v1/trips/{trip_id}`;
 - `PATCH /api/v1/trips/{trip_id}`.
 
-Contract request, response và lỗi nằm tại [OpenAPI Trip core](../api/trip-core.openapi.yaml). Template, dashboard tổng hợp, sửa ngày/KEEP/SHIFT, duplicate, invitation, chuyển Owner, policy, archive/delete, Plan, Finance và event relay chưa thuộc đợt này.
+Contract request, response và lỗi nằm tại [OpenAPI Trip core](../api/trip-core.openapi.yaml). Quản lý policy và Plan Editor được triển khai ở đợt kế tiếp, xem [Trip Plan access control](trip-plan-access-control.md). Template, dashboard tổng hợp, sửa ngày/KEEP/SHIFT, duplicate, invitation, chuyển Owner, archive/delete, Plan CRUD, Finance và event relay vẫn chưa thuộc phạm vi đã triển khai.
 
 ## Transaction và chống lặp
 

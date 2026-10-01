@@ -1,5 +1,20 @@
 # Planning timeline — kết quả kiểm tra
 
+## Kiểm tra sau merge ngày 2026-10-01
+
+Merge Planning timeline với Trip Plan access control đã giữ đủ 30 RPC (18 RPC Trip).
+`pnpm build`, `pnpm lint`, `pnpm contracts:lint`, `pnpm contracts:check` và
+`pnpm contracts:breaking --against HEAD` đều PASS. Bộ test hiện có PASS 141 test;
+`scripts/trip-transport.test.ts` PASS thêm 13 test về caller/secret, quyền gọi RPC,
+correlation ID và chuyển lỗi version của Planning/Plan access qua gRPC sang HTTP.
+
+`corepack pnpm trip:test` đã chạy lại và PASS 39 nhóm kiểm tra Trip core, Planning
+và Plan access control qua HTTP → gRPC → PostgreSQL. Suite dùng Compose project,
+cổng và volume riêng; container, volume, network và thư mục tạm đã được dọn sau
+khi hoàn tất. Các kết quả tích hợp bên dưới ghi nhận lần chạy ngày 2026-09-30.
+
+## Kết quả trước merge
+
 Ngày chạy: 2026-09-30. Windows, Node 24, pnpm 10.34.5, Docker Desktop.
 Các suite Docker dùng Compose project/cổng/volume riêng và tự dọn sau khi kết thúc.
 Trip trong integration chạy với `TZ=America/Los_Angeles`.

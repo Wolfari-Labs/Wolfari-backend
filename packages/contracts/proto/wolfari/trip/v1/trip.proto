@@ -9,6 +9,7 @@ service TripService {
   rpc GetTrip(GetTripRequest) returns (GetTripResponse);
   rpc UpdateTrip(UpdateTripRequest) returns (UpdateTripResponse);
   rpc GetAccessContext(GetAccessContextRequest) returns (GetAccessContextResponse);
+  rpc UpdatePlanPolicy(UpdatePlanPolicyRequest) returns (UpdatePlanPolicyResponse);
   rpc BeginFinanceOperation(BeginFinanceOperationRequest) returns (BeginFinanceOperationResponse);
   rpc CompleteOperation(CompleteOperationRequest) returns (CompleteOperationResponse);
   rpc GetOperationResult(GetOperationResultRequest) returns (GetOperationResultResponse);
@@ -109,6 +110,24 @@ message GetAccessContextRequest {
   string action = 3;
 }
 message GetAccessContextResponse { wolfari.common.v1.AccessContext context = 1; }
+
+message PlanPolicySettings {
+  wolfari.common.v1.PlanPolicy policy = 1;
+  repeated string editor_member_ids = 2;
+  int32 membership_revision = 3;
+}
+
+message UpdatePlanPolicyRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  wolfari.common.v1.PlanPolicy policy = 4;
+  repeated string editor_member_ids = 5;
+  int32 expected_membership_revision = 6;
+}
+
+message UpdatePlanPolicyResponse { PlanPolicySettings plan_policy = 1; }
+
 message BeginFinanceOperationRequest {
   string operation_id = 1;
   string trip_id = 2;

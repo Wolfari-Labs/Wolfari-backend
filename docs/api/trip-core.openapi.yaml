@@ -4,7 +4,8 @@ info:
   version: 1.0.0
   description: >-
     Gateway REST contract for creating a Trip with its Owner, listing and reading Trips by
-    active membership, and updating Trip metadata with optimistic concurrency control.
+    active membership, updating Trip metadata, and managing Plan edit policy with optimistic
+    concurrency control.
 servers:
   - url: http://127.0.0.1:3000/api/v1
     description: Local development
@@ -120,6 +121,32 @@ components:
           required: [correlation_id]
           properties:
             correlation_id: { type: string, format: uuid }
+    PlanPolicy:
+      type: object
+      additionalProperties: false
+      required: [policy, editor_member_ids, membership_revision]
+      properties:
+        policy: { type: string, enum: [OWNER_ONLY, SELECTED_MEMBERS, ALL_MEMBERS] }
+        editor_member_ids:
+          type: array
+          uniqueItems: true
+          items: { type: string, format: uuid }
+          description: >-
+            Saved active Member assignments. OWNER_ONLY and ALL_MEMBERS do not activate these
+            assignments, but retain them for a later switch back to SELECTED_MEMBERS.
+        membership_revision: { type: integer, minimum: 1, maximum: 2147483647 }
+    PlanPolicyResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/PlanPolicy' }
+        meta:
+          type: object
+          additionalProperties: false
+          required: [correlation_id]
+          properties:
+            correlation_id: { type: string, format: uuid }
     Error:
       type: object
       additionalProperties: false
@@ -149,6 +176,7 @@ components:
                   additionalProperties: false
                   properties:
                     plan_version: { type: integer, minimum: 1, maximum: 2147483647 }
+                    membership_revision: { type: integer, minimum: 1, maximum: 2147483647 }
                     export_revision: { type: integer, minimum: 1, maximum: 2147483647 }
             retryable: { type: boolean }
         meta:
@@ -291,6 +319,49 @@ paths:
         '200':
           description: Updated or idempotently replayed Trip projection.
           content: { application/json: { schema: { $ref: '#/components/schemas/TripResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /trips/{trip_id}/plan-policy:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [Trips]
+      summary: Replace the selected Plan editors or change Plan edit policy as the active Owner.
+      description: >-
+        SELECTED_MEMBERS replaces the saved editor list. OWNER_ONLY and ALL_MEMBERS require an
+        empty request list and preserve the previously saved assignments without activating them.
+      security: [{ bearer: [] }]
+      parameters: [{ $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [policy, editor_member_ids, expected_membership_revision]
+              properties:
+                policy: { type: string, enum: [OWNER_ONLY, SELECTED_MEMBERS, ALL_MEMBERS] }
+                editor_member_ids:
+                  type: array
+                  uniqueItems: true
+                  items: { type: string, format: uuid }
+                expected_membership_revision:
+                  type: integer
+                  minimum: 1
+                  maximum: 2147483647
+      responses:
+        '200':
+          description: Current policy and active saved editor assignments.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/PlanPolicyResponse' } } }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

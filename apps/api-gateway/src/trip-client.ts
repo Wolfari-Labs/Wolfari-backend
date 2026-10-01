@@ -83,6 +83,10 @@ export class TripClient {
     return this.call('SetActivityCompletion', request, correlationId);
   }
 
+  updatePlanPolicy(request: RpcMessage, correlationId: string) {
+    return this.call('UpdatePlanPolicy', request, correlationId);
+  }
+
   close() {
     this.client.close();
   }

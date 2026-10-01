@@ -7,12 +7,16 @@ import { RpcException } from '@nestjs/microservices';
 import { CommonV1, TripV1 } from '@wolfari/contracts/grpc';
 import { TripService, type TripLifecycle, type TripView } from './trip.service';
 import {
-  authorizeGatewayCall,
+  authorizeTripCall,
   executeTripCall,
   timestamp,
   protobufTimestamp,
   patchValue,
 } from './grpc-common';
+import type { PlanEditPolicy, PlanPolicyView } from './trip-access.domain';
+import { TripAccessService, type AccessContextView } from './trip-access.service';
+import { TripPlanAccessService } from './trip-plan-access.service';
+export { tripGrpcStatus } from './grpc-common';
 
 const lifecycleToProto: Record<TripLifecycle, TripV1.TripLifecycle> = {
   UPCOMING: TripV1.TripLifecycle.TRIP_LIFECYCLE_UPCOMING,
@@ -28,10 +32,16 @@ const protoToLifecycle: Partial<Record<TripV1.TripLifecycle, TripLifecycle>> = {
   [TripV1.TripLifecycle.TRIP_LIFECYCLE_ARCHIVED]: 'ARCHIVED',
 };
 
-const planPolicy: Record<TripView['plan_edit_policy'], CommonV1.PlanPolicy> = {
+const planPolicy: Record<PlanEditPolicy, CommonV1.PlanPolicy> = {
   OWNER_ONLY: CommonV1.PlanPolicy.PLAN_POLICY_OWNER_ONLY,
   SELECTED_MEMBERS: CommonV1.PlanPolicy.PLAN_POLICY_SELECTED_MEMBERS,
   ALL_MEMBERS: CommonV1.PlanPolicy.PLAN_POLICY_ALL_MEMBERS,
+};
+
+const protoToPlanPolicy: Partial<Record<CommonV1.PlanPolicy, PlanEditPolicy>> = {
+  [CommonV1.PlanPolicy.PLAN_POLICY_OWNER_ONLY]: 'OWNER_ONLY',
+  [CommonV1.PlanPolicy.PLAN_POLICY_SELECTED_MEMBERS]: 'SELECTED_MEMBERS',
+  [CommonV1.PlanPolicy.PLAN_POLICY_ALL_MEMBERS]: 'ALL_MEMBERS',
 };
 
 function protobufTrip(value: TripView): TripV1.Trip {
@@ -70,17 +80,56 @@ function protobufTrip(value: TripView): TripV1.Trip {
   };
 }
 
+function protobufPlanPolicy(value: PlanPolicyView): TripV1.PlanPolicySettings {
+  return {
+    policy: planPolicy[value.policy],
+    editor_member_ids: value.editor_member_ids,
+    membership_revision: value.membership_revision,
+  };
+}
+
+function protobufAccessContext(value: AccessContextView): CommonV1.AccessContext {
+  return {
+    trip_id: value.trip_id,
+    membership: {
+      id: value.membership.id,
+      trip_id: value.membership.trip_id,
+      user_id: value.membership.user_id,
+      role:
+        value.membership.role === 'OWNER'
+          ? CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER
+          : CommonV1.MembershipRole.MEMBERSHIP_ROLE_MEMBER,
+      joined_at: protobufTimestamp(value.membership.joined_at),
+      left_at:
+        value.membership.left_at === null ? undefined : protobufTimestamp(value.membership.left_at),
+    },
+    policy: planPolicy[value.policy],
+    trip_state:
+      value.trip_state === 'ACTIVE'
+        ? CommonV1.TripState.TRIP_STATE_ACTIVE
+        : CommonV1.TripState.TRIP_STATE_ARCHIVED,
+    revisions: value.revisions,
+    allowed: value.allowed,
+    permissions: value.permissions,
+    can_read_trip: value.can_read_trip,
+    can_update_trip_metadata: value.can_update_trip_metadata,
+    can_edit_plan: value.can_edit_plan,
+  };
+}
+
 @Controller()
 @TripV1.TripServiceControllerMethods()
 export class TripGrpcController implements TripV1.TripServiceController {
   constructor(
     private readonly trips: TripService,
     private readonly plans: PlanGrpcHandlers,
+    private readonly access: TripAccessService,
+    private readonly planAccess: TripPlanAccessService,
     private readonly config: ConfigService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
-    return authorizeGatewayCall(this.config, method, metadata);
+    return authorizeTripCall(this.config, method, metadata);
   }
 
   private execute<T>(work: () => Promise<T>): Promise<T> {
@@ -194,8 +243,40 @@ export class TripGrpcController implements TripV1.TripServiceController {
     throw new RpcException({ code: status.UNIMPLEMENTED, message: 'RPC is not implemented' });
   }
 
-  getAccessContext(): TripV1.GetAccessContextResponse {
-    return this.unimplemented();
+  getAccessContext(
+    request: TripV1.GetAccessContextRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.GetAccessContextResponse> {
+    this.authorize('GetAccessContext', metadata);
+    return this.execute(async () => ({
+      context: protobufAccessContext(
+        await this.access.getContext({
+          tripId: request.trip_id,
+          userId: request.user_id,
+          action: request.action,
+        }),
+      ),
+    }));
+  }
+
+  updatePlanPolicy(
+    request: TripV1.UpdatePlanPolicyRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.UpdatePlanPolicyResponse> {
+    const correlationId = this.authorize('UpdatePlanPolicy', metadata);
+    return this.execute(async () => ({
+      plan_policy: protobufPlanPolicy(
+        await this.planAccess.updatePolicy({
+          operationId: request.operation_id,
+          actorUserId: request.actor_user_id,
+          tripId: request.trip_id,
+          policy: protoToPlanPolicy[request.policy!],
+          editorMemberIds: request.editor_member_ids ?? [],
+          expectedMembershipRevision: request.expected_membership_revision,
+          correlationId,
+        }),
+      ),
+    }));
   }
 
   beginFinanceOperation(): TripV1.BeginFinanceOperationResponse {

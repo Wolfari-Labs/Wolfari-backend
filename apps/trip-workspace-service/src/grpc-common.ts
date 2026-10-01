@@ -3,7 +3,14 @@ import { status, type Metadata } from '@grpc/grpc-js';
 import { RpcException } from '@nestjs/microservices';
 import { RPC_CATALOG, TripV1 } from '@wolfari/contracts/grpc';
 import { timingSafeEqual } from 'node:crypto';
-import { TripError } from './trip-common';
+import { TripError } from './trip.errors';
+
+const callerCredentials: Record<string, string> = {
+  ApiGateway: 'GATEWAY_TRIP_SECRET',
+  Finance: 'FINANCE_TRIP_SECRET',
+  Travel: 'TRAVEL_TRIP_SECRET',
+  Automation: 'AUTOMATION_TRIP_SECRET',
+};
 
 export const CORRELATION_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -45,7 +52,7 @@ export function patchValue(value: TripV1.StringPatch): string | null {
   return hasValue ? value.value! : null;
 }
 
-export function authorizeGatewayCall(
+export function authorizeTripCall(
   config: ConfigService,
   method: string,
   metadata?: Metadata,
@@ -59,19 +66,15 @@ export function authorizeGatewayCall(
       value.service === 'TripService' &&
       value.method === method,
   );
-  const expected = config.get<string>('GATEWAY_TRIP_SECRET') ?? '';
+  const credential = callerCredentials[caller];
+  const expected = credential ? (config.get<string>(credential) ?? '') : '';
   const providedBytes = Buffer.from(secret);
   const expectedBytes = Buffer.from(expected);
   const validSecret =
     expectedBytes.length >= 32 &&
     providedBytes.length === expectedBytes.length &&
     timingSafeEqual(providedBytes, expectedBytes);
-  if (
-    caller !== 'ApiGateway' ||
-    !entry?.callers.includes(caller) ||
-    !validSecret ||
-    !CORRELATION_ID.test(correlationId)
-  ) {
+  if (!entry?.callers.includes(caller) || !validSecret || !CORRELATION_ID.test(correlationId)) {
     throw new RpcException({
       code: status.PERMISSION_DENIED,
       message: 'Caller is not authorized',
@@ -80,25 +83,30 @@ export function authorizeGatewayCall(
   return correlationId.toLowerCase();
 }
 
+export function tripGrpcStatus(error: TripError): status {
+  switch (error.code) {
+    case 'VALIDATION_FAILED':
+      return status.INVALID_ARGUMENT;
+    case 'RESOURCE_NOT_FOUND':
+      return status.NOT_FOUND;
+    case 'PERMISSION_DENIED':
+      return status.PERMISSION_DENIED;
+    case 'IDEMPOTENCY_CONFLICT':
+      return status.ALREADY_EXISTS;
+    case 'STATE_CONFLICT':
+      return status.FAILED_PRECONDITION;
+    case 'VERSION_CONFLICT':
+      return status.ABORTED;
+  }
+}
+
 export async function executeTripCall<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
     if (error instanceof TripError) {
-      const code =
-        error.code === 'VALIDATION_FAILED'
-          ? status.INVALID_ARGUMENT
-          : error.code === 'RESOURCE_NOT_FOUND'
-            ? status.NOT_FOUND
-            : error.code === 'PERMISSION_DENIED'
-              ? status.PERMISSION_DENIED
-              : error.code === 'IDEMPOTENCY_CONFLICT'
-                ? status.ALREADY_EXISTS
-                : error.code === 'STATE_CONFLICT'
-                  ? status.FAILED_PRECONDITION
-                  : status.ABORTED;
       throw new RpcException({
-        code,
+        code: tripGrpcStatus(error),
         message: JSON.stringify({ code: error.code, details: error.details }),
       });
     }

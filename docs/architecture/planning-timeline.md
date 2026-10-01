@@ -86,7 +86,8 @@ correlation_id. Payload gồm trip_id, plan_version, changed_entities và tombst
 Mọi activity đổi position đều xuất hiện dưới action UPSERT; activity/dress code bị
 xóa có action DELETE và tombstone với source_version mới.
 
-Outbox nằm ở PENDING. Relay Trip, API đổi policy/membership, các API ghi
+Outbox nằm ở PENDING. API đổi policy đã có sau merge Plan access control.
+Relay Trip, API đổi membership, các API ghi
 Location/Dress code/Packing, reset packing khi rời Trip và Travel nằm ngoài phạm vi này.
 Transport gRPC production vẫn yêu cầu TLS theo giới hạn nền tảng hiện có.
 
