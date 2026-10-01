@@ -10,6 +10,8 @@ import pg from 'pg';
 import { root, services, apps, appEnvironment, databaseUrl } from './config.mjs';
 import { compose } from './infrastructure.mjs';
 import { migrate, migrationFiles, connectDatabase, history, safeError } from './migrations.mjs';
+import { checkFundRepository } from '../apps/finance-service/tests/database/fund-repository.integration.mjs';
+import { checkLedgerRepository } from '../apps/finance-service/tests/database/ledger-repository.integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -190,7 +192,13 @@ async function main() {
     await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
     if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
   });
-  pass('3 fixture constraint hiện có và Planning (ROLLBACK)');
+  pass('3 fixture constraint hiện có (ROLLBACK)');
+  stage = 'finance-fund-repository';
+  await db('finance', checkFundRepository);
+  pass('Finance FundRepository: đúng Trip, bigint/null/date chính xác, fixture rollback');
+  stage = 'finance-ledger-repository';
+  await db('finance', checkLedgerRepository);
+  pass('Finance LedgerRepository: phân trang sequence, cách ly Fund, bigint và rollback');
   stage = 'database-isolation';
   for (const source of services) for (const target of services.filter(s => s !== source)) {
     const url = new URL(databaseUrl(env, source)); url.pathname = `/${target}_db`;
