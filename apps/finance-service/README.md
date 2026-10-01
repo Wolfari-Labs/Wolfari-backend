@@ -117,3 +117,48 @@ nhất quán hoặc làm căn cứ ghi tiền. Chưa mở route/API và chưa th
 
 Unit test và DB integration kiểm cursor/limit, số lớn, thứ tự cùng timestamp,
 liên kết reversal, cách ly Fund và append giữa hai trang. Fixture DB được rollback.
+
+## Quy tắc đóng góp thủ công
+
+`planManualContributionTransition` trong `src/domain/contribution-transition.ts`
+lập quyết định cho một lệnh mới, dùng context tin cậy và helper quyền hiện có:
+
+- Self báo chuyển: `PENDING` → `TRANSFER_REPORTED`, chưa tạo ledger hay tăng số dư.
+- Holder xác nhận: `TRANSFER_REPORTED` → `CONFIRMED`, tính một khoản IN bằng toàn bộ
+  amount đã lưu; không nhận amount thanh toán một phần từ command.
+- Holder từ chối có lý do: `TRANSFER_REPORTED` → `PENDING`, không tác động số dư.
+
+Chỉ Fund OPEN, actor còn active, version contribution/Finance khớp và chưa có
+receipt thu gốc mới được lập quyết định. Holder tự đóng được đánh dấu
+`selfContribution`; trạng thái kết thúc không nhận một lệnh chuyển trạng thái mới.
+Tác động trả về không phải row patch: khi từ chối vẫn phải giữ lịch sử báo chuyển
+và bằng chứng. Caller phải xử lý replay idempotency trước khi lập quyết định mới.
+
+Đây là helper thuần, chưa phải API hoặc transaction ghi tiền. Caller còn phải lấy
+Trip guard, xác minh ownership bằng chứng/đích nhận, khóa Fund/contribution, xử lý
+provider/đối soát và lưu trạng thái, timestamp, version, ledger/balance, receipt,
+audit/outbox cùng transaction. Unique source key và lock vẫn cần để chặn callback
+và xác nhận thủ công ghi trùng. Unit test không chứng minh an toàn đồng thời của
+luồng ghi DB chưa triển khai.
+
+## Đọc đợt đóng góp và khoản đóng góp
+
+`ContributionRepository` dùng DB chung và được đăng ký trong AppModule:
+
+- `findRequestById({ fundId, requestId })`: đọc metadata đợt đóng góp, giữ
+  `amountPerMember` là `null` khi không có mức chung, hoặc `bigint` dương khi có.
+- `findById({ fundId, requestId, contributionId })`: chỉ trả khoản đóng góp khi cả
+  ba ID khớp; giữ tiền `bigint`, version, self-contribution và lịch sử trạng thái.
+
+Không có bản ghi hoặc sai phạm vi đều trả `null`; lỗi DB/mapping được truyền lên.
+Đọc được dữ liệu đã kết thúc, kể cả quỹ CLOSED. Hai phương thức không chọn
+`destination_snapshot` hoặc `transfer_evidence_object_key`: dữ liệu này cần luồng
+đọc riêng với quyền Self/Holder, chưa triển khai ở đây.
+
+Caller phải kiểm tra UUID, resolve ownership và quyền Trip trước khi trả dữ liệu.
+Đây là các snapshot nội bộ riêng lẻ, không tự tạo `financeVersion`, không giữ lock
+và không đủ làm context cho lệnh ghi hoặc snapshot export. Không serialize bigint
+trực tiếp ra JSON. Chưa có API hay luồng ghi đóng góp end-to-end.
+
+Unit test và DB integration bao phủ phạm vi Fund/Request, tiền lớn, null, trạng thái
+lịch sử, timestamp và việc không trả thông tin thanh toán riêng. Fixture được rollback.
