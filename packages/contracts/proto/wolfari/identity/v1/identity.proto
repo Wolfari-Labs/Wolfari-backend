@@ -4,7 +4,7 @@ package wolfari.identity.v1;
 import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
-// Source: DDL/API/Event v1.0 section 6. Authorization is enforced by the owner.
+// Source: DDL/API/Event v1.1 section 6. Authorization is enforced by the owner.
 service IdentityService {
   rpc GetInvitationIdentity(GetInvitationIdentityRequest) returns (GetInvitationIdentityResponse);
   rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);

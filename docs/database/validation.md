@@ -1,10 +1,12 @@
 # Kết quả kiểm tra nền database Wolfari
 
+Các số liệu dưới đây là bằng chứng theo ngày chạy, không phải trạng thái kiểm thử của mọi HEAD mới. Bộ tài liệu chính thức hiện hành đã chốt ngày 02/10/2026 tại [danh mục tài liệu](../README.md).
+
 ## Kiểm chứng ngày 01-10-2026
 
 Trên nền `63aa8b4` cộng diff review, `corepack pnpm db:test` PASS 17 nhóm: 54 bảng mô hình + 5 bảng lịch sử, 47 FK sau Trip V002, nâng cấp V001→V002 giữ dữ liệu và chặn legacy mơ hồ/duplicate pending nguyên tử; constraints, 20/20 cross-DB denial, runner concurrency, readiness và outage recovery đều PASS. Không sửa V001/V002/checksum baseline hoặc migrate database phát triển. Project/volume thử đã được teardown.
 
-Build/lint, 116 unit tests, 31 contract tests (subset), contract lint/check/breaking đều PASS; các integration và giới hạn được tổng hợp trong [hướng dẫn cập nhật tài liệu](../wolfari-documentation-update-guide.md#bằng-chứng-kiểm-thử-của-đợt-review). CI cho worktree review NOT RUN. Không dùng bảng lịch sử dưới đây như số liệu HEAD hiện tại.
+Build/lint, 116 unit tests, 31 contract tests (subset), contract lint/check/breaking đều PASS; các integration và giới hạn được tổng hợp trong [hồ sơ review 01/10](../history/documentation-update-2026-10-02.md#bằng-chứng-kiểm-thử-của-đợt-review-ngày-0110-trước-khi-chỉnh-docx). CI cho worktree review NOT RUN. Không dùng bảng lịch sử dưới đây như số liệu HEAD hiện tại.
 
 ## Báo cáo lịch sử ngày 29-09-2026
 
@@ -33,12 +35,12 @@ Kết quả dưới đây được chạy lại ngày 29-09-2026 trên Docker De
 
 `corepack pnpm db:test` tạo Compose project, cổng và named volume riêng, chạy các phép thử phá lỗi tại đó rồi dọn project/volume. Database local dùng để phát triển không bị dùng cho fixture lỗi.
 
-## Artifact và giới hạn
+## Artifact và giới hạn tại mốc 29-09-2026
 
 - Năm migration V001 và ba fixture constraint là baseline hiện tại.
-- `SHA256SUMS.source-bundle.txt` vẫn dùng để đối chiếu bundle SQL/Mermaid/test ban đầu. Runner duy trì manifest checksum riêng cho migration thực thi.
-- Hai DOCX ERD và DDL/API/Event hiện không khớp byte với checksum bundle cũ; điều này chưa xác định khác biệt nội dung.
-- `Wolfari_SRS_v2.2_ThayThe_TuMuc10.docx` được tài liệu khác nhắc đến nhưng chưa có trong repository. SRS hiện có là v2.0.
+- [Manifest bundle nguồn](../history/SHA256SUMS.source-bundle.txt) dùng đối chiếu bàn giao ban đầu. Runner duy trì manifest checksum riêng cho SQL thực thi.
+- Tại mốc này, hai DOCX ERD và DDL/API/Event không khớp byte với checksum bundle cũ; ghi nhận đó không xác định khác biệt nội dung.
+- Tại mốc này, `Wolfari_SRS_v2.2_ThayThe_TuMuc10.docx` được tài liệu khác nhắc đến nhưng chưa có; SRS khi đó là v2.0. Bộ cũ đã được thay bằng bản chính thức ngày 02/10, xem [hồ sơ chốt](../releases/2026-10-02-documentation-baseline.md).
 - Các kết quả trên xác nhận nền kỹ thuật database, không phải nghiệm thu API nghiệp vụ, UI, AT01–AT18 hay NFR sản phẩm.
 
 Chạy lại toàn bộ:

@@ -1,6 +1,22 @@
 # Hướng dẫn cập nhật SRS API ERD Wolfari
 
+> Hồ sơ lịch sử của đợt đồng bộ 01–02/10/2026. Người yêu cầu đã chốt bộ mới ngày 02/10/2026; nhãn “dự thảo/chờ duyệt”, đường dẫn nguồn và kết quả kiểm thử bên dưới phản ánh thời điểm lập hồ sơ, không phải trạng thái hiện hành. Xem [danh mục tài liệu chính thức](../README.md) và [hồ sơ chốt phiên bản](../releases/2026-10-02-documentation-baseline.md). Không áp dụng lại 80 thao tác lên bản chính thức.
+
 Bản review ngày 01/10/2026 dùng source trên nền commit `63aa8b4875a61f4f87ce2c9aa73a3e29b2537063`, nhánh `feat/trip-invitations`, cộng các sửa local trong đợt review này. File này tập hợp 80 mục sửa ba DOCX, các thay đổi trực tiếp trong repo, bằng chứng kiểm thử và phần còn thiếu. Không phải báo cáo hoàn thành toàn bộ MVP.
+
+## Bộ DOCX đã cập nhật ngày 02/10/2026
+
+Đã áp dụng đủ **80 mục** vào ba bản sao, đồng bộ phiên bản và kiểm tra nội dung/bố cục. Bộ mới vẫn là **dự thảo chờ duyệt**; ngày 01/10 trong trang đầu và lịch sử phiên bản là mốc review của guide, ngày 02/10 là mốc hoàn tất chỉnh DOCX.
+
+| Bản cập nhật                                                                                                    | Số trang bản render kiểm tra | Nguồn giữ nguyên                        |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------: | --------------------------------------- |
+| SRS v2.3 dự thảo, nay là [bản chính thức](../Wolfari_SRS_v2.3_ChinhThuc.docx)                                   |                           57 | SRS v2.0, tra cứu lịch sử Git           |
+| ERD v1.2 dự thảo, nay là [bản chính thức](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx)                          |                           50 | ERD v1.1, tra cứu lịch sử Git           |
+| DDL/API/Event v1.1 dự thảo, nay là [bản chính thức](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx) |                           42 | DDL/API/Event v1.0, tra cứu lịch sử Git |
+
+Sau yêu cầu dọn nội dung thừa/lỗi thời, đã sửa thêm **15 tham chiếu và dòng trạng thái** theo bảng bổ sung ở cuối guide. Bảng bổ sung là phần áp dụng sau cùng nếu trùng với nội dung mới của SRS-02, SRS-22 hoặc SRS-28; 80 mục gốc được giữ để truy vết. Không thay đổi nghiệp vụ ngoài guide, không sửa source ứng dụng, V001/V002 hoặc manifest trong lượt chỉnh DOCX này.
+
+Lưu ý nguồn: file SRS v2.0 được cung cấp **đã không có Phụ lục A và ảnh ERD nhúng**, dù mục lục và vài đoạn còn nhắc chúng. Bản mới chỉ bỏ mục lục trỏ đến phần không tồn tại và sửa tham chiếu về mục 10/13.2; không xóa hình hay phụ lục có trong file nguồn. Phụ lục B, lịch sử QD01–QD25 và các yêu cầu chưa triển khai vẫn giữ nguyên.
 
 ## Cách dùng và bản gốc
 
@@ -8,9 +24,9 @@ Bản review ngày 01/10/2026 dùng source trên nền commit `63aa8b4875a61f4f8
 2. Mỗi mục dưới ghi rõ tài liệu, tiêu đề/FR/API/bảng, thao tác, nội dung cũ nguyên văn và nội dung mới để dán. Chỉ xóa đoạn/ô/hàng được chỉ định; không xóa cả FR, mục, bảng hoặc yêu cầu chưa triển khai.
 3. P là số đoạn XML trong file gốc, tính cả đoạn trong ô bảng, dùng đối chiếu kỹ thuật; **không phải số trang Word**. Tìm theo heading và câu/ô cũ. Một số tên field trong DOCX có ký tự zero-width; nếu Find toàn câu không ra, tìm tên FR/API hoặc vài từ đầu. Nội dung cũ bên dưới giữ nguyên các ký tự nguồn.
 4. Với bảng, phần cũ liệt kê nội dung ô theo thứ tự đọc; phần mới là bảng Markdown để chuyển sang Word. Giữ một hàng tiêu đề, không dán thêm hàng tiêu đề trùng khi chỉ thêm/sửa hàng dữ liệu. Giữ thứ tự các ô cũ nếu thay đúng một ô.
-5. Bản sửa đề nghị mang số **SRS 2.3 dự thảo, ERD 1.2 dự thảo, DDL/API/Event 1.1 dự thảo** để không nhầm với các tham chiếu 2.1/2.2 cũ. Đây là nhãn phiên bản của bản bạn sẽ chỉnh, không khẳng định đã tồn tại hoặc phê duyệt một DOCX mới.
-6. Giữ nguyên lịch sử phê duyệt QD01–QD25, PDF nguồn và hình ERD gốc ở phụ lục. Không replace-all mọi chữ “2.0”, “1.1” hoặc “V001”: lịch sử và nguồn gốc phải được bảo toàn.
-7. Sau khi sửa Word, cập nhật mục lục/cross-reference theo heading và kiểm tra lại bố cục bảng. Đợt này đối chiếu văn bản/OOXML và source, không cung cấp QA layout cho bản Word bạn chỉnh sau đó.
+5. Bộ sửa đã lưu riêng với số **SRS 2.3 dự thảo, ERD 1.2 dự thảo, DDL/API/Event 1.1 dự thảo** để không nhầm với các tham chiếu 2.1/2.2 cũ. Nhãn dự thảo không thay thế phê duyệt chính thức.
+6. Giữ nguyên lịch sử phê duyệt QD01–QD25 và tài liệu nguồn. Không replace-all mọi chữ “2.0”, “1.1” hoặc “V001”: lịch sử và nguồn gốc phải được bảo toàn. Việc Phụ lục A/ảnh ERD đã thiếu trong file SRS nguồn được ghi riêng ở trên.
+7. Mục lục/cross-reference và bố cục đã kiểm tra trên bộ DOCX mới bằng OOXML và render. Nếu tiếp tục sửa nội dung trong Word, cần cập nhật lại mục lục/field và kiểm tra bố cục; số trang có thể khác theo môi trường Word/font.
 
 | File gốc                                      | SHA-256                                                            |
 | --------------------------------------------- | ------------------------------------------------------------------ |
@@ -1863,7 +1879,7 @@ Bằng chứng và lý do: docs/erd/trip_db.mmd; V002.sql
 
 ## Những phần giữ nguyên và khoảng thiếu cần theo dõi
 
-Không xóa các FR chưa có runtime để làm tài liệu trông như đã hoàn thành. Bảng SRS-28 bao phủ đủ 33 FR. Giữ nguyên quyền OWNER/MEMBER, ba PlanEditPolicy, giới hạn MVP sandbox, ownership năm database, các quy tắc Finance/ledger/closure, Plan/DSS/export/public share, mục tiêu NFR và AT01–AT18. Hình ERD gốc, lịch sử QD và tài liệu tham chiếu bên ngoài được giữ để truy vết; không tuyên bố đã kiểm tra lại nội dung các website bên ngoài trong đợt review này.
+Không xóa các FR chưa có runtime để làm tài liệu trông như đã hoàn thành. Bảng SRS-28 bao phủ đủ 33 FR. Giữ nguyên quyền OWNER/MEMBER, ba PlanEditPolicy, giới hạn MVP sandbox, ownership năm database, các quy tắc Finance/ledger/closure, Plan/DSS/export/public share, mục tiêu NFR và AT01–AT18. Các bản nguồn, lịch sử QD và tài liệu tham chiếu bên ngoài được giữ để truy vết; riêng sơ đồ Trip trong ERD dự thảo được cập nhật theo ERD-16. Không tuyên bố đã kiểm tra lại nội dung các website bên ngoài trong đợt review này.
 
 | Điểm còn thiếu hoặc chưa chốt                                           | Xử lý trong bản cập nhật                                                                                            | Không được kết luận                                           |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -1900,7 +1916,7 @@ V002 đã có đúng ba phần cần phản ánh vào tài liệu: acceptance li
 
 V001, V002, ba DOCX và hai manifest baseline không bị thay đổi. Database phát triển không được migrate hoặc reset. Các Compose test đã tự dọn container và volume thử riêng; dữ liệu thử đã xóa không cần khôi phục. `dev:test` gọi env:init để bổ sung cấu hình local còn thiếu nếu có, không thay secret đã tồn tại.
 
-## Bằng chứng kiểm thử của đợt review
+## Bằng chứng kiểm thử của đợt review ngày 01/10 trước khi chỉnh DOCX
 
 Ngày 01/10/2026 theo Asia/Saigon, Windows, trên nền commit `63aa8b4` cộng diff review; không phải kết quả CI của một SHA mới. Các lần chạy sau sửa source mới là cơ sở cho trạng thái cuối của luồng bị ảnh hưởng.
 
@@ -1927,11 +1943,53 @@ Các lỗi trong quá trình chạy đã được phân biệt với trạng th�
 
 ## Checklist áp dụng vào Word
 
-- [ ] Xác minh đúng ba file gốc bằng checksum hoặc từng đoạn nhận diện.
-- [ ] Áp dụng các mục SRS, API, ERD theo heading và ID; không thay hình ERD lịch sử trong phụ lục.
-- [ ] Thêm API171/172/173, cập nhật tổng 173 endpoint thiết kế và bảng truy vết; chỉ 28 REST hiện có runtime, không đánh dấu cả catalog đã triển khai.
-- [ ] Phân biệt 33 RPC catalog với 19 handler và 19 event catalog với ba luồng runtime.
-- [ ] Thể hiện V002 trong data dictionary, constraints/index, relationship table và hình ERD Trip.
-- [ ] Giữ đủ 33 FR, AT01–AT18 và NFR; phần chưa làm vẫn là yêu cầu, không bị xóa.
-- [ ] Ghi các chính sách còn mở; không đóng dấu phê duyệt thay người có thẩm quyền.
-- [ ] Cập nhật mục lục/field Word, kiểm tra bảng và bố cục, lưu bản mới riêng rồi duyệt trước khi thay baseline.
+- [x] Xác minh đúng ba file gốc bằng checksum và từng đoạn nhận diện.
+- [x] Áp dụng 30 mục SRS, 34 mục API, 16 mục ERD theo heading và ID; bảo toàn nội dung nguồn ngoài các thay đổi đã ghi.
+- [x] Thêm API171/172/173, cập nhật tổng 173 endpoint thiết kế và bảng truy vết; chỉ 28 REST có runtime tại mốc review, không đánh dấu cả catalog đã triển khai.
+- [x] Phân biệt 33 RPC catalog với 19 handler và 19 event catalog với ba luồng runtime tại mốc review.
+- [x] Thể hiện V002 trong data dictionary, constraints/index, relationship table và hình ERD Trip.
+- [x] Giữ đủ 33 FR, AT01–AT18 và NFR; phần chưa làm vẫn là yêu cầu, không bị xóa.
+- [x] Ghi các chính sách còn mở; không đóng dấu phê duyệt thay người có thẩm quyền.
+- [x] Cập nhật 15 dòng mục lục SRS, số trang và bookmark, kiểm tra bảng/bố cục và lưu ba bản mới riêng.
+- [ ] Người có thẩm quyền đọc, duyệt bộ dự thảo và các chính sách còn mở trước khi thay baseline.
+
+## Dọn tham chiếu và trạng thái bổ sung ngày 02/10
+
+Chỉ thay đúng chuỗi ở cột “Cũ” tại vị trí chỉ định bằng chuỗi ở cột “Mới”, giữ phần còn lại của đoạn/ô. Các thay đổi này đã áp dụng vào bộ DOCX dự thảo, không áp dụng ngược vào ba bản gốc. Không thay mọi lần xuất hiện của số phiên bản: các mốc lịch sử và chính sách đang chờ quyết định vẫn được giữ.
+
+| Mã       | Vị trí                                            | Cũ                                                                                                  | Mới                                                                                                    |
+| -------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| CLEAN-01 | SRS trang đầu, đoạn SRS-02                        | Các hình ERD gốc tiếp tục được giữ làm bằng chứng nguồn.                                            | Tham chiếu ERD được cập nhật tại mục 10 và mục 13.                                                     |
+| CLEAN-02 | SRS 10.1, đoạn SRS-22                             | Bản cập nhật dự kiến là SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 sau khi áp dụng hướng dẫn đồng bộ. | Bộ tài liệu cập nhật gồm SRS v2.3, ERD v1.2 và DDL/API/Event v1.1, đều ở trạng thái dự thảo chờ duyệt. |
+| CLEAN-03 | SRS 13.1, hàng trang nguồn 52                     | 7.1, 10.2/10.4, phụ lục A1                                                                          | 7.1, 10.2/10.4, 13.2                                                                                   |
+| CLEAN-04 | SRS 13.1, hàng trang nguồn 53                     | 10.2–10.4, phụ lục A2/A3; QD25                                                                      | 10.2–10.4, 13.2; QD25                                                                                  |
+| CLEAN-05 | SRS 13.1, hàng trang nguồn 54                     | 10.2–10.4, phụ lục A4; QD19/QD25                                                                    | 10.2–10.4, 13.2; QD19/QD25                                                                             |
+| CLEAN-06 | SRS 13.2, hàng Wolfari SRS                        | v2.0 chính thức + bản thay thế v2.1 từ mục 10 sau khi duyệt.                                        | v2.3 dự thảo cập nhật từ v2.0; giữ QD01–QD25 và các yêu cầu đã duyệt.                                  |
+| CLEAN-07 | SRS 13.2, hàng Wolfari ERD & Database Design      | v1.0 — nguồn chuẩn thiết kế dữ liệu và migration.                                                   | v1.2 dự thảo cập nhật từ v1.1; đối chiếu thiết kế dữ liệu với V001 và Trip V002.                       |
+| CLEAN-08 | SRS Phụ lục B, quy trình thay đổi sau duyệt       | ERD gốc trong phụ lục A vẫn giữ nguyên để đối chiếu.                                                | ERD vật lý cập nhật được tham chiếu tại mục 13.2.                                                      |
+| CLEAN-09 | DDL/API/Event trang đầu, đoạn giới thiệu          | Các yêu cầu nghiệp vụ tiếp tục tuân thủ SRS 2.0 và mô hình vật lý ERD 1.1.                          | Các yêu cầu đã duyệt từ SRS 2.0 được giữ nguyên; bộ dự thảo đồng bộ là SRS 2.3 và ERD 1.2.             |
+| CLEAN-10 | DDL/API/Event mục 4, đoạn kiểu reusable           | theo bảng mapping ERD 1.1;                                                                          | theo bảng mapping ERD 1.2 dự thảo;                                                                     |
+| CLEAN-11 | ERD mục 11, đoạn protocol/envelope/payload        | trong tài liệu DDL API Event 1.0.                                                                   | trong tài liệu DDL/API/Event 1.1 dự thảo.                                                              |
+| CLEAN-12 | SRS 12.1, hàng SRS và tài liệu Word, ô trạng thái | ĐANG CẬP NHẬT                                                                                       | ĐÃ CẬP NHẬT DỰ THẢO                                                                                    |
+| CLEAN-13 | SRS 12.1, cùng hàng, ô ghi chú                    | Ba DOCX gốc giữ nguyên; hướng dẫn sửa tổng hợp ngày 01/10/2026.                                     | Ba bản gốc giữ nguyên; SRS 2.3, ERD 1.2 và DDL/API/Event 1.1 đã cập nhật ngày 02/10/2026, chờ duyệt.   |
+| CLEAN-14 | SRS 12.1, hàng ERD, ô trạng thái                  | ĐÃ CÓ SCHEMA VÀ MERMAID                                                                             | ĐÃ CÓ SCHEMA, MERMAID VÀ WORD DỰ THẢO                                                                  |
+| CLEAN-15 | SRS 12.1, hàng ERD, cuối ô ghi chú                | ERD Word cần bổ sung acceptance link và index.                                                      | ERD Word 1.2 dự thảo đã bổ sung acceptance link và index.                                              |
+
+Các chỉnh kỹ thuật đi kèm: footer SRS đổi sang `SRS 2.3 DỰ THẢO`; mục lục cập nhật tên/số trang/bookmark và bỏ dòng Phụ lục A không có nội dung đích; ngắt trang giữ tiêu đề 10.5, tiêu đề 12.3 và header bảng constraints của `share_links` đi cùng nội dung. Riêng bảng Gate có ngắt trang trực tiếp ở các ô trong nguồn, đã chuyển ngắt trang lên tiêu đề 12.3. Không đổi font, cỡ chữ hay nội dung bảng Gate. Bảng invitation constraints được điều chỉnh bề rộng cột để tên constraint đọc được; các đoạn/hàng mới kế thừa định dạng lân cận.
+
+## Kết quả kiểm tra bộ DOCX ngày 02/10
+
+| Kiểm tra            | Kết quả và giới hạn                                                                                                                                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ba file nguồn       | PASS SHA-256 đúng bảng ở đầu guide; không sửa/đổi tên/xóa bản gốc.                                                                                                                                                                                                                         |
+| Nội dung guide      | PASS đủ 80 mục, đúng thứ tự đoạn/hàng được chèn; kiểm tra riêng 15 thay thế bổ sung.                                                                                                                                                                                                       |
+| Cấu trúc            | PASS ZIP/XML đọc được; giữ nguyên package entries, styles, numbering, font table và section definitions. Các đoạn nguồn ngoài phạm vi sửa giữ nội dung/định dạng; ngoại lệ tham chiếu/ngắt trang nêu rõ ở trên.                                                                            |
+| Font và cỡ chữ      | PASS giữ bộ định nghĩa gốc, không thêm font hoặc cỡ chữ mới; đoạn/hàng mới dùng định dạng của phần tương ứng. Không chuẩn hóa lại style toàn tài liệu.                                                                                                                                     |
+| Catalog và truy vết | PASS API001–API173 mỗi ID đúng một lần; 33 hàng FR; 33 RPC gồm 19 handler và 14 chưa có handler nghiệp vụ; giữ yêu cầu/event chưa triển khai.                                                                                                                                              |
+| ERD Trip            | PASS 15 cột invitation, CHECK acceptance, FK composite và hai index V002; sơ đồ giữ các bảng/cạnh cũ, thêm cạnh acceptance đúng cardinality.                                                                                                                                               |
+| Mục lục SRS         | PASS 15 mục, số trang và bookmark đối chiếu với bản render cuối.                                                                                                                                                                                                                           |
+| Render và xem trang | PASS đã render và xem đủ 149 trang: SRS 57, ERD 50, API 42. Không phát hiện chữ vượt khung trang, ký tự thay thế/mất glyph, nội dung chồng/cắt hoặc bảng bị mất.                                                                                                                           |
+| Đoạn DR-09          | PASS kiểm tra trực quan liên tục ở SRS trang 44–45; trích text thuần bị xen header bảng lặp khi qua trang, không phải mất nội dung.                                                                                                                                                        |
+| Giới hạn kiểm chứng | Dùng LibreOffice headless với font Windows để render; chưa mở/kiểm thử bằng Microsoft Word GUI. Word có thể phân trang khác; cần cập nhật field nếu người đọc chỉnh tiếp. Không chạy lại test ứng dụng/CI trong lượt chỉnh DOCX, không dùng kết quả QA tài liệu thay bằng chứng nghiệp vụ. |
+
+README, mục nguồn database và baseline kiến trúc đã trỏ tới bộ dự thảo; liên kết bản gốc và báo cáo review lịch sử được giữ. Các file render trung gian, bản trích lịch sử và dump XML tạm của lần sửa được dọn sau khi xác minh bản bàn giao; không xóa tài liệu nguồn, migration, manifest hay dữ liệu phát triển.

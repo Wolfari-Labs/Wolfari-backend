@@ -1,6 +1,6 @@
 # Bàn giao Trip invitations
 
-Nhánh `feat/trip-invitations` kế thừa Plan access-control tại `075ed644c64afe5505941573d2d0cbbfe368fefe`. Invitations đã được commit tại `63aa8b4`. Đợt review ngày 01-10-2026 tạo thay đổi local tiếp theo, chưa commit/push. GitHub Actions cho worktree review **NOT RUN**; CI của commit `63aa8b4` chưa xác minh trong lượt review này. Không lấy CI của commit nền làm bằng chứng cho worktree mới.
+Hồ sơ bàn giao ở mốc review 01-10-2026: nhánh `feat/trip-invitations` kế thừa Plan access-control tại `075ed644c64afe5505941573d2d0cbbfe368fefe`; Invitations đã được commit tại `63aa8b4`. Thay đổi review khi đó còn local, chưa commit/push. GitHub Actions cho worktree review **NOT RUN**; CI của commit `63aa8b4` chưa được xác minh trong lượt đó. Đây là trạng thái lịch sử, không khẳng định trạng thái checkout mới; xem [hồ sơ chốt 02/10](../releases/2026-10-02-documentation-baseline.md). Không lấy CI của commit nền làm bằng chứng cho worktree mới.
 
 ## Điểm tích hợp
 

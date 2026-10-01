@@ -2,7 +2,7 @@
 
 ## Baseline và phạm vi
 
-Contract mã nguồn được cụ thể hóa từ [DDL/API/Event Specification v1.0](../Wolfari_DDL_API_Event_Specification_v1.0.docx), đối chiếu [ERD v1.1](../Wolfari_ERD_Database_v1.1_ChinhThuc.docx) và năm V001 hiện có. SRS v2.2 được tài liệu nguồn nhắc đến nhưng chưa có trong repository; các quyết định biểu diễn dưới đây là baseline kỹ thuật, không được xem là nội dung bổ sung của SRS.
+Contract mã nguồn được đối chiếu với [DDL/API/Event Specification v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx), năm V001 và Trip V002. Bộ tài liệu đã chốt ngày 02/10/2026; catalog mô tả cả hợp đồng mục tiêu, không đồng nghĩa mọi handler đã triển khai.
 
 Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, Trip core, Plan access và [Trip invitations](trip-invitations.md) đã có handler tương ứng; phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
 
@@ -16,7 +16,7 @@ Package contract chứa contract, type, validator, fixture, metadata topology v�
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
 | Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                     |
 | Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định |
-| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.0                                            |
+| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.1                                            |
 | Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                               |
 | Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                              |
 | `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                              |

@@ -7,7 +7,7 @@ Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm
 
 Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1** và **Trip core**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision.
 
-> Identity đợt 1 và một phần Trip core đã có runtime qua Gateway. Travel/Finance, phần lớn nghiệp vụ Automation, event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. SRS v2.2 vẫn thiếu; phần hiện có dùng V001 cùng tài liệu v2.0/v1.x trong repository.
+> Identity đợt 1, Trip core, Plan access và Invitations đã có runtime qua Gateway. Travel/Finance, phần lớn nghiệp vụ Automation và event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001 và Trip V002. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
 
 ## Kiến trúc
 
@@ -74,7 +74,7 @@ Năm service nghiệp vụ và Gateway bổ sung:
 GET /health/ready
 ```
 
-Readiness của năm service kiểm tra đúng database/role và migration baseline `V001`; Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity và Automation còn có `/health/dependencies` để xem tình trạng broker/email và số việc chờ, độc lập với login readiness.
+Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
 
 ## Lệnh phát triển
 
@@ -99,9 +99,9 @@ corepack pnpm contracts:check
 corepack pnpm contracts:test
 
 # Chất lượng mã nguồn
+corepack pnpm build
 corepack pnpm lint
 corepack pnpm test
-corepack pnpm build
 ```
 
 `db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
@@ -111,7 +111,8 @@ corepack pnpm build
 
 ## Tài liệu
 
-- [Hướng dẫn khởi tạo repository](docs/architecture/repository-bootstrap.md)
+- [Danh mục tài liệu chính thức và phạm vi sử dụng](docs/README.md)
+- [Cấu trúc repository](docs/architecture/repository-bootstrap.md)
 - [Môi trường phát triển](docs/architecture/development-environment.md)
 - [Baseline thiết kế](docs/architecture/design-baseline.md)
 - [Protobuf và event contract](docs/architecture/contracts.md)
@@ -130,11 +131,11 @@ corepack pnpm build
 - [Kết quả kiểm tra Trip Plan access](docs/architecture/trip-plan-access-control-validation.md)
 - [Database và migration](docs/database/README.md)
 - [Kết quả kiểm tra database](docs/database/validation.md)
-- [SRS v2.0](docs/Wolfari_SRS_v2.0_ChinhThuc.docx)
-- [ERD v1.1](docs/Wolfari_ERD_Database_v1.1_ChinhThuc.docx)
-- [DDL/API/Event Specification v1.0](docs/Wolfari_DDL_API_Event_Specification_v1.0.docx)
+- [SRS v2.3 chính thức](docs/Wolfari_SRS_v2.3_ChinhThuc.docx)
+- [ERD v1.2 chính thức](docs/Wolfari_ERD_Database_v1.2_ChinhThuc.docx)
+- [DDL/API/Event Specification v1.1 chính thức](docs/Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx)
 
-Bản đối chiếu hiện hành là SRS v2.0 trong repository; không giả định có bản SRS v2.2 được một số tài liệu cũ tham chiếu. Xem [hướng dẫn cập nhật SRS/API/ERD](docs/wolfari-documentation-update-guide.md) cho từng đoạn cần thay và trạng thái triển khai. V001 là baseline kỹ thuật, Trip V002 là migration nâng cấp; schema/contract không chứng minh toàn bộ nghiệp vụ đã triển khai.
+Bộ chính thức thay các DOCX cũ và bản dự thảo trong cây làm việc. Xem [hồ sơ chốt phiên bản](docs/releases/2026-10-02-documentation-baseline.md) về thay đổi, kiểm tra và cách tra cứu bản cũ trong Git; [hồ sơ đồng bộ](docs/history/documentation-update-2026-10-02.md) giữ chi tiết 80 mục và 15 chỉnh sửa bổ sung. Các chính sách ghi chưa chốt vẫn cần quyết định riêng. V001 là baseline kỹ thuật, Trip V002 là migration nâng cấp; schema/contract không chứng minh toàn bộ nghiệp vụ đã triển khai.
 
 ## Trạng thái phạm vi
 
@@ -146,7 +147,8 @@ Bản đối chiếu hiện hành là SRS v2.0 trong repository; không giả đ
 - [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
 - [x] Trip Plan access: access context, ba policy và danh sách selected Plan Editor.
 - [x] Trip invitations local: EMAIL/LINK, accept/decline/revoke/resend, email qua outbox và SMTP; xem validation để phân biệt local/CI/production.
-- [ ] Áp dụng hướng dẫn Markdown vào ba DOCX và phê duyệt các chính sách còn mở; không chờ một bản SRS v2.2 chưa có.
+- [x] Đồng bộ và chốt SRS v2.3, ERD v1.2, DDL/API/Event v1.1; kiểm tra nội dung, cấu trúc và bố cục.
+- [ ] Quyết định riêng các chính sách còn mở được ghi trong bộ đã chốt, đặc biệt retention 30/90 ngày.
 - [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.
 
 ## Đóng góp và giấy phép

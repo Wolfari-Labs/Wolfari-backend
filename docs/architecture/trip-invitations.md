@@ -54,7 +54,7 @@ Retry theo 10s/30s/120s/300s/900s. Consumer dùng retry queue bền vững, khô
 
 `corepack pnpm env:init` bổ sung key/target còn thiếu, giữ cấu hình đã tồn tại. Trip cần `TRIP_INVITATION_TOKEN_KEY`, `TRIP_INVITATION_LINK_BASE_URL`, `IDENTITY_GRPC_TARGET`, `TRIP_IDENTITY_SECRET`, `RABBITMQ_URL` cùng các caller secret. Không dùng lại key Identity. `TRIP_OUTBOX_ENABLED=false` chỉ dành harness PostgreSQL-only.
 
-Sau review cấu hình, chạy `corepack pnpm db:migrate --service trip` trên môi trường cần nâng cấp. Nhánh này không tự migrate database phát triển của người dùng. Trip readiness yêu cầu V001 và V002. V002 dùng [forward manifest](../database/SHA256SUMS.forward.txt), không sửa baseline manifest/V001/DOCX. ACCEPTED cũ thiếu liên kết hoặc duplicate pending làm migration dừng để xử lý dữ liệu có kiểm soát, không tự suy đoán membership.
+Sau review cấu hình, chạy `corepack pnpm db:migrate --service trip` trên môi trường cần nâng cấp. Nhánh này không tự migrate database phát triển của người dùng. Trip readiness yêu cầu V001 và V002. V002 dùng [forward manifest](../database/SHA256SUMS.forward.txt), không đổi SQL/checksum migration đã áp dụng. Acceptance link đã được phản ánh trong [bộ tài liệu chính thức](../README.md). ACCEPTED cũ thiếu liên kết hoặc duplicate pending làm migration dừng để xử lý dữ liệu có kiểm soát, không tự suy đoán membership.
 
 Local link: `<TRIP_INVITATION_LINK_BASE_URL>/invitations/local#token=...`. Trang local có login, preview, accept, decline; GET không consume, token fragment bị xóa khỏi address bar, không lưu credential/token vào localStorage. Trang này không phải frontend production. Runtime vẫn từ chối transport không TLS khi `NODE_ENV=production`.
 

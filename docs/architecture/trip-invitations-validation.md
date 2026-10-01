@@ -1,6 +1,6 @@
 # Kiểm chứng Trip invitations
 
-Ngày kiểm tra lại: 2026-10-01, Windows, Node 24/pnpm 10.34.5. Worktree `feat/trip-invitations` trên nền `63aa8b4875a61f4f87ce2c9aa73a3e29b2537063` cộng diff review; không phải kết quả CI. Xem [hướng dẫn cập nhật tài liệu](../wolfari-documentation-update-guide.md) cho source fixes, các lần chạy và khoảng thiếu còn lại.
+Ngày kiểm tra lại: 2026-10-01, Windows, Node 24/pnpm 10.34.5. Worktree `feat/trip-invitations` trên nền `63aa8b4875a61f4f87ce2c9aa73a3e29b2537063` cộng diff review; không phải kết quả CI. Xem [hồ sơ review 01/10](../history/documentation-update-2026-10-02.md) cho source fixes, các lần chạy và khoảng thiếu tại mốc đó. Bộ tài liệu hiện hành được chốt ngày 02/10 tại [danh mục tài liệu](../README.md).
 
 ## Kết quả local
 

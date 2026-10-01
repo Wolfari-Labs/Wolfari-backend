@@ -1,6 +1,6 @@
 # Kết quả kiểm tra Trip core
 
-Bảng dưới giữ kết quả lịch sử trước Invitations, không phải số liệu checkout hiện tại. Review ngày 01-10-2026 trên nền `63aa8b4` cộng diff đã chạy lại `trip:test` PASS 27 nhóm; toàn workspace có 116 unit tests và catalog 33 RPC. Kết quả hiện hành và giới hạn tại [hướng dẫn cập nhật tài liệu](../wolfari-documentation-update-guide.md#bằng-chứng-kiểm-thử-của-đợt-review). Chi tiết lịch sử của lát cắt Plan nằm tại [trip-plan-access-control-validation.md](./trip-plan-access-control-validation.md). Local PASS không thay CI.
+Bảng dưới giữ kết quả lịch sử trước Invitations, không phải số liệu checkout hiện tại. Review ngày 01-10-2026 trên nền `63aa8b4` cộng diff đã chạy lại `trip:test` PASS 27 nhóm; toàn workspace có 116 unit tests và catalog 33 RPC. Kết quả tại mốc review và giới hạn ở [hồ sơ review 01/10](../history/documentation-update-2026-10-02.md#bằng-chứng-kiểm-thử-của-đợt-review-ngày-0110-trước-khi-chỉnh-docx). Chi tiết lịch sử của lát cắt Plan nằm tại [trip-plan-access-control-validation.md](./trip-plan-access-control-validation.md). Local PASS không thay CI.
 
 | Kiểm tra          | Kết quả | Bằng chứng và giới hạn                                                                                   |
 | ----------------- | ------- | -------------------------------------------------------------------------------------------------------- |

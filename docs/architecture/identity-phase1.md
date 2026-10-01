@@ -2,7 +2,7 @@
 
 ## Phạm vi và quyết định
 
-Đợt này hiện thực các phần email của FR-ID01/FR-ID02 dựa trên SRS v2.0, DDL/API/Event v1.0, ERD v1.1 và V001. **SRS v2.2 chưa có trong repository.** OAuth Google, liên kết tài khoản, đổi email, xóa tài khoản, khóa/mở khóa bởi Admin, push notification và UI sản phẩm chưa được thực hiện. Không sửa V001 hay bổ sung migration.
+Đợt này hiện thực các phần email của FR-ID01/FR-ID02 và dùng Identity V001. Phạm vi đã được đồng bộ vào bộ SRS v2.3, DDL/API/Event v1.1 và ERD v1.2 chính thức; xem [danh mục tài liệu](../README.md). OAuth Google, liên kết tài khoản, đổi email, xóa tài khoản, khóa/mở khóa bởi Admin, push notification và UI sản phẩm chưa được thực hiện. Không sửa V001 hay bổ sung migration.
 
 Gateway cung cấp REST `/api/v1` và chỉ proxy danh sách route Identity được khai báo. Đây là ngoại lệ HTTP nội bộ cho Identity so với định hướng gRPC chung. Gateway không có credential database. Identity sở hữu `identity_db`, credential, phiên, token, outbox và bucket avatar private. Ba RPC của đợt 1 là `ValidateSession`, `GetProfiles`, `GetAccountEmailDelivery`; Invitations bổ sung `GetInvitationIdentity` chỉ cho Trip. Catalog hiện có 33 RPC, trong đó Identity có bốn. Caller được đối chiếu với catalog và service secret riêng. Metadata caller chỉ là khai báo, chưa thay thế TLS/mTLS cho production. Transport plaintext bị chặn khi `NODE_ENV=production`.
 

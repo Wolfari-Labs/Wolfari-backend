@@ -79,7 +79,7 @@ export interface GetAccountEmailDeliveryResponse {
 
 export const WOLFARI_IDENTITY_V1_PACKAGE_NAME = "wolfari.identity.v1";
 
-/** Source: DDL/API/Event v1.0 section 6. Authorization is enforced by the owner. */
+/** Source: DDL/API/Event v1.1 section 6. Authorization is enforced by the owner. */
 
 export interface IdentityServiceClient {
   getInvitationIdentity(
@@ -97,7 +97,7 @@ export interface IdentityServiceClient {
   ): Observable<GetAccountEmailDeliveryResponse>;
 }
 
-/** Source: DDL/API/Event v1.0 section 6. Authorization is enforced by the owner. */
+/** Source: DDL/API/Event v1.1 section 6. Authorization is enforced by the owner. */
 
 export interface IdentityServiceController {
   getInvitationIdentity(
