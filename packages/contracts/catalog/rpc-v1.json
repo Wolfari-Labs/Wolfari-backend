@@ -66,6 +66,14 @@
   {
     "package": "wolfari.trip.v1",
     "service": "TripService",
+    "method": "UpdatePlanPolicy",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 API031"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
     "method": "BeginFinanceOperation",
     "callers": ["Finance"],
     "deadline_ms": 2000,

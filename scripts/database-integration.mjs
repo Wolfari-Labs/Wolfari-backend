@@ -104,6 +104,9 @@ async function launchApps() {
   const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const secrets = Object.fromEntries(['GATEWAY', 'AUTOMATION', 'TRIP', 'FINANCE', 'TRAVEL', 'EXPORT'].map(caller => [`${caller}_IDENTITY_SECRET`, randomBytes(32).toString('hex')]));
   const gatewayTripSecret = randomBytes(32).toString('hex');
+  const financeTripSecret = randomBytes(32).toString('hex');
+  const travelTripSecret = randomBytes(32).toString('hex');
+  const automationTripSecret = randomBytes(32).toString('hex');
   const gatewayPort = apps.find(app => app.name === 'api-gateway').testPort;
   const identityPort = apps.find(app => app.name === 'identity-service').testPort;
   const tripPort = apps.find(app => app.name === 'trip-workspace-service').testPort;
@@ -127,6 +130,8 @@ async function launchApps() {
       } : {}),
       ...(app.name === 'trip-workspace-service' ? {
         TRIP_GRPC_PORT: String(tripGrpcPort), GATEWAY_TRIP_SECRET: gatewayTripSecret,
+        FINANCE_TRIP_SECRET: financeTripSecret, TRAVEL_TRIP_SECRET: travelTripSecret,
+        AUTOMATION_TRIP_SECRET: automationTripSecret,
       } : {}),
       ...(app.name === 'api-gateway' ? {
         GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,

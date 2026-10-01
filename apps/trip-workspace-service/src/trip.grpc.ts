@@ -5,9 +5,19 @@ import type { Metadata } from '@grpc/grpc-js';
 import { RpcException } from '@nestjs/microservices';
 import { CommonV1, RPC_CATALOG, TripV1 } from '@wolfari/contracts/grpc';
 import { timingSafeEqual } from 'node:crypto';
-import { TripError, TripService, type TripLifecycle, type TripView } from './trip.service';
+import type { PlanEditPolicy, PlanPolicyView } from './trip-access.domain';
+import { TripAccessService, type AccessContextView } from './trip-access.service';
+import { TripError } from './trip.errors';
+import { TripPlanAccessService } from './trip-plan-access.service';
+import { TripService, type TripLifecycle, type TripView } from './trip.service';
 
 const CORRELATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const callerCredentials: Record<string, string> = {
+  ApiGateway: 'GATEWAY_TRIP_SECRET',
+  Finance: 'FINANCE_TRIP_SECRET',
+  Travel: 'TRAVEL_TRIP_SECRET',
+  Automation: 'AUTOMATION_TRIP_SECRET',
+};
 
 function timestamp(value: { seconds?: string; nanos?: number } | undefined): Date {
   if (
@@ -51,11 +61,34 @@ const protoToLifecycle: Partial<Record<TripV1.TripLifecycle, TripLifecycle>> = {
   [TripV1.TripLifecycle.TRIP_LIFECYCLE_ARCHIVED]: 'ARCHIVED',
 };
 
-const planPolicy: Record<TripView['plan_edit_policy'], CommonV1.PlanPolicy> = {
+const planPolicy: Record<PlanEditPolicy, CommonV1.PlanPolicy> = {
   OWNER_ONLY: CommonV1.PlanPolicy.PLAN_POLICY_OWNER_ONLY,
   SELECTED_MEMBERS: CommonV1.PlanPolicy.PLAN_POLICY_SELECTED_MEMBERS,
   ALL_MEMBERS: CommonV1.PlanPolicy.PLAN_POLICY_ALL_MEMBERS,
 };
+
+const protoToPlanPolicy: Partial<Record<CommonV1.PlanPolicy, PlanEditPolicy>> = {
+  [CommonV1.PlanPolicy.PLAN_POLICY_OWNER_ONLY]: 'OWNER_ONLY',
+  [CommonV1.PlanPolicy.PLAN_POLICY_SELECTED_MEMBERS]: 'SELECTED_MEMBERS',
+  [CommonV1.PlanPolicy.PLAN_POLICY_ALL_MEMBERS]: 'ALL_MEMBERS',
+};
+
+export function tripGrpcStatus(error: TripError): status {
+  switch (error.code) {
+    case 'VALIDATION_FAILED':
+      return status.INVALID_ARGUMENT;
+    case 'RESOURCE_NOT_FOUND':
+      return status.NOT_FOUND;
+    case 'PERMISSION_DENIED':
+      return status.PERMISSION_DENIED;
+    case 'IDEMPOTENCY_CONFLICT':
+      return status.ALREADY_EXISTS;
+    case 'STATE_CONFLICT':
+      return status.FAILED_PRECONDITION;
+    case 'VERSION_CONFLICT':
+      return status.ABORTED;
+  }
+}
 
 function protobufTrip(value: TripView): TripV1.Trip {
   return {
@@ -93,6 +126,43 @@ function protobufTrip(value: TripView): TripV1.Trip {
   };
 }
 
+function protobufPlanPolicy(value: PlanPolicyView): TripV1.PlanPolicySettings {
+  return {
+    policy: planPolicy[value.policy],
+    editor_member_ids: value.editor_member_ids,
+    membership_revision: value.membership_revision,
+  };
+}
+
+function protobufAccessContext(value: AccessContextView): CommonV1.AccessContext {
+  return {
+    trip_id: value.trip_id,
+    membership: {
+      id: value.membership.id,
+      trip_id: value.membership.trip_id,
+      user_id: value.membership.user_id,
+      role:
+        value.membership.role === 'OWNER'
+          ? CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER
+          : CommonV1.MembershipRole.MEMBERSHIP_ROLE_MEMBER,
+      joined_at: protobufTimestamp(value.membership.joined_at),
+      left_at:
+        value.membership.left_at === null ? undefined : protobufTimestamp(value.membership.left_at),
+    },
+    policy: planPolicy[value.policy],
+    trip_state:
+      value.trip_state === 'ACTIVE'
+        ? CommonV1.TripState.TRIP_STATE_ACTIVE
+        : CommonV1.TripState.TRIP_STATE_ARCHIVED,
+    revisions: value.revisions,
+    allowed: value.allowed,
+    permissions: value.permissions,
+    can_read_trip: value.can_read_trip,
+    can_update_trip_metadata: value.can_update_trip_metadata,
+    can_edit_plan: value.can_edit_plan,
+  };
+}
+
 function patchValue(value: TripV1.StringPatch): string | null {
   const hasValue = value.value !== undefined;
   const hasClear = value.clear !== undefined;
@@ -107,6 +177,8 @@ function patchValue(value: TripV1.StringPatch): string | null {
 export class TripGrpcController implements TripV1.TripServiceController {
   constructor(
     private readonly trips: TripService,
+    private readonly access: TripAccessService,
+    private readonly planAccess: TripPlanAccessService,
     private readonly config: ConfigService,
   ) {}
 
@@ -120,19 +192,14 @@ export class TripGrpcController implements TripV1.TripServiceController {
         value.service === 'TripService' &&
         value.method === method,
     );
-    const expected = this.config.get<string>('GATEWAY_TRIP_SECRET') ?? '';
+    const expected = this.config.get<string>(callerCredentials[caller] ?? '') ?? '';
     const providedBytes = Buffer.from(secret);
     const expectedBytes = Buffer.from(expected);
     const validSecret =
       expectedBytes.length >= 32 &&
       providedBytes.length === expectedBytes.length &&
       timingSafeEqual(providedBytes, expectedBytes);
-    if (
-      caller !== 'ApiGateway' ||
-      !entry?.callers.includes(caller) ||
-      !validSecret ||
-      !CORRELATION_ID.test(correlationId)
-    ) {
+    if (!entry?.callers.includes(caller) || !validSecret || !CORRELATION_ID.test(correlationId)) {
       throw new RpcException({
         code: status.PERMISSION_DENIED,
         message: 'Caller is not authorized',
@@ -146,20 +213,8 @@ export class TripGrpcController implements TripV1.TripServiceController {
       return await work();
     } catch (error) {
       if (error instanceof TripError) {
-        const code =
-          error.code === 'VALIDATION_FAILED'
-            ? status.INVALID_ARGUMENT
-            : error.code === 'RESOURCE_NOT_FOUND'
-              ? status.NOT_FOUND
-              : error.code === 'PERMISSION_DENIED'
-                ? status.PERMISSION_DENIED
-                : error.code === 'IDEMPOTENCY_CONFLICT'
-                  ? status.ALREADY_EXISTS
-                  : error.code === 'STATE_CONFLICT'
-                    ? status.FAILED_PRECONDITION
-                    : status.ABORTED;
         throw new RpcException({
-          code,
+          code: tripGrpcStatus(error),
           message: JSON.stringify({ code: error.code, details: error.details }),
         });
       }
@@ -253,8 +308,40 @@ export class TripGrpcController implements TripV1.TripServiceController {
     throw new RpcException({ code: status.UNIMPLEMENTED, message: 'RPC is not implemented' });
   }
 
-  getAccessContext(): TripV1.GetAccessContextResponse {
-    return this.unimplemented();
+  getAccessContext(
+    request: TripV1.GetAccessContextRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.GetAccessContextResponse> {
+    this.authorize('GetAccessContext', metadata);
+    return this.execute(async () => ({
+      context: protobufAccessContext(
+        await this.access.getContext({
+          tripId: request.trip_id,
+          userId: request.user_id,
+          action: request.action,
+        }),
+      ),
+    }));
+  }
+
+  updatePlanPolicy(
+    request: TripV1.UpdatePlanPolicyRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.UpdatePlanPolicyResponse> {
+    const correlationId = this.authorize('UpdatePlanPolicy', metadata);
+    return this.execute(async () => ({
+      plan_policy: protobufPlanPolicy(
+        await this.planAccess.updatePolicy({
+          operationId: request.operation_id,
+          actorUserId: request.actor_user_id,
+          tripId: request.trip_id,
+          policy: protoToPlanPolicy[request.policy!],
+          editorMemberIds: request.editor_member_ids ?? [],
+          expectedMembershipRevision: request.expected_membership_revision,
+          correlationId,
+        }),
+      ),
+    }));
   }
 
   beginFinanceOperation(): TripV1.BeginFinanceOperationResponse {
