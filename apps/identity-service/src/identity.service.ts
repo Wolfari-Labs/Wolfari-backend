@@ -12,7 +12,7 @@ type Session = { id: string; user_id: string; family_id: string; token_hash: str
 type OneTime = { id: string; user_id: string; purpose: string; expires_at: Date; used_at: Date | null; revoked_at: Date | null; delivery_token_ciphertext: string | null };
 
 export class IdentityError extends Error {
-  constructor(public readonly code: string, public readonly status: number, public readonly publicMessage = 'Request could not be completed') { super(code); }
+  constructor(public readonly code: string, public readonly status: number, public readonly publicMessage = 'Không thể hoàn tất yêu cầu') { super(code); }
 }
 
 const fail = (code: string, status: number, message?: string): never => { throw new IdentityError(code, status, message); };

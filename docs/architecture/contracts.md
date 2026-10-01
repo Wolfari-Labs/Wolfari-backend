@@ -38,7 +38,7 @@ Metadata bắt buộc theo quy ước runtime cho mọi RPC đã bật:
 - `x-caller-service`: tên caller khai báo, phải được lớp vận chuyển xác thực;
 - deadline mặc định 2 giây; `GetRoute` và `GetWeather` tối đa 10 giây; không vượt ngân sách còn lại của request.
 
-Timeout sau khi command đã được nhận không chứng minh command thất bại. Caller phải truy vấn operation result; quyết định HTTP `202` thuộc tầng điều phối, chưa nằm trong package này.
+Timeout sau khi command đã được nhận không chứng minh command thất bại. Protocol liên Finance dự kiến có operation result và HTTP `202`, nhưng handler tương ứng chưa triển khai. Các mutation Trip hiện có trả `503 SERVICE_UNAVAILABLE` khi mất dependency/deadline; client retry cùng key và payload để nhận receipt đã commit, không gọi endpoint polling chưa có runtime.
 
 ## Event và topology
 
@@ -54,4 +54,4 @@ Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result 
 
 Buf kiểm tra breaking Protobuf ở mức `FILE`. Event v1 chỉ cho phép thêm field payload optional; xóa field/event, thêm required, đổi kiểu/required hoặc thu hẹp enum đều thất bại. Mã sinh được commit và `contracts:check` xác minh tái lập trong thư mục tạm.
 
-Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip đã hiện thực sáu RPC: bốn RPC core, `GetAccessContext` và `UpdatePlanPolicy`; sáu RPC Trip khác vẫn chưa có handler nghiệp vụ. Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md), [Trip core](trip-core.md) và [Trip Plan access](trip-plan-access-control.md).
+Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip đã hiện thực 15 RPC: bốn core, `GetAccessContext`, `UpdatePlanPolicy`, bảy invitation commands/queries, `GetInvitationDelivery` và `AcknowledgeInvitationDelivery`. Năm RPC Trip chưa triển khai là `BeginFinanceOperation`, `CompleteOperation`, `GetOperationResult`, `GetAutomationContext`, `GetExportWorkerContext`; năm Finance và bốn Travel RPC cũng mới có contract. Identity có bốn handler; Automation xử lý ba event AccountEmailRequested, MemberInvited và MemberJoined. Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md), [Trip core](trip-core.md) và [Trip Plan access](trip-plan-access-control.md).

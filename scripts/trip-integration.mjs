@@ -1398,7 +1398,7 @@ async function main() {
   });
   assert.equal(outage.status, 503);
   assert.equal(outage.body.error.retryable, true);
-  assert.match(outage.body.error.message, /same idempotency key/i);
+  assert.match(outage.body.error.message, /cùng khóa chống lặp/i);
   pass('Trip outage fails closed and lowers Gateway readiness');
 
   const forbidden = [

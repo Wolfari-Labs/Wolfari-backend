@@ -114,7 +114,7 @@ export class InvitationProxy {
         (cause as { code?: number }).code === status.UNAUTHENTICATED
           ? 'UNAUTHENTICATED'
           : 'SERVICE_UNAVAILABLE',
-        { retryable: true, write },
+        { retryable: (cause as { code?: number }).code !== status.UNAUTHENTICATED, write },
       );
     }
     try {

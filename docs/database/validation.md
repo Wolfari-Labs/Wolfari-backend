@@ -1,5 +1,13 @@
 # Kết quả kiểm tra nền database Wolfari
 
+## Kiểm chứng ngày 01-10-2026
+
+Trên nền `63aa8b4` cộng diff review, `corepack pnpm db:test` PASS 17 nhóm: 54 bảng mô hình + 5 bảng lịch sử, 47 FK sau Trip V002, nâng cấp V001→V002 giữ dữ liệu và chặn legacy mơ hồ/duplicate pending nguyên tử; constraints, 20/20 cross-DB denial, runner concurrency, readiness và outage recovery đều PASS. Không sửa V001/V002/checksum baseline hoặc migrate database phát triển. Project/volume thử đã được teardown.
+
+Build/lint, 116 unit tests, 31 contract tests (subset), contract lint/check/breaking đều PASS; các integration và giới hạn được tổng hợp trong [hướng dẫn cập nhật tài liệu](../wolfari-documentation-update-guide.md#bằng-chứng-kiểm-thử-của-đợt-review). CI cho worktree review NOT RUN. Không dùng bảng lịch sử dưới đây như số liệu HEAD hiện tại.
+
+## Báo cáo lịch sử ngày 29-09-2026
+
 Kết quả dưới đây được chạy lại ngày 29-09-2026 trên Docker Desktop, không chỉ kế thừa ghi nhận của bộ bàn giao cũ.
 
 ## Kết quả

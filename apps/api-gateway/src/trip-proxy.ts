@@ -192,8 +192,8 @@ function fail(
 ) {
   const message =
     statusCode === 503 && options.write
-      ? 'Service temporarily unavailable; retry this write with the same idempotency key'
-      : 'Request could not be completed';
+      ? 'Dịch vụ tạm thời không khả dụng; thử lại thao tác với cùng khóa chống lặp'
+      : 'Không thể hoàn tất yêu cầu';
   json(response, statusCode, {
     error: {
       code,

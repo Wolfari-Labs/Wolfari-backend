@@ -47,6 +47,8 @@ Script `infrastructure/postgres/bootstrap-databases.sql` dành cho DBA cài th�
 
 ## Nguồn và giới hạn
 
+Review ngày 01-10-2026 giữ nguyên V002 đã commit và không tạo V003 vì chưa có gap schema cần sửa. Chưa xác minh nơi V002 đã được áp dụng ngoài môi trường thử; không viết lại migration hoặc reset dữ liệu. [Hướng dẫn cập nhật SRS/API/ERD](../wolfari-documentation-update-guide.md) có từng đoạn thay thế, constraints/index và sơ đồ acceptance mới; ba DOCX gốc vẫn giữ nguyên.
+
 [Manifest nguồn](SHA256SUMS.source-bundle.txt) giữ checksum bàn giao cũ. Runner kiểm tra SQL migration cần chạy trong manifest hiện tại; khác biệt checksum DOCX SRS không thay SQL baseline. SRS v2.2 được ERD/Contract tham chiếu vẫn thiếu: xem [validation](validation.md) và [baseline](../architecture/design-baseline.md).
 
 Hướng dẫn cấu hình, readiness và xử lý lỗi: [môi trường phát triển](../architecture/development-environment.md).

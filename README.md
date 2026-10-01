@@ -134,7 +134,7 @@ corepack pnpm build
 - [ERD v1.1](docs/Wolfari_ERD_Database_v1.1_ChinhThuc.docx)
 - [DDL/API/Event Specification v1.0](docs/Wolfari_DDL_API_Event_Specification_v1.0.docx)
 
-SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong repository. Vì vậy, các migration `V001` hiện có chỉ được xem là baseline kỹ thuật, không phải toàn bộ nghiệp vụ đã triển khai.
+Bản đối chiếu hiện hành là SRS v2.0 trong repository; không giả định có bản SRS v2.2 được một số tài liệu cũ tham chiếu. Xem [hướng dẫn cập nhật SRS/API/ERD](docs/wolfari-documentation-update-guide.md) cho từng đoạn cần thay và trạng thái triển khai. V001 là baseline kỹ thuật, Trip V002 là migration nâng cấp; schema/contract không chứng minh toàn bộ nghiệp vụ đã triển khai.
 
 ## Trạng thái phạm vi
 
@@ -146,7 +146,7 @@ SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong rep
 - [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
 - [x] Trip Plan access: access context, ba policy và danh sách selected Plan Editor.
 - [x] Trip invitations local: EMAIL/LINK, accept/decline/revoke/resend, email qua outbox và SMTP; xem validation để phân biệt local/CI/production.
-- [ ] Đối chiếu đầy đủ với SRS v2.2.
+- [ ] Áp dụng hướng dẫn Markdown vào ba DOCX và phê duyệt các chính sách còn mở; không chờ một bản SRS v2.2 chưa có.
 - [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.
 
 ## Đóng góp và giấy phép
