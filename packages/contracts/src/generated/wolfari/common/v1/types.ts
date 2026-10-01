@@ -117,6 +117,9 @@ export interface AccessContext {
   revisions?: Revisions | undefined;
   allowed?: boolean | undefined;
   permissions?: string[] | undefined;
+  can_read_trip?: boolean | undefined;
+  can_update_trip_metadata?: boolean | undefined;
+  can_edit_plan?: boolean | undefined;
 }
 
 export interface AuthorizationContext {

@@ -35,6 +35,29 @@ describe('development configuration', () => {
     expect(appEnvironment(apps[0], { DATABASE_URL: 'ignored', GATEWAY_PORT: '3000' }, inherited)).toEqual({ PATH: 'tools', GATEWAY_PORT: '3000' });
     expect(appEnvironment(apps[1], { DATABASE_URL: 'own' }, inherited)).toEqual({ PATH: 'tools', DATABASE_URL: 'own' });
   });
+  it('distributes each Trip caller secret only to its server and owning caller', () => {
+    const values = {
+      TRIP_GRPC_PORT: '3202', TRIP_GRPC_TARGET: '127.0.0.1:3202',
+      GATEWAY_TRIP_SECRET: 'g'.repeat(64), FINANCE_TRIP_SECRET: 'f'.repeat(64),
+      TRAVEL_TRIP_SECRET: 't'.repeat(64), AUTOMATION_TRIP_SECRET: 'a'.repeat(64),
+    };
+    const environment = (name: string) => appEnvironment(apps.find(app => app.name === name)!, values, {});
+    expect(environment('trip-workspace-service')).toMatchObject({
+      TRIP_GRPC_PORT: values.TRIP_GRPC_PORT, GATEWAY_TRIP_SECRET: values.GATEWAY_TRIP_SECRET,
+      FINANCE_TRIP_SECRET: values.FINANCE_TRIP_SECRET, TRAVEL_TRIP_SECRET: values.TRAVEL_TRIP_SECRET,
+      AUTOMATION_TRIP_SECRET: values.AUTOMATION_TRIP_SECRET,
+    });
+    for (const [name, owned] of [
+      ['api-gateway', 'GATEWAY_TRIP_SECRET'], ['finance-service', 'FINANCE_TRIP_SECRET'],
+      ['travel-intelligence-service', 'TRAVEL_TRIP_SECRET'], ['automation-service', 'AUTOMATION_TRIP_SECRET'],
+    ] as const) {
+      const caller = environment(name);
+      expect(caller).toMatchObject({ TRIP_GRPC_TARGET: values.TRIP_GRPC_TARGET, [owned]: values[owned] });
+      for (const secret of ['GATEWAY_TRIP_SECRET', 'FINANCE_TRIP_SECRET', 'TRAVEL_TRIP_SECRET', 'AUTOMATION_TRIP_SECRET'] as const) {
+        if (secret !== owned) expect(caller).not.toHaveProperty(secret);
+      }
+    }
+  });
   it('verifies every baseline SQL checksum against the committed manifest', async () => {
     for (const service of ['identity', 'trip', 'travel', 'finance', 'automation']) {
       expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(['V001']);
