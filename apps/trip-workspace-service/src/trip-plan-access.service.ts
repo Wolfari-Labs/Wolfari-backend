@@ -176,6 +176,10 @@ export class TripPlanAccessService {
 
     return this.database.withTransaction(async (client) => {
       await lockOperation(client, operationId);
+      await client.query('SELECT id FROM trips WHERE id=$1 FOR UPDATE', [tripId]);
+      await client.query('SELECT id FROM trip_members WHERE trip_id=$1 ORDER BY id FOR UPDATE', [
+        tripId,
+      ]);
       const access = await client.query<OwnerRow>(
         `SELECT t.id AS trip_id,t.plan_edit_policy,t.membership_revision,t.archived_at,
            m.id AS membership_id,m.role AS membership_role

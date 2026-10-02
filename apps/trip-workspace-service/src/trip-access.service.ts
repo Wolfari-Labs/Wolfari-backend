@@ -137,6 +137,7 @@ export class TripAccessService {
     const userId = accessUuid(input.userId);
     const action = accessAction(input.action);
     if (lock) {
+      await executor.query('SELECT id FROM trips WHERE id=$1 FOR UPDATE', [tripId]);
       // Caller must keep this transaction open through the Plan mutation. Read
       // assignments in a separate statement so READ COMMITTED refreshes the
       // snapshot after waiting for an in-flight policy change to release its lock.

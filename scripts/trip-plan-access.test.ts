@@ -92,15 +92,17 @@ describe('Trip access context', () => {
       ].sort(),
     );
     expect(context).not.toHaveProperty('selected_editor');
-    expect(query.mock.calls[0]?.[0]).toContain('FOR UPDATE OF t,m');
+    expect(query.mock.calls[0]?.[0]).toContain('FROM trips WHERE id=$1 FOR UPDATE');
+    expect(query.mock.calls[1]?.[0]).toContain('FOR UPDATE OF t,m');
     expect(query.mock.calls[0]?.[0]).not.toContain('trip_plan_editors');
-    expect(query.mock.calls[1]?.[0]).toContain('FROM trip_plan_editors pe');
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[2]?.[0]).toContain('FROM trip_plan_editors pe');
+    expect(query).toHaveBeenCalledTimes(3);
   });
 
   it('uses the fresh permission snapshot after acquiring the write locks', async () => {
     const query = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [{ id: tripId }] })
       .mockResolvedValueOnce({ rows: [{ id: tripId }] })
       .mockResolvedValueOnce({ rows: [accessRow('MEMBER', 'SELECTED_MEMBERS', false)] });
     const service = new TripAccessService({ query } as unknown as DatabaseProvider);
@@ -114,7 +116,7 @@ describe('Trip access context', () => {
     );
     expect(context.can_edit_plan).toBe(false);
     expect(context.allowed).toBe(false);
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(3);
   });
 
   it('stops before reading assignments when the write lock finds no active membership', async () => {
@@ -122,7 +124,7 @@ describe('Trip access context', () => {
     await expect(
       service.getContextForUpdate({ query }, { tripId, userId: memberId, action: 'PLAN_EDIT' }),
     ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
-    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -227,7 +229,7 @@ describe('Trip Plan policy mutation', () => {
         format === 'jsonb' ? stored : JSON.stringify(stored),
       );
       expect(await service.updatePolicy(updateInput())).toEqual(replayOutcome);
-      expect(query).toHaveBeenCalledTimes(3);
+      expect(query).toHaveBeenCalledTimes(5);
     },
   );
 
@@ -252,7 +254,7 @@ describe('Trip Plan policy mutation', () => {
     await expect(service.updatePolicy(updateInput())).rejects.toMatchObject({
       code: 'PERMISSION_DENIED',
     });
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(4);
   });
 
   it.each([

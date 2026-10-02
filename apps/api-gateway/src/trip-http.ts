@@ -161,6 +161,8 @@ export function grpcFailure(response: ServerResponse, cause: unknown, write: boo
   if (domain?.code === 'VERSION_CONFLICT')
     return fail(response, 409, 'VERSION_CONFLICT', { details: domain.details });
   if (domain?.code === 'STATE_CONFLICT') return fail(response, 409, 'STATE_CONFLICT');
+  if (domain?.code === 'FINANCE_OBLIGATION_BLOCKED')
+    return fail(response, 409, 'FINANCE_OBLIGATION_BLOCKED');
   if (error.code === status.INVALID_ARGUMENT) return fail(response, 400, 'VALIDATION_FAILED');
   if (error.code === status.UNAUTHENTICATED) return fail(response, 401, 'UNAUTHENTICATED');
   if (error.code === status.NOT_FOUND) return fail(response, 404, 'RESOURCE_NOT_FOUND');

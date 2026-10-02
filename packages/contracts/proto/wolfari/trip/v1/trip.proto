@@ -5,6 +5,9 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service TripService {
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  rpc LeaveTrip(LeaveTripRequest) returns (LeaveTripResponse);
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
   rpc CreateInvitation(CreateInvitationRequest) returns (CreateInvitationResponse);
   rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
   rpc PreviewInvitation(PreviewInvitationRequest) returns (PreviewInvitationResponse);
@@ -173,7 +176,36 @@ message CompleteOperationResponse {
 }
 message GetOperationResultRequest {
   string operation_id = 1;
+  optional string actor_user_id = 2; // Required for ApiGateway; initiator-only lifecycle projection.
 }
+message ListMembersRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+  int32 limit = 3;
+  optional string cursor = 4;
+  bool include_left = 5;
+}
+message ListMembersResponse {
+  repeated wolfari.common.v1.Membership items = 1;
+  optional string next_cursor = 2;
+}
+message LeaveTripRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string reason = 4;
+  int32 expected_membership_revision = 5;
+}
+message LeaveTripResponse { wolfari.common.v1.Operation operation = 1; }
+message RemoveMemberRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string reason = 4;
+  int32 expected_membership_revision = 5;
+  string member_id = 6;
+}
+message RemoveMemberResponse { wolfari.common.v1.Operation operation = 1; }
 message GetOperationResultResponse {
   wolfari.common.v1.Operation operation = 1;
 }

@@ -1,4 +1,5 @@
 import { PlanGrpcHandlers } from './planning/plan.grpc';
+import { LifecycleService } from './operations/lifecycle.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { status } from '@grpc/grpc-js';
@@ -134,6 +135,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly planAccess: TripPlanAccessService,
     private readonly config: ConfigService,
     private readonly invitations: TripInvitationsService,
+    private readonly lifecycle: LifecycleService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -295,8 +297,54 @@ export class TripGrpcController implements TripV1.TripServiceController {
     return this.unimplemented();
   }
 
-  getOperationResult(): TripV1.GetOperationResultResponse {
-    return this.unimplemented();
+  getOperationResult(
+    request: TripV1.GetOperationResultRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.GetOperationResultResponse> {
+    this.authorize('GetOperationResult', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.getOperation(request.operation_id, request.actor_user_id),
+    }));
+  }
+
+  listMembers(
+    request: TripV1.ListMembersRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.ListMembersResponse> {
+    this.authorize('ListMembers', metadata);
+    return this.execute(() => this.lifecycle.list(request));
+  }
+
+  leaveTrip(
+    request: TripV1.LeaveTripRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.LeaveTripResponse> {
+    const correlation = this.authorize('LeaveTrip', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.execute(
+        { ...request },
+        'LEAVE_MEMBER',
+        correlation,
+        invitationDeadline(call),
+      ),
+    }));
+  }
+
+  removeMember(
+    request: TripV1.RemoveMemberRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.RemoveMemberResponse> {
+    const correlation = this.authorize('RemoveMember', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.execute(
+        { ...request },
+        'REMOVE_MEMBER',
+        correlation,
+        invitationDeadline(call),
+      ),
+    }));
   }
 
   getAutomationContext(): TripV1.GetAutomationContextResponse {

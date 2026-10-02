@@ -434,6 +434,7 @@ export class TripService {
 
     return this.database.withTransaction(async (client) => {
       await lockOperation(client, operationId);
+      await client.query('SELECT id FROM trips WHERE id=$1 FOR UPDATE', [tripId]);
       const access = await client.query<TripRow>(`${SELECT_TRIP} FOR UPDATE OF t,m`, [
         tripId,
         actorUserId,

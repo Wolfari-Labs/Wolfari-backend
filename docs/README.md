@@ -14,6 +14,8 @@ Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026**
 
 ## Triển khai và tích hợp
 
+- [Membership lifecycle](architecture/trip-member-lifecycle.md), [handoff/runbook và tiến độ Hà](architecture/trip-member-lifecycle-handoff.md), [validation](architecture/trip-member-lifecycle-validation.md). Nhánh Trip-side; Finance/consumer E2E chưa hoàn thành.
+
 - [Baseline kiến trúc](architecture/design-baseline.md), [cấu trúc repo](architecture/repository-bootstrap.md), [môi trường local](architecture/development-environment.md).
 - [Database/migration](database/README.md), [Mermaid ERD](erd/), [Protobuf và event](architecture/contracts.md).
 - [Identity](architecture/identity-phase1.md), [Trip core](architecture/trip-core.md), [Plan access](architecture/trip-plan-access-control.md), [Invitations](architecture/trip-invitations.md).

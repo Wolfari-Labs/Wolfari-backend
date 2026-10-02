@@ -94,7 +94,10 @@ export function tripGrpcStatus(error: TripError): status {
     case 'IDEMPOTENCY_CONFLICT':
       return status.ALREADY_EXISTS;
     case 'STATE_CONFLICT':
+    case 'FINANCE_OBLIGATION_BLOCKED':
       return status.FAILED_PRECONDITION;
+    case 'SERVICE_UNAVAILABLE':
+      return status.UNAVAILABLE;
     case 'VERSION_CONFLICT':
       return status.ABORTED;
   }
