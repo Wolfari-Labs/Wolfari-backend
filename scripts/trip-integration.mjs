@@ -10,7 +10,17 @@ import { parseEnv } from 'node:util';
 import pg from 'pg';
 import { appEnvironment, apps, databaseUrl, root } from './config.mjs';
 import { compose } from './infrastructure.mjs';
+import { startTestService } from './test-container.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
+import { runInvitationTests } from './trip-invitations-integration.mjs';
+
+const invitationMode = process.argv.includes('--invitations');
+function brokerUrl() {
+  const value = new URL(`amqp://127.0.0.1:${infra.RABBITMQ_PORT}`);
+  value.username = infra.RABBITMQ_DEFAULT_USER;
+  value.password = infra.RABBITMQ_DEFAULT_PASS;
+  return value.href;
+}
 
 const require = createRequire(import.meta.url);
 const { TripClient } = require('../apps/api-gateway/dist/trip-client.js');
@@ -246,8 +256,16 @@ async function main() {
     { mode: 0o600 },
   );
   created = true;
-  await docker(['up', '-d', '--wait', '--wait-timeout', '180', 'postgres']);
-  for (const service of ['identity', 'trip']) {
+  await docker([
+    'up',
+    '-d',
+    '--wait',
+    '--wait-timeout',
+    '180',
+    'postgres',
+    ...(invitationMode ? ['rabbitmq', 'mailpit'] : []),
+  ]);
+  for (const service of ['identity', 'trip', ...(invitationMode ? ['automation'] : [])]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
   }
   pass('isolated Compose and V001 identity/trip');
@@ -280,6 +298,12 @@ async function main() {
     TZ: 'America/Los_Angeles',
     TRIP_PORT: String(ports.trip),
     TRIP_GRPC_PORT: String(ports.tripGrpc),
+    TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
+    TRIP_INVITATION_LINK_BASE_URL: `http://127.0.0.1:${ports.gateway}`,
+    IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.identityGrpc}`,
+    TRIP_IDENTITY_SECRET: secrets.TRIP_IDENTITY_SECRET,
+    TRIP_OUTBOX_ENABLED: invitationMode ? 'true' : 'false',
+    RABBITMQ_URL: brokerUrl(),
     DATABASE_URL: databaseUrl(infra, 'trip'),
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
     FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET,
@@ -299,6 +323,39 @@ async function main() {
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
+  if (invitationMode) {
+    const automationPort = await port();
+    await start('automation-service', {
+      AUTOMATION_PORT: String(automationPort),
+      DATABASE_URL: databaseUrl(infra, 'automation'),
+      IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.identityGrpc}`,
+      AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
+      TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
+      AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
+      RABBITMQ_URL: brokerUrl(),
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: infra.MAILPIT_SMTP_PORT,
+    });
+    await runInvitationTests({
+      request,
+      query,
+      transaction,
+      account,
+      bearer,
+      waitFor,
+      pass,
+      ports,
+      infra,
+      secrets,
+      children,
+      docker,
+      startService: (service) => startTestService(project, service),
+      brokerUrl,
+      automationPort,
+    });
+    console.log(`PASS trip:invitations:test completed ${checks} groups.`);
+    return;
+  }
 
   const unauthorizedTripClient = new TripClient(
     `127.0.0.1:${ports.tripGrpc}`,
@@ -1360,7 +1417,7 @@ async function main() {
   });
   assert.equal(outage.status, 503);
   assert.equal(outage.body.error.retryable, true);
-  assert.match(outage.body.error.message, /same idempotency key/i);
+  assert.match(outage.body.error.message, /cùng khóa chống lặp/i);
   pass('Trip outage fails closed and lowers Gateway readiness');
 
   const forbidden = [

@@ -23,6 +23,8 @@
     "db:test": "corepack pnpm build && node scripts/database-integration.mjs",
     "identity:test": "corepack pnpm build && node scripts/identity-integration.mjs",
     "trip:test": "corepack pnpm build && node scripts/trip-integration.mjs",
+    "trip:invitations:test": "corepack pnpm build && node scripts/trip-integration.mjs --invitations",
+    "trip:replay-invitation": "node scripts/trip-replay-invitation.mjs",
     "identity:replay-email": "node scripts/identity-replay-email.mjs",
     "contracts:lint": "node scripts/contracts.mjs lint",
     "contracts:generate": "node scripts/contracts.mjs generate",

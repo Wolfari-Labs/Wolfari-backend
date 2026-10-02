@@ -7,13 +7,23 @@ import { TripAccessService } from './trip-access.service';
 import { TripGrpcController } from './trip.grpc';
 import { TripPlanAccessService } from './trip-plan-access.service';
 import { TripService } from './trip.service';
+import { TripInvitationsService } from './trip-invitations.service';
+import { TripOutboxService, TripDependenciesController } from './trip-outbox.service';
 
 @Module({
   imports: [
     InfrastructureModule.forApp('trip-workspace-service'),
     DatabaseModule.forService('trip'),
   ],
-  controllers: [TripGrpcController],
-  providers: [TripService, PlanService, PlanGrpcHandlers, TripAccessService, TripPlanAccessService],
+  controllers: [TripGrpcController, TripDependenciesController],
+  providers: [
+    TripService,
+    PlanService,
+    PlanGrpcHandlers,
+    TripAccessService,
+    TripPlanAccessService,
+    TripInvitationsService,
+    TripOutboxService,
+  ],
 })
 export class AppModule {}

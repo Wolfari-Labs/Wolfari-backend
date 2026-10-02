@@ -7,7 +7,7 @@ Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm
 
 Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1** và **Trip core**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision.
 
-> Identity đợt 1 và một phần Trip core đã có runtime qua Gateway. Travel/Finance, phần lớn nghiệp vụ Automation, event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. SRS v2.2 vẫn thiếu; phần hiện có dùng V001 cùng tài liệu v2.0/v1.x trong repository.
+> Identity đợt 1, Trip core, Plan access và Invitations đã có runtime qua Gateway. Travel/Finance, phần lớn nghiệp vụ Automation và event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001 và Trip V002. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
 
 ## Kiến trúc
 
@@ -74,7 +74,7 @@ Năm service nghiệp vụ và Gateway bổ sung:
 GET /health/ready
 ```
 
-Readiness của năm service kiểm tra đúng database/role và migration baseline `V001`; Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity và Automation còn có `/health/dependencies` để xem tình trạng broker/email và số việc chờ, độc lập với login readiness.
+Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
 
 ## Lệnh phát triển
 
@@ -90,6 +90,7 @@ corepack pnpm db:inspect
 corepack pnpm db:test
 corepack pnpm identity:test
 corepack pnpm trip:test
+corepack pnpm trip:invitations:test
 
 # Contract
 corepack pnpm contracts:lint
@@ -98,18 +99,20 @@ corepack pnpm contracts:check
 corepack pnpm contracts:test
 
 # Chất lượng mã nguồn
+corepack pnpm build
 corepack pnpm lint
 corepack pnpm test
-corepack pnpm build
 ```
 
 `db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
-`trip:test` tạo project riêng để kiểm thử Trip core, Planning timeline và Plan access qua Gateway/gRPC: transaction, idempotency, optimistic concurrency, access context, policy/editor, completion, reorder, audit/outbox và rollback.
+`trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.
+`trip:invitations:test` bổ sung RabbitMQ/Mailpit riêng để kiểm thử vòng đời lời mời, rejoin, rollback, race, email, retry và ACK. Trip cần migration V002; baseline V001 được giữ nguyên.
 
 ## Tài liệu
 
-- [Hướng dẫn khởi tạo repository](docs/architecture/repository-bootstrap.md)
+- [Danh mục tài liệu chính thức và phạm vi sử dụng](docs/README.md)
+- [Cấu trúc repository](docs/architecture/repository-bootstrap.md)
 - [Môi trường phát triển](docs/architecture/development-environment.md)
 - [Baseline thiết kế](docs/architecture/design-baseline.md)
 - [Protobuf và event contract](docs/architecture/contracts.md)
@@ -119,19 +122,20 @@ corepack pnpm build
 - [Trip core và phân quyền](docs/architecture/trip-core.md)
 - [OpenAPI Trip core](docs/api/trip-core.openapi.yaml)
 - [Kết quả kiểm tra Trip core](docs/architecture/trip-core-validation.md)
-- [Planning timeline và transaction](docs/architecture/planning-timeline.md)
-- [OpenAPI Planning](docs/api/planning.openapi.yaml)
-- [Kết quả kiểm tra Planning](docs/architecture/planning-timeline-validation.md)
 - [Trip Plan access control](docs/architecture/trip-plan-access-control.md)
+- [Trip invitations và email](docs/architecture/trip-invitations.md)
+- [OpenAPI invitations](docs/api/trip-invitations.openapi.json)
+- [Kiểm chứng invitations](docs/architecture/trip-invitations-validation.md)
+- [Bàn giao invitations](docs/architecture/trip-invitations-handoff.md)
 - [Bàn giao Plan access cho Planning](docs/architecture/trip-plan-access-control-handoff.md)
 - [Kết quả kiểm tra Trip Plan access](docs/architecture/trip-plan-access-control-validation.md)
 - [Database và migration](docs/database/README.md)
 - [Kết quả kiểm tra database](docs/database/validation.md)
-- [SRS v2.0](docs/Wolfari_SRS_v2.0_ChinhThuc.docx)
-- [ERD v1.1](docs/Wolfari_ERD_Database_v1.1_ChinhThuc.docx)
-- [DDL/API/Event Specification v1.0](docs/Wolfari_DDL_API_Event_Specification_v1.0.docx)
+- [SRS v2.3 chính thức](docs/Wolfari_SRS_v2.3_ChinhThuc.docx)
+- [ERD v1.2 chính thức](docs/Wolfari_ERD_Database_v1.2_ChinhThuc.docx)
+- [DDL/API/Event Specification v1.1 chính thức](docs/Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx)
 
-SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong repository. Vì vậy, các migration `V001` hiện có chỉ được xem là baseline kỹ thuật, không phải toàn bộ nghiệp vụ đã triển khai.
+Bộ chính thức thay các DOCX cũ và bản dự thảo trong cây làm việc. Xem [hồ sơ chốt phiên bản](docs/releases/2026-10-02-documentation-baseline.md) về thay đổi, kiểm tra và cách tra cứu bản cũ trong Git; [hồ sơ đồng bộ](docs/history/documentation-update-2026-10-02.md) giữ chi tiết 80 mục và 15 chỉnh sửa bổ sung. Các chính sách ghi chưa chốt vẫn cần quyết định riêng. V001 là baseline kỹ thuật, Trip V002 là migration nâng cấp; schema/contract không chứng minh toàn bộ nghiệp vụ đã triển khai.
 
 ## Trạng thái phạm vi
 
@@ -141,9 +145,10 @@ SRS v2.2 được một số tài liệu tham chiếu nhưng chưa có trong rep
 - [x] Protobuf/event contract v1, mã sinh, validator và kiểm tra tương thích.
 - [x] Identity đợt 1: email auth, hồ sơ, phiên, avatar và gửi email local.
 - [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
-- [x] Planning timeline API039–044: đọc Plan, CRUD activity, reorder, completion và outbox PlanUpdated.
 - [x] Trip Plan access: access context, ba policy và danh sách selected Plan Editor.
-- [ ] Đối chiếu đầy đủ với SRS v2.2.
+- [x] Trip invitations local: EMAIL/LINK, accept/decline/revoke/resend, email qua outbox và SMTP; xem validation để phân biệt local/CI/production.
+- [x] Đồng bộ và chốt SRS v2.3, ERD v1.2, DDL/API/Event v1.1; kiểm tra nội dung, cấu trúc và bố cục.
+- [ ] Quyết định riêng các chính sách còn mở được ghi trong bộ đã chốt, đặc biệt retention 30/90 ngày.
 - [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.
 
 ## Đóng góp và giấy phép

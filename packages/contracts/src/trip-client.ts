@@ -50,3 +50,56 @@ export class TripAccessClient {
     this.client.close();
   }
 }
+
+// Invitation capability is deliberately a separate Automation-only client surface.
+export class TripInvitationClient {
+  private readonly client: Client;
+  constructor(
+    target: string,
+    private readonly secret: string,
+  ) {
+    this.client = new Client(target, credentials.createInsecure());
+  }
+  private call<Request extends object, Response extends object>(
+    name: string,
+    request: Request,
+    correlation: string = randomUUID(),
+  ): Promise<Response> {
+    const method = trip[name] as unknown as MethodDefinition<Request, Response>;
+    const metadata = new Metadata();
+    metadata.set('x-caller-service', 'Automation');
+    metadata.set('x-service-secret', this.secret);
+    metadata.set('x-correlation-id', correlation);
+    return new Promise((resolve, reject) =>
+      this.client.makeUnaryRequest(
+        method.path,
+        method.requestSerialize,
+        method.responseDeserialize,
+        request,
+        metadata,
+        { deadline: Date.now() + 2000 },
+        (error: ServiceError | null, response?: Response) =>
+          error ? reject(error) : resolve(response!),
+      ),
+    );
+  }
+  getInvitationDelivery(request: TripV1.GetInvitationDeliveryRequest, correlation?: string) {
+    return this.call<TripV1.GetInvitationDeliveryRequest, TripV1.GetInvitationDeliveryResponse>(
+      'GetInvitationDelivery',
+      request,
+      correlation,
+    );
+  }
+  acknowledgeInvitationDelivery(
+    request: TripV1.AcknowledgeInvitationDeliveryRequest,
+    correlation?: string,
+  ) {
+    return this.call<
+      TripV1.AcknowledgeInvitationDeliveryRequest,
+      TripV1.AcknowledgeInvitationDeliveryResponse
+    >('AcknowledgeInvitationDelivery', request, correlation);
+  }
+  close() {
+    this.client.close();
+  }
+}

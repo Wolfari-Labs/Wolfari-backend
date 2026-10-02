@@ -86,8 +86,9 @@ export class DatabaseProvider implements OnApplicationShutdown {
       const identity = await client.query('SELECT current_database() AS db, current_user AS role');
       if (identity.rows[0]?.db === `${this.name}_db` && identity.rows[0]?.role === `${this.name}_app`) {
         checks.database = 'up';
-        const migrations = await client.query("SELECT version FROM public.schema_migrations WHERE version='V001'");
-        checks.migrations = migrations.rowCount === 1 ? 'up' : 'missing';
+        const required = this.name === 'trip' ? ['V001', 'V002'] : ['V001'];
+        const migrations = await client.query('SELECT version FROM public.schema_migrations WHERE version=ANY($1::text[])', [required]);
+        checks.migrations = migrations.rowCount === required.length ? 'up' : 'missing';
       }
     } catch (error) {
       if ((error as { code?: string }).code === '42P01') { checks.database = 'up'; checks.migrations = 'missing'; }

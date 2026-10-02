@@ -98,6 +98,12 @@ export function appEnvironment(app, values, inherited = process.env) {
     'IDENTITY_LINK_BASE_URL',
   ];
   const tripKeys = [
+    'TRIP_INVITATION_TOKEN_KEY',
+    'TRIP_INVITATION_LINK_BASE_URL',
+    'IDENTITY_GRPC_TARGET',
+    'TRIP_IDENTITY_SECRET',
+    'RABBITMQ_URL',
+    'TRIP_OUTBOX_ENABLED',
     'GATEWAY_TRIP_SECRET',
     'FINANCE_TRIP_SECRET',
     'TRAVEL_TRIP_SECRET',
@@ -185,6 +191,7 @@ export async function initEnvironment(base = root) {
     EXPORT_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
     IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
+    TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
     IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey
       .export({ type: 'pkcs8', format: 'der' })
       .toString('base64'),
@@ -228,6 +235,11 @@ export async function initEnvironment(base = root) {
         : app.name === 'trip-workspace-service'
           ? {
               TRIP_GRPC_PORT: '3202',
+              TRIP_INVITATION_TOKEN_KEY: shared.TRIP_INVITATION_TOKEN_KEY,
+              TRIP_INVITATION_LINK_BASE_URL: 'http://127.0.0.1:3000',
+              IDENTITY_GRPC_TARGET: '127.0.0.1:3201',
+              TRIP_IDENTITY_SECRET: shared.TRIP_IDENTITY_SECRET,
+              RABBITMQ_URL: brokerUrl(shared),
               GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
               FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
               TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
