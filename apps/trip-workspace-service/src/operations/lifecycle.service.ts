@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnModuleInit, type OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CommonV1, TripV1 } from '@wolfari/contracts/grpc';
-import { fail, instant, lockOperation, uuid } from '../trip-common';
+import { fail, instant, uuid } from '../trip-common';
 import { protobufTimestamp } from '../grpc-common';
 import { MembershipRepository, type MemberRow } from '../membership/membership.repository';
 import {
@@ -218,24 +218,6 @@ export class LifecycleService implements OnModuleInit, OnApplicationShutdown {
               ).toString('base64url')
             : undefined,
       };
-    });
-  }
-  async retryNeedsReview(operationId: string, execute: boolean) {
-    return this.repo.db.withTransaction(async (client) => {
-      await lockOperation(client, uuid(operationId));
-      const row = await this.repo.operation(client, operationId);
-      if (!row || !isLifecycle(row.operation_type)) return fail('RESOURCE_NOT_FOUND', 404);
-      if (!execute) return operationView(row);
-      await this.repo.lockTrip(client, row.trip_id);
-      if (row.state !== 'NEEDS_REVIEW') return fail('STATE_CONFLICT', 409);
-      const updated = (
-        await client.query<LifecycleRow>(
-          "UPDATE trip_operations SET state='PENDING_RECOVERY',retry_count=0,next_retry_at=clock_timestamp(),updated_at=clock_timestamp() WHERE operation_id=$1 RETURNING *",
-          [operationId],
-        )
-      ).rows[0]!;
-      this.logger.log(`LIFECYCLE_MANUAL_RETRY operation_id=${operationId}`);
-      return operationView(updated);
     });
   }
 }

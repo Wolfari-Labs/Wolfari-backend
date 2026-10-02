@@ -3,12 +3,13 @@ import { DatabaseProvider } from '@wolfari/database';
 import { CommonV1 } from '@wolfari/contracts/grpc';
 import { randomUUID } from 'node:crypto';
 import { parseEventForPublish } from '@wolfari/contracts/events';
-import { fail, lockOperation, MAX_INT32, type QueryClient } from '../trip-common';
+import { fail, lockOperation, MAX_INT32, uuid, type QueryClient } from '../trip-common';
 import { insertPlanUpdated } from '../planning/plan.events';
 import {
   type Command,
   type Intent,
   type LifecycleRow,
+  isLifecycle,
   requestHash,
   terminal,
   verifyReplay,
@@ -38,6 +39,23 @@ export class MembershipRepository {
     return (
       await client.query<LifecycleRow>('SELECT * FROM trip_operations WHERE operation_id=$1', [id])
     ).rows[0];
+  }
+  async retryNeedsReview(operationId: string, execute: boolean): Promise<LifecycleRow> {
+    const id = uuid(operationId);
+    return this.db.withTransaction(async (client) => {
+      await lockOperation(client, id);
+      const row = await this.operation(client, id);
+      if (!row || !isLifecycle(row.operation_type)) return fail('RESOURCE_NOT_FOUND', 404);
+      if (!execute) return row;
+      await this.lockTrip(client, row.trip_id);
+      if (row.state !== 'NEEDS_REVIEW') return fail('STATE_CONFLICT', 409);
+      return (
+        await client.query<LifecycleRow>(
+          "UPDATE trip_operations SET state='PENDING_RECOVERY',retry_count=0,next_retry_at=clock_timestamp(),updated_at=clock_timestamp() WHERE operation_id=$1 RETURNING *",
+          [id],
+        )
+      ).rows[0]!;
+    });
   }
   async lockTrip(client: QueryClient, tripId: string) {
     await client.query('SELECT id FROM trips WHERE id=$1 FOR UPDATE', [tripId]);

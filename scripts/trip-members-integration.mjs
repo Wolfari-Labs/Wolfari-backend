@@ -734,9 +734,9 @@ export async function runMembershipTests(ctx) {
           ),
         /STATE_CONFLICT/,
       );
-      assert.equal((await service.retryNeedsReview(reviewKey, false)).state, 5);
+      assert.equal((await repo.retryNeedsReview(reviewKey, false)).state, 'NEEDS_REVIEW');
       assert.equal((await op(reviewKey)).state, 'NEEDS_REVIEW');
-      await service.retryNeedsReview(reviewKey, true);
+      await repo.retryNeedsReview(reviewKey, true);
       assert.equal((await recover(reviewKey)).state, 'FAILED'); // NOT_FOUND -> durable CANCELLED.
     });
     pass(

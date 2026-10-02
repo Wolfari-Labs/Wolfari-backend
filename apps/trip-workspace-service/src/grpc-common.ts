@@ -12,6 +12,14 @@ const callerCredentials: Record<string, string> = {
   Automation: 'AUTOMATION_TRIP_SECRET',
 };
 
+export type DeadlineCall = { getDeadline(): Date | number };
+
+export function tripRequestDeadline(call?: DeadlineCall): number {
+  const incoming = call?.getDeadline();
+  // Reserve response time while sharing the incoming budget across downstream RPCs.
+  return Math.min(Date.now() + 1800, incoming === undefined ? Infinity : Number(incoming) - 100);
+}
+
 export const CORRELATION_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 

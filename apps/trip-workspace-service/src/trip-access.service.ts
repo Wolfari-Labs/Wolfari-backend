@@ -8,6 +8,7 @@ import {
   type PlanEditPolicy,
 } from './trip-access.domain';
 import { fail } from './trip.errors';
+import { iso } from './trip-common';
 import type { MembershipRole, MembershipView } from './trip.service';
 
 interface QueryExecutor {
@@ -63,12 +64,6 @@ const SELECT_ACCESS = `SELECT
 FROM trips t
 JOIN trip_members m ON m.trip_id=t.id AND m.user_id=$2 AND m.left_at IS NULL
 WHERE t.id=$1 AND t.deleted_at IS NULL`;
-
-function iso(value: Date | string): string {
-  const parsed = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(parsed.getTime())) throw new Error('Invalid database timestamp');
-  return parsed.toISOString();
-}
 
 function projectAccess(row: AccessRow, action: AccessAction): AccessContextView {
   const active = row.archived_at === null;

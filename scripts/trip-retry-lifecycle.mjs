@@ -7,8 +7,8 @@ const {
   MembershipRepository,
 } = require('../apps/trip-workspace-service/dist/membership/membership.repository.js');
 const {
-  LifecycleService,
-} = require('../apps/trip-workspace-service/dist/operations/lifecycle.service.js');
+  operationView,
+} = require('../apps/trip-workspace-service/dist/membership/membership.domain.js');
 const args = process.argv.slice(2),
   execute = args.includes('--execute');
 const operationId = args.find((arg) => !arg.startsWith('--'));
@@ -39,13 +39,12 @@ const db = {
   },
 };
 try {
-  const service = new LifecycleService(new MembershipRepository(db), undefined, {
-    get: () => 'false',
-  });
+  const row = await new MembershipRepository(db).retryNeedsReview(operationId, execute);
+  if (execute) console.log(`LIFECYCLE_MANUAL_RETRY operation_id=${row.operation_id}`);
   console.log(
     JSON.stringify({
       mode: execute ? 'retry-scheduled' : 'dry-run',
-      operation: await service.retryNeedsReview(operationId.toLowerCase(), execute),
+      operation: operationView(row),
     }),
   );
 } finally {

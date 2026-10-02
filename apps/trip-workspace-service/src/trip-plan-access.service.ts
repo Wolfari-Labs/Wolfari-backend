@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
-import { createHash } from 'node:crypto';
 import type { QueryResultRow } from 'pg';
+import {
+  digest,
+  insertReceipt,
+  lockOperation,
+  receiptById,
+  verifyReceipt,
+  type OperationRow,
+  type QueryClient,
+} from './trip-common';
 import {
   accessRevision,
   accessUuid,
@@ -16,8 +24,6 @@ import type { MembershipRole } from './trip.service';
 
 const UPDATE_PLAN_POLICY = 'UPDATE_PLAN_POLICY';
 
-type QueryClient = Parameters<Parameters<DatabaseProvider['withTransaction']>[0]>[0];
-
 type OwnerRow = QueryResultRow & {
   trip_id: string;
   plan_edit_policy: PlanEditPolicy;
@@ -25,16 +31,6 @@ type OwnerRow = QueryResultRow & {
   archived_at: Date | string | null;
   membership_id: string;
   membership_role: MembershipRole;
-};
-
-type OperationRow = QueryResultRow & {
-  operation_id: string;
-  trip_id: string;
-  operation_type: string;
-  actor_user_id: string | null;
-  request_hash: string;
-  state: string;
-  outcome: unknown;
 };
 
 export interface UpdatePlanPolicyInput {
@@ -45,10 +41,6 @@ export interface UpdatePlanPolicyInput {
   editorMemberIds: unknown;
   expectedMembershipRevision: unknown;
   correlationId: unknown;
-}
-
-function digest(payload: unknown): string {
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
 export function planPolicyRequestHash(input: {
@@ -70,37 +62,11 @@ export function planPolicyRequestHash(input: {
   });
 }
 
-async function lockOperation(client: QueryClient, operationId: string): Promise<void> {
-  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [operationId]);
-}
-
-async function receiptById(
-  client: QueryClient,
-  operationId: string,
-): Promise<OperationRow | undefined> {
-  const result = await client.query<OperationRow>(
-    `SELECT operation_id,trip_id,operation_type,actor_user_id,request_hash,state,outcome
-     FROM trip_operations WHERE operation_id=$1`,
-    [operationId],
-  );
-  return result.rows[0];
-}
-
 function verifyReplay(
   receipt: OperationRow,
   values: { actorUserId: string; tripId: string; requestHash: string },
 ): PlanPolicyView {
-  if (
-    receipt.operation_type !== UPDATE_PLAN_POLICY ||
-    receipt.actor_user_id !== values.actorUserId ||
-    receipt.trip_id !== values.tripId ||
-    receipt.request_hash !== values.requestHash
-  ) {
-    return fail('IDEMPOTENCY_CONFLICT', 409);
-  }
-  if (receipt.state !== 'SUCCEEDED') return fail('STATE_CONFLICT', 409);
-  const outcome =
-    typeof receipt.outcome === 'string' ? JSON.parse(receipt.outcome) : receipt.outcome;
+  const outcome = verifyReceipt(receipt, { ...values, operationType: UPDATE_PLAN_POLICY });
   if (
     !outcome ||
     typeof outcome !== 'object' ||
@@ -279,22 +245,16 @@ export class TripPlanAccessService {
       }
 
       const outcome = await policyView(client, row);
-      await client.query(
-        `INSERT INTO trip_operations(
-           operation_id,trip_id,operation_type,actor_user_id,request_hash,state,context_revision,outcome,
-           started_at,completed_at,command_payload
-         ) VALUES($1,$2,$3,$4,$5,'SUCCEEDED',$6,$7::jsonb,now(),now(),$8::jsonb)`,
-        [
-          operationId,
-          tripId,
-          UPDATE_PLAN_POLICY,
-          actorUserId,
-          requestHash,
-          outcome.membership_revision,
-          JSON.stringify(outcome),
-          JSON.stringify(commandPayload),
-        ],
-      );
+      await insertReceipt(client, {
+        operationId,
+        tripId,
+        operationType: UPDATE_PLAN_POLICY,
+        actorUserId,
+        requestHash,
+        contextRevision: outcome.membership_revision,
+        outcome,
+        commandPayload,
+      });
       return outcome;
     });
   }
