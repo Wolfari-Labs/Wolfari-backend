@@ -24,15 +24,19 @@ function metadata(caller: string, secret: string, correlation = correlationId) {
   return { get: (key: string) => [values[key]] } as Parameters<typeof authorizeTripCall>[2];
 }
 
-describe('merged Trip and Planning transport', () => {
-  it.each(['GetPlan', 'CreateActivity', 'SetActivityCompletion', 'UpdatePlanPolicy'])(
-    'allows Gateway to call %s with its own secret',
-    (method) => {
-      expect(
-        authorizeTripCall(config, method, metadata('ApiGateway', secrets.GATEWAY_TRIP_SECRET)),
-      ).toBe(correlationId);
-    },
-  );
+describe('merged Trip, Planning and Invitations transport', () => {
+  it.each([
+    'GetPlan',
+    'CreateActivity',
+    'SetActivityCompletion',
+    'UpdatePlanPolicy',
+    'CreateInvitation',
+    'AcceptInvitation',
+  ])('allows Gateway to call %s with its own secret', (method) => {
+    expect(
+      authorizeTripCall(config, method, metadata('ApiGateway', secrets.GATEWAY_TRIP_SECRET)),
+    ).toBe(correlationId);
+  });
 
   it.each([
     ['Finance', 'FINANCE_TRIP_SECRET'],
@@ -51,6 +55,8 @@ describe('merged Trip and Planning transport', () => {
     ['ApiGateway', 'GetAccessContext', 'GATEWAY_TRIP_SECRET'],
     ['Travel', 'GetPlan', 'TRAVEL_TRIP_SECRET'],
     ['Finance', 'UpdatePlanPolicy', 'FINANCE_TRIP_SECRET'],
+    ['Finance', 'CreateInvitation', 'FINANCE_TRIP_SECRET'],
+    ['ApiGateway', 'GetInvitationDelivery', 'GATEWAY_TRIP_SECRET'],
   ])('rejects %s calling %s outside the catalog', (caller, method, key) => {
     expect(() => authorizeTripCall(config, method, metadata(caller, secrets[key]))).toThrow(
       'Caller is not authorized',
@@ -70,6 +76,7 @@ describe('merged Trip and Planning transport', () => {
   it.each([
     ['Planning', failPlan, { plan_version: 4, export_revision: 7 }],
     ['Plan access', failAccess, { membership_revision: 3 }],
+    ['Invitations', failAccess, { invitation_version: 2 }],
   ] as const)(
     'preserves %s conflicts through shared gRPC and HTTP translation',
     async (_, fail, details) => {

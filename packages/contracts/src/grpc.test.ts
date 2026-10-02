@@ -8,6 +8,51 @@ function methods(path: string, packageName: string, serviceName: string): Servic
 }
 
 describe('gRPC contracts', () => {
+  it('round-trips additive lifecycle targets and initiator without altering legacy request fields', () => {
+    const finance = methods(PROTO_PATHS.finance, GRPC_PACKAGES.finance, 'FinanceService');
+    for (const name of ['ExecuteTripOperation', 'CancelOperationIfNotCommitted']) {
+      const rpc = finance[name] as MethodDefinition<Record<string, unknown>, object>;
+      const legacy = {
+        operation_id: 'op',
+        request_hash: 'hash',
+        authorization_context: { trip_id: 'trip', context_revision: 4 },
+      };
+      expect(rpc.requestDeserialize(rpc.requestSerialize(legacy))).toEqual(legacy);
+      const target = { membership_id: 'membership', user_id: 'target-user', reason: 'Reason' };
+      expect(
+        rpc.requestDeserialize(rpc.requestSerialize({ ...legacy, membership_target: target })),
+      ).toEqual({ ...legacy, membership_target: target });
+    }
+    const poll = methods(PROTO_PATHS.trip, GRPC_PACKAGES.trip, 'TripService')
+      .GetOperationResult as MethodDefinition<object, object>;
+    expect(
+      poll.requestDeserialize(
+        poll.requestSerialize({ operation_id: 'op', actor_user_id: 'initiator' }),
+      ),
+    ).toEqual({ operation_id: 'op', actor_user_id: 'initiator', _actor_user_id: 'actor_user_id' });
+  });
+  it('excludes cipher/hash from invitation responses and one-time link from resend', () => {
+    const service = methods(PROTO_PATHS.trip, GRPC_PACKAGES.trip, 'TripService');
+    const resend = service.ResendInvitation as MethodDefinition<object, object>;
+    const value = resend.responseDeserialize(
+      resend.responseSerialize({
+        invitation: {
+          id: 'id',
+          version: 2,
+          token_hash: 'hidden',
+          delivery_token_ciphertext: 'hidden',
+        },
+        one_time_link: 'hidden',
+      }),
+    );
+    expect(JSON.stringify(value)).not.toContain('hidden');
+    const delivery = service.GetInvitationDelivery as MethodDefinition<object, object>;
+    expect(
+      delivery.requestDeserialize(
+        delivery.requestSerialize({ invitation_id: 'id', expected_invitation_version: 4 }),
+      ),
+    ).toMatchObject({ expected_invitation_version: 4 });
+  });
   it('round-trips activity PATCH presence, clears, timestamps and zero position', () => {
     const method = methods(PROTO_PATHS.trip, GRPC_PACKAGES.trip, 'TripService')
       .UpdateActivity as MethodDefinition<Record<string, unknown>, Record<string, unknown>>;
@@ -33,7 +78,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 30 RPCs declared by the catalog', () => {
+  it('loads exactly the 42 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -67,7 +112,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(30);
+    expect(RPC_CATALOG).toHaveLength(42);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)

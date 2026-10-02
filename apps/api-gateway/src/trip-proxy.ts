@@ -113,6 +113,26 @@ function projectPlanPolicy(value: unknown) {
   };
 }
 
+export { projectMembership };
+export {
+  RequestError,
+  uuid,
+  isLoopbackGrpcTarget,
+  record,
+  responseRecord,
+  onlyKeys,
+  requiredString,
+  requiredInteger,
+  timestampToIso,
+  json,
+  fail,
+  grpcFailure,
+  parseTimestamp,
+  idempotencyKey,
+  requestBody,
+  ensureQuery,
+} from './trip-http';
+
 function routeFor(method: string, pathname: string): { route: Route; tripId?: string } | null {
   if (pathname === '/api/v1/trips') {
     if (method === 'POST') return { route: 'create' };

@@ -40,7 +40,7 @@ function error(response: ServerResponse, status: number, code: string) {
     JSON.stringify({
       error: {
         code,
-        message: 'Request could not be completed',
+        message: 'Không thể hoàn tất yêu cầu',
         details: null,
         retryable: status === 503,
       },

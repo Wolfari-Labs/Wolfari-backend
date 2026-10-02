@@ -9,6 +9,7 @@ import { parseEnv } from 'node:util';
 import pg from 'pg';
 import { root, services, apps, appEnvironment, databaseUrl } from './config.mjs';
 import { compose } from './infrastructure.mjs';
+import { startTestService } from './test-container.mjs';
 import { migrate, migrationFiles, connectDatabase, history, safeError } from './migrations.mjs';
 import { checkFundRepository } from '../apps/finance-service/tests/database/fund-repository.integration.mjs';
 import { checkLedgerRepository } from '../apps/finance-service/tests/database/ledger-repository.integration.mjs';
@@ -124,11 +125,16 @@ async function launchApps() {
         IDENTITY_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
       } : {}),
       ...(app.name === 'automation-service' ? {
+        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`, AUTOMATION_TRIP_SECRET: automationTripSecret,
         AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
         IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`, RABBITMQ_URL: 'amqp://127.0.0.1:9',
         SMTP_HOST: '127.0.0.1', SMTP_PORT: '9',
       } : {}),
       ...(app.name === 'trip-workspace-service' ? {
+        TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
+        TRIP_INVITATION_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
+        IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`, TRIP_IDENTITY_SECRET: secrets.TRIP_IDENTITY_SECRET,
+        TRIP_OUTBOX_ENABLED: 'false',
         TRIP_GRPC_PORT: String(tripGrpcPort), GATEWAY_TRIP_SECRET: gatewayTripSecret,
         FINANCE_TRIP_SECRET: financeTripSecret, TRAVEL_TRIP_SECRET: travelTripSecret,
         AUTOMATION_TRIP_SECRET: automationTripSecret,
@@ -175,6 +181,30 @@ async function main() {
   const files = Object.fromEntries(await Promise.all(services.map(async service => [service, await migrationFiles(service)])));
   await Promise.all([migrate('identity', databaseUrl(env, 'identity'), files.identity), migrate('identity', databaseUrl(env, 'identity'), files.identity)]);
   pass('hai runner đồng thời chỉ áp dụng V001 một lần');
+  await migrate('trip',databaseUrl(env,'trip'),files.trip.slice(0,1));
+  const fixtureTrip='90000000-0000-4000-8000-000000000001';
+  const fixtureActor='90000000-0000-4000-8000-000000000002';
+  await db('trip',async client=>{
+    await client.query("INSERT INTO trips(id,name,start_at,end_at,timezone,created_by_user_id) VALUES($1,'Upgrade fixture',now(),now()+interval '1 day','Asia/Ho_Chi_Minh',$2)",[fixtureTrip,fixtureActor]);
+    await client.query("INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,status) VALUES($1,'upgrade@example.test',$2,'upgrade-accepted',now()+interval '1 day','EMAIL','ACCEPTED')",[fixtureTrip,fixtureActor]);
+  });
+  await assert.rejects(migrate('trip',databaseUrl(env,'trip'),files.trip),error=>error.message==='INVITATION_ACCEPTANCE_BACKFILL_REQUIRED');
+  await db('trip',async client=>{
+    assert.deepEqual(await history(client,files.trip),['V001']);
+    await client.query("UPDATE invitations SET status='PENDING' WHERE trip_id=$1",[fixtureTrip]);
+    await client.query("INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type) VALUES($1,' UPGRADE@EXAMPLE.TEST ',$2,'upgrade-duplicate',now()+interval '1 day','EMAIL')",[fixtureTrip,fixtureActor]);
+  });
+  await assert.rejects(migrate('trip',databaseUrl(env,'trip'),files.trip),error=>error.message==='DUPLICATE_PENDING_INVITATIONS');
+  await db('trip',async client=>{
+    await client.query("DELETE FROM invitations WHERE token_hash='upgrade-duplicate'");
+  });
+  await migrate('trip',databaseUrl(env,'trip'),files.trip);
+  await db('trip',async client=>{
+    assert.equal((await client.query("SELECT * FROM invitations WHERE token_hash='upgrade-accepted'")).rows[0].status,'PENDING');
+    await client.query('DELETE FROM invitations WHERE trip_id=$1',[fixtureTrip]);
+    await client.query('DELETE FROM trips WHERE id=$1',[fixtureTrip]);
+  });
+  pass('V001 upgrade preserves data; ambiguous acceptance and duplicate pending fail without partial migration');
   for (const service of services) {
     await migrate(service, databaseUrl(env, service), files[service]);
     await migrate(service, databaseUrl(env, service), files[service]);
@@ -185,9 +215,13 @@ async function main() {
   for (const [index, service] of services.entries()) await db(service, async client => {
     assert.equal((await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'")).rows[0].n, counts[index]);
     fks += (await client.query("SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace")).rows[0].n;
-    assert.deepEqual(await history(client, files[service]), ['V001']);
+    assert.deepEqual(await history(client, files[service]), service === 'trip' ? ['V001', 'V002'] : ['V001']);
   });
-  assert.equal(fks, 46); pass('54 bảng mô hình + 5 lịch sử, 46 FK');
+  assert.equal(fks, 47); pass('54 bảng mô hình + 5 lịch sử, 47 FK');
+  await db('trip', async client => {
+    await client.query(await readFile(resolve(root,'apps/trip-workspace-service/tests/database/V002_constraints.sql'),'utf8'));
+  });
+  pass('V002 normalized pending email and same-Trip acceptance constraints');
   for (const service of ['identity', 'trip', 'finance']) await db(service, async client => {
     await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
     if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
@@ -242,6 +276,14 @@ async function main() {
   for (const app of apps.filter(a => a.service)) await health(app, 'ready');
   pass('7 liveness, 5 readiness trên cổng thử nghiệm');
   stage = 'missing-migration-readiness';
+  const tripApp = apps.find(a => a.service === 'trip');
+  await db('trip',async client=>{
+    await client.query("DELETE FROM schema_migrations WHERE version='V002'");
+    try {assert.equal((await health(tripApp,'ready',503)).checks.migrations,'missing');}
+    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V002')");}
+  });
+  await health(tripApp,'ready');
+  pass('Trip requires V002, not merely V001, for readiness');
   const travel = apps.find(a => a.service === 'travel');
   await db('travel', async client => {
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');
@@ -261,7 +303,7 @@ async function main() {
   await docker(['stop', 'postgres']);
   for (const app of apps.filter(a => a.service)) await health(app, 'ready', 503);
   stage = 'database-restart';
-  await docker(['start', 'postgres']);
+  await startTestService(project, 'postgres');
   await waitForDatabase('identity');
   stage = 'database-recovery-readiness';
   for (const app of apps.filter(a => a.service)) await health(app, 'ready');

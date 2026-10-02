@@ -185,6 +185,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
         `UPDATE notification_deliveries SET status='SENDING',claim_owner=$1,
         claim_until=now()+interval '30 seconds',updated_at=now()
         WHERE id IN (SELECT id FROM notification_deliveries WHERE channel='EMAIL' AND next_attempt_at<=now()
+          AND notification_id IN (SELECT id FROM notifications WHERE type='ACCOUNT_EMAIL')
           AND (status='PENDING' OR (status='SENDING' AND claim_until<now()))
           ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 5) RETURNING id,attempt_count,private_context`,
         [this.owner],
@@ -245,7 +246,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
 
   async diagnostics() {
     const rows = await this.db.query<{ status: string; count: string }>(
-      "SELECT status,count(*)::text AS count FROM notification_deliveries WHERE channel='EMAIL' AND status<>'SENT' GROUP BY status",
+      "SELECT status,count(*)::text AS count FROM notification_deliveries WHERE channel='EMAIL' AND status<>'SENT' AND notification_id IN (SELECT id FROM notifications WHERE type='ACCOUNT_EMAIL') GROUP BY status",
     );
     let smtp: 'up' | 'down' = 'down';
     try {

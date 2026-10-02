@@ -43,6 +43,14 @@ export interface ExecuteTripOperationRequest {
   request_hash?: string | undefined;
   operation_type?: string | undefined;
   authorization_context?: AuthorizationContext | undefined;
+  membership_target?: MembershipLifecycleTarget | undefined;
+}
+
+/** Required for LEAVE_MEMBER/REMOVE_MEMBER. Cancellation binds the identical intent. */
+export interface MembershipLifecycleTarget {
+  membership_id?: string | undefined;
+  user_id?: string | undefined;
+  reason?: string | undefined;
 }
 
 export interface ExecuteTripOperationResponse {
@@ -63,6 +71,7 @@ export interface CancelOperationIfNotCommittedRequest {
   request_hash?: string | undefined;
   command_scope?: string | undefined;
   authorization_context?: AuthorizationContext | undefined;
+  membership_target?: MembershipLifecycleTarget | undefined;
 }
 
 export interface CancelOperationIfNotCommittedResponse {
