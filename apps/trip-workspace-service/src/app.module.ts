@@ -1,3 +1,5 @@
+import { PlanService } from './planning/plan.service';
+import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
@@ -14,6 +16,14 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     DatabaseModule.forService('trip'),
   ],
   controllers: [TripGrpcController, TripDependenciesController],
-  providers: [TripService, TripAccessService, TripPlanAccessService, TripInvitationsService, TripOutboxService],
+  providers: [
+    TripService,
+    PlanService,
+    PlanGrpcHandlers,
+    TripAccessService,
+    TripPlanAccessService,
+    TripInvitationsService,
+    TripOutboxService,
+  ],
 })
 export class AppModule {}

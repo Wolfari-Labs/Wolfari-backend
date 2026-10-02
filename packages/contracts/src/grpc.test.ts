@@ -30,7 +30,32 @@ describe('gRPC contracts', () => {
       ),
     ).toMatchObject({ expected_invitation_version: 4 });
   });
-  it('loads exactly the 33 RPCs declared by the catalog', () => {
+  it('round-trips activity PATCH presence, clears, timestamps and zero position', () => {
+    const method = methods(PROTO_PATHS.trip, GRPC_PACKAGES.trip, 'TripService')
+      .UpdateActivity as MethodDefinition<Record<string, unknown>, Record<string, unknown>>;
+    const roundTrip = (input: Record<string, unknown>) =>
+      method.requestDeserialize(method.requestSerialize(input));
+    const absent = roundTrip({});
+    for (const key of ['description', 'starts_at', 'ends_at', 'position']) {
+      expect(Object.hasOwn(absent, key)).toBe(false);
+    }
+    const value = roundTrip({
+      description: { value: '' },
+      starts_at: { value: { seconds: '1800000000', nanos: 123000000 } },
+      position: 0,
+    });
+    expect(value.description).toEqual({ value: '', change: 'value' });
+    expect(value.starts_at).toEqual({
+      value: { seconds: '1800000000', nanos: 123000000 },
+      change: 'value',
+    });
+    expect(value.position).toBe(0);
+    const clear = roundTrip({ description: { clear: true }, ends_at: { clear: true } });
+    expect(clear.description).toEqual({ clear: true, change: 'clear' });
+    expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
+  });
+
+  it('loads exactly the 39 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -64,7 +89,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(33);
+    expect(RPC_CATALOG).toHaveLength(39);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)

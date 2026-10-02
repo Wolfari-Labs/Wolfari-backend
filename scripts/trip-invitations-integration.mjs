@@ -21,6 +21,7 @@ export async function runInvitationTests(ctx) {
     secrets,
     children,
     docker,
+    startService,
     brokerUrl,
     automationPort,
   } = ctx;
@@ -215,6 +216,13 @@ export async function runInvitationTests(ctx) {
   );
   pass('concurrent acceptance commits one membership, revisions, receipt and MemberJoined');
 
+  const planPath = `/api/v1/trips/${trip.id}/plan`;
+  const joinedPlan = await request(planPath, 'GET', undefined, bearer(recipient));
+  assert.equal(joinedPlan.status, 200);
+  assert.equal(joinedPlan.body.data.permissions.can_read, true);
+  assert.equal(joinedPlan.body.data.permissions.can_edit, false);
+  assert.equal((await request(planPath, 'GET', undefined, bearer(outsider))).status, 404);
+
   await query(
     'trip',
     'INSERT INTO trip_plan_editors(trip_id,trip_member_id,granted_by_user_id) VALUES($1,$2,$3)',
@@ -226,6 +234,7 @@ export async function runInvitationTests(ctx) {
     [member.id],
   );
   assert.equal((await use('accept', recipient, link, acceptKey)).status, 404);
+  assert.equal((await request(planPath, 'GET', undefined, bearer(recipient))).status, 404);
   const rejoin = await create();
   assert.equal(rejoin.status, 201);
   const rejoined = await use('accept', recipient, token(rejoin));
@@ -241,6 +250,10 @@ export async function runInvitationTests(ctx) {
   );
   assert.equal((await use('accept', recipient, link, acceptKey)).status, 404);
   pass('departed acceptance cannot replay through a later rejoin; editor rights are not restored');
+  const rejoinedPlan = await request(planPath, 'GET', undefined, bearer(recipient));
+  assert.equal(rejoinedPlan.status, 200);
+  assert.equal(rejoinedPlan.body.data.permissions.can_edit, false);
+  pass('Planning sees invitation membership changes without restoring editor privileges');
 
   const pending = await create();
   const pendingToken = token(pending);
@@ -569,7 +582,7 @@ export async function runInvitationTests(ctx) {
         ).length === 1,
     );
   } finally {
-    await docker(['start', 'mailpit']);
+    await startService('mailpit');
   }
   await query(
     'automation',
@@ -601,7 +614,7 @@ export async function runInvitationTests(ctx) {
       2,
     );
   } finally {
-    await docker(['start', '--wait', 'rabbitmq']);
+    await startService('rabbitmq');
   }
   const brokerMail = await mail(brokerEmail);
   assert.equal(brokerMail.count, 1);

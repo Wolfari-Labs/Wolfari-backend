@@ -1,14 +1,16 @@
+import { runPlanScenarios } from './plan-integration.mjs';
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import pg from 'pg';
 import { appEnvironment, apps, databaseUrl, root } from './config.mjs';
 import { compose } from './infrastructure.mjs';
+import { startTestService } from './test-container.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 
@@ -112,7 +114,10 @@ async function start(name, values) {
   const app = apps.find((item) => item.name === name);
   const child = fork(resolve(root, 'apps', name, 'dist/main.js'), [], {
     cwd: root,
-    env: appEnvironment(app, { NODE_ENV: 'test', ...values }),
+    env: {
+      ...appEnvironment(app, { NODE_ENV: 'test', ...values }),
+      ...(values.TZ ? { TZ: values.TZ } : {}),
+    },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     windowsHide: true,
   });
@@ -290,6 +295,7 @@ async function main() {
     EXPORT_IDENTITY_SECRET: secrets.EXPORT_IDENTITY_SECRET,
   });
   const tripProcess = await start('trip-workspace-service', {
+    TZ: 'America/Los_Angeles',
     TRIP_PORT: String(ports.trip),
     TRIP_GRPC_PORT: String(ports.tripGrpc),
     TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
@@ -343,6 +349,7 @@ async function main() {
       secrets,
       children,
       docker,
+      startService: (service) => startTestService(project, service),
       brokerUrl,
       automationPort,
     });
@@ -1368,6 +1375,18 @@ async function main() {
   );
   pass('receipt replay cannot restore revoked Owner or departed membership access');
 
+  // Reuse authenticated actors so this suite stays below Identity's registration rate limit.
+  await runPlanScenarios({
+    request,
+    query,
+    transaction,
+    account,
+    bearer,
+    tripBody,
+    pass,
+    users: { owner, member, editor: admin, outsider },
+  });
+
   await query('identity', 'UPDATE refresh_sessions SET revoked_at=now() WHERE user_id=$1', [
     outsider.id,
   ]);
@@ -1441,8 +1460,14 @@ try {
     }
   }
   if (directory) {
-    if (!resolve(directory).startsWith(resolve(root, '.cache', 'trip-test-')))
-      throw new Error('Unsafe test cleanup path');
-    await rm(directory, { recursive: true, force: true });
+    const cleanupPath = resolve(directory);
+    const cachePath = resolve(root, '.cache');
+    if (
+      dirname(cleanupPath) !== cachePath ||
+      !cleanupPath.startsWith(resolve(cachePath, 'trip-test-'))
+    ) {
+      throw new Error('Unsafe Trip test cleanup path');
+    }
+    await rm(cleanupPath, { recursive: true, force: true });
   }
 }
