@@ -1,4 +1,4 @@
-import { DatabaseProvider } from '@wolfari/database';
+import type { DatabaseProvider } from '@wolfari/database';
 import { createHash } from 'node:crypto';
 import { fail } from './trip.errors';
 

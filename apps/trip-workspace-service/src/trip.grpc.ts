@@ -1,4 +1,5 @@
 import { PlanGrpcHandlers } from './planning/plan.grpc';
+import { LifecycleService } from './operations/lifecycle.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { status } from '@grpc/grpc-js';
@@ -12,18 +13,14 @@ import {
   timestamp,
   protobufTimestamp,
   patchValue,
+  tripRequestDeadline,
+  type DeadlineCall,
 } from './grpc-common';
 import type { PlanEditPolicy, PlanPolicyView } from './trip-access.domain';
 import { TripAccessService, type AccessContextView } from './trip-access.service';
 import { TripInvitationsService } from './trip-invitations.service';
 import { TripPlanAccessService } from './trip-plan-access.service';
 export { tripGrpcStatus } from './grpc-common';
-
-type DeadlineCall = { getDeadline(): Date | number };
-function invitationDeadline(call?: DeadlineCall): number {
-  const incoming = call?.getDeadline();
-  return Math.min(Date.now() + 1800, incoming === undefined ? Infinity : Number(incoming) - 100);
-}
 
 const lifecycleToProto: Record<TripLifecycle, TripV1.TripLifecycle> = {
   UPCOMING: TripV1.TripLifecycle.TRIP_LIFECYCLE_UPCOMING,
@@ -134,6 +131,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly planAccess: TripPlanAccessService,
     private readonly config: ConfigService,
     private readonly invitations: TripInvitationsService,
+    private readonly lifecycle: LifecycleService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -295,8 +293,54 @@ export class TripGrpcController implements TripV1.TripServiceController {
     return this.unimplemented();
   }
 
-  getOperationResult(): TripV1.GetOperationResultResponse {
-    return this.unimplemented();
+  getOperationResult(
+    request: TripV1.GetOperationResultRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.GetOperationResultResponse> {
+    this.authorize('GetOperationResult', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.getOperation(request.operation_id, request.actor_user_id),
+    }));
+  }
+
+  listMembers(
+    request: TripV1.ListMembersRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.ListMembersResponse> {
+    this.authorize('ListMembers', metadata);
+    return this.execute(() => this.lifecycle.list(request));
+  }
+
+  leaveTrip(
+    request: TripV1.LeaveTripRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.LeaveTripResponse> {
+    const correlation = this.authorize('LeaveTrip', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.execute(
+        { ...request },
+        'LEAVE_MEMBER',
+        correlation,
+        tripRequestDeadline(call),
+      ),
+    }));
+  }
+
+  removeMember(
+    request: TripV1.RemoveMemberRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.RemoveMemberResponse> {
+    const correlation = this.authorize('RemoveMember', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.execute(
+        { ...request },
+        'REMOVE_MEMBER',
+        correlation,
+        tripRequestDeadline(call),
+      ),
+    }));
   }
 
   getAutomationContext(): TripV1.GetAutomationContextResponse {
@@ -310,7 +354,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
   ): Promise<TripV1.GetInvitationDeliveryResponse> {
     const correlation = this.authorize('GetInvitationDelivery', metadata);
     return this.execute(() =>
-      this.invitations.delivery(request, correlation, invitationDeadline(call)),
+      this.invitations.delivery(request, correlation, tripRequestDeadline(call)),
     );
   }
   acknowledgeInvitationDelivery(
@@ -327,7 +371,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
   ): Promise<TripV1.CreateInvitationResponse> {
     const correlation = this.authorize('CreateInvitation', metadata);
     return this.execute(() =>
-      this.invitations.create(request, correlation, invitationDeadline(call)),
+      this.invitations.create(request, correlation, tripRequestDeadline(call)),
     );
   }
   listInvitations(
@@ -349,7 +393,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
           request,
           correlation,
           'PREVIEW_INVITATION',
-          invitationDeadline(call),
+          tripRequestDeadline(call),
         )) as TripV1.PreviewInvitationResponse,
     );
   }
@@ -365,7 +409,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
           request,
           correlation,
           'ACCEPT_INVITATION',
-          invitationDeadline(call),
+          tripRequestDeadline(call),
         )) as TripV1.AcceptInvitationResponse,
     );
   }
@@ -381,7 +425,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
           request,
           correlation,
           'DECLINE_INVITATION',
-          invitationDeadline(call),
+          tripRequestDeadline(call),
         )) as TripV1.DeclineInvitationResponse,
     );
   }

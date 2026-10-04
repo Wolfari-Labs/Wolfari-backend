@@ -381,8 +381,8 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       const token = this.crypto.mint();
       const row = (
         await client.query<InvitationRow>(
-          `INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,delivery_token_ciphertext,delivery_token_expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+          `INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,delivery_token_ciphertext,delivery_token_expires_at,created_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()) RETURNING *`,
           [
             tripId,
             email,
@@ -594,6 +594,18 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       if (row.version >= maximumRevision) return fail('STATE_CONFLICT', 409);
       let outcome: TripV1.PreviewInvitationResponse | TripV1.AcceptInvitationResponse;
       if (command === 'ACCEPT_INVITATION') {
+        // Rejoin needs a genuinely new invitation after the last departure; resend
+        // keeps created_at and cannot restore a removed membership or editor grant.
+        if (
+          (
+            await client.query(
+              `SELECT 1 FROM trip_members m JOIN invitations i ON i.id=$3
+          WHERE m.trip_id=$1 AND m.user_id=$2 AND m.left_at IS NOT NULL AND i.created_at<=m.left_at LIMIT 1`,
+              [trip.id, actor, row.id],
+            )
+          ).rowCount
+        )
+          return fail('STATE_CONFLICT', 409);
         if (
           trip.closure_lock_id ||
           (

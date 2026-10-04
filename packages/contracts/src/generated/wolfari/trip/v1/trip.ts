@@ -202,7 +202,49 @@ export interface CompleteOperationResponse {
 }
 
 export interface GetOperationResultRequest {
+  operation_id?:
+    | string
+    | undefined;
+  /** Required for ApiGateway; initiator-only lifecycle projection. */
+  actor_user_id?: string | undefined;
+}
+
+export interface ListMembersRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  include_left?: boolean | undefined;
+}
+
+export interface ListMembersResponse {
+  items?: Membership[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface LeaveTripRequest {
   operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  reason?: string | undefined;
+  expected_membership_revision?: number | undefined;
+}
+
+export interface LeaveTripResponse {
+  operation?: Operation | undefined;
+}
+
+export interface RemoveMemberRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  reason?: string | undefined;
+  expected_membership_revision?: number | undefined;
+  member_id?: string | undefined;
+}
+
+export interface RemoveMemberResponse {
+  operation?: Operation | undefined;
 }
 
 export interface GetOperationResultResponse {
@@ -626,6 +668,12 @@ export interface SetActivityCompletionResponse {
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
+  listMembers(request: ListMembersRequest, metadata?: Metadata): Observable<ListMembersResponse>;
+
+  leaveTrip(request: LeaveTripRequest, metadata?: Metadata): Observable<LeaveTripResponse>;
+
+  removeMember(request: RemoveMemberRequest, metadata?: Metadata): Observable<RemoveMemberResponse>;
+
   createInvitation(request: CreateInvitationRequest, metadata?: Metadata): Observable<CreateInvitationResponse>;
 
   listInvitations(request: ListInvitationsRequest, metadata?: Metadata): Observable<ListInvitationsResponse>;
@@ -698,6 +746,21 @@ export interface TripServiceClient {
 }
 
 export interface TripServiceController {
+  listMembers(
+    request: ListMembersRequest,
+    metadata?: Metadata,
+  ): Promise<ListMembersResponse> | Observable<ListMembersResponse> | ListMembersResponse;
+
+  leaveTrip(
+    request: LeaveTripRequest,
+    metadata?: Metadata,
+  ): Promise<LeaveTripResponse> | Observable<LeaveTripResponse> | LeaveTripResponse;
+
+  removeMember(
+    request: RemoveMemberRequest,
+    metadata?: Metadata,
+  ): Promise<RemoveMemberResponse> | Observable<RemoveMemberResponse> | RemoveMemberResponse;
+
   createInvitation(
     request: CreateInvitationRequest,
     metadata?: Metadata,
@@ -838,6 +901,9 @@ export interface TripServiceController {
 export function TripServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "listMembers",
+      "leaveTrip",
+      "removeMember",
       "createInvitation",
       "listInvitations",
       "previewInvitation",

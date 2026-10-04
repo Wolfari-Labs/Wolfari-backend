@@ -1,4 +1,6 @@
 import { runPlanScenarios } from './plan-integration.mjs';
+import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
+import { runMembershipTests } from './trip-members-integration.mjs';
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -15,6 +17,8 @@ import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 
 const invitationMode = process.argv.includes('--invitations');
+const membershipMode = process.argv.includes('--members');
+let financeFixture;
 function brokerUrl() {
   const value = new URL(`amqp://127.0.0.1:${infra.RABBITMQ_PORT}`);
   value.username = infra.RABBITMQ_DEFAULT_USER;
@@ -143,7 +147,7 @@ async function start(name, values) {
 }
 
 async function stop(child) {
-  if (child.exitCode !== null) return;
+  if (child.exitCode !== null || child.signalCode !== null) return;
   if (child.connected) child.send('shutdown');
   await waitFor(() => child.exitCode !== null, 10_000);
 }
@@ -263,12 +267,26 @@ async function main() {
     '--wait-timeout',
     '180',
     'postgres',
-    ...(invitationMode ? ['rabbitmq', 'mailpit'] : []),
+    ...(invitationMode ? ['rabbitmq', 'mailpit'] : membershipMode ? ['rabbitmq'] : []),
   ]);
-  for (const service of ['identity', 'trip', ...(invitationMode ? ['automation'] : [])]) {
+  for (const service of [
+    'identity',
+    'trip',
+    ...(invitationMode ? ['automation'] : []),
+    ...(membershipMode ? ['finance'] : []),
+  ]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
   }
   pass('isolated Compose and V001 identity/trip');
+  const financePort = await port();
+  const financeSecret = randomBytes(32).toString('hex');
+  if (membershipMode)
+    financeFixture = await startLifecycleFinanceFixture({
+      port: financePort,
+      secret: financeSecret,
+      query,
+      transaction,
+    });
 
   await start('identity-service', {
     IDENTITY_PORT: String(ports.identity),
@@ -294,7 +312,14 @@ async function main() {
     TRAVEL_IDENTITY_SECRET: secrets.TRAVEL_IDENTITY_SECRET,
     EXPORT_IDENTITY_SECRET: secrets.EXPORT_IDENTITY_SECRET,
   });
-  const tripProcess = await start('trip-workspace-service', {
+  const tripValues = {
+    ...(membershipMode
+      ? {
+          FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`,
+          TRIP_FINANCE_SECRET: financeSecret,
+          TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'true',
+        }
+      : {}),
     TZ: 'America/Los_Angeles',
     TRIP_PORT: String(ports.trip),
     TRIP_GRPC_PORT: String(ports.tripGrpc),
@@ -309,7 +334,8 @@ async function main() {
     FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET,
     TRAVEL_TRIP_SECRET: secrets.TRAVEL_TRIP_SECRET,
     AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
-  });
+  };
+  let tripProcess = await start('trip-workspace-service', tripValues);
   await start('api-gateway', {
     GATEWAY_PORT: String(ports.gateway),
     IDENTITY_HTTP_URL: `http://127.0.0.1:${ports.identity}`,
@@ -323,6 +349,39 @@ async function main() {
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
+  if (membershipMode) {
+    await runMembershipTests({
+      request,
+      query,
+      transaction,
+      account,
+      bearer,
+      waitFor,
+      pass,
+      ports,
+      secrets,
+      tripBody,
+      financeFixture,
+      brokerUrl,
+      databaseUrl: databaseUrl(infra, 'trip'),
+      financePort,
+      financeSecret,
+      whileTripStopped: async (work) => {
+        // Only the child created by this isolated harness, never a dev service.
+        tripProcess.kill('SIGKILL');
+        await waitFor(() => tripProcess.exitCode !== null || tripProcess.signalCode !== null);
+        try {
+          return await work();
+        } finally {
+          tripProcess = await start('trip-workspace-service', tripValues);
+        }
+      },
+    });
+    console.log(
+      `PASS trip:members:test completed ${checks} groups (Finance protocol fixture, NOT Finance E2E).`,
+    );
+    return;
+  }
   if (invitationMode) {
     const automationPort = await port();
     await start('automation-service', {
@@ -1445,6 +1504,7 @@ try {
   }
   process.exitCode = 1;
 } finally {
+  await financeFixture?.close();
   for (const child of children) {
     try {
       await stop(child);

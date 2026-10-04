@@ -15,6 +15,13 @@ message ExecuteTripOperationRequest {
   string request_hash = 2;
   string operation_type = 3;
   wolfari.common.v1.AuthorizationContext authorization_context = 4;
+  MembershipLifecycleTarget membership_target = 5;
+}
+// Required for LEAVE_MEMBER/REMOVE_MEMBER. Cancellation binds the identical intent.
+message MembershipLifecycleTarget {
+  string membership_id = 1;
+  string user_id = 2;
+  string reason = 3;
 }
 message ExecuteTripOperationResponse { wolfari.common.v1.Receipt receipt = 1; }
 message GetOperationResultRequest { string operation_id = 1; }
@@ -29,6 +36,7 @@ message CancelOperationIfNotCommittedRequest {
   string request_hash = 2;
   string command_scope = 3;
   wolfari.common.v1.AuthorizationContext authorization_context = 4;
+  MembershipLifecycleTarget membership_target = 5;
 }
 message CancelOperationIfNotCommittedResponse { wolfari.common.v1.Receipt receipt = 1; }
 message GetExportSnapshotRequest {
