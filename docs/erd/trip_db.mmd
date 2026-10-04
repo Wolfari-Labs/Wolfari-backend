@@ -53,6 +53,7 @@ erDiagram
     varchar_16_ status
     timestamptz expires_at
     uuid resolved_by_user_id
+    uuid accepted_member_id FK
     timestamptz resolved_at
     timestamptz created_at
     varchar_10_ invitation_type
@@ -274,6 +275,7 @@ erDiagram
   trip_templates |o--o{ trips : "source_template_id"
   trips ||--o{ trip_members : "trip_id"
   trips ||--o{ invitations : "trip_id"
+  trip_members |o--o{ invitations : "accepted_member_id,trip_id (V002)"
   trips ||--o{ trip_plan_editors : "trip_id"
   trip_members ||--o| trip_plan_editors : "trip_member_id, trip_id"
   trips ||--o{ selected_locations : "trip_id"

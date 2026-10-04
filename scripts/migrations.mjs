@@ -6,11 +6,24 @@ import { root, appNames } from './config.mjs';
 
 export async function migrationFiles(service, base = root) {
   const directory = `apps/${appNames[service]}/migrations`;
-  const manifest = new Map((await readFile(resolve(base, 'docs/database/SHA256SUMS.txt'), 'utf8')).trim().split(/\r?\n/).map(line => {
+  const forwardPath = resolve(base, 'docs/database/SHA256SUMS.forward.txt');
+  const forward = await readFile(forwardPath, 'utf8').catch(error => {
+    if (error.code === 'ENOENT') return '';
+    throw error;
+  });
+  const baseline = await readFile(resolve(base, 'docs/database/SHA256SUMS.txt'), 'utf8');
+  const manifest = new Map(baseline.trim().split(/\r?\n/).map(line => {
     const match = /^([a-f0-9]{64})\s+(.+)$/.exec(line);
     if (!match) throw new Error('Manifest checksum không hợp lệ.');
     return [match[2], match[1]];
   }));
+  if (manifest.size !== baseline.trim().split(/\r?\n/).length) throw new Error('DUPLICATE_MANIFEST_PATH');
+  for (const line of forward.trim().split(/\r?\n/).filter(Boolean)) {
+    const match = /^([a-f0-9]{64})\s+(apps\/[a-z-]+\/migrations\/V\d{3}\.sql)$/.exec(line);
+    if (!match || match[2].endsWith('/V001.sql')) throw new Error('INVALID_FORWARD_MANIFEST');
+    if (manifest.has(match[2])) throw new Error('DUPLICATE_MANIFEST_PATH');
+    manifest.set(match[2], match[1]);
+  }
   const names = (await readdir(resolve(base, directory))).filter(name => /^V\d{3}\.sql$/.test(name)).sort();
   if (!names.length) throw new Error('MISSING_MIGRATION_FILES');
   return Promise.all(names.map(async (name, i) => {

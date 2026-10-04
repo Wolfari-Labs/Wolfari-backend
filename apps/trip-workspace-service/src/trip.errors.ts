@@ -1,4 +1,5 @@
 export interface TripErrorDetails {
+  invitation_version?: number;
   plan_version?: number;
   membership_revision?: number;
   export_revision?: number;

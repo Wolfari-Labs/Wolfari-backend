@@ -15,8 +15,15 @@ import {
 } from './grpc-common';
 import type { PlanEditPolicy, PlanPolicyView } from './trip-access.domain';
 import { TripAccessService, type AccessContextView } from './trip-access.service';
+import { TripInvitationsService } from './trip-invitations.service';
 import { TripPlanAccessService } from './trip-plan-access.service';
 export { tripGrpcStatus } from './grpc-common';
+
+type DeadlineCall = { getDeadline(): Date | number };
+function invitationDeadline(call?: DeadlineCall): number {
+  const incoming = call?.getDeadline();
+  return Math.min(Date.now() + 1800, incoming === undefined ? Infinity : Number(incoming) - 100);
+}
 
 const lifecycleToProto: Record<TripLifecycle, TripV1.TripLifecycle> = {
   UPCOMING: TripV1.TripLifecycle.TRIP_LIFECYCLE_UPCOMING,
@@ -126,6 +133,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly access: TripAccessService,
     private readonly planAccess: TripPlanAccessService,
     private readonly config: ConfigService,
+    private readonly invitations: TripInvitationsService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -295,8 +303,105 @@ export class TripGrpcController implements TripV1.TripServiceController {
     return this.unimplemented();
   }
 
-  getInvitationDelivery(): TripV1.GetInvitationDeliveryResponse {
-    return this.unimplemented();
+  getInvitationDelivery(
+    request: TripV1.GetInvitationDeliveryRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.GetInvitationDeliveryResponse> {
+    const correlation = this.authorize('GetInvitationDelivery', metadata);
+    return this.execute(() =>
+      this.invitations.delivery(request, correlation, invitationDeadline(call)),
+    );
+  }
+  acknowledgeInvitationDelivery(
+    request: TripV1.AcknowledgeInvitationDeliveryRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.AcknowledgeInvitationDeliveryResponse> {
+    this.authorize('AcknowledgeInvitationDelivery', metadata);
+    return this.execute(() => this.invitations.acknowledge(request));
+  }
+  createInvitation(
+    request: TripV1.CreateInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.CreateInvitationResponse> {
+    const correlation = this.authorize('CreateInvitation', metadata);
+    return this.execute(() =>
+      this.invitations.create(request, correlation, invitationDeadline(call)),
+    );
+  }
+  listInvitations(
+    request: TripV1.ListInvitationsRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.ListInvitationsResponse> {
+    const correlation = this.authorize('ListInvitations', metadata);
+    return this.execute(() => this.invitations.list(request, correlation));
+  }
+  previewInvitation(
+    request: TripV1.PreviewInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.PreviewInvitationResponse> {
+    const correlation = this.authorize('PreviewInvitation', metadata);
+    return this.execute(
+      async () =>
+        (await this.invitations.tokenCommand(
+          request,
+          correlation,
+          'PREVIEW_INVITATION',
+          invitationDeadline(call),
+        )) as TripV1.PreviewInvitationResponse,
+    );
+  }
+  acceptInvitation(
+    request: TripV1.AcceptInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.AcceptInvitationResponse> {
+    const correlation = this.authorize('AcceptInvitation', metadata);
+    return this.execute(
+      async () =>
+        (await this.invitations.tokenCommand(
+          request,
+          correlation,
+          'ACCEPT_INVITATION',
+          invitationDeadline(call),
+        )) as TripV1.AcceptInvitationResponse,
+    );
+  }
+  declineInvitation(
+    request: TripV1.DeclineInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.DeclineInvitationResponse> {
+    const correlation = this.authorize('DeclineInvitation', metadata);
+    return this.execute(
+      async () =>
+        (await this.invitations.tokenCommand(
+          request,
+          correlation,
+          'DECLINE_INVITATION',
+          invitationDeadline(call),
+        )) as TripV1.DeclineInvitationResponse,
+    );
+  }
+  revokeInvitation(
+    request: TripV1.RevokeInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.RevokeInvitationResponse> {
+    const correlation = this.authorize('RevokeInvitation', metadata);
+    return this.execute(() =>
+      this.invitations.versionCommand(request, correlation, 'REVOKE_INVITATION'),
+    );
+  }
+  resendInvitation(
+    request: TripV1.ResendInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.ResendInvitationResponse> {
+    const correlation = this.authorize('ResendInvitation', metadata);
+    return this.execute(() =>
+      this.invitations.versionCommand(request, correlation, 'RESEND_INVITATION'),
+    );
   }
 
   getExportWorkerContext(): TripV1.GetExportWorkerContextResponse {

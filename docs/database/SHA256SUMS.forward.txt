@@ -1,0 +1,1 @@
+d8375e1ee9385ced86fd3f4b659a96fddff88b72f63e315b5ed5a53e5500ed36  apps/trip-workspace-service/migrations/V002.sql

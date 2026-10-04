@@ -107,8 +107,8 @@ export function fail(
 ) {
   const message =
     statusCode === 503 && options.write
-      ? 'Service temporarily unavailable; retry this write with the same idempotency key'
-      : 'Request could not be completed';
+      ? 'Dịch vụ tạm thời không khả dụng; thử lại thao tác với cùng khóa chống lặp'
+      : 'Không thể hoàn tất yêu cầu';
   json(response, statusCode, {
     error: {
       code,
@@ -134,7 +134,12 @@ export function domainFailure(
         : responseRecord(parsed.details);
     const revisions: Record<string, number> = {};
     if (details) {
-      for (const key of ['plan_version', 'membership_revision', 'export_revision'] as const) {
+      for (const key of [
+        'plan_version',
+        'membership_revision',
+        'export_revision',
+        'invitation_version',
+      ] as const) {
         const value = details[key];
         if (Number.isSafeInteger(value) && Number(value) >= 1) revisions[key] = Number(value);
       }

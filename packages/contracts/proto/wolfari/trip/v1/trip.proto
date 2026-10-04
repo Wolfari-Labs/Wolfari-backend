@@ -1,9 +1,18 @@
 syntax = "proto3";
 package wolfari.trip.v1;
+
 import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service TripService {
+  rpc CreateInvitation(CreateInvitationRequest) returns (CreateInvitationResponse);
+  rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
+  rpc PreviewInvitation(PreviewInvitationRequest) returns (PreviewInvitationResponse);
+  rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
+  rpc DeclineInvitation(DeclineInvitationRequest) returns (DeclineInvitationResponse);
+  rpc RevokeInvitation(RevokeInvitationRequest) returns (RevokeInvitationResponse);
+  rpc ResendInvitation(ResendInvitationRequest) returns (ResendInvitationResponse);
+  rpc AcknowledgeInvitationDelivery(AcknowledgeInvitationDeliveryRequest) returns (AcknowledgeInvitationDeliveryResponse);
   rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
   rpc ListTrips(ListTripsRequest) returns (ListTripsResponse);
   rpc GetTrip(GetTripRequest) returns (GetTripResponse);
@@ -73,7 +82,9 @@ message CreateTripRequest {
   optional string timezone = 6;
   optional string description = 7;
 }
-message CreateTripResponse { Trip trip = 1; }
+message CreateTripResponse {
+  Trip trip = 1;
+}
 
 message ListTripsRequest {
   string actor_user_id = 1;
@@ -90,7 +101,9 @@ message GetTripRequest {
   string actor_user_id = 1;
   string trip_id = 2;
 }
-message GetTripResponse { Trip trip = 1; }
+message GetTripResponse {
+  Trip trip = 1;
+}
 
 message UpdateTripRequest {
   string operation_id = 1; // The HTTP Idempotency-Key.
@@ -102,14 +115,18 @@ message UpdateTripRequest {
   StringPatch description = 7;
   StringPatch public_description = 8;
 }
-message UpdateTripResponse { Trip trip = 1; }
+message UpdateTripResponse {
+  Trip trip = 1;
+}
 
 message GetAccessContextRequest {
   string trip_id = 1;
   string user_id = 2;
   string action = 3;
 }
-message GetAccessContextResponse { wolfari.common.v1.AccessContext context = 1; }
+message GetAccessContextResponse {
+  wolfari.common.v1.AccessContext context = 1;
+}
 
 message PlanPolicySettings {
   wolfari.common.v1.PlanPolicy policy = 1;
@@ -126,7 +143,9 @@ message UpdatePlanPolicyRequest {
   int32 expected_membership_revision = 6;
 }
 
-message UpdatePlanPolicyResponse { PlanPolicySettings plan_policy = 1; }
+message UpdatePlanPolicyResponse {
+  PlanPolicySettings plan_policy = 1;
+}
 
 message BeginFinanceOperationRequest {
   string operation_id = 1;
@@ -149,21 +168,130 @@ message CompleteOperationRequest {
   string request_hash = 4;
   wolfari.common.v1.Actor actor = 5;
 }
-message CompleteOperationResponse { wolfari.common.v1.Operation operation = 1; }
-message GetOperationResultRequest { string operation_id = 1; }
-message GetOperationResultResponse { wolfari.common.v1.Operation operation = 1; }
+message CompleteOperationResponse {
+  wolfari.common.v1.Operation operation = 1;
+}
+message GetOperationResultRequest {
+  string operation_id = 1;
+}
+message GetOperationResultResponse {
+  wolfari.common.v1.Operation operation = 1;
+}
 message GetAutomationContextRequest {
   string trip_id = 1;
   string source_type = 2;
   string source_id = 3;
   optional string user_id = 4;
 }
-message GetAutomationContextResponse { wolfari.common.v1.SourceContext context = 1; }
-message GetInvitationDeliveryRequest { string invitation_id = 1; }
+message GetAutomationContextResponse {
+  wolfari.common.v1.SourceContext context = 1;
+}
+message GetInvitationDeliveryRequest {
+  string invitation_id = 1;
+  optional int32 expected_invitation_version = 2;
+}
 message InvitationDelivery {
   string recipient_email = 1;
   string link = 2; // Sensitive RPC-only data.
   google.protobuf.Timestamp expires_at = 3;
+  int32 invitation_version = 4;
+  optional string recipient_user_id = 5;
+}
+
+message Invitation {
+  string id = 1;
+  string trip_id = 2;
+  string invitation_type = 3;
+  optional string email = 4;
+  string status = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  google.protobuf.Timestamp resolved_at = 7;
+  int32 version = 8;
+}
+message CreateInvitationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string invitation_type = 4;
+  optional string email = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  int32 expected_membership_revision = 7;
+}
+message CreateInvitationResponse {
+  Invitation invitation = 1;
+  optional string one_time_link = 2;
+}
+message ListInvitationsRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+  int32 limit = 3;
+  optional string cursor = 4;
+  optional string status = 5;
+}
+message ListInvitationsResponse {
+  repeated Invitation items = 1;
+  optional string next_cursor = 2;
+}
+message PreviewInvitationRequest {
+  string actor_user_id = 1;
+  string token = 2;
+  optional string operation_id = 3;
+}
+message PreviewInvitationResponse {
+  string id = 1;
+  string trip_name = 2;
+  string inviter_display_name = 3;
+  string status = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+message AcceptInvitationResponse {
+  wolfari.common.v1.Membership membership = 1;
+  wolfari.common.v1.Revisions revisions = 2;
+}
+message RevokeInvitationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string invitation_id = 4;
+  int32 expected_version = 5;
+}
+message AcknowledgeInvitationDeliveryRequest {
+  string invitation_id = 1;
+  int32 invitation_version = 2;
+}
+message AcknowledgeInvitationDeliveryResponse {
+  bool acknowledged = 1;
+}
+
+message AcceptInvitationRequest {
+  string actor_user_id = 1;
+  string token = 2;
+  optional string operation_id = 3;
+}
+message DeclineInvitationRequest {
+  string actor_user_id = 1;
+  string token = 2;
+  optional string operation_id = 3;
+}
+message DeclineInvitationResponse {
+  string id = 1;
+  string trip_name = 2;
+  string inviter_display_name = 3;
+  string status = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+message RevokeInvitationResponse {
+  Invitation invitation = 1;
+}
+message ResendInvitationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string invitation_id = 4;
+  int32 expected_version = 5;
+}
+message ResendInvitationResponse {
+  Invitation invitation = 1;
 }
 message GetInvitationDeliveryResponse {
   bool valid = 1;

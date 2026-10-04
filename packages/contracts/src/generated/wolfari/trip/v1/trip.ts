@@ -21,6 +21,7 @@ import {
   Operation,
   OperationOutcome,
   PlanPolicy,
+  Revisions,
   SourceContext,
 } from "../../common/v1/types";
 
@@ -221,6 +222,7 @@ export interface GetAutomationContextResponse {
 
 export interface GetInvitationDeliveryRequest {
   invitation_id?: string | undefined;
+  expected_invitation_version?: number | undefined;
 }
 
 export interface InvitationDelivery {
@@ -230,6 +232,119 @@ export interface InvitationDelivery {
   /** Sensitive RPC-only data. */
   link?: string | undefined;
   expires_at?: Timestamp | undefined;
+  invitation_version?: number | undefined;
+  recipient_user_id?: string | undefined;
+}
+
+export interface Invitation {
+  id?: string | undefined;
+  trip_id?: string | undefined;
+  invitation_type?: string | undefined;
+  email?: string | undefined;
+  status?: string | undefined;
+  expires_at?: Timestamp | undefined;
+  resolved_at?: Timestamp | undefined;
+  version?: number | undefined;
+}
+
+export interface CreateInvitationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  invitation_type?: string | undefined;
+  email?: string | undefined;
+  expires_at?: Timestamp | undefined;
+  expected_membership_revision?: number | undefined;
+}
+
+export interface CreateInvitationResponse {
+  invitation?: Invitation | undefined;
+  one_time_link?: string | undefined;
+}
+
+export interface ListInvitationsRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  status?: string | undefined;
+}
+
+export interface ListInvitationsResponse {
+  items?: Invitation[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface PreviewInvitationRequest {
+  actor_user_id?: string | undefined;
+  token?: string | undefined;
+  operation_id?: string | undefined;
+}
+
+export interface PreviewInvitationResponse {
+  id?: string | undefined;
+  trip_name?: string | undefined;
+  inviter_display_name?: string | undefined;
+  status?: string | undefined;
+  expires_at?: Timestamp | undefined;
+}
+
+export interface AcceptInvitationResponse {
+  membership?: Membership | undefined;
+  revisions?: Revisions | undefined;
+}
+
+export interface RevokeInvitationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  invitation_id?: string | undefined;
+  expected_version?: number | undefined;
+}
+
+export interface AcknowledgeInvitationDeliveryRequest {
+  invitation_id?: string | undefined;
+  invitation_version?: number | undefined;
+}
+
+export interface AcknowledgeInvitationDeliveryResponse {
+  acknowledged?: boolean | undefined;
+}
+
+export interface AcceptInvitationRequest {
+  actor_user_id?: string | undefined;
+  token?: string | undefined;
+  operation_id?: string | undefined;
+}
+
+export interface DeclineInvitationRequest {
+  actor_user_id?: string | undefined;
+  token?: string | undefined;
+  operation_id?: string | undefined;
+}
+
+export interface DeclineInvitationResponse {
+  id?: string | undefined;
+  trip_name?: string | undefined;
+  inviter_display_name?: string | undefined;
+  status?: string | undefined;
+  expires_at?: Timestamp | undefined;
+}
+
+export interface RevokeInvitationResponse {
+  invitation?: Invitation | undefined;
+}
+
+export interface ResendInvitationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  invitation_id?: string | undefined;
+  expected_version?: number | undefined;
+}
+
+export interface ResendInvitationResponse {
+  invitation?: Invitation | undefined;
 }
 
 export interface GetInvitationDeliveryResponse {
@@ -511,6 +626,25 @@ export interface SetActivityCompletionResponse {
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
+  createInvitation(request: CreateInvitationRequest, metadata?: Metadata): Observable<CreateInvitationResponse>;
+
+  listInvitations(request: ListInvitationsRequest, metadata?: Metadata): Observable<ListInvitationsResponse>;
+
+  previewInvitation(request: PreviewInvitationRequest, metadata?: Metadata): Observable<PreviewInvitationResponse>;
+
+  acceptInvitation(request: AcceptInvitationRequest, metadata?: Metadata): Observable<AcceptInvitationResponse>;
+
+  declineInvitation(request: DeclineInvitationRequest, metadata?: Metadata): Observable<DeclineInvitationResponse>;
+
+  revokeInvitation(request: RevokeInvitationRequest, metadata?: Metadata): Observable<RevokeInvitationResponse>;
+
+  resendInvitation(request: ResendInvitationRequest, metadata?: Metadata): Observable<ResendInvitationResponse>;
+
+  acknowledgeInvitationDelivery(
+    request: AcknowledgeInvitationDeliveryRequest,
+    metadata?: Metadata,
+  ): Observable<AcknowledgeInvitationDeliveryResponse>;
+
   createTrip(request: CreateTripRequest, metadata?: Metadata): Observable<CreateTripResponse>;
 
   listTrips(request: ListTripsRequest, metadata?: Metadata): Observable<ListTripsResponse>;
@@ -564,6 +698,49 @@ export interface TripServiceClient {
 }
 
 export interface TripServiceController {
+  createInvitation(
+    request: CreateInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<CreateInvitationResponse> | Observable<CreateInvitationResponse> | CreateInvitationResponse;
+
+  listInvitations(
+    request: ListInvitationsRequest,
+    metadata?: Metadata,
+  ): Promise<ListInvitationsResponse> | Observable<ListInvitationsResponse> | ListInvitationsResponse;
+
+  previewInvitation(
+    request: PreviewInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<PreviewInvitationResponse> | Observable<PreviewInvitationResponse> | PreviewInvitationResponse;
+
+  acceptInvitation(
+    request: AcceptInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<AcceptInvitationResponse> | Observable<AcceptInvitationResponse> | AcceptInvitationResponse;
+
+  declineInvitation(
+    request: DeclineInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<DeclineInvitationResponse> | Observable<DeclineInvitationResponse> | DeclineInvitationResponse;
+
+  revokeInvitation(
+    request: RevokeInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<RevokeInvitationResponse> | Observable<RevokeInvitationResponse> | RevokeInvitationResponse;
+
+  resendInvitation(
+    request: ResendInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<ResendInvitationResponse> | Observable<ResendInvitationResponse> | ResendInvitationResponse;
+
+  acknowledgeInvitationDelivery(
+    request: AcknowledgeInvitationDeliveryRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<AcknowledgeInvitationDeliveryResponse>
+    | Observable<AcknowledgeInvitationDeliveryResponse>
+    | AcknowledgeInvitationDeliveryResponse;
+
   createTrip(
     request: CreateTripRequest,
     metadata?: Metadata,
@@ -661,6 +838,14 @@ export interface TripServiceController {
 export function TripServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "createInvitation",
+      "listInvitations",
+      "previewInvitation",
+      "acceptInvitation",
+      "declineInvitation",
+      "revokeInvitation",
+      "resendInvitation",
+      "acknowledgeInvitationDelivery",
       "createTrip",
       "listTrips",
       "getTrip",

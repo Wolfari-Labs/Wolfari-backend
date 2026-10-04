@@ -8,3 +8,5 @@ coverage/
 !.env.example
 *.tsbuildinfo
 .DS_Store
+# Office lock files are local to an open document.
+~$*.docx
