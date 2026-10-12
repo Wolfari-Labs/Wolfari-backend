@@ -138,6 +138,97 @@ export async function checkContributionRepository(client) {
       requestId,
     ]);
     assert.equal((await repository.findRequestById(scope)).status, 'CANCELLED');
+
+    // Collection summaries are reads of fixture states, not payment/lifecycle commands.
+    const summaryScope = { fundId, requestId: secondRequestId };
+    const empty = await repository.findRequestCollectionSummary(summaryScope);
+    assert.equal(empty.requestStatus, 'OPEN');
+    assert.equal(empty.requestVersion, 1);
+    assert.deepEqual(empty.total, { count: 0n, amount: 0n });
+    assert.equal(Object.keys(empty.byStatus).length, 6);
+    for (const bucket of Object.values(empty.byStatus)) {
+      assert.deepEqual(bucket, { count: 0n, amount: 0n });
+    }
+    assert.equal(
+      await repository.findRequestCollectionSummary({ ...summaryScope, fundId: otherFundId }),
+      null,
+    );
+    assert.equal(
+      await repository.findRequestCollectionSummary({ fundId, requestId: randomUUID() }),
+      null,
+    );
+    const allocations = [
+      ['PENDING', 100000n],
+      ['TRANSFER_REPORTED', 200000n],
+      ['CONFIRMED', 350000n],
+      ['WAIVED', 40000n],
+      ['CANCELLED', 50000n],
+      ['REVERSED', 600000n],
+    ];
+    let reportedId;
+    const insertAllocation = async (targetScope, amount, status) => {
+      const id = randomUUID();
+      await client.query(
+        `INSERT INTO public.contributions(id, request_id, fund_id, member_user_id,
+           amount, status, destination_snapshot, destination_version)
+         VALUES ($1,$2,$3,$4,$5,$6,'{}'::jsonb,1)`,
+        [id, targetScope.requestId, targetScope.fundId, randomUUID(), amount.toString(), status],
+      );
+      return id;
+    };
+    for (const [status, amount] of allocations) {
+      const id = await insertAllocation(summaryScope, amount, status);
+      if (status === 'TRANSFER_REPORTED') reportedId = id;
+    }
+    await insertAllocation(
+      { fundId: otherFundId, requestId: otherRequestId },
+      777000n,
+      'CONFIRMED',
+    );
+    const summary = await repository.findRequestCollectionSummary(summaryScope);
+    assert.deepEqual(summary, {
+      fundId,
+      requestId: secondRequestId,
+      requestStatus: 'OPEN',
+      requestVersion: 1,
+      total: { count: 6n, amount: 1340000n },
+      byStatus: Object.fromEntries(
+        allocations.map(([status, amount]) => [status, { count: 1n, amount }]),
+      ),
+    });
+    // The original request in this same Fund has an int8-max REVERSED row;
+    // neither it nor the other Fund's allocation leaks into this request.
+    const originalSummary = await repository.findRequestCollectionSummary(scope);
+    assert.equal(originalSummary.requestStatus, 'CANCELLED');
+    assert.deepEqual(originalSummary.total, { count: 1n, amount: 9223372036854775807n });
+    assert.deepEqual(originalSummary.byStatus.REVERSED, originalSummary.total);
+    assert.deepEqual(originalSummary.byStatus.CONFIRMED, { count: 0n, amount: 0n });
+
+    await client.query("UPDATE public.contributions SET status='CONFIRMED' WHERE id=$1", [
+      reportedId,
+    ]);
+    const afterConfirmation = await repository.findRequestCollectionSummary(summaryScope);
+    assert.deepEqual(afterConfirmation.total, summary.total);
+    assert.deepEqual(afterConfirmation.byStatus.TRANSFER_REPORTED, { count: 0n, amount: 0n });
+    assert.deepEqual(afterConfirmation.byStatus.CONFIRMED, { count: 2n, amount: 550000n });
+
+    for (let index = 0; index < 2; index++) {
+      await insertAllocation(summaryScope, 9223372036854775807n, 'PENDING');
+    }
+    const large = await repository.findRequestCollectionSummary(summaryScope);
+    assert.deepEqual(large.total, { count: 8n, amount: 18446744073710891614n });
+    assert.deepEqual(large.byStatus.PENDING, { count: 3n, amount: 18446744073709651614n });
+    for (const status of ['CLOSED', 'CANCELLED']) {
+      await client.query(
+        'UPDATE public.contribution_requests SET status=$2, version=3 WHERE id=$1',
+        [secondRequestId, status],
+      );
+      assert.deepEqual(await repository.findRequestCollectionSummary(summaryScope), {
+        ...large,
+        requestStatus: status,
+        requestVersion: 3,
+      });
+    }
   } finally {
     await client.query('ROLLBACK');
   }

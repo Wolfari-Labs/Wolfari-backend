@@ -254,3 +254,39 @@ trực tiếp ra JSON. Chưa có API hay luồng ghi đóng góp end-to-end.
 
 Unit test và DB integration bao phủ phạm vi Fund/Request, tiền lớn, null, trạng thái
 lịch sử, timestamp và việc không trả thông tin thanh toán riêng. Fixture được rollback.
+
+## Tiến độ một đợt góp quỹ chung
+
+`ContributionRepository.findRequestCollectionSummary({ fundId, requestId })` đọc
+tổng số khoản và tổng amount theo cả sáu trạng thái contribution trong một câu SQL.
+Request không tồn tại hoặc sai Fund trả `null`; request tồn tại nhưng chưa có khoản
+đóng góp trả sáu nhóm bằng 0. Query gốc là request và join contributions bằng cả
+Fund/request, nên không trộn đợt khác hoặc quỹ của chuyến đi khác. Đọc được request
+CLOSED/CANCELLED và quỹ CLOSED để xem lịch sử.
+
+Kết quả nội bộ gồm `fundId`, `requestId`, `requestStatus`, `requestVersion`, `total`
+và `byStatus`. Mỗi nhóm có `count` và `amount` dạng `bigint`. `total` cộng tất cả
+trạng thái theo amount hiện đang lưu, không phải tổng nghĩa vụ còn phải đóng hoặc
+tổng ban đầu bất biến. Không tính bằng amount chung nhân số thành viên vì từng
+người có thể góp mức khác nhau.
+
+- PENDING: khoản chưa báo chuyển; TRANSFER_REPORTED: khoản đã báo, chờ xác minh.
+  Cả hai không được cộng vào tiền đã xác nhận.
+- CONFIRMED: tổng khoản đóng góp đang được xác nhận, không phải số dư khả dụng;
+  số dư còn phụ thuộc chi, hoàn dư và ledger.
+- WAIVED/CANCELLED/REVERSED giữ nhóm riêng. Không trừ REVERSED lần nữa khỏi nhóm
+  CONFIRMED hoặc tự coi khoản đảo là nghĩa vụ phải thu lại.
+
+PostgreSQL SUM(bigint) trả numeric; nhiều khoản Money hợp lệ có thể có tổng lớn
+hơn int8. Reader giữ chính xác tổng và count bằng bigint không giới hạn int8,
+không ép Number hoặc cast SQL sum về bigint. Đây là aggregate nội bộ, không dùng
+`formatVndAmount` cho tổng vượt int8; representation/giới hạn API summary cần được
+thống nhất trước khi mở endpoint, không serialize trực tiếp bigint thành JSON.
+
+Caller vẫn phải kiểm UUID và quyền Trip hiện tại. Một snapshot SQL không thay
+guard/lock cho writer, không là export snapshot nhiều nguồn hoặc phiên bản Finance.
+Reader không trả tài khoản, snapshot đích, member ID hay khóa chứng từ. Chưa bổ sung
+API, thanh toán từng phần, tiền thừa hoặc transaction ghi quỹ.
+
+Unit test và fixture DB hiện có kiểm đủ trạng thái, empty/missing, cách ly Fund/đợt,
+tiền lớn hơn int8, thay trạng thái không đổi tổng phân bổ và đọc dữ liệu đã kết thúc.

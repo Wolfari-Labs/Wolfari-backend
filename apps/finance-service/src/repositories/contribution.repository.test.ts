@@ -155,3 +155,140 @@ describe('ContributionRepository', () => {
     await expect(repository.findById(scope)).rejects.toBe(failure);
   });
 });
+
+function summaryRow(status: string | null, amount: string, count = '1') {
+  return {
+    fund_id: scope.fundId,
+    request_id: scope.requestId,
+    request_status: 'OPEN',
+    request_version: 2,
+    contribution_status: status,
+    contribution_count: count,
+    contribution_amount: amount,
+  };
+}
+
+describe('ContributionRepository collection summary', () => {
+  it('distinguishes a missing request from an existing request without allocations', async () => {
+    const { repository, query } = withRows([]);
+    expect(await repository.findRequestCollectionSummary(scope)).toBeNull();
+    query.mockResolvedValueOnce({ rows: [summaryRow(null, '0', '0')] });
+    expect(await repository.findRequestCollectionSummary(scope)).toEqual({
+      fundId: scope.fundId,
+      requestId: scope.requestId,
+      requestStatus: 'OPEN',
+      requestVersion: 2,
+      total: { count: 0n, amount: 0n },
+      byStatus: {
+        PENDING: { count: 0n, amount: 0n },
+        TRANSFER_REPORTED: { count: 0n, amount: 0n },
+        CONFIRMED: { count: 0n, amount: 0n },
+        WAIVED: { count: 0n, amount: 0n },
+        CANCELLED: { count: 0n, amount: 0n },
+        REVERSED: { count: 0n, amount: 0n },
+      },
+    });
+  });
+
+  it('keeps reported, confirmed and reversed allocations separate with unequal amounts', async () => {
+    const { repository } = withRows([
+      summaryRow('REVERSED', '700000'),
+      summaryRow('CONFIRMED', '1500000', '2'),
+      summaryRow('PENDING', '300000'),
+      summaryRow('CANCELLED', '100000'),
+      summaryRow('TRANSFER_REPORTED', '500000'),
+      summaryRow('WAIVED', '200000'),
+    ]);
+    expect(await repository.findRequestCollectionSummary(scope)).toMatchObject({
+      total: { count: 7n, amount: 3300000n },
+      byStatus: {
+        PENDING: { count: 1n, amount: 300000n },
+        TRANSFER_REPORTED: { count: 1n, amount: 500000n },
+        CONFIRMED: { count: 2n, amount: 1500000n },
+        WAIVED: { count: 1n, amount: 200000n },
+        CANCELLED: { count: 1n, amount: 100000n },
+        REVERSED: { count: 1n, amount: 700000n },
+      },
+    });
+  });
+
+  it('preserves aggregate amounts beyond int8 and counts beyond safe Number range', async () => {
+    const { repository } = withRows([
+      summaryRow('PENDING', '18446744073709551614', '2'),
+      summaryRow('CONFIRMED', '9007199254740993', '9007199254740993'),
+    ]);
+    expect(await repository.findRequestCollectionSummary(scope)).toMatchObject({
+      total: { count: 9007199254740995n, amount: 18455751272964292607n },
+      byStatus: {
+        PENDING: { count: 2n, amount: 18446744073709551614n },
+        CONFIRMED: { count: 9007199254740993n, amount: 9007199254740993n },
+      },
+    });
+  });
+
+  it.each(['CLOSED', 'CANCELLED'])(
+    'keeps %s request metadata and excludes private fields',
+    async (status) => {
+      const { repository } = withRows([
+        {
+          ...summaryRow('CONFIRMED', '500000'),
+          request_status: status,
+          request_version: 7,
+          destination_snapshot: { account_number: 'private' },
+          member_user_id: 'private-member',
+          transfer_evidence_object_key: 'private/evidence',
+        },
+      ]);
+      const result = await repository.findRequestCollectionSummary(scope);
+      expect(result).toMatchObject({ requestStatus: status, requestVersion: 7 });
+      expect(Object.keys(result!).sort()).toEqual(
+        ['fundId', 'requestId', 'requestStatus', 'requestVersion', 'total', 'byStatus'].sort(),
+      );
+      expect(result!.byStatus.CONFIRMED).toEqual({ count: 1n, amount: 500000n });
+    },
+  );
+
+  it('uses one query with both scope IDs and no private or per-member data', async () => {
+    const { repository, query } = withRows([]);
+    await repository.findRequestCollectionSummary(scope);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('r.fund_id = $1 AND r.id = $2'), [
+      scope.fundId,
+      scope.requestId,
+    ]);
+    expect(query.mock.calls[0]![0]).not.toMatch(
+      /destination_snapshot|transfer_evidence_object_key|member_user_id/,
+    );
+  });
+
+  it.each(['-1', '1.5', ' 10', '10\n', '', null, 100])(
+    'rejects malformed stored aggregate %s instead of coercing it',
+    async (value) => {
+      const { repository, query } = withRows([
+        { ...summaryRow('PENDING', '10'), contribution_amount: value },
+      ]);
+      await expect(repository.findRequestCollectionSummary(scope)).rejects.toThrow(TypeError);
+      query.mockResolvedValueOnce({
+        rows: [{ ...summaryRow('PENDING', '10'), contribution_count: value }],
+      });
+      await expect(repository.findRequestCollectionSummary(scope)).rejects.toThrow(TypeError);
+    },
+  );
+
+  it('rejects unknown statuses and nonzero empty summaries', async () => {
+    const { repository, query } = withRows([summaryRow('PARTIALLY_PAID', '100')]);
+    await expect(repository.findRequestCollectionSummary(scope)).rejects.toThrow(
+      'Unknown stored contribution status',
+    );
+    query.mockResolvedValueOnce({ rows: [summaryRow(null, '100')] });
+    await expect(repository.findRequestCollectionSummary(scope)).rejects.toThrow(
+      'Empty contribution summary must have zero totals',
+    );
+  });
+
+  it('propagates a failed query rather than showing a zero collection', async () => {
+    const failure = new Error('database unavailable');
+    const repository = new ContributionRepository({ query: vi.fn().mockRejectedValue(failure) });
+    await expect(repository.findRequestCollectionSummary(scope)).rejects.toBe(failure);
+  });
+});
