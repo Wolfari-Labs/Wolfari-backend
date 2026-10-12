@@ -87,6 +87,9 @@ const secrets = {
   IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
   GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+  FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
+  TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
+  AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   TRIP_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   FINANCE_IDENTITY_SECRET: randomBytes(32).toString('hex'),
@@ -140,6 +143,8 @@ async function main() {
   await start('trip-workspace-service', {
     TRIP_PORT: String(ports.trip), TRIP_GRPC_PORT: String(ports.tripGrpc), DATABASE_URL: databaseUrl(infra, 'trip'),
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
+    FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET, TRAVEL_TRIP_SECRET: secrets.TRAVEL_TRIP_SECRET,
+    AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
   });
   await start('automation-service', {
     AUTOMATION_PORT: String(ports.automation), DATABASE_URL: databaseUrl(infra, 'automation'),

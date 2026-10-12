@@ -90,6 +90,9 @@ message AccessContext {
   Revisions revisions = 5;
   bool allowed = 6;
   repeated string permissions = 7;
+  bool can_read_trip = 8;
+  bool can_update_trip_metadata = 9;
+  bool can_edit_plan = 10;
 }
 message AuthorizationContext {
   Actor actor = 1;

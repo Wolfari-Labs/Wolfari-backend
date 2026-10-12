@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
 import { createHash } from 'node:crypto';
+import { fail, TripError } from './trip.errors';
+
+export { TripError } from './trip.errors';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RFC3339 =
@@ -100,30 +103,6 @@ type OperationRow = {
 };
 
 type QueryClient = Parameters<Parameters<DatabaseProvider['withTransaction']>[0]>[0];
-
-export class TripError extends Error {
-  constructor(
-    public readonly code:
-      | 'VALIDATION_FAILED'
-      | 'RESOURCE_NOT_FOUND'
-      | 'PERMISSION_DENIED'
-      | 'VERSION_CONFLICT'
-      | 'STATE_CONFLICT'
-      | 'IDEMPOTENCY_CONFLICT',
-    public readonly status: number,
-    public readonly details: { plan_version: number; export_revision: number } | null = null,
-  ) {
-    super(code);
-  }
-}
-
-const fail = (
-  code: TripError['code'],
-  status: number,
-  details: TripError['details'] = null,
-): never => {
-  throw new TripError(code, status, details);
-};
 
 function uuid(value: unknown): string {
   if (typeof value !== 'string' || !UUID.test(value)) return fail('VALIDATION_FAILED', 400);
