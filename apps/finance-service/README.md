@@ -254,6 +254,29 @@ audit/outbox cùng transaction. Unique source key và lock vẫn cần để ch�
 và xác nhận thủ công ghi trùng. Unit test không chứng minh an toàn đồng thời của
 luồng ghi DB chưa triển khai.
 
+`parseManualContributionInput(action, body)` trong `src/inputs/manual-contribution.input.ts`
+đã kiểm tra **body** API087–089. Adapter chọn action theo route; body không được chứa
+action, actor/role, amount, status, balance hoặc field ngoài allowlist của thao tác:
+
+- `REPORT_TRANSFER`: hai version và `evidence_object_key` tùy chọn.
+- `CONFIRM_RECEIVED`: chỉ `expected_version`, `expected_finance_version`.
+- `REJECT_TRANSFER`: hai version và `reason` bắt buộc, không trắng.
+
+Version phải là JSON number nguyên dương trong miền int32, không ép chuỗi thành số.
+Reason và evidence key nếu có phải là chuỗi không trắng, không chứa NUL; giữ nguyên
+nội dung khi parse. Domain hiện có trim reason khi lập quyết định từ chối. Field
+optional chỉ được bỏ qua, không nhận `null` hoặc giá trị `undefined` được truyền trực tiếp.
+Parser trả `{ command, evidenceObjectKey? }`; command dùng với transition helper,
+evidence nằm riêng để use case tương lai xác minh quyền file. Khi không gửi evidence,
+kết quả không có key này; không coi đó là chỉ thị xóa bằng chứng đã lưu.
+
+Lỗi `ManualContributionInputError` chỉ chứa tên field, chưa ánh xạ thành HTTP response.
+Parser không kiểm định dạng storage key, quyền sở hữu file, UUID từ path, identity,
+idempotency header hoặc quyền nghiệp vụ; không log evidence key. Unit test ghép
+parser với domain kiểm sai actor, quỹ đóng, version cũ, trạng thái đã kết thúc và
+số tiền thu từ dữ liệu đã lưu. Chưa có route API087–089 hoặc transaction ghi tiền;
+parser hợp lệ không thay Trip guard, khóa dòng hay chống ghi trùng ở database.
+
 ## Đọc đợt đóng góp và khoản đóng góp
 
 `ContributionRepository` dùng DB chung và được đăng ký trong AppModule:
