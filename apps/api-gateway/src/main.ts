@@ -6,7 +6,7 @@ import { GatewayRouter } from './gateway-router';
 void bootstrapApp(AppModule, 'api-gateway', (app) => {
   const router = app.get(GatewayRouter);
   app.use(
-    '/api/v1',
+    ['/api/v1', '/invitations/local'],
     (
       request: import('node:http').IncomingMessage,
       response: import('node:http').ServerResponse,

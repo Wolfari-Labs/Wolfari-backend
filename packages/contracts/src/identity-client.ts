@@ -13,7 +13,7 @@ export class IdentityClient {
     this.client = new Client(target, credentials.createInsecure());
   }
 
-  private call<Request extends object, Response extends object>(methodName: string, request: Request, correlationId: string = randomUUID()): Promise<Response> {
+  private call<Request extends object, Response extends object>(methodName: string, request: Request, correlationId: string = randomUUID(), deadlineMs: number = Date.now() + 2000): Promise<Response> {
     const method = identity[methodName] as unknown as MethodDefinition<Request, Response>;
     const metadata = new Metadata();
     metadata.set('x-caller-service', this.caller);
@@ -25,7 +25,7 @@ export class IdentityClient {
       method.responseDeserialize,
       request,
       metadata,
-      { deadline: Date.now() + 2000 },
+      { deadline: Math.min(Date.now() + 2000, deadlineMs) },
       (error: ServiceError | null, response?: Response) => error ? reject(error) : resolve(response as Response),
     ));
   }
@@ -34,8 +34,8 @@ export class IdentityClient {
     return this.call<IdentityV1.ValidateSessionRequest, IdentityV1.ValidateSessionResponse>('ValidateSession', request, correlationId);
   }
 
-  getProfiles(request: IdentityV1.GetProfilesRequest, correlationId?: string) {
-    return this.call<IdentityV1.GetProfilesRequest, IdentityV1.GetProfilesResponse>('GetProfiles', request, correlationId);
+  getProfiles(request: IdentityV1.GetProfilesRequest, correlationId?: string, deadlineMs?: number) {
+    return this.call<IdentityV1.GetProfilesRequest, IdentityV1.GetProfilesResponse>('GetProfiles', request, correlationId, deadlineMs);
   }
 
   getAccountEmailDelivery(request: IdentityV1.GetAccountEmailDeliveryRequest, correlationId?: string) {
@@ -43,4 +43,7 @@ export class IdentityClient {
   }
 
   close() { this.client.close(); }
+  getInvitationIdentity(request: IdentityV1.GetInvitationIdentityRequest, correlationId?: string, deadlineMs?: number) {
+    return this.call<IdentityV1.GetInvitationIdentityRequest, IdentityV1.GetInvitationIdentityResponse>('GetInvitationIdentity', request, correlationId, deadlineMs);
+  }
 }

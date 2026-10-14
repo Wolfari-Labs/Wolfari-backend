@@ -60,7 +60,7 @@ describe('development configuration', () => {
   });
   it('verifies every baseline SQL checksum against the committed manifest', async () => {
     for (const service of ['identity', 'trip', 'travel', 'finance', 'automation']) {
-      expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(['V001']);
+      expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(service === 'trip' ? ['V001', 'V002'] : ['V001']);
     }
   });
   it('refuses modified SQL before connecting to PostgreSQL', async () => {
@@ -72,5 +72,23 @@ describe('development configuration', () => {
       await writeFile(resolve(base, 'apps/identity-service/migrations/V001.sql'), 'BEGIN; SELECT 1; COMMIT;');
       await expect(migrationFiles('identity', base)).rejects.toThrow('CHECKSUM_MISMATCH');
     } finally { await rm(base, { recursive: true, force: true }); }
+  });
+  it('rejects forward manifest overrides, duplicates and modified V002 bytes', async () => {
+    const base=await mkdtemp(resolve(tmpdir(),'wolfari-forward-test-'));
+    try {
+      await mkdir(resolve(base,'docs/database'),{recursive:true});
+      await mkdir(resolve(base,'apps/trip-workspace-service/migrations'),{recursive:true});
+      const baseline=await readFile(resolve(root,'docs/database/SHA256SUMS.txt'),'utf8');
+      const forward=await readFile(resolve(root,'docs/database/SHA256SUMS.forward.txt'),'utf8');
+      await writeFile(resolve(base,'docs/database/SHA256SUMS.txt'),baseline);
+      await writeFile(resolve(base,'docs/database/SHA256SUMS.forward.txt'),forward+forward);
+      await expect(migrationFiles('trip',base)).rejects.toThrow('DUPLICATE_MANIFEST_PATH');
+      await writeFile(resolve(base,'docs/database/SHA256SUMS.forward.txt'),baseline.split(/\r?\n/).find(line=>line.includes('/V001.sql'))!);
+      await expect(migrationFiles('trip',base)).rejects.toThrow('INVALID_FORWARD_MANIFEST');
+      await writeFile(resolve(base,'docs/database/SHA256SUMS.forward.txt'),forward);
+      await writeFile(resolve(base,'apps/trip-workspace-service/migrations/V001.sql'),await readFile(resolve(root,'apps/trip-workspace-service/migrations/V001.sql')));
+      await writeFile(resolve(base,'apps/trip-workspace-service/migrations/V002.sql'),'tampered');
+      await expect(migrationFiles('trip',base)).rejects.toThrow('CHECKSUM_MISMATCH');
+    } finally {await rm(base,{recursive:true,force:true});}
   });
 });

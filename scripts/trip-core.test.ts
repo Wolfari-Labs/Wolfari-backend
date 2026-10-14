@@ -201,6 +201,7 @@ describe('Trip update replay', () => {
     const query = vi
       .fn()
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: tripId }] })
       .mockResolvedValueOnce({ rows: [currentRow] })
       .mockResolvedValueOnce({
         rows: [
@@ -237,8 +238,9 @@ describe('Trip update replay', () => {
       correlationId,
     });
 
-    expect(query.mock.calls[1]?.[0]).toContain('FOR UPDATE OF t,m');
-    expect(query).toHaveBeenCalledTimes(3);
+    expect(query.mock.calls[1]?.[0]).toContain('FROM trips WHERE id=$1 FOR UPDATE');
+    expect(query.mock.calls[2]?.[0]).toContain('FOR UPDATE OF t,m');
+    expect(query).toHaveBeenCalledTimes(4);
     expect(result).toMatchObject({
       id: tripId,
       name: 'Current name',

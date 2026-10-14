@@ -1,6 +1,6 @@
 # Kết quả kiểm tra Trip core
 
-Tài liệu này ghi kết quả của checkout hiện tại. `PASS` chỉ được ghi khi lệnh đã chạy thành công; kiểm tra cần Docker hoặc GitHub được giữ `NOT RUN` nếu chưa có bằng chứng trong lượt triển khai. Chi tiết riêng cho lát cắt phân quyền Plan nằm tại [trip-plan-access-control-validation.md](./trip-plan-access-control-validation.md).
+Bảng dưới giữ kết quả lịch sử trước Invitations, không phải số liệu checkout hiện tại. Review ngày 01-10-2026 trên nền `63aa8b4` cộng diff đã chạy lại `trip:test` PASS 27 nhóm; toàn workspace có 116 unit tests và catalog 33 RPC. Kết quả tại mốc review và giới hạn ở [hồ sơ review 01/10](../history/documentation-update-2026-10-02.md#bằng-chứng-kiểm-thử-của-đợt-review-ngày-0110-trước-khi-chỉnh-docx). Chi tiết lịch sử của lát cắt Plan nằm tại [trip-plan-access-control-validation.md](./trip-plan-access-control-validation.md). Local PASS không thay CI.
 
 | Kiểm tra          | Kết quả | Bằng chứng và giới hạn                                                                                   |
 | ----------------- | ------- | -------------------------------------------------------------------------------------------------------- |

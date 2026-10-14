@@ -17,7 +17,7 @@ export class TripClient {
     this.client = new Client(target, credentials.createInsecure());
   }
 
-  private call<Request extends RpcMessage, Response extends RpcMessage>(
+  call<Request extends RpcMessage, Response extends RpcMessage>(
     methodName: string,
     request: Request,
     correlationId: string,
@@ -57,6 +57,30 @@ export class TripClient {
 
   updateTrip(request: RpcMessage, correlationId: string) {
     return this.call('UpdateTrip', request, correlationId);
+  }
+
+  getPlan(request: RpcMessage, correlationId: string) {
+    return this.call('GetPlan', request, correlationId);
+  }
+
+  createActivity(request: RpcMessage, correlationId: string) {
+    return this.call('CreateActivity', request, correlationId);
+  }
+
+  updateActivity(request: RpcMessage, correlationId: string) {
+    return this.call('UpdateActivity', request, correlationId);
+  }
+
+  deleteActivity(request: RpcMessage, correlationId: string) {
+    return this.call('DeleteActivity', request, correlationId);
+  }
+
+  reorderActivities(request: RpcMessage, correlationId: string) {
+    return this.call('ReorderActivities', request, correlationId);
+  }
+
+  setActivityCompletion(request: RpcMessage, correlationId: string) {
+    return this.call('SetActivityCompletion', request, correlationId);
   }
 
   updatePlanPolicy(request: RpcMessage, correlationId: string) {

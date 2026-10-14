@@ -1,22 +1,22 @@
-# Hướng dẫn khởi tạo kho mã nguồn Wolfari
+# Cấu trúc kho mã nguồn Wolfari
 
-Wolfari là pnpm monorepo gồm 7 ứng dụng NestJS. Baseline kỹ thuật đã có hạ tầng local, migration runner, database provider và health check; chưa triển khai API nghiệp vụ, RPC, event handler hay giao diện.
+Wolfari là pnpm monorepo gồm 7 ứng dụng NestJS. Ngoài hạ tầng local, migration runner, database provider và health check, đã có Identity đợt 1, Trip core, Plan access và Invitations/email. Các service còn lại giữ cấu trúc cho phần nghiệp vụ chưa triển khai; không xóa scaffold chỉ vì chưa có runtime đầy đủ.
 
 ## Cấu trúc và ranh giới
 
-| Thư mục | Vai trò |
-| --- | --- |
-| `apps/api-gateway` | Gateway/BFF, cổng 3000; không sở hữu database. |
-| `apps/identity-service` | Sở hữu `identity_db`, cổng 3101. |
-| `apps/trip-workspace-service` | Sở hữu `trip_db`, cổng 3102. |
-| `apps/travel-intelligence-service` | Sở hữu `travel_db`, cổng 3103. |
-| `apps/finance-service` | Sở hữu `finance_db`, cổng 3104. |
-| `apps/automation-service` | Sở hữu `automation_db`, cổng 3105. |
-| `apps/export-worker` | Worker xuất file, cổng kỹ thuật 3106; không sở hữu database. |
-| `packages/common` | Cấu hình, log, correlation ID và liveness dùng chung. |
-| `packages/database` | Pool `pg`, transaction và readiness dùng chung cho 5 service. |
-| `packages/contracts` | Protobuf/event contract v1, mã sinh, validator và catalog topology; chưa bật runtime transport. |
-| `infrastructure` | Docker Compose và bootstrap PostgreSQL. |
+| Thư mục                            | Vai trò                                                                                                                |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `apps/api-gateway`                 | Gateway/BFF, cổng 3000; không sở hữu database.                                                                         |
+| `apps/identity-service`            | Sở hữu `identity_db`, cổng 3101.                                                                                       |
+| `apps/trip-workspace-service`      | Sở hữu `trip_db`, cổng 3102.                                                                                           |
+| `apps/travel-intelligence-service` | Sở hữu `travel_db`, cổng 3103.                                                                                         |
+| `apps/finance-service`             | Sở hữu `finance_db`, cổng 3104.                                                                                        |
+| `apps/automation-service`          | Sở hữu `automation_db`, cổng 3105.                                                                                     |
+| `apps/export-worker`               | Worker xuất file, cổng kỹ thuật 3106; không sở hữu database.                                                           |
+| `packages/common`                  | Cấu hình, log, correlation ID và liveness dùng chung.                                                                  |
+| `packages/database`                | Pool `pg`, transaction và readiness dùng chung cho 5 service.                                                          |
+| `packages/contracts`               | Protobuf/event contract v1, mã sinh, validator, catalog topology và client nội bộ; transport được app sở hữu khởi tạo. |
+| `infrastructure`                   | Docker Compose và bootstrap PostgreSQL.                                                                                |
 
 Mỗi service nghiệp vụ chỉ kết nối database của chính nó bằng role `<service>_app`. Không dùng FK, JOIN, trigger hoặc transaction xuyên database. Gateway và Export Worker không nhận credential database.
 
@@ -46,9 +46,9 @@ Cả 7 ứng dụng có `GET /health/live`. Năm service nghiệp vụ có thêm
 
 1. truy vấn PostgreSQL hoàn tất trong ngân sách thời gian;
 2. database và role đúng với service;
-3. `V001` có trong `schema_migrations`.
+3. Migration bắt buộc có trong `schema_migrations`: V001 cho mọi service, thêm V002 cho Trip.
 
-RabbitMQ và MinIO chưa là dependency runtime của app trong baseline này, nên được kiểm tra bằng `infra:check`. Chi tiết xem [development-environment.md](development-environment.md).
+Gateway readiness kiểm tra Identity/Trip. RabbitMQ đã dùng cho outbox/email và MinIO cho avatar; `infra:check` kiểm tra hạ tầng, các endpoint dependency cung cấp trạng thái runtime tương ứng. Chi tiết và giới hạn xem [development-environment.md](development-environment.md).
 
 ## Migration và kiểm thử
 
@@ -67,4 +67,4 @@ Xem [hướng dẫn database](../database/README.md) và [kết quả kiểm tra
 
 ## Thiết kế hiện hành
 
-Nguồn hiện có là SRS v2.0, ERD v1.1 và DDL/API/Event Specification v1.0. Tài liệu có tham chiếu SRS v2.2 nhưng file này chưa có trong repository; vì vậy V001 hiện có được dùng làm baseline kỹ thuật, không được hiểu là toàn bộ nghiệp vụ đã được triển khai.
+Nguồn chính thức là SRS v2.3, ERD v1.2 và DDL/API/Event v1.1, đã chốt ngày 02/10/2026; xem [danh mục tài liệu](../README.md). V001 và Trip V002 là schema thực thi, không phải bằng chứng toàn bộ nghiệp vụ đã hoàn thành. Protobuf nằm tại `packages/contracts/proto/wolfari`, event schema/catalog tại `packages/contracts/schemas` và `packages/contracts/catalog`; các thư mục placeholder cũ đã bỏ. Sequence/state diagram vẫn là đầu việc chưa hoàn thành, không được coi là đã có chỉ vì từng tồn tại thư mục rỗng.

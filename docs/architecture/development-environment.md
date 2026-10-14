@@ -1,6 +1,6 @@
 # Môi trường phát triển Wolfari
 
-Node.js 24, pnpm 10.34.5 và `pg`; PostgreSQL/RabbitMQ/MinIO/Mailpit chạy Docker Compose, 7 app NestJS chạy trên máy. Không cần `psql`. Contract Protobuf/event nằm trong `@wolfari/contracts`. Identity đợt 1 đã có API, ba gRPC handler, outbox và gửi email local; các module nghiệp vụ khác thuộc đợt tiếp theo.
+Node.js 24, pnpm 10.34.5 và `pg`; PostgreSQL/RabbitMQ/MinIO/Mailpit chạy Docker Compose, 7 app NestJS chạy trên máy. Không cần `psql`. Contract Protobuf/event nằm trong `@wolfari/contracts`. Runtime đã có Identity đợt 1 với bốn gRPC handler, Trip core, Plan access, Invitations và email qua outbox/Automation. Các phần nghiệp vụ chưa triển khai được ghi tại [baseline hiện hành](design-baseline.md).
 
 ## Khởi động từ checkout mới
 
@@ -36,7 +36,7 @@ Cổng hạ tầng: PostgreSQL 5432, AMQP 5672, RabbitMQ UI 15672, MinIO API 900
 
 `dev` build common/database/contracts rồi chạy app từ `dist`. Sửa `src` của app/package hoặc proto/schema contract sẽ đóng app, build lại và tải lại. Ctrl+C đóng qua IPC/Nest shutdown hook, kết thúc pool; app quá 6 giây bị dừng. Sửa `.env` cần chạy lại `dev`.
 
-Readiness service trả 200 với `status=ok`, `service`, `checks.database=up`, `checks.migrations=up` và `correlation_id`; lỗi DB hoặc thiếu V001 trả 503. Gateway readiness kiểm tra Identity, Worker chưa có readiness cho dependency chưa tích hợp. Không trả connection string hoặc SQL lỗi thô. Probe DB tối đa 3 giây; liveness độc lập DB. Identity/Automation có thêm `/health/dependencies` cho broker, SMTP và backlog.
+Readiness service trả 200 với `status=ok`, `service`, `checks.database=up`, `checks.migrations=up` và `correlation_id`; lỗi DB hoặc thiếu migration bắt buộc trả 503 (Trip cần V001 và V002, service khác cần V001). Gateway readiness kiểm tra Identity/Trip; Worker chưa có readiness cho dependency chưa tích hợp. Không trả connection string hoặc SQL lỗi thô. Probe DB tối đa 3 giây; liveness độc lập DB. Identity/Trip/Automation có `/health/dependencies`; Automation bổ sung `/health/invitations` cho backlog và ACK lời mời.
 
 ## Provider cho module
 
@@ -47,18 +47,24 @@ Mặc định tối đa 5 kết nối nghiệp vụ cộng 1 probe; timeout kế
 ## Kiểm thử và dừng
 
 ```sh
+corepack pnpm build
 corepack pnpm lint
 corepack pnpm test
-corepack pnpm build
 corepack pnpm db:test
 corepack pnpm identity:test
+corepack pnpm trip:test
+corepack pnpm trip:invitations:test
 corepack pnpm infra:down
 ```
+
+Build trước unit tests để có output của các workspace package được import từ `dist`.
 
 `infra:up` đợi healthy tối đa 180 giây rồi kiểm tra credential; lệnh Compose có timeout 5 phút. `infra:check` kiểm tra 5 DB, đăng nhập AMQP, tạo bucket private ngẫu nhiên để ghi/đọc/xóa object và kiểm tra truy cập ẩn danh bị chặn; dọn bucket sau kiểm tra. Lệnh cũng kiểm tra API Mailpit local.
 
 `infra:down` giữ volume local. `db:test` tạo project `wolfari-test-<random>`, cổng/volume riêng và database đúng tên V001. Test dừng/treo DB chỉ tác động project thử; kết thúc dọn container/volume đó. Nếu máy tắt đột ngột, kiểm tra nhãn/tên project còn lại trước khi dọn thủ công.
 `identity:test` tạo project `wolfari-identity-test-<random>` riêng cho PostgreSQL/RabbitMQ/MinIO/Mailpit, không dùng database phát triển. Chi tiết API web/mobile và phạm vi tại [Identity đợt 1](identity-phase1.md).
+
+`trip:test` và `trip:invitations:test` cũng dùng project/cổng/volume thử riêng; lệnh invitations bổ sung broker và SMTP để kiểm tra luồng lời mời/email. Xem [Trip core](trip-core.md) và [Trip invitations](trip-invitations.md).
 
 ## Xử lý lỗi
 

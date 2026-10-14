@@ -2,8 +2,29 @@
 
 Finance dùng `DatabaseModule.forService('finance')` và `DatabaseProvider` từ
 `@wolfari/database`, dựa trên `pg`. Module này đã được nối trong `AppModule`.
-Code nghiệp vụ hiện có các hàm tiền, số dư, ledger, kiểm tra đóng góp và
-`FundRepository.findByTripId`. Chưa có API nghiệp vụ hoặc lệnh ghi Fund.
+Code hiện có domain tiền/số dư/ledger/đóng góp, parser và bước chuẩn bị request;
+các reader Fund, Ledger, Contribution và PaymentDestination đã đăng ký trong
+`AppModule`. Chưa có API nghiệp vụ Finance, transaction ghi tiền hoặc kết nối
+nhà cung cấp thanh toán.
+
+README này mô tả code hiện tại và cách kiểm thử module. Baseline thiết kế hiện hành
+là SRS 2.3 / ERD 1.2 / DDL API Event 1.1 tại [danh mục tài liệu](../../docs/README.md)
+và [design baseline](../../docs/architecture/design-baseline.md). Không dùng mô tả
+helper bên dưới để tự chốt schema/contract hoặc coi nghiệp vụ đã chạy end-to-end.
+
+## Tích hợp Trip còn chờ
+
+Theo [handoff lifecycle](../../docs/architecture/trip-member-lifecycle-handoff.md),
+Trip đã có luồng rời/xóa thành viên, nhưng generic `BeginFinanceOperation` và
+`CompleteOperation` còn chưa triển khai. `GetAccessContext` là snapshot quyền tại
+thời điểm đọc, không thay guard cho writer Finance. Chưa bật lifecycle với người
+dùng thật khi Finance Execute/Get/Cancel và shared guard chưa đầy đủ.
+
+Contract Finance Execute/Cancel có `membership_target` gồm membership_id/user_id/
+reason cho LEAVE_MEMBER/REMOVE_MEMBER; actor và người bị tác động có thể khác nhau.
+Finance chưa có handler cho các RPC này. Khi triển khai phải kiểm target, lưu
+receipt cùng tác động local nguyên tử và xử lý execute/cancel race theo protocol
+được thống nhất; không dùng reader hoặc transition helper làm thay thế.
 
 ## Cấu hình và chạy riêng Finance
 
@@ -98,7 +119,7 @@ Dữ liệu fixture nằm trong transaction ROLLBACK; không seed vào Finance l
 ## Đọc lịch sử ledger
 
 `LedgerRepository.listByFundId(fundId, { limit?, cursor? })` trả `items` và
-`nextCursor`. Theo PageQuery của đặc tả DDL/API/Event v1.0, mặc định 20 dòng,
+`nextCursor`. Reader hiện mặc định 20 dòng,
 giới hạn 1–100 và sắp theo `sequence DESC`. Reader lấy thêm một dòng để biết còn
 trang tiếp; cursor chứa phiên bản, Fund và sequence cuối đã trả. Cursor sai định
 dạng hoặc dùng cho quỹ khác bị từ chối trước khi query.
@@ -173,7 +194,7 @@ chỉ nhận `member_user_id`, `amount`, `destination_id`. Field ngoài allowlis
 kể cả actor, trạng thái, số dư hoặc snapshot do client khai. Lỗi input là
 `ContributionRequestInputError`, chưa được ánh xạ thành HTTP response.
 
-Theo quy ước REST trong DDL/API/Event v1.0, `due_at`/`note` được bỏ qua nhưng không
+Parser hiện cho phép bỏ qua `due_at`/`note` nhưng không
 nhận JSON `null`; chỉ khi thiếu field mới đổi thành `null` nội bộ. UUID được kiểm
 và chuyển về chữ thường trước khi kiểm user trùng. Money chỉ nhận chuỗi số nguyên
 dương trong miền int8 qua helper hiện có; không nhận JSON number hoặc ép kiểu.
@@ -204,9 +225,9 @@ sao chép từng cấu hình và Date để thay đổi input hoặc một alloc
 allocation khác. Dữ liệu vẫn là đối tượng nội bộ có thông tin thanh toán riêng,
 không log/serialize thành response và không coi TypeScript readonly là khóa runtime.
 
-Đây chưa phải schema JSON cho `destination_snapshot`: tài liệu hiện chỉ định cột
-jsonb và yêu cầu giữ snapshot, chưa mô tả cấu trúc field/version bên trong. Cần đối
-chiếu/thống nhất cấu trúc đó trước khi thêm writer. Hàm không sinh ID, không ghi DB,
+Đây chưa phải schema JSON cho `destination_snapshot`. Cấu trúc field/version lưu
+bền vững cần đối chiếu với baseline hiện hành và thống nhất trước khi thêm writer;
+không suy cấu trúc persistence từ kết quả helper này. Hàm không sinh ID, không ghi DB,
 không lấy Trip guard hoặc xử lý replay; luồng ghi tương lai phải truyền dữ liệu vừa
 đọc dưới lock và lưu request/contributions/snapshot/receipt/outbox nguyên tử.
 

@@ -55,6 +55,10 @@ export class IdentityGrpcController implements IdentityV1.IdentityServiceControl
     this.authorize('GetProfiles', metadata);
     return this.execute(() => this.identity.profiles(request.user_ids));
   }
+  getInvitationIdentity(request: IdentityV1.GetInvitationIdentityRequest, metadata?: Metadata): Promise<IdentityV1.GetInvitationIdentityResponse> {
+    this.authorize('GetInvitationIdentity', metadata);
+    return this.execute(() => this.identity.invitationIdentity(request));
+  }
 
   getAccountEmailDelivery(request: IdentityV1.GetAccountEmailDeliveryRequest, metadata?: Metadata): Promise<IdentityV1.GetAccountEmailDeliveryResponse> {
     this.authorize('GetAccountEmailDelivery', metadata);

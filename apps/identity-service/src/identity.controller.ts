@@ -22,7 +22,7 @@ class SafeErrors implements ExceptionFilter {
     response.statusCode = status;
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
-    response.end(JSON.stringify({ error: { code: known ? error.code : status >= 400 && status < 500 ? 'VALIDATION_FAILED' : 'SERVICE_UNAVAILABLE', message: known ? error.publicMessage : 'Request could not be completed', details: null, retryable: status === 503 }, meta: { correlation_id: currentCorrelationId() } }));
+    response.end(JSON.stringify({ error: { code: known ? error.code : status >= 400 && status < 500 ? 'VALIDATION_FAILED' : 'SERVICE_UNAVAILABLE', message: known ? error.publicMessage : 'Không thể hoàn tất yêu cầu', details: null, retryable: status === 503 }, meta: { correlation_id: currentCorrelationId() } }));
   }
 }
 

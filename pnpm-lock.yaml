@@ -265,6 +265,9 @@ importers:
       '@grpc/grpc-js':
         specifier: 1.14.5
         version: 1.14.5
+      '@grpc/proto-loader':
+        specifier: 0.8.1
+        version: 0.8.1
       '@nestjs/common':
         specifier: 11.2.5
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -289,12 +292,19 @@ importers:
       '@wolfari/database':
         specifier: workspace:*
         version: link:../../packages/database
+      amqplib:
+        specifier: 2.0.1
+        version: 2.0.1
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+    devDependencies:
+      '@types/amqplib':
+        specifier: 0.10.8
+        version: 0.10.8
 
   packages/common:
     dependencies:

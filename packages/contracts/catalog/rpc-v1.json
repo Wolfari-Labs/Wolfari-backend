@@ -1,5 +1,101 @@
 [
   {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ListMembers",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "API030 membership lifecycle"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "LeaveTrip",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "API033 membership lifecycle"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "RemoveMember",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "API034 membership lifecycle"
+  },
+  {
+    "package": "wolfari.identity.v1",
+    "service": "IdentityService",
+    "method": "GetInvitationIdentity",
+    "callers": ["Trip"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "CreateInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ListInvitations",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "PreviewInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "AcceptInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "DeclineInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "RevokeInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ResendInvitation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "AcknowledgeInvitationDelivery",
+    "callers": ["Automation"],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - approved vertical slice"
+  },
+  {
     "package": "wolfari.identity.v1",
     "service": "IdentityService",
     "method": "ValidateSession",
@@ -190,5 +286,53 @@
     "callers": ["Trip"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.0 section 6 - Travel.GetRecommendation"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetPlan",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 API039"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "CreateActivity",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 API040"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "UpdateActivity",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 API041"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "DeleteActivity",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 API042"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ReorderActivities",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 API043"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "SetActivityCompletion",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.0 API044"
   }
 ]

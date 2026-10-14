@@ -142,6 +142,11 @@ async function main() {
   await start('identity-service', identityBase);
   await start('trip-workspace-service', {
     TRIP_PORT: String(ports.trip), TRIP_GRPC_PORT: String(ports.tripGrpc), DATABASE_URL: databaseUrl(infra, 'trip'),
+    TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
+    TRIP_INVITATION_LINK_BASE_URL: `http://127.0.0.1:${ports.gateway}`,
+    IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.grpc}`,
+    TRIP_IDENTITY_SECRET: secrets.TRIP_IDENTITY_SECRET,
+    RABBITMQ_URL: brokerUrl(),
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
     FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET, TRAVEL_TRIP_SECRET: secrets.TRAVEL_TRIP_SECRET,
     AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
@@ -149,6 +154,7 @@ async function main() {
   await start('automation-service', {
     AUTOMATION_PORT: String(ports.automation), DATABASE_URL: databaseUrl(infra, 'automation'),
     IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.grpc}`, AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
+    TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`, AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
     RABBITMQ_URL: brokerUrl(), SMTP_HOST: '127.0.0.1', SMTP_PORT: infra.MAILPIT_SMTP_PORT,
   });
   await start('api-gateway', {

@@ -35,9 +35,9 @@ components:
     csrf:
       name: X-CSRF-Token
       in: header
-      required: true
+      required: false
       schema: { type: string }
-      description: Token from GET /auth/csrf; web refresh/logout also require allowed Origin.
+      description: Required for web refresh and for web logout when a refresh cookie is present, together with an allowed Origin. Obtain it from GET /auth/csrf. Not required for mobile or Bearer-only logout without a refresh cookie; OpenAPI cannot express this conditional header requirement.
     expectedVersion:
       name: expected_version
       in: query
@@ -403,7 +403,7 @@ paths:
   /me/avatar:
     post:
       tags: [Avatar]
-      summary: Upload a private JPEG/PNG and return a FileReference; profile is not changed yet.
+      summary: Upload a private JPEG/PNG and return object_key, mime_type and size_bytes; profile is not changed yet.
       security: [{ bearer: [] }]
       requestBody:
         required: true

@@ -1,51 +1,26 @@
+import { PlanGrpcHandlers } from './planning/plan.grpc';
+import { LifecycleService } from './operations/lifecycle.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { status } from '@grpc/grpc-js';
 import type { Metadata } from '@grpc/grpc-js';
 import { RpcException } from '@nestjs/microservices';
-import { CommonV1, RPC_CATALOG, TripV1 } from '@wolfari/contracts/grpc';
-import { timingSafeEqual } from 'node:crypto';
+import { CommonV1, TripV1 } from '@wolfari/contracts/grpc';
+import { TripService, type TripLifecycle, type TripView } from './trip.service';
+import {
+  authorizeTripCall,
+  executeTripCall,
+  timestamp,
+  protobufTimestamp,
+  patchValue,
+  tripRequestDeadline,
+  type DeadlineCall,
+} from './grpc-common';
 import type { PlanEditPolicy, PlanPolicyView } from './trip-access.domain';
 import { TripAccessService, type AccessContextView } from './trip-access.service';
-import { TripError } from './trip.errors';
+import { TripInvitationsService } from './trip-invitations.service';
 import { TripPlanAccessService } from './trip-plan-access.service';
-import { TripService, type TripLifecycle, type TripView } from './trip.service';
-
-const CORRELATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const callerCredentials: Record<string, string> = {
-  ApiGateway: 'GATEWAY_TRIP_SECRET',
-  Finance: 'FINANCE_TRIP_SECRET',
-  Travel: 'TRAVEL_TRIP_SECRET',
-  Automation: 'AUTOMATION_TRIP_SECRET',
-};
-
-function timestamp(value: { seconds?: string; nanos?: number } | undefined): Date {
-  if (
-    !value ||
-    typeof value.seconds !== 'string' ||
-    !/^-?\d+$/.test(value.seconds) ||
-    !Number.isInteger(value.nanos) ||
-    Number(value.nanos) < 0 ||
-    Number(value.nanos) > 999_999_999
-  ) {
-    throw new TripError('VALIDATION_FAILED', 400);
-  }
-  const seconds = Number(value.seconds);
-  const milliseconds = seconds * 1000 + Math.floor(Number(value.nanos) / 1_000_000);
-  const result = new Date(milliseconds);
-  if (!Number.isSafeInteger(seconds) || Number.isNaN(result.getTime())) {
-    throw new TripError('VALIDATION_FAILED', 400);
-  }
-  return result;
-}
-
-function protobufTimestamp(value: string): { seconds: string; nanos: number } {
-  const milliseconds = new Date(value).getTime();
-  return {
-    seconds: String(Math.floor(milliseconds / 1000)),
-    nanos: (((milliseconds % 1000) + 1000) % 1000) * 1_000_000,
-  };
-}
+export { tripGrpcStatus } from './grpc-common';
 
 const lifecycleToProto: Record<TripLifecycle, TripV1.TripLifecycle> = {
   UPCOMING: TripV1.TripLifecycle.TRIP_LIFECYCLE_UPCOMING,
@@ -72,23 +47,6 @@ const protoToPlanPolicy: Partial<Record<CommonV1.PlanPolicy, PlanEditPolicy>> = 
   [CommonV1.PlanPolicy.PLAN_POLICY_SELECTED_MEMBERS]: 'SELECTED_MEMBERS',
   [CommonV1.PlanPolicy.PLAN_POLICY_ALL_MEMBERS]: 'ALL_MEMBERS',
 };
-
-export function tripGrpcStatus(error: TripError): status {
-  switch (error.code) {
-    case 'VALIDATION_FAILED':
-      return status.INVALID_ARGUMENT;
-    case 'RESOURCE_NOT_FOUND':
-      return status.NOT_FOUND;
-    case 'PERMISSION_DENIED':
-      return status.PERMISSION_DENIED;
-    case 'IDEMPOTENCY_CONFLICT':
-      return status.ALREADY_EXISTS;
-    case 'STATE_CONFLICT':
-      return status.FAILED_PRECONDITION;
-    case 'VERSION_CONFLICT':
-      return status.ABORTED;
-  }
-}
 
 function protobufTrip(value: TripView): TripV1.Trip {
   return {
@@ -163,66 +121,25 @@ function protobufAccessContext(value: AccessContextView): CommonV1.AccessContext
   };
 }
 
-function patchValue(value: TripV1.StringPatch): string | null {
-  const hasValue = value.value !== undefined;
-  const hasClear = value.clear !== undefined;
-  if (hasValue === hasClear || (hasClear && value.clear !== true)) {
-    throw new TripError('VALIDATION_FAILED', 400);
-  }
-  return hasValue ? value.value! : null;
-}
-
 @Controller()
 @TripV1.TripServiceControllerMethods()
 export class TripGrpcController implements TripV1.TripServiceController {
   constructor(
     private readonly trips: TripService,
+    private readonly plans: PlanGrpcHandlers,
     private readonly access: TripAccessService,
     private readonly planAccess: TripPlanAccessService,
     private readonly config: ConfigService,
+    private readonly invitations: TripInvitationsService,
+    private readonly lifecycle: LifecycleService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
-    const caller = String(metadata?.get('x-caller-service')[0] ?? '');
-    const secret = String(metadata?.get('x-service-secret')[0] ?? '');
-    const correlationId = String(metadata?.get('x-correlation-id')[0] ?? '');
-    const entry = RPC_CATALOG.find(
-      (value) =>
-        value.package === 'wolfari.trip.v1' &&
-        value.service === 'TripService' &&
-        value.method === method,
-    );
-    const expected = this.config.get<string>(callerCredentials[caller] ?? '') ?? '';
-    const providedBytes = Buffer.from(secret);
-    const expectedBytes = Buffer.from(expected);
-    const validSecret =
-      expectedBytes.length >= 32 &&
-      providedBytes.length === expectedBytes.length &&
-      timingSafeEqual(providedBytes, expectedBytes);
-    if (!entry?.callers.includes(caller) || !validSecret || !CORRELATION_ID.test(correlationId)) {
-      throw new RpcException({
-        code: status.PERMISSION_DENIED,
-        message: 'Caller is not authorized',
-      });
-    }
-    return correlationId.toLowerCase();
+    return authorizeTripCall(this.config, method, metadata);
   }
 
-  private async execute<T>(work: () => Promise<T>): Promise<T> {
-    try {
-      return await work();
-    } catch (error) {
-      if (error instanceof TripError) {
-        throw new RpcException({
-          code: tripGrpcStatus(error),
-          message: JSON.stringify({ code: error.code, details: error.details }),
-        });
-      }
-      throw new RpcException({
-        code: status.UNAVAILABLE,
-        message: JSON.stringify({ code: 'SERVICE_UNAVAILABLE', details: null }),
-      });
-    }
+  private execute<T>(work: () => Promise<T>): Promise<T> {
+    return executeTripCall(work);
   }
 
   createTrip(
@@ -304,6 +221,30 @@ export class TripGrpcController implements TripV1.TripServiceController {
     });
   }
 
+  getPlan(request: TripV1.GetPlanRequest, metadata?: Metadata) {
+    return this.plans.getPlan(request, metadata);
+  }
+
+  createActivity(request: TripV1.CreateActivityRequest, metadata?: Metadata) {
+    return this.plans.createActivity(request, metadata);
+  }
+
+  updateActivity(request: TripV1.UpdateActivityRequest, metadata?: Metadata) {
+    return this.plans.updateActivity(request, metadata);
+  }
+
+  deleteActivity(request: TripV1.DeleteActivityRequest, metadata?: Metadata) {
+    return this.plans.deleteActivity(request, metadata);
+  }
+
+  reorderActivities(request: TripV1.ReorderActivitiesRequest, metadata?: Metadata) {
+    return this.plans.reorderActivities(request, metadata);
+  }
+
+  setActivityCompletion(request: TripV1.SetActivityCompletionRequest, metadata?: Metadata) {
+    return this.plans.setActivityCompletion(request, metadata);
+  }
+
   private unimplemented(): never {
     throw new RpcException({ code: status.UNIMPLEMENTED, message: 'RPC is not implemented' });
   }
@@ -352,16 +293,159 @@ export class TripGrpcController implements TripV1.TripServiceController {
     return this.unimplemented();
   }
 
-  getOperationResult(): TripV1.GetOperationResultResponse {
-    return this.unimplemented();
+  getOperationResult(
+    request: TripV1.GetOperationResultRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.GetOperationResultResponse> {
+    this.authorize('GetOperationResult', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.getOperation(request.operation_id, request.actor_user_id),
+    }));
+  }
+
+  listMembers(
+    request: TripV1.ListMembersRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.ListMembersResponse> {
+    this.authorize('ListMembers', metadata);
+    return this.execute(() => this.lifecycle.list(request));
+  }
+
+  leaveTrip(
+    request: TripV1.LeaveTripRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.LeaveTripResponse> {
+    const correlation = this.authorize('LeaveTrip', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.execute(
+        { ...request },
+        'LEAVE_MEMBER',
+        correlation,
+        tripRequestDeadline(call),
+      ),
+    }));
+  }
+
+  removeMember(
+    request: TripV1.RemoveMemberRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.RemoveMemberResponse> {
+    const correlation = this.authorize('RemoveMember', metadata);
+    return this.execute(async () => ({
+      operation: await this.lifecycle.execute(
+        { ...request },
+        'REMOVE_MEMBER',
+        correlation,
+        tripRequestDeadline(call),
+      ),
+    }));
   }
 
   getAutomationContext(): TripV1.GetAutomationContextResponse {
     return this.unimplemented();
   }
 
-  getInvitationDelivery(): TripV1.GetInvitationDeliveryResponse {
-    return this.unimplemented();
+  getInvitationDelivery(
+    request: TripV1.GetInvitationDeliveryRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.GetInvitationDeliveryResponse> {
+    const correlation = this.authorize('GetInvitationDelivery', metadata);
+    return this.execute(() =>
+      this.invitations.delivery(request, correlation, tripRequestDeadline(call)),
+    );
+  }
+  acknowledgeInvitationDelivery(
+    request: TripV1.AcknowledgeInvitationDeliveryRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.AcknowledgeInvitationDeliveryResponse> {
+    this.authorize('AcknowledgeInvitationDelivery', metadata);
+    return this.execute(() => this.invitations.acknowledge(request));
+  }
+  createInvitation(
+    request: TripV1.CreateInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.CreateInvitationResponse> {
+    const correlation = this.authorize('CreateInvitation', metadata);
+    return this.execute(() =>
+      this.invitations.create(request, correlation, tripRequestDeadline(call)),
+    );
+  }
+  listInvitations(
+    request: TripV1.ListInvitationsRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.ListInvitationsResponse> {
+    const correlation = this.authorize('ListInvitations', metadata);
+    return this.execute(() => this.invitations.list(request, correlation));
+  }
+  previewInvitation(
+    request: TripV1.PreviewInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.PreviewInvitationResponse> {
+    const correlation = this.authorize('PreviewInvitation', metadata);
+    return this.execute(
+      async () =>
+        (await this.invitations.tokenCommand(
+          request,
+          correlation,
+          'PREVIEW_INVITATION',
+          tripRequestDeadline(call),
+        )) as TripV1.PreviewInvitationResponse,
+    );
+  }
+  acceptInvitation(
+    request: TripV1.AcceptInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.AcceptInvitationResponse> {
+    const correlation = this.authorize('AcceptInvitation', metadata);
+    return this.execute(
+      async () =>
+        (await this.invitations.tokenCommand(
+          request,
+          correlation,
+          'ACCEPT_INVITATION',
+          tripRequestDeadline(call),
+        )) as TripV1.AcceptInvitationResponse,
+    );
+  }
+  declineInvitation(
+    request: TripV1.DeclineInvitationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.DeclineInvitationResponse> {
+    const correlation = this.authorize('DeclineInvitation', metadata);
+    return this.execute(
+      async () =>
+        (await this.invitations.tokenCommand(
+          request,
+          correlation,
+          'DECLINE_INVITATION',
+          tripRequestDeadline(call),
+        )) as TripV1.DeclineInvitationResponse,
+    );
+  }
+  revokeInvitation(
+    request: TripV1.RevokeInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.RevokeInvitationResponse> {
+    const correlation = this.authorize('RevokeInvitation', metadata);
+    return this.execute(() =>
+      this.invitations.versionCommand(request, correlation, 'REVOKE_INVITATION'),
+    );
+  }
+  resendInvitation(
+    request: TripV1.ResendInvitationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.ResendInvitationResponse> {
+    const correlation = this.authorize('ResendInvitation', metadata);
+    return this.execute(() =>
+      this.invitations.versionCommand(request, correlation, 'RESEND_INVITATION'),
+    );
   }
 
   getExportWorkerContext(): TripV1.GetExportWorkerContextResponse {

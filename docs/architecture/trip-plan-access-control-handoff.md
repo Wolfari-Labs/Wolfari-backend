@@ -2,7 +2,7 @@
 
 ## Nội dung dùng được ngay
 
-Planning có thể dùng `Trip.GetAccessContext` để lấy projection quyền hiện hành và dùng `TripAccessService.getContextForUpdate` trong Trip Workspace khi triển khai mutation Plan. Contract và helper đã tách khỏi `trip.service.ts`; membership fixture có thể được tạo trực tiếp trong integration test cho tới khi Invitation và membership lifecycle được triển khai.
+Planning có thể dùng `Trip.GetAccessContext` để lấy projection quyền hiện hành và dùng `TripAccessService.getContextForUpdate` trong Trip Workspace khi triển khai mutation Plan. Contract và helper đã tách khỏi `trip.service.ts`. Luồng [Invitation/accept](trip-invitations.md) đã tạo membership qua runtime; fixture SQL vẫn dùng trong integration test để dựng các trạng thái đặc biệt, không phải luồng gia nhập cho người dùng.
 
 ### Đọc access context
 
@@ -85,12 +85,11 @@ Replay API policy trả kết quả gốc của idempotency key, không phải p
 
 ## Phần vẫn chờ
 
-Tân có thể bắt đầu Activity/Location/Packing/DSS Apply dựa trên helper quyền và `plan_version`. Các phần sau chưa có trong branch này:
+Tân có thể bắt đầu Activity/Location/Packing/DSS Apply dựa trên helper quyền và `plan_version`. Tại mốc chốt tài liệu 02/10/2026, các phần sau vẫn chưa có runtime:
 
-- Invitation và accept tạo membership production;
 - danh sách thành viên và membership lifecycle endpoint;
 - Owner transfer, leave/remove member và cleanup packing khi rời;
-- Planning CRUD, recommendation Apply và event runtime;
+- Planning CRUD, recommendation Apply và các event nghiệp vụ Planning;
 - TLS hoặc mTLS production cho RPC nội bộ.
 
 Fixture SQL chỉ dùng trong test. Không thêm endpoint production để tạo membership hoặc gây lỗi audit/receipt.

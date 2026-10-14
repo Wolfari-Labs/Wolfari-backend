@@ -7,21 +7,20 @@
     "mandatory": true,
     "publisher_confirms": true
   },
-  "retry_delays_ms": [
-    10000,
-    30000,
-    120000,
-    300000,
-    900000
-  ],
+  "retry_delays_ms": [10000, 30000, 120000, 300000, 900000],
   "queues": [
+    {
+      "name": "wolfari.automation.invitations.v1",
+      "consumer": "Automation",
+      "durable": true,
+      "bindings": ["MemberInvited", "MemberJoined"]
+    },
     {
       "name": "wolfari.automation.v1",
       "consumer": "Automation",
       "durable": true,
       "bindings": [
         "AccountStatusChanged",
-        "MemberInvited",
         "PlanUpdated",
         "MemberLeft",
         "MemberRemoved",
@@ -33,7 +32,6 @@
         "ClosureRequested",
         "ClosureCancelled",
         "FinanceClosed",
-        "MemberJoined",
         "AccountEmailRequested"
       ]
     },
@@ -41,19 +39,13 @@
       "name": "wolfari.export-worker.v1",
       "consumer": "ExportWorker",
       "durable": true,
-      "bindings": [
-        "GenerateExport"
-      ]
+      "bindings": ["GenerateExport"]
     },
     {
       "name": "wolfari.trip.export-results.v1",
       "consumer": "Trip",
       "durable": true,
-      "bindings": [
-        "ExportStarted",
-        "ExportCompleted",
-        "ExportFailed"
-      ]
+      "bindings": ["ExportStarted", "ExportCompleted", "ExportFailed"]
     }
   ],
   "unknown_contract_action": "DLQ"

@@ -1,4 +1,5 @@
 export interface TripErrorDetails {
+  invitation_version?: number;
   plan_version?: number;
   membership_revision?: number;
   export_revision?: number;
@@ -12,7 +13,9 @@ export class TripError extends Error {
       | 'PERMISSION_DENIED'
       | 'VERSION_CONFLICT'
       | 'STATE_CONFLICT'
-      | 'IDEMPOTENCY_CONFLICT',
+      | 'IDEMPOTENCY_CONFLICT'
+      | 'FINANCE_OBLIGATION_BLOCKED'
+      | 'SERVICE_UNAVAILABLE',
     public readonly status: number,
     public readonly details: TripErrorDetails | null = null,
   ) {
