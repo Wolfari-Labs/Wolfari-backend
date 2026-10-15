@@ -4,8 +4,9 @@ Finance dùng `DatabaseModule.forService('finance')` và `DatabaseProvider` từ
 `@wolfari/database`, dựa trên `pg`. Module này đã được nối trong `AppModule`.
 Code hiện có domain tiền/số dư/ledger/đóng góp, parser và bước chuẩn bị request;
 các reader Fund, Ledger, Contribution và PaymentDestination đã đăng ký trong
-`AppModule`. Chưa có API nghiệp vụ Finance, transaction ghi tiền hoặc kết nối
-nhà cung cấp thanh toán.
+`AppModule`. Đã có [API070–076 Fund setup](../../docs/architecture/finance-fund-setup.md)
+và [API078–084 tạo/đọc/quản lý đợt thu](../../docs/architecture/finance-contribution-requests.md),
+gồm transaction, quyền Trip và recovery. Chưa ghi nhận thu/chi hoặc kết nối provider.
 
 README này mô tả code hiện tại và cách kiểm thử module. Baseline thiết kế hiện hành
 là SRS 2.3 / ERD 1.2 / DDL API Event 1.1 tại [danh mục tài liệu](../../docs/README.md)
@@ -15,14 +16,15 @@ helper bên dưới để tự chốt schema/contract hoặc coi nghiệp vụ �
 ## Tích hợp Trip còn chờ
 
 Theo [handoff lifecycle](../../docs/architecture/trip-member-lifecycle-handoff.md),
-Trip đã có luồng rời/xóa thành viên, nhưng generic `BeginFinanceOperation` và
-`CompleteOperation` còn chưa triển khai. `GetAccessContext` là snapshot quyền tại
-thời điểm đọc, không thay guard cho writer Finance. Chưa bật lifecycle với người
-dùng thật khi Finance Execute/Get/Cancel và shared guard chưa đầy đủ.
+Trip đã có BeginFinanceOperation/CompleteOperation, polling và recovery cho năm
+command setup, CREATE_CONTRIBUTION_REQUEST và bốn command quản lý API081–084. GetAccessContext không thay guard
+cho writer. Giữ lifecycle flag false với Finance thật vì nghĩa vụ khi rời/xóa thành
+viên chưa có handler đầy đủ.
 
 Contract Finance Execute/Cancel có `membership_target` gồm membership_id/user_id/
 reason cho LEAVE_MEMBER/REMOVE_MEMBER; actor và người bị tác động có thể khác nhau.
-Finance chưa có handler cho các RPC này. Khi triển khai phải kiểm target, lưu
+Finance chưa có handler ExecuteTripOperation cho lifecycle; Get/Cancel hiện chỉ
+hỗ trợ các command Finance nêu trên. Khi mở lifecycle phải kiểm target, lưu
 receipt cùng tác động local nguyên tử và xử lý execute/cancel race theo protocol
 được thống nhất; không dùng reader hoặc transition helper làm thay thế.
 
@@ -158,7 +160,7 @@ thẳng thành API response. Caller phải kiểm UUID/quyền/phạm vi Trip. R
 giữ lock, không tạo context an toàn cho ghi tiền; luồng tạo request vẫn phải đọc
 lại cấu hình dưới lock và lưu snapshot/version cùng contributions trong transaction.
 Khoản đã phát hành phải dùng `destination_snapshot` đã lưu, không đọc cấu hình
-hiện tại này để thay hướng dẫn thanh toán cũ. Chưa có API quản lý đích hoặc tạo QR.
+hiện tại này để thay hướng dẫn thanh toán cũ. API quản lý đích đã có; tạo QR chưa có.
 
 Unit test và DB integration kiểm scope Fund/IDs, selected subset/ID trùng,
 nullable và hai loại đích, inactive/chưa xác nhận, thay cấu hình/version,
@@ -192,7 +194,7 @@ audit/outbox trong cùng transaction. Helper không ghi DB và không bảo vệ
 `title`, `contributions`, `due_at`, `note`, `expected_finance_version`; mỗi allocation
 chỉ nhận `member_user_id`, `amount`, `destination_id`. Field ngoài allowlist bị từ chối,
 kể cả actor, trạng thái, số dư hoặc snapshot do client khai. Lỗi input là
-`ContributionRequestInputError`, chưa được ánh xạ thành HTTP response.
+`ContributionRequestInputError`, được API078 ánh xạ thành HTTP400.
 
 Parser hiện cho phép bỏ qua `due_at`/`note` nhưng không
 nhận JSON `null`; chỉ khi thiếu field mới đổi thành `null` nội bộ. UUID được kiểm
@@ -210,7 +212,7 @@ hoặc để JavaScript tự chuyển ngày không tồn tại sang tháng kế 
 Parser không truy cập DB và không xác minh quyền. Adapter tương lai vẫn phải kiểm
 Fund ID từ path, identity/header idempotency, rồi gọi domain bằng context tin cậy.
 Unit test có kiểm ghép parser → domain: JSON hợp lệ vẫn bị từ chối nếu sai Owner,
-mất membership hoặc đích nhận không hợp lệ. Chưa có route API078 hoặc transaction tạo request.
+mất membership hoặc đích nhận không hợp lệ. API078 đã nối parser này vào transaction tạo request.
 
 ## Chuẩn bị dữ liệu tạo request
 
@@ -225,11 +227,11 @@ sao chép từng cấu hình và Date để thay đổi input hoặc một alloc
 allocation khác. Dữ liệu vẫn là đối tượng nội bộ có thông tin thanh toán riêng,
 không log/serialize thành response và không coi TypeScript readonly là khóa runtime.
 
-Đây chưa phải schema JSON cho `destination_snapshot`. Cấu trúc field/version lưu
-bền vững cần đối chiếu với baseline hiện hành và thống nhất trước khi thêm writer;
-không suy cấu trúc persistence từ kết quả helper này. Hàm không sinh ID, không ghi DB,
-không lấy Trip guard hoặc xử lý replay; luồng ghi tương lai phải truyền dữ liệu vừa
-đọc dưới lock và lưu request/contributions/snapshot/receipt/outbox nguyên tử.
+Kết quả helper này không phải schema JSON cho `destination_snapshot`. Writer API078
+chiếu sang [snapshot phiên bản 1](../../docs/architecture/finance-contribution-requests.md)
+với whitelist riêng; không serialize toàn bộ object chuẩn bị. Hàm vẫn không sinh ID,
+ghi DB, lấy guard hoặc xử lý replay. Writer truyền dữ liệu vừa đọc dưới lock và lưu
+request/contributions/snapshot/receipt/outbox nguyên tử.
 
 ## Quy tắc đóng góp thủ công
 
@@ -294,7 +296,16 @@ Không có bản ghi hoặc sai phạm vi đều trả `null`; lỗi DB/mapping 
 Caller phải kiểm tra UUID, resolve ownership và quyền Trip trước khi trả dữ liệu.
 Đây là các snapshot nội bộ riêng lẻ, không tự tạo `financeVersion`, không giữ lock
 và không đủ làm context cho lệnh ghi hoặc snapshot export. Không serialize bigint
-trực tiếp ra JSON. Chưa có API hay luồng ghi đóng góp end-to-end.
+trực tiếp ra JSON. API078 tạo nghĩa vụ và API079/080 đọc danh sách đã có; API xác nhận nhận tiền chưa có.
+
+API079/080 dùng `ContributionListRepository` và `ContributionQueryService`, kiểm
+TRIP_VIEW mỗi trang, keyset created_at/id giữ microsecond, limit20 mặc định/max100.
+Request list trả đầy đủ contributions[] cùng finance_version của snapshot SQL.
+Contribution list có filter status/member_user_id, sáu status gồm REVERSED; không
+trả snapshot/evidence/rejected_reason. GET không ghi dữ liệu. Response078 mới lưu
+allocations/version tại commit vào receipt; replay cũ giữ shape metadata cũ, không
+đọc dữ liệu live để bổ sung. Chi tiết và giới hạn transport ở architecture liên kết
+trên; [OpenAPI Finance](../../docs/api/finance-contributions.openapi.json) mô tả078–084.
 
 Unit test và DB integration bao phủ phạm vi Fund/Request, tiền lớn, null, trạng thái
 lịch sử, timestamp và việc không trả thông tin thanh toán riêng. Fixture được rollback.

@@ -13,13 +13,20 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'UpdateContributionRequest'
+      | 'UpdateContributionAmount'
+      | 'WaiveContribution'
+      | 'CancelContribution'
       | 'GetFund'
+      | 'ListContributionRequests'
+      | 'ListContributions'
       | 'ListPaymentDestinations'
       | 'EnableFund'
       | 'ConfirmPaymentDestination'
       | 'UpdateFundBudget'
       | 'CreatePaymentDestination'
-      | 'UpdatePaymentDestination',
+      | 'UpdatePaymentDestination'
+      | 'CreateContributionRequest',
     request: RpcMessage,
     correlation: string,
   ): Promise<RpcMessage> {

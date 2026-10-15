@@ -1,5 +1,15 @@
+import {
+  contributionManagementRoute,
+  handleContributionManagement,
+} from './contribution-management-http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { FinanceClient } from './finance-client';
+import {
+  validateContributionRequestBody,
+  projectContributionRequest,
+  contributionPageQuery,
+  projectContributionPage,
+} from './contribution-request-http';
 import { projectOperation } from './membership-proxy';
 import {
   authenticate,
@@ -115,12 +125,25 @@ export class FinanceProxy {
   matches(request: Request) {
     const path = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname;
     return (
-      /^\/api\/v1\/trips\/[^/]+\/fund(?:\/|$)/.test(path) || /^\/api\/v1\/funds(?:\/|$)/.test(path)
+      /^\/api\/v1\/trips\/[^/]+\/fund(?:\/|$)/.test(path) ||
+      /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path)
     );
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const management = contributionManagementRoute(url.pathname);
+    if (management)
+      return handleContributionManagement(
+        request,
+        response,
+        url,
+        management,
+        this.validateSession,
+        this.client,
+      );
     const fund = /^\/api\/v1\/trips\/([^/]+)\/fund$/.exec(url.pathname);
+    const contributions = /^\/api\/v1\/funds\/([^/]+)\/contribution-requests$/.exec(url.pathname);
+    const allocations = /^\/api\/v1\/funds\/([^/]+)\/contributions$/.exec(url.pathname);
     const destinations = /^\/api\/v1\/funds\/([^/]+)\/destinations$/.exec(url.pathname);
     const budget = /^\/api\/v1\/funds\/([^/]+)\/budget$/.exec(url.pathname);
     const edit = /^\/api\/v1\/funds\/([^/]+)\/destinations\/([^/]+)$/.exec(url.pathname);
@@ -128,22 +151,37 @@ export class FinanceProxy {
       url.pathname,
     );
     const write =
-      (request.method === 'POST' && Boolean(fund || confirm || destinations)) ||
+      (request.method === 'POST' && Boolean(fund || confirm || destinations || contributions)) ||
       (request.method === 'PATCH' && Boolean(budget || edit));
-    if (!write && (request.method !== 'GET' || (!fund && !destinations)))
+    if (
+      !write &&
+      (request.method !== 'GET' || (!fund && !destinations && !contributions && !allocations))
+    )
       return fail(response, 404, 'RESOURCE_NOT_FOUND');
     const auth = await authenticate(request, response, this.validateSession, write);
     if (!auth) return;
     try {
-      ensureQuery(url, []);
-      const id = (fund ?? destinations ?? confirm ?? budget ?? edit)![1]!;
+      const listing = !write && Boolean(contributions || allocations);
+      ensureQuery(
+        url,
+        listing ? ['limit', 'cursor', ...(allocations ? ['status', 'member_user_id'] : [])] : [],
+      );
+      const id = (fund ??
+        destinations ??
+        confirm ??
+        budget ??
+        edit ??
+        contributions ??
+        allocations)![1]!;
       if (write) {
         if (!uuid.test(id) || ((confirm || edit) && !uuid.test((confirm ?? edit)![2]!)))
           throw new RequestError('Invalid ID');
         const operationId = idempotencyKey(request, true);
         const body = await requestBody(request);
         // Validate JSON types before protobuf can coerce values or discard unknown fields.
-        if (fund) {
+        if (contributions) {
+          validateContributionRequestBody(body);
+        } else if (fund) {
           onlyKeys(body, ['holder_user_id', 'currency', 'budget_amount', 'destination']);
           if (
             typeof body.holder_user_id !== 'string' ||
@@ -263,15 +301,17 @@ export class FinanceProxy {
                 }
               : body;
         const result = await this.client.call(
-          fund
-            ? 'EnableFund'
-            : budget
-              ? 'UpdateFundBudget'
-              : destinations
-                ? 'CreatePaymentDestination'
-                : edit
-                  ? 'UpdatePaymentDestination'
-                  : 'ConfirmPaymentDestination',
+          contributions
+            ? 'CreateContributionRequest'
+            : fund
+              ? 'EnableFund'
+              : budget
+                ? 'UpdateFundBudget'
+                : destinations
+                  ? 'CreatePaymentDestination'
+                  : edit
+                    ? 'UpdatePaymentDestination'
+                    : 'ConfirmPaymentDestination',
           {
             ...payload,
             operation_id: operationId,
@@ -299,6 +339,12 @@ export class FinanceProxy {
             meta: { correlation_id: auth.correlationId },
           });
         }
+        if (contributions) {
+          const data = projectContributionRequest(result.contribution_request);
+          if (data.fund_id !== id.toLowerCase() || data.created_by_user_id !== auth.actorUserId)
+            throw new Error('Contribution request scope mismatch');
+          return json(response, 201, { data, meta: { correlation_id: auth.correlationId } });
+        }
         const data =
           fund || budget ? projectFund(result.fund) : projectDestination(result.destination);
         if (
@@ -325,6 +371,16 @@ export class FinanceProxy {
       )
         throw new RequestError('Invalid Finance read request');
       const normalized = id.toLowerCase();
+      if (listing) {
+        const query = contributionPageQuery(url, Boolean(contributions));
+        const result = await this.client.call(
+          contributions ? 'ListContributionRequests' : 'ListContributions',
+          { fund_id: normalized, actor_user_id: auth.actorUserId, ...query },
+          auth.correlationId,
+        );
+        const data = projectContributionPage(result, normalized, Boolean(contributions), query);
+        return json(response, 200, { data, meta: { correlation_id: auth.correlationId } });
+      }
       const result = await this.client.call(
         fund ? 'GetFund' : 'ListPaymentDestinations',
         { [fund ? 'trip_id' : 'fund_id']: normalized, actor_user_id: auth.actorUserId },

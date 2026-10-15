@@ -24,25 +24,48 @@ Trip guard/recovery và Finance receipt/cancel hỗ trợ đồng thời cả n�
 `BudgetChange` dùng oneof value/clear, `DestinationPatch` giữ optional presence;
 response riêng dùng oneof resource/Operation. Không đổi field export hoặc event catalog.
 
+API078 thêm `CreateContributionRequest`, đưa catalog trên nhánh này lên 50 RPC.
+Chỉ ApiGateway được gọi; input allocations giữ Money dạng chuỗi, due_at/note có
+optional presence. Response riêng dùng oneof ContributionRequestView/Operation,
+không có snapshot tài khoản. Trip guard/worker và Finance receipt/cancel nhận thêm
+CREATE_CONTRIBUTION_REQUEST. Outbox dùng event ContributionRequested hiện có,
+không đổi event schema hoặc migration. Xem [API078](finance-contribution-requests.md).
+API077 thuộc nhánh ledger riêng, chưa nằm trong số RPC của nhánh này.
+
+API079/080 thêm `ListContributionRequests`/`ListContributions` chỉ ApiGateway,
+đưa catalog lên52. ContributionRequestView thêm repeated contributions và optional
+finance_version ở field12/13, giữ các field cũ. ContributionView riêng giữ Money
+string và status string whitelist sáu giá trị, gồm REVERSED; không sửa enum export
+ContributionStatus cũ còn thiếu REVERSED. GET có quyền hiện tại mỗi trang và cursor
+gắn Fund/filter. Receipt078 mới lưu snapshot đầy đủ; legacy receipt không có hai
+field mới vẫn giữ metadata shape cũ. Xem [OpenAPI078–084](../api/finance-contributions.openapi.json).
+
+API081–084 thêm UpdateContributionRequest, UpdateContributionAmount, WaiveContribution
+và CancelContribution, chỉ ApiGateway; catalog lên56. PATCH metadata giữ optional
+presence, amount giữ string int64; response dùng public resource/Operation oneof.
+Trip guard/worker và Finance receipt/cancel nhận bốn command tương ứng. Event
+ContributionUpdated giữ schema hiện có; metadata fanout có event_id riêng và cùng
+aggregate_version. Không đổi export enum, event REVERSED hoặc migration tại mốc này.
+
 ## Quyết định biểu diễn
 
-| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
-| ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 49 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–076 Finance       |
-| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
-| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
-| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
-| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                     |
-| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định |
-| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.1                                            |
-| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                               |
-| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                              |
-| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                              |
-| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                             |
+| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                              |
+| ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| 56 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–076, API078–084 Finance |
+| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                          |
+| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                         |
+| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                          |
+| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                           |
+| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định       |
+| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.1                                                  |
+| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                                     |
+| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                                    |
+| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                                    |
+| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                                   |
 
 ## gRPC
 
-Phân bổ là Identity 4, Trip 20, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Catalog hiện có Identity 4, Trip 29, Finance 19 và Travel 4 RPC (tổng56). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
@@ -56,7 +79,11 @@ Metadata bắt buộc theo quy ước runtime cho mọi RPC đã bật:
 - `x-caller-service`: tên caller khai báo, phải được lớp vận chuyển xác thực;
 - deadline mặc định 2 giây; `GetRoute` và `GetWeather` tối đa 10 giây; không vượt ngân sách còn lại của request.
 
-Timeout sau khi command đã được nhận không chứng minh command thất bại. Protocol liên Finance dự kiến có operation result và HTTP `202`, nhưng handler tương ứng chưa triển khai. Các mutation Trip hiện có trả `503 SERVICE_UNAVAILABLE` khi mất dependency/deadline; client retry cùng key và payload để nhận receipt đã commit, không gọi endpoint polling chưa có runtime.
+Timeout sau khi command đã được nhận không chứng minh command thất bại. Fund setup
+và API078 có HTTP202/operation polling, receipt và worker recovery. Client giữ nguyên
+key/payload để retry; polling dùng GET /api/v1/operations/{operation_id}. Nếu chưa
+biết Begin đã được nhận, có thể trả503; không suy ra chưa có mutation. Các handler
+chưa triển khai không được suy là có runtime chỉ vì catalog đã khai báo.
 
 ## Event và topology
 
@@ -72,4 +99,13 @@ Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result 
 
 Buf kiểm tra breaking Protobuf ở mức `FILE`. Event v1 chỉ cho phép thêm field payload optional; xóa field/event, thêm required, đổi kiểu/required hoặc thu hẹp enum đều thất bại. Mã sinh được commit và `contracts:check` xác minh tái lập trong thư mục tạm.
 
-Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip đã hiện thực 15 RPC: bốn core, `GetAccessContext`, `UpdatePlanPolicy`, bảy invitation commands/queries, `GetInvitationDelivery` và `AcknowledgeInvitationDelivery`. Năm RPC Trip chưa triển khai là `BeginFinanceOperation`, `CompleteOperation`, `GetOperationResult`, `GetAutomationContext`, `GetExportWorkerContext`; năm Finance và bốn Travel RPC cũng mới có contract. Identity có bốn handler; Automation xử lý ba event AccountEmailRequested, MemberInvited và MemberJoined. Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md), [Trip core](trip-core.md) và [Trip Plan access](trip-plan-access-control.md).
+Identity đợt 1 có service secret local, deadline, publisher confirm/mandatory,
+inbox/outbox, retry và DLQ cho AccountEmailRequested. Trip có core, Plan,
+invitations và lifecycle; Finance Begin/Complete/polling và receipt/cancel hiện
+hỗ trợ Fund setup cùng API078. Finance ExecuteTripOperation cho nghĩa vụ membership,
+export/automation context và các nghiệp vụ chưa nêu vẫn cần triển khai riêng.
+Automation đã xử lý AccountEmailRequested, MemberInvited và MemberJoined; ghi
+outbox ContributionRequested chưa đồng nghĩa notification/reminder đã chạy.
+Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog.
+TLS/mTLS production, service identity và observability đầy đủ còn ngoài phạm vi.
+Không giữ transaction database mở trong lúc gọi RPC hoặc publish message.

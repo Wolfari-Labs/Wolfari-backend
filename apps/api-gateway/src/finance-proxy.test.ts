@@ -59,6 +59,146 @@ function setup() {
   }
   return { client, session, proxy, invoke };
 }
+describe('Contribution request Gateway', () => {
+  const path = `/api/v1/funds/${id}/contribution-requests`;
+  const body = {
+    title: 'Meals',
+    contributions: [{ member_user_id: actor, amount: '300000', destination_id: id }],
+    expected_finance_version: 2,
+  };
+  const view = {
+    id,
+    fund_id: id,
+    title: 'Meals',
+    status: 'OPEN',
+    version: 1,
+    created_by_user_id: actor,
+    created_at: { seconds: '1792000000', nanos: 0 },
+    destination_snapshot: { account_number: 'PRIVATE' },
+  };
+  it('uses session identity, whitelists response and emits 201 with null optional fields', async () => {
+    const s = setup();
+    s.client.call.mockResolvedValue({ contribution_request: view } as never);
+    const r = await s.invoke(path, {
+      method: 'POST',
+      body,
+      headers: { 'content-type': 'application/json', 'idempotency-key': id },
+    });
+    expect(r.code).toBe(201);
+    expect(r.body).toMatchObject({
+      data: { fund_id: id, note: null, due_at: null, amount_per_member: null },
+    });
+    expect(JSON.stringify(r.body)).not.toContain('PRIVATE');
+    expect(s.client.call).toHaveBeenCalledWith(
+      'CreateContributionRequest',
+      { ...body, fund_id: id, actor_user_id: actor, operation_id: id },
+      expect.any(String),
+    );
+  });
+  it.each([
+    { actor_user_id: actor },
+    { due_at: null },
+    { note: 2 },
+    { title: [] },
+    { contributions: [] },
+    { contributions: [{ ...body.contributions[0], amount: 100 }] },
+    { contributions: [{ ...body.contributions[0], amount: '0' }] },
+    { contributions: [{ ...body.contributions[0], status: 'CONFIRMED' }] },
+    { contributions: [body.contributions[0], body.contributions[0]] },
+  ])('rejects JSON before serialization', async (patch) => {
+    const s = setup();
+    expect(
+      (
+        await s.invoke(path, {
+          method: 'POST',
+          body: { ...body, ...patch },
+          headers: { 'content-type': 'application/json', 'idempotency-key': id },
+        })
+      ).code,
+    ).toBe(400);
+    expect(s.client.call).not.toHaveBeenCalled();
+  });
+  it('rejects mismatched Fund response and reads requests through the separate RPC', async () => {
+    const s = setup();
+    s.client.call.mockResolvedValue({ contribution_request: { ...view, fund_id: actor } } as never);
+    expect(
+      (
+        await s.invoke(path, {
+          method: 'POST',
+          body,
+          headers: { 'content-type': 'application/json', 'idempotency-key': id },
+        })
+      ).code,
+    ).toBe(503);
+    s.client.call.mockResolvedValue({ items: [] } as never);
+    expect((await s.invoke(path)).code).toBe(200);
+    expect(s.client.call).toHaveBeenLastCalledWith(
+      'ListContributionRequests',
+      { fund_id: id, actor_user_id: actor },
+      expect.any(String),
+    );
+  });
+});
+
+describe('Contribution list Gateway', () => {
+  it.each(['contribution-requests', 'contributions'])(
+    'authenticates %s and returns an empty page',
+    async (endpoint) => {
+      const s = setup();
+      s.client.call.mockResolvedValue({} as never);
+      const r = await s.invoke(`/api/v1/funds/${id}/${endpoint}?limit=100`);
+      expect(r.code).toBe(200);
+      expect(r.body).toMatchObject({ data: { items: [], next_cursor: null } });
+      expect(s.client.call).toHaveBeenCalledWith(
+        endpoint === 'contributions' ? 'ListContributions' : 'ListContributionRequests',
+        { fund_id: id, actor_user_id: actor, limit: 100 },
+        expect.any(String),
+      );
+      expect(
+        (await s.invoke(`/api/v1/funds/${id}/${endpoint}`, { headers: { authorization: '' } }))
+          .code,
+      ).toBe(401);
+    },
+  );
+  it.each([
+    'limit=0',
+    'limit=101',
+    'limit=1.5',
+    'limit=01',
+    'limit=1&limit=2',
+    'status=bogus',
+    'member_user_id=bad',
+    'cursor=',
+    'cursor=abc&cursor=def',
+    'actor_user_id=' + actor,
+    'request_id=' + id,
+    'sort=asc',
+  ])('rejects query %s before RPC', async (query) => {
+    const s = setup();
+    expect((await s.invoke(`/api/v1/funds/${id}/contributions?${query}`)).code).toBe(400);
+    expect(s.client.call).not.toHaveBeenCalled();
+  });
+  it('forwards canonical filters, rejects request-list filters and GET bodies', async () => {
+    const s = setup();
+    s.client.call.mockResolvedValue({} as never);
+    expect(
+      (await s.invoke(`/api/v1/funds/${id}/contributions?status=REVERSED&member_user_id=${actor}`))
+        .code,
+    ).toBe(200);
+    expect(s.client.call).toHaveBeenCalledWith(
+      'ListContributions',
+      { fund_id: id, actor_user_id: actor, status: 'REVERSED', member_user_id: actor },
+      expect.any(String),
+    );
+    expect((await s.invoke(`/api/v1/funds/${id}/contribution-requests?status=OPEN`)).code).toBe(
+      400,
+    );
+    expect(
+      (await s.invoke(`/api/v1/funds/${id}/contributions`, { body: { limit: 10 } })).code,
+    ).toBe(400);
+  });
+});
+
 describe('Finance Gateway reads', () => {
   it('routes Fund before Trip proxy and obtains actor exclusively from Identity', async () => {
     const s = setup();
@@ -307,6 +447,115 @@ describe('Finance Gateway writes', () => {
           method: 'POST',
           headers,
           body: { expected_version: 1, expected_finance_version: 1 },
+        })
+      ).code,
+    ).toBe(503);
+  });
+});
+
+describe('Contribution management Gateway', () => {
+  const data = {
+    id,
+    request_id: id,
+    fund_id: id,
+    member_user_id: actor,
+    amount: '300000',
+    status: 'PENDING',
+    self_contribution: false,
+    version: 2,
+    finance_version: 5,
+  };
+  const headers = { 'idempotency-key': id, 'content-type': 'application/json' };
+  const versions = { expected_version: 1, expected_finance_version: 4 };
+  it.each([
+    ['PATCH', '', 'UpdateContributionAmount', { amount: '300000' }, 'PENDING'],
+    ['POST', '/waive', 'WaiveContribution', { reason: 'Paid by group' }, 'WAIVED'],
+    ['POST', '/cancel', 'CancelContribution', { reason: 'Mistake' }, 'CANCELLED'],
+  ] as const)(
+    'routes %s %s using session actor and path scope',
+    async (method, suffix, rpc, fields, status) => {
+      const s = setup();
+      s.client.call.mockResolvedValue({
+        contribution: {
+          ...data,
+          status,
+          destination_snapshot: 'PRIVATE',
+          transfer_evidence_object_key: 'PRIVATE',
+        },
+      });
+      const result = await s.invoke(`/api/v1/contributions/${id}${suffix}`, {
+        method,
+        headers,
+        body: { ...versions, ...fields },
+      });
+      expect(result.code).toBe(200);
+      expect(s.client.call).toHaveBeenCalledWith(
+        rpc,
+        { ...versions, ...fields, contribution_id: id, operation_id: id, actor_user_id: actor },
+        expect.any(String),
+      );
+      expect(JSON.stringify(result.body)).not.toContain('PRIVATE');
+      expect(s.proxy.matches({ url: `/api/v1/contributions/${id}` } as IncomingMessage)).toBe(true);
+    },
+  );
+  it('projects updated request with mixed contributions without weakening create validation', async () => {
+    const s = setup();
+    s.client.call.mockResolvedValue({
+      contribution_request: {
+        id,
+        fund_id: id,
+        title: 'Changed',
+        status: 'OPEN',
+        version: 4,
+        created_by_user_id: id,
+        created_at: { seconds: '1792000000', nanos: 0 },
+        finance_version: 5,
+        contributions: [{ ...data, status: 'CONFIRMED' }],
+      },
+    });
+    expect(
+      (
+        await s.invoke(`/api/v1/funds/${id}/contribution-requests/${id}`, {
+          method: 'PATCH',
+          headers,
+          body: { ...versions, note: '' },
+        })
+      ).code,
+    ).toBe(200);
+  });
+  it.each([
+    { amount: 12 },
+    { amount: null },
+    { amount: '2', actor_user_id: id },
+    { amount: '2', fund_id: id },
+    { amount: '2', expected_version: 0 },
+    {},
+  ])('rejects malformed JSON before RPC', async (patch) => {
+    const s = setup();
+    expect(
+      (
+        await s.invoke(`/api/v1/contributions/${id}`, {
+          method: 'PATCH',
+          headers,
+          body: { ...versions, ...patch },
+        })
+      ).code,
+    ).toBe(400);
+    expect(s.client.call).not.toHaveBeenCalled();
+  });
+  it.each([
+    { ...data, id: actor },
+    { ...data, status: 'CONFIRMED' },
+    { ...data, amount: '0' },
+  ])('fails closed on invalid downstream result', async (contribution) => {
+    const s = setup();
+    s.client.call.mockResolvedValue({ contribution });
+    expect(
+      (
+        await s.invoke(`/api/v1/contributions/${id}`, {
+          method: 'PATCH',
+          headers,
+          body: { ...versions, amount: '300000' },
         })
       ).code,
     ).toBe(503);

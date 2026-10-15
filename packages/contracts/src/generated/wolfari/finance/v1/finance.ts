@@ -45,6 +45,90 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+export interface ContributionAllocationInput {
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  destination_id?: string | undefined;
+}
+
+export interface CreateContributionRequestRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  contributions?: ContributionAllocationInput[] | undefined;
+  due_at?: string | undefined;
+  note?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ContributionRequestView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  status?: string | undefined;
+  version?: number | undefined;
+  created_by_user_id?: string | undefined;
+  created_at?: Timestamp | undefined;
+  due_at?: Timestamp | undefined;
+  note?: string | undefined;
+  amount_per_member?: string | undefined;
+  closed_at?: Timestamp | undefined;
+  contributions?:
+    | ContributionView[]
+    | undefined;
+  /** Absent only in legacy create receipts. */
+  finance_version?: number | undefined;
+}
+
+export interface ContributionView {
+  id?: string | undefined;
+  request_id?: string | undefined;
+  fund_id?: string | undefined;
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  status?: string | undefined;
+  self_contribution?: boolean | undefined;
+  member_reported_at?: Timestamp | undefined;
+  confirmed_at?: Timestamp | undefined;
+  confirmed_by_user_id?: string | undefined;
+  waived_reason?: string | undefined;
+  cancelled_reason?: string | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListContributionRequestsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListContributionsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  status?: string | undefined;
+  member_user_id?: string | undefined;
+}
+
+export interface ListContributionRequestsResponse {
+  items?: ContributionRequestView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface ListContributionsResponse {
+  items?: ContributionView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateContributionRequestResponse {
+  contribution_request?: ContributionRequestView | undefined;
+  operation?: Operation | undefined;
+}
+
 /** Configuration only; confirmation is always a separate Holder command. */
 export interface DestinationWrite {
   destination_type?: string | undefined;
@@ -336,9 +420,94 @@ export interface FinanceSnapshot {
   environment?: string | undefined;
 }
 
+export interface UpdateContributionRequestRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  request_id?: string | undefined;
+  title?: string | undefined;
+  due_at?: string | undefined;
+  note?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateContributionAmountRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  amount?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface WaiveContributionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CancelContributionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateContributionAmountResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdateContributionRequestResponse {
+  contribution_request?: ContributionRequestView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface WaiveContributionResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CancelContributionResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  updateContributionRequest(
+    request: UpdateContributionRequestRequest,
+    metadata?: Metadata,
+  ): Observable<UpdateContributionRequestResponse>;
+
+  updateContributionAmount(
+    request: UpdateContributionAmountRequest,
+    metadata?: Metadata,
+  ): Observable<UpdateContributionAmountResponse>;
+
+  waiveContribution(request: WaiveContributionRequest, metadata?: Metadata): Observable<WaiveContributionResponse>;
+
+  cancelContribution(request: CancelContributionRequest, metadata?: Metadata): Observable<CancelContributionResponse>;
+
+  listContributionRequests(
+    request: ListContributionRequestsRequest,
+    metadata?: Metadata,
+  ): Observable<ListContributionRequestsResponse>;
+
+  listContributions(request: ListContributionsRequest, metadata?: Metadata): Observable<ListContributionsResponse>;
+
+  createContributionRequest(
+    request: CreateContributionRequestRequest,
+    metadata?: Metadata,
+  ): Observable<CreateContributionRequestResponse>;
+
   updateFundBudget(request: UpdateFundBudgetRequest, metadata?: Metadata): Observable<UpdateFundBudgetResponse>;
 
   createPaymentDestination(
@@ -386,6 +555,53 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  updateContributionRequest(
+    request: UpdateContributionRequestRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<UpdateContributionRequestResponse>
+    | Observable<UpdateContributionRequestResponse>
+    | UpdateContributionRequestResponse;
+
+  updateContributionAmount(
+    request: UpdateContributionAmountRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<UpdateContributionAmountResponse>
+    | Observable<UpdateContributionAmountResponse>
+    | UpdateContributionAmountResponse;
+
+  waiveContribution(
+    request: WaiveContributionRequest,
+    metadata?: Metadata,
+  ): Promise<WaiveContributionResponse> | Observable<WaiveContributionResponse> | WaiveContributionResponse;
+
+  cancelContribution(
+    request: CancelContributionRequest,
+    metadata?: Metadata,
+  ): Promise<CancelContributionResponse> | Observable<CancelContributionResponse> | CancelContributionResponse;
+
+  listContributionRequests(
+    request: ListContributionRequestsRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ListContributionRequestsResponse>
+    | Observable<ListContributionRequestsResponse>
+    | ListContributionRequestsResponse;
+
+  listContributions(
+    request: ListContributionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListContributionsResponse> | Observable<ListContributionsResponse> | ListContributionsResponse;
+
+  createContributionRequest(
+    request: CreateContributionRequestRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<CreateContributionRequestResponse>
+    | Observable<CreateContributionRequestResponse>
+    | CreateContributionRequestResponse;
+
   updateFundBudget(
     request: UpdateFundBudgetRequest,
     metadata?: Metadata,
@@ -465,6 +681,13 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "updateContributionRequest",
+      "updateContributionAmount",
+      "waiveContribution",
+      "cancelContribution",
+      "listContributionRequests",
+      "listContributions",
+      "createContributionRequest",
       "updateFundBudget",
       "createPaymentDestination",
       "updatePaymentDestination",

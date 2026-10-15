@@ -10,6 +10,9 @@ import { FundCommandRepository } from './repositories/fund-command.repository';
 import { FundCommandService, FundTripClient } from './application/fund-command.service';
 import { ContributionRepository } from './repositories/contribution.repository';
 import { PaymentDestinationRepository } from './repositories/payment-destination.repository';
+import { ContributionCommandService } from './application/contribution-command.service';
+import { ContributionQueryService } from './application/contribution-query.service';
+import { ContributionListRepository } from './repositories/contribution-list.repository';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
@@ -25,6 +28,9 @@ import { PaymentDestinationRepository } from './repositories/payment-destination
     FundTripClient,
     ContributionRepository,
     PaymentDestinationRepository,
+    ContributionCommandService,
+    ContributionQueryService,
+    ContributionListRepository,
   ],
 })
 export class AppModule {}

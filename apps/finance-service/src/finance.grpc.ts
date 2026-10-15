@@ -13,6 +13,8 @@ import {
   receiptView,
 } from './repositories/fund-command.repository';
 import { readUuid } from './finance.errors';
+import { ContributionCommandService } from './application/contribution-command.service';
+import { ContributionQueryService } from './application/contribution-query.service';
 
 type DeadlineCall = { getDeadline(): Date | number };
 @Controller()
@@ -22,6 +24,8 @@ export class FinanceGrpcController {
     private readonly config: ConfigService,
     private readonly commands: FundCommandService,
     private readonly receipts: FundCommandRepository,
+    private readonly contributions: ContributionCommandService,
+    private readonly contributionQueries: ContributionQueryService,
   ) {}
 
   private async execute<T>(
@@ -79,6 +83,76 @@ export class FinanceGrpcController {
         message: JSON.stringify({ code, details: null }),
       });
     }
+  }
+  @GrpcMethod('FinanceService', 'UpdateContributionRequest')
+  updateContributionRequest(
+    request: FinanceV1.UpdateContributionRequestRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('UpdateContributionRequest', metadata, call, (correlation, deadline) =>
+      this.contributions.manage('UPDATE_CONTRIBUTION_REQUEST', request, correlation, deadline),
+    );
+  }
+  @GrpcMethod('FinanceService', 'UpdateContributionAmount')
+  updateContributionAmount(
+    request: FinanceV1.UpdateContributionAmountRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('UpdateContributionAmount', metadata, call, (correlation, deadline) =>
+      this.contributions.manage('UPDATE_CONTRIBUTION_AMOUNT', request, correlation, deadline),
+    );
+  }
+  @GrpcMethod('FinanceService', 'WaiveContribution')
+  waiveContribution(
+    request: FinanceV1.WaiveContributionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('WaiveContribution', metadata, call, (correlation, deadline) =>
+      this.contributions.manage('WAIVE_CONTRIBUTION', request, correlation, deadline),
+    );
+  }
+  @GrpcMethod('FinanceService', 'CancelContribution')
+  cancelContribution(
+    request: FinanceV1.CancelContributionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('CancelContribution', metadata, call, (correlation, deadline) =>
+      this.contributions.manage('CANCEL_CONTRIBUTION', request, correlation, deadline),
+    );
+  }
+  @GrpcMethod('FinanceService', 'CreateContributionRequest')
+  createContributionRequest(
+    request: FinanceV1.CreateContributionRequestRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('CreateContributionRequest', metadata, call, (correlation, deadline) =>
+      this.contributions.create(request, correlation, deadline),
+    );
+  }
+  @GrpcMethod('FinanceService', 'ListContributionRequests')
+  listContributionRequests(
+    request: FinanceV1.ListContributionRequestsRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ListContributionRequests', metadata, call, (correlation, deadline) =>
+      this.contributionQueries.listRequests(request, correlation, deadline),
+    );
+  }
+  @GrpcMethod('FinanceService', 'ListContributions')
+  listContributions(
+    request: FinanceV1.ListContributionsRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ListContributions', metadata, call, (correlation, deadline) =>
+      this.contributionQueries.listContributions(request, correlation, deadline),
+    );
   }
   @GrpcMethod('FinanceService', 'EnableFund')
   enableFund(

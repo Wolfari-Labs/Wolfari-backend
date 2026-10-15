@@ -54,6 +54,43 @@ function setup() {
 }
 describe('Fund write coordination', () => {
   it.each([
+    { contributions: [] },
+    { finance_version: 3 },
+    { contributions: [], finance_version: 3 },
+  ])(
+    'rejects partial stored contribution snapshots before protobuf can erase presence',
+    async (patch) => {
+      const s = setup();
+      s.repo.find.mockResolvedValue({
+        ...s.row,
+        command_scope: 'CREATE_CONTRIBUTION_REQUEST',
+        response: { version: 1, tripId: id, contributionRequest: { id, fund_id: id, ...patch } },
+      });
+      await expect(
+        s.service.run(
+          {
+            scope: 'CREATE_CONTRIBUTION_REQUEST',
+            operationId: id,
+            actor: id,
+            tripId: id,
+            fundId: id,
+            body: {
+              title: 'Meals',
+              note: null,
+              dueAt: null,
+              expectedFinanceVersion: 2,
+              contributions: [{ memberUserId: id, destinationId: id, amount: 1n }],
+            },
+          },
+          id,
+          Date.now() + 2000,
+        ),
+      ).rejects.toThrow('Incomplete contribution creation snapshot');
+      expect(s.repo.execute).not.toHaveBeenCalled();
+      expect(s.queries.getFund).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each([
     [
       'UpdateFundBudget',
       'UPDATE_FUND_BUDGET',

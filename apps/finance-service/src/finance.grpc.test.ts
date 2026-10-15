@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { Metadata, status } from '@grpc/grpc-js';
 import { ConfigService } from '@nestjs/config';
 import { FinanceGrpcController } from './finance.grpc';
+import type { ContributionCommandService } from './application/contribution-command.service';
+import type { ContributionQueryService } from './application/contribution-query.service';
 import type { FundQueryService } from './application/fund-query.service';
 import { FinanceReadError } from './finance.errors';
 import type { FundCommandService } from './application/fund-command.service';
@@ -35,10 +37,55 @@ function setup() {
       new ConfigService({ GATEWAY_FINANCE_SECRET: secret, TRIP_FINANCE_SECRET: 'b'.repeat(64) }),
       commands as unknown as FundCommandService,
       receipts as unknown as FundCommandRepository,
+      {
+        create: vi.fn().mockResolvedValue({ contribution_request: {} }),
+        manage: vi.fn().mockResolvedValue({ contribution: {} }),
+      } as unknown as ContributionCommandService,
+      {
+        listRequests: vi.fn().mockResolvedValue({ items: [] }),
+        listContributions: vi.fn().mockResolvedValue({ items: [] }),
+      } as unknown as ContributionQueryService,
     ),
   };
 }
 describe('Finance gRPC boundary', () => {
+  it.each([
+    'updateContributionRequest',
+    'updateContributionAmount',
+    'waiveContribution',
+    'cancelContribution',
+  ] as const)('%s restricts management to Gateway', async (method) => {
+    const s = setup();
+    await expect(s.controller[method]({}, s.metadata)).resolves.toEqual({ contribution: {} });
+    s.metadata.set('x-caller-service', 'Trip');
+    s.metadata.set('x-service-secret', 'b'.repeat(64));
+    await expect(s.controller[method]({}, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+  });
+  it.each(['listContributionRequests', 'listContributions'] as const)(
+    '%s only accepts Gateway reads',
+    async (method) => {
+      const s = setup();
+      await expect(s.controller[method]({}, s.metadata)).resolves.toEqual({ items: [] });
+      s.metadata.set('x-caller-service', 'Trip');
+      s.metadata.set('x-service-secret', 'b'.repeat(64));
+      await expect(s.controller[method]({}, s.metadata)).rejects.toMatchObject({
+        error: { code: status.PERMISSION_DENIED },
+      });
+    },
+  );
+  it('allows only Gateway to create contribution requests', async () => {
+    const s = setup();
+    await expect(s.controller.createContributionRequest({}, s.metadata)).resolves.toEqual({
+      contribution_request: {},
+    });
+    s.metadata.set('x-caller-service', 'Trip');
+    s.metadata.set('x-service-secret', 'b'.repeat(64));
+    await expect(s.controller.createContributionRequest({}, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+  });
   it.each(['updateFundBudget', 'createPaymentDestination', 'updatePaymentDestination'] as const)(
     '%s accepts only the Gateway caller',
     async (method) => {

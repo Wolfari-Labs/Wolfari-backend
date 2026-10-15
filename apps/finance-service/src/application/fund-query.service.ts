@@ -104,6 +104,13 @@ export class FundQueryService {
     return { fund: fundResponse(fund) };
   }
 
+  /** Resolve the Fund and re-check current Trip membership on every read page. */
+  async authorizeFundRead(fundId: string, actor: string, correlation: string, deadline: number) {
+    const fund = await this.funds.findScopeById(readUuid(fundId));
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    await this.access(fund.tripId, readUuid(actor), correlation, deadline);
+  }
+
   async listPaymentDestinations(
     input: { fund_id?: unknown; actor_user_id?: unknown },
     correlation: string,

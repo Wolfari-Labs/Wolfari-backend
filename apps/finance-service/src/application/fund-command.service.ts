@@ -34,7 +34,10 @@ import {
   type FinanceReadErrorCode,
 } from '../finance.errors';
 
-type CommandResponse = FinanceV1.EnableFundResponse & FinanceV1.ConfirmPaymentDestinationResponse;
+type CommandResponse = FinanceV1.EnableFundResponse &
+  FinanceV1.ConfirmPaymentDestinationResponse &
+  FinanceV1.CreateContributionRequestResponse &
+  FinanceV1.UpdateContributionAmountResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;
@@ -269,7 +272,8 @@ export class FundCommandService {
       throw error;
     }
   }
-  private async run(
+  /** Shared durable command coordinator; callers must parse inputs and resolve Fund scope first. */
+  async run(
     command: UnhashedWrite,
     correlation: string,
     deadline: number,
@@ -330,13 +334,62 @@ export class FundCommandService {
     }
     if (saved.status !== 'COMMITTED')
       throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
-    // Persisted snapshots guarantee repeatability. Reauthorize private reads even on terminal replay.
-    if (input.scope === 'ENABLE_FUND' || input.scope === 'UPDATE_FUND_BUDGET') {
+    if ('requestId' in input) {
       await this.queries.getFund(
         { trip_id: input.tripId, actor_user_id: input.actor },
         correlation,
         deadline,
       );
+      if (input.scope === 'UPDATE_CONTRIBUTION_REQUEST') {
+        const row = saved.response.contributionRequest;
+        if (
+          !row ||
+          row.id !== input.requestId ||
+          row.fund_id !== input.fundId ||
+          !Array.isArray(row.contributions) ||
+          !row.finance_version
+        )
+          throw new Error('Invalid request update snapshot');
+        return { contribution_request: row };
+      }
+      const row = saved.response.contribution;
+      if (
+        !row ||
+        row.id !== input.contributionId ||
+        row.request_id !== input.requestId ||
+        row.fund_id !== input.fundId ||
+        !row.finance_version
+      )
+        throw new Error('Invalid contribution update snapshot');
+      return { contribution: row };
+    }
+    // Persisted snapshots guarantee repeatability. Reauthorize private reads even on terminal replay.
+    if (
+      input.scope === 'ENABLE_FUND' ||
+      input.scope === 'UPDATE_FUND_BUDGET' ||
+      input.scope === 'CREATE_CONTRIBUTION_REQUEST'
+    ) {
+      await this.queries.getFund(
+        { trip_id: input.tripId, actor_user_id: input.actor },
+        correlation,
+        deadline,
+      );
+      if (input.scope === 'CREATE_CONTRIBUTION_REQUEST') {
+        if (
+          !saved.response.contributionRequest ||
+          saved.response.contributionRequest.fund_id !== input.fundId
+        )
+          throw new Error('Missing contribution request result');
+        const snapshot = saved.response.contributionRequest;
+        const hasRows = Object.hasOwn(snapshot, 'contributions');
+        const hasVersion = Object.hasOwn(snapshot, 'finance_version');
+        if (
+          hasRows !== hasVersion ||
+          (hasRows && (!Array.isArray(snapshot.contributions) || !snapshot.contributions.length))
+        )
+          throw new Error('Incomplete contribution creation snapshot');
+        return { contribution_request: saved.response.contributionRequest };
+      }
       if (!saved.response.fund) throw new Error('Missing Fund result');
       return { fund: saved.response.fund };
     }

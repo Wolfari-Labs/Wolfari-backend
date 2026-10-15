@@ -8,6 +8,11 @@ import { protobufTimestamp } from '../grpc-common';
 import { LifecycleFinanceClient } from './lifecycle-finance.client';
 
 const FUND_COMMANDS = [
+  'UPDATE_CONTRIBUTION_REQUEST',
+  'UPDATE_CONTRIBUTION_AMOUNT',
+  'WAIVE_CONTRIBUTION',
+  'CANCEL_CONTRIBUTION',
+  'CREATE_CONTRIBUTION_REQUEST',
   'ENABLE_FUND',
   'CONFIRM_PAYMENT_DESTINATION',
   'UPDATE_FUND_BUDGET',
@@ -258,7 +263,8 @@ export class FinanceOperationService implements OnModuleInit, OnApplicationShutd
     const candidates = (
       await this.repo.db.query<{ operation_id: string }>(`SELECT operation_id FROM trip_operations
       WHERE operation_type IN ('ENABLE_FUND','CONFIRM_PAYMENT_DESTINATION',
-        'UPDATE_FUND_BUDGET','CREATE_PAYMENT_DESTINATION','UPDATE_PAYMENT_DESTINATION')
+        'UPDATE_FUND_BUDGET','CREATE_PAYMENT_DESTINATION','UPDATE_PAYMENT_DESTINATION','CREATE_CONTRIBUTION_REQUEST',
+        'UPDATE_CONTRIBUTION_REQUEST','UPDATE_CONTRIBUTION_AMOUNT','WAIVE_CONTRIBUTION','CANCEL_CONTRIBUTION')
       AND state IN ('PROCESSING','PENDING_RECOVERY') AND next_retry_at<=clock_timestamp()
       ORDER BY next_retry_at,operation_id LIMIT 20`)
     ).rows;

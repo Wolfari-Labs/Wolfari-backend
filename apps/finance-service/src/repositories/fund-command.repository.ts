@@ -29,6 +29,19 @@ import { FinanceReadError, type FinanceReadErrorCode, readUuid } from '../financ
 import { destinationResponse, fundResponse } from '../projections/fund-response';
 import { FundRepository } from './fund.repository';
 import type { DestinationListRow } from './payment-destination-query.repository';
+import { ContributionCommandRepository } from './contribution-command.repository';
+import {
+  ContributionRequestCreationConflictError,
+  type CreateContributionRequestCommand,
+} from '../domain/contribution-request-creation';
+import { InvalidContributionRequestError } from '../domain/contribution-request';
+import { ContributionPermissionDeniedError } from '../domain/contribution-permissions';
+
+import {
+  ContributionManagementRepository,
+  type ManagementWrite,
+} from './contribution-management.repository';
+import { ContributionManagementError } from '../domain/contribution-management';
 
 export type FundWrite = {
   operationId: string;
@@ -36,6 +49,8 @@ export type FundWrite = {
   tripId: string;
   hash: string;
 } & (
+  | ManagementWrite
+  | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
   | { scope: 'UPDATE_FUND_BUDGET'; fundId: string; body: UpdateFundBudgetCommand }
   | { scope: 'CREATE_PAYMENT_DESTINATION'; fundId: string; body: CreatePaymentDestinationCommand }
@@ -58,6 +73,8 @@ export type StoredResult = {
   error?: FinanceReadErrorCode;
   fund?: FinanceV1.FundView;
   destination?: FinanceV1.PaymentDestinationView;
+  contributionRequest?: FinanceV1.ContributionRequestView;
+  contribution?: FinanceV1.ContributionView;
 };
 export type FundReceipt = {
   operation_id: string;
@@ -71,6 +88,11 @@ export type FundReceipt = {
 type Client = Pick<DatabaseProvider, 'query'>;
 export const fundCommandScope = (value: string) =>
   [
+    'UPDATE_CONTRIBUTION_REQUEST',
+    'UPDATE_CONTRIBUTION_AMOUNT',
+    'WAIVE_CONTRIBUTION',
+    'CANCEL_CONTRIBUTION',
+    'CREATE_CONTRIBUTION_REQUEST',
     'ENABLE_FUND',
     'CONFIRM_PAYMENT_DESTINATION',
     'UPDATE_FUND_BUDGET',
@@ -81,6 +103,7 @@ export const fundCommandScope = (value: string) =>
 export function fundCommandHash(value: unknown): string {
   const canonical = (input: unknown): unknown => {
     if (typeof input === 'bigint') return input.toString();
+    if (input instanceof Date) return input.toISOString();
     if (Array.isArray(input)) return input.map(canonical);
     if (input && typeof input === 'object')
       return Object.fromEntries(
@@ -116,7 +139,16 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
+  if (error instanceof ContributionManagementError) return new FinanceReadError(error.code);
   if (error instanceof FinanceReadError) return error;
+  if (error instanceof ContributionPermissionDeniedError)
+    return new FinanceReadError('PERMISSION_DENIED');
+  if (error instanceof InvalidContributionRequestError)
+    return new FinanceReadError('VALIDATION_FAILED');
+  if (error instanceof ContributionRequestCreationConflictError)
+    return new FinanceReadError(
+      error.code === 'FINANCE_VERSION_CONFLICT' ? 'VERSION_CONFLICT' : 'STATE_CONFLICT',
+    );
   if (
     error instanceof FundSetupPermissionDeniedError ||
     error instanceof PaymentDestinationPermissionError
@@ -288,6 +320,20 @@ export class FundCommandRepository {
               finance_version: 1,
             },
           };
+        } else if (input.scope === 'CREATE_CONTRIBUTION_REQUEST') {
+          response = await new ContributionCommandRepository().create(
+            client,
+            input,
+            authority,
+            correlation,
+          );
+        } else if ('requestId' in input) {
+          response = await new ContributionManagementRepository().execute(
+            client,
+            input,
+            authority,
+            correlation,
+          );
         } else if (input.scope !== 'CONFIRM_PAYMENT_DESTINATION') {
           response = await this.configure(client, input, authority, correlation);
         } else {

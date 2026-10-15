@@ -4,6 +4,13 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc UpdateContributionRequest(UpdateContributionRequestRequest) returns (UpdateContributionRequestResponse);
+  rpc UpdateContributionAmount(UpdateContributionAmountRequest) returns (UpdateContributionAmountResponse);
+  rpc WaiveContribution(WaiveContributionRequest) returns (WaiveContributionResponse);
+  rpc CancelContribution(CancelContributionRequest) returns (CancelContributionResponse);
+  rpc ListContributionRequests(ListContributionRequestsRequest) returns (ListContributionRequestsResponse);
+  rpc ListContributions(ListContributionsRequest) returns (ListContributionsResponse);
+  rpc CreateContributionRequest(CreateContributionRequestRequest) returns (CreateContributionRequestResponse);
   rpc UpdateFundBudget(UpdateFundBudgetRequest) returns (UpdateFundBudgetResponse);
   rpc CreatePaymentDestination(CreatePaymentDestinationRequest) returns (CreatePaymentDestinationResponse);
   rpc UpdatePaymentDestination(UpdatePaymentDestinationRequest) returns (UpdatePaymentDestinationResponse);
@@ -16,6 +23,81 @@ service FinanceService {
   rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+}
+
+message ContributionAllocationInput {
+  string member_user_id = 1;
+  string amount = 2;
+  string destination_id = 3;
+}
+message CreateContributionRequestRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string title = 4;
+  repeated ContributionAllocationInput contributions = 5;
+  optional string due_at = 6;
+  optional string note = 7;
+  int32 expected_finance_version = 8;
+}
+message ContributionRequestView {
+  string id = 1;
+  string fund_id = 2;
+  string title = 3;
+  string status = 4;
+  int32 version = 5;
+  string created_by_user_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp due_at = 8;
+  optional string note = 9;
+  optional string amount_per_member = 10;
+  google.protobuf.Timestamp closed_at = 11;
+  repeated ContributionView contributions = 12;
+  optional int32 finance_version = 13; // Absent only in legacy create receipts.
+}
+message ContributionView {
+  string id = 1;
+  string request_id = 2;
+  string fund_id = 3;
+  string member_user_id = 4;
+  string amount = 5;
+  string status = 6;
+  bool self_contribution = 7;
+  google.protobuf.Timestamp member_reported_at = 8;
+  google.protobuf.Timestamp confirmed_at = 9;
+  optional string confirmed_by_user_id = 10;
+  optional string waived_reason = 11;
+  optional string cancelled_reason = 12;
+  int32 version = 13;
+  int32 finance_version = 14;
+}
+message ListContributionRequestsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListContributionsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+  optional string status = 5;
+  optional string member_user_id = 6;
+}
+message ListContributionRequestsResponse {
+  repeated ContributionRequestView items = 1;
+  optional string next_cursor = 2;
+}
+message ListContributionsResponse {
+  repeated ContributionView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateContributionRequestResponse {
+  oneof result {
+    ContributionRequestView contribution_request = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
 }
 
 // Configuration only; confirmation is always a separate Holder command.
@@ -294,4 +376,67 @@ message FinanceSnapshot {
   repeated Refund refunds = 5;
   repeated LedgerEntry ledger = 6;
   string environment = 7; // TEST/SANDBOX only for this MVP.
+}
+
+message UpdateContributionRequestRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string request_id = 4;
+  optional string title = 5;
+  optional string due_at = 6;
+  optional string note = 7;
+  int32 expected_version = 8;
+  int32 expected_finance_version = 9;
+}
+message UpdateContributionAmountRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string amount = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message WaiveContributionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CancelContributionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message UpdateContributionAmountResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message UpdateContributionRequestResponse {
+  oneof result {
+    ContributionRequestView contribution_request = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message WaiveContributionResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message CancelContributionResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
 }

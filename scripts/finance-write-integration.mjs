@@ -1,7 +1,9 @@
+import { runContributionManagementTests } from './finance-contribution-management-integration.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { runFinanceConfigurationTests } from './finance-configuration-integration.mjs';
+import { runContributionRequestTests } from './finance-contribution-request-integration.mjs';
 const require = createRequire(import.meta.url);
 const apiRequire = createRequire(new URL('../apps/api-gateway/package.json', import.meta.url));
 const { Client, credentials, Metadata } = apiRequire('@grpc/grpc-js');
@@ -570,6 +572,24 @@ export async function runFinanceWriteTests(h) {
     pass(
       'Setup/confirmation create no ledger or invented events; Trip intents and audit contain no bank details',
     );
+    await runContributionRequestTests(h, {
+      newTrip,
+      write,
+      enableBody,
+      repo,
+      tripClient,
+      pollTerminal,
+      financeDb,
+    });
+    await runContributionManagementTests(h, {
+      newTrip,
+      write,
+      enableBody,
+      repo,
+      tripClient,
+      pollTerminal,
+      financeDb,
+    });
     return {
       forbidden: [
         owner.access,
