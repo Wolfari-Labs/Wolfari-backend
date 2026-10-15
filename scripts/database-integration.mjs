@@ -213,13 +213,13 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 4, 17, 12]; let fks = 0;
+  const counts = [8, 18, 4, 18, 12]; let fks = 0;
   for (const [index, service] of services.entries()) await db(service, async client => {
     assert.equal((await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'")).rows[0].n, counts[index]);
     fks += (await client.query("SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace")).rows[0].n;
-    assert.deepEqual(await history(client, files[service]), service === 'trip' ? ['V001', 'V002'] : ['V001']);
+    assert.deepEqual(await history(client, files[service]), ['trip', 'finance'].includes(service) ? ['V001', 'V002'] : ['V001']);
   });
-  assert.equal(fks, 47); pass('54 bảng mô hình + 5 lịch sử, 47 FK');
+  assert.equal(fks, 50); pass('55 bảng mô hình + 5 lịch sử, 50 FK');
   await db('trip', async client => {
     await client.query(await readFile(resolve(root,'apps/trip-workspace-service/tests/database/V002_constraints.sql'),'utf8'));
   });
@@ -284,14 +284,16 @@ async function main() {
   for (const app of apps.filter(a => a.service)) await health(app, 'ready');
   pass('7 liveness, 5 readiness trên cổng thử nghiệm');
   stage = 'missing-migration-readiness';
-  const tripApp = apps.find(a => a.service === 'trip');
-  await db('trip',async client=>{
-    await client.query("DELETE FROM schema_migrations WHERE version='V002'");
-    try {assert.equal((await health(tripApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V002')");}
-  });
-  await health(tripApp,'ready');
-  pass('Trip requires V002, not merely V001, for readiness');
+  for (const service of ['trip', 'finance']) {
+    const app = apps.find(a => a.service === service);
+    await db(service,async client=>{
+      await client.query("DELETE FROM schema_migrations WHERE version='V002'");
+      try {assert.equal((await health(app,'ready',503)).checks.migrations,'missing');}
+      finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V002')");}
+    });
+    await health(app,'ready');
+  }
+  pass('Trip and Finance require V002, not merely V001, for readiness');
   const travel = apps.find(a => a.service === 'travel');
   await db('travel', async client => {
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');

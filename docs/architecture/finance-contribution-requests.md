@@ -159,7 +159,8 @@ khẳng định đã gửi reminder hoặc hoàn tất luồng Automation.
 
 Không có migration hoặc event type mới. Catalog có CreateContributionRequest,
 ListContributionRequests, ListContributions và bốn RPC quản lý API081–084 chỉ caller ApiGateway; tổng56 RPC
-trên nhánh này. API085–089, instruction/QR, ghi thu/chi, provider, closure và
+tại mốc contribution management. Nhánh receipts bổ sung hai RPC thành58, xem
+[chứng từ private](finance-receipts.md). API085–089, instruction/QR, ghi thu/chi, provider, closure và
 Finance membership obligations chưa được mở bởi mốc này. Giữ
 TRIP_MEMBERSHIP_LIFECYCLE_ENABLED=false với Finance thật. API077 được phát triển
 trên nhánh ledger riêng; nhánh request không mặc nhiên chứa API đó.

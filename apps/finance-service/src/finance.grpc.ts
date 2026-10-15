@@ -1,3 +1,4 @@
+import { ReceiptService } from './receipts/receipt.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
@@ -16,7 +17,12 @@ import { readUuid } from './finance.errors';
 import { ContributionCommandService } from './application/contribution-command.service';
 import { ContributionQueryService } from './application/contribution-query.service';
 
-type DeadlineCall = { getDeadline(): Date | number };
+type DeadlineCall = {
+  getDeadline(): Date | number;
+  cancelled?: boolean;
+  once?(event: 'cancelled', listener: () => void): unknown;
+  off?(event: 'cancelled', listener: () => void): unknown;
+};
 @Controller()
 export class FinanceGrpcController {
   constructor(
@@ -26,13 +32,32 @@ export class FinanceGrpcController {
     private readonly receipts: FundCommandRepository,
     private readonly contributions: ContributionCommandService,
     private readonly contributionQueries: ContributionQueryService,
+    private readonly files?: ReceiptService,
   ) {}
 
+  private async fileWork<T>(
+    call: DeadlineCall | undefined,
+    deadline: number,
+    work: (signal: AbortSignal) => Promise<T>,
+  ) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    call?.once?.('cancelled', abort);
+    const timer = setTimeout(abort, Math.max(0, deadline - Date.now()));
+    if (call?.cancelled || Date.now() >= deadline) abort();
+    try {
+      return await work(controller.signal);
+    } finally {
+      clearTimeout(timer);
+      call?.off?.('cancelled', abort);
+    }
+  }
   private async execute<T>(
     method: string,
     metadata: Metadata | undefined,
     call: DeadlineCall | undefined,
     work: (correlation: string, deadline: number) => Promise<T>,
+    budget = 1800,
   ): Promise<T> {
     const single = (name: string) => {
       const values = metadata?.get(name);
@@ -65,7 +90,7 @@ export class FinanceGrpcController {
         message: 'Caller is not authorized',
       });
     }
-    const deadline = Math.min(Date.now() + 1800, Number(call?.getDeadline() ?? Infinity) - 100);
+    const deadline = Math.min(Date.now() + budget, Number(call?.getDeadline() ?? Infinity) - 100);
     try {
       return await work(correlation.toLowerCase(), deadline);
     } catch (error) {
@@ -83,6 +108,44 @@ export class FinanceGrpcController {
         message: JSON.stringify({ code, details: null }),
       });
     }
+  }
+  @GrpcMethod('FinanceService', 'UploadFinanceReceipt')
+  uploadFinanceReceipt(
+    request: FinanceV1.UploadFinanceReceiptRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute(
+      'UploadFinanceReceipt',
+      metadata,
+      call,
+      (correlation, deadline) => {
+        if (!this.files) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        return this.fileWork(call, deadline, (signal) =>
+          this.files!.upload(request, correlation, deadline, signal),
+        );
+      },
+      29000,
+    );
+  }
+  @GrpcMethod('FinanceService', 'DownloadFinanceReceipt')
+  downloadFinanceReceipt(
+    request: FinanceV1.DownloadFinanceReceiptRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute(
+      'DownloadFinanceReceipt',
+      metadata,
+      call,
+      (correlation, deadline) => {
+        if (!this.files) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        return this.fileWork(call, deadline, (signal) =>
+          this.files!.download(request, correlation, deadline, signal),
+        );
+      },
+      29000,
+    );
   }
   @GrpcMethod('FinanceService', 'UpdateContributionRequest')
   updateContributionRequest(

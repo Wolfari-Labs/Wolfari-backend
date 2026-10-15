@@ -1,3 +1,4 @@
+import { FinanceReceiptHttp, receiptRoute } from './finance-receipt-http';
 import {
   contributionManagementRoute,
   handleContributionManagement,
@@ -111,10 +112,12 @@ export function projectDestination(value: unknown) {
 type Request = IncomingMessage & { originalUrl?: string; body?: unknown };
 export class FinanceProxy {
   private readonly client: Pick<FinanceClient, 'call' | 'close'>;
+  private readonly files: FinanceReceiptHttp;
   constructor(
     private readonly validateSession: SessionValidator,
     client?: Pick<FinanceClient, 'call' | 'close'>,
   ) {
+    this.files = new FinanceReceiptHttp(validateSession);
     this.client =
       client ??
       new FinanceClient(
@@ -131,6 +134,8 @@ export class FinanceProxy {
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const fileRoute = receiptRoute(url.pathname);
+    if (fileRoute) return this.files.handle(request, response, url, fileRoute);
     const management = contributionManagementRoute(url.pathname);
     if (management)
       return handleContributionManagement(
@@ -405,5 +410,6 @@ export class FinanceProxy {
   }
   close() {
     this.client.close();
+    this.files.close();
   }
 }

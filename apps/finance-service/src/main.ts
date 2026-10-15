@@ -24,6 +24,8 @@ void bootstrapApp(AppModule, 'finance-service', async (app) => {
         package: GRPC_PACKAGES.finance,
         protoPath: PROTO_PATHS.finance,
         loader: GRPC_LOADER_OPTIONS,
+        maxReceiveMessageLength: 12 * 1024 * 1024,
+        maxSendMessageLength: 12 * 1024 * 1024,
       },
     },
     { inheritAppConfig: true },

@@ -6,7 +6,9 @@ Code hiện có domain tiền/số dư/ledger/đóng góp, parser và bước ch
 các reader Fund, Ledger, Contribution và PaymentDestination đã đăng ký trong
 `AppModule`. Đã có [API070–076 Fund setup](../../docs/architecture/finance-fund-setup.md)
 và [API078–084 tạo/đọc/quản lý đợt thu](../../docs/architecture/finance-contribution-requests.md),
-gồm transaction, quyền Trip và recovery. Chưa ghi nhận thu/chi hoặc kết nối provider.
+gồm transaction, quyền Trip và recovery; đã bổ sung
+[API105/106 chứng từ private](../../docs/architecture/finance-receipts.md).
+Chưa ghi nhận thu/chi hoặc kết nối provider.
 
 README này mô tả code hiện tại và cách kiểm thử module. Baseline thiết kế hiện hành
 là SRS 2.3 / ERD 1.2 / DDL API Event 1.1 tại [danh mục tài liệu](../../docs/README.md)
@@ -345,3 +347,19 @@ API, thanh toán từng phần, tiền thừa hoặc transaction ghi quỹ.
 
 Unit test và fixture DB hiện có kiểm đủ trạng thái, empty/missing, cách ly Fund/đợt,
 tiền lớn hơn int8, thay trạng thái không đổi tổng phân bổ và đọc dữ liệu đã kết thúc.
+
+## Chứng từ private API105/106
+
+Nhánh receipts bổ sung upload JPEG/PNG/PDF tối đa **10MiB** và tải chứng từ đã gắn
+với nghiệp vụ. File mới upload chỉ là staging; chưa ghi thu, không thay đổi số dư
+hay finance_version. Bằng chứng đóng góp chỉ Self/Holder hiện tại được tải; Owner
+không có quyền vượt qua quy tắc này. Chứng từ chi cho thành viên hiện tại, có kiểm
+liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn được dọn sau24h.
+
+- [OpenAPI105/106](../../docs/api/finance-receipts.openapi.json)
+- [Thiết kế, quyền, giới hạn và phục hồi](../../docs/architecture/finance-receipts.md)
+- Migration mới `migrations/V002.sql`; Finance readiness yêu cầu V001+V002.
+- `corepack pnpm env:init` bổ sung cấu hình MinIO; người dùng tự chạy
+  `corepack pnpm db:migrate --service finance` để nâng database phát triển.
+- `corepack pnpm finance:test` kiểm tra trong database/MinIO cô lập. Manual thu và
+  expense writer chưa thuộc mốc này; liên kết nghiệp vụ trong test là fixture.

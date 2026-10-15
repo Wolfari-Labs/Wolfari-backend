@@ -4,6 +4,8 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc UploadFinanceReceipt(UploadFinanceReceiptRequest) returns (UploadFinanceReceiptResponse);
+  rpc DownloadFinanceReceipt(DownloadFinanceReceiptRequest) returns (DownloadFinanceReceiptResponse);
   rpc UpdateContributionRequest(UpdateContributionRequestRequest) returns (UpdateContributionRequestResponse);
   rpc UpdateContributionAmount(UpdateContributionAmountRequest) returns (UpdateContributionAmountResponse);
   rpc WaiveContribution(WaiveContributionRequest) returns (WaiveContributionResponse);
@@ -439,4 +441,27 @@ message CancelContributionResponse {
     ContributionView contribution = 1;
     wolfari.common.v1.Operation operation = 2;
   }
+}
+
+message UploadFinanceReceiptRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  string mime_type = 3;
+  bytes content = 4;
+}
+message UploadFinanceReceiptResponse {
+  string object_key = 1;
+  string mime_type = 2;
+  int32 size_bytes = 3;
+}
+message DownloadFinanceReceiptRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  string object_key = 3;
+}
+message DownloadFinanceReceiptResponse {
+  string object_key = 1;
+  string mime_type = 2;
+  int32 size_bytes = 3;
+  bytes content = 4;
 }

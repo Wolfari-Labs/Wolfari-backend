@@ -1,3 +1,4 @@
+import { runFinanceReceiptTests } from './finance-receipt-integration.mjs';
 import { runContributionManagementTests } from './finance-contribution-management-integration.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -103,6 +104,16 @@ export async function runFinanceWriteTests(h) {
     });
     return post(path, body, user, key);
   };
+  if (h.receiptsOnly) {
+    try {
+      return {
+        forbidden: await runFinanceReceiptTests(h, { newTrip, write, enableBody, financeDb }),
+      };
+    } finally {
+      tripClient.onApplicationShutdown();
+      rpcClient.close();
+    }
+  }
   const prepare = async (tripId, operationId = randomUUID()) => {
     const command = {
       scope: 'ENABLE_FUND',
@@ -590,8 +601,10 @@ export async function runFinanceWriteTests(h) {
       pollTerminal,
       financeDb,
     });
+    const receiptKeys = await runFinanceReceiptTests(h, { newTrip, write, enableBody, financeDb });
     return {
       forbidden: [
+        ...receiptKeys,
         owner.access,
         holder.access,
         outsider.access,

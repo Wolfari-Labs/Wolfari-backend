@@ -18,7 +18,8 @@ import { startTestService } from './test-container.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 
-const financeReadMode = process.argv.includes('--finance');
+const receiptsOnly = process.argv.includes('--finance-receipts');
+const financeReadMode = receiptsOnly || process.argv.includes('--finance');
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 let financeFixture;
@@ -271,6 +272,7 @@ async function main() {
     '--wait-timeout',
     '180',
     'postgres',
+    ...(financeReadMode ? ['minio'] : []),
     ...(invitationMode ? ['rabbitmq', 'mailpit'] : membershipMode ? ['rabbitmq'] : []),
   ]);
   for (const service of [
@@ -346,6 +348,9 @@ async function main() {
   if (financeReadMode)
     await start('finance-service', {
       FINANCE_PORT: String(await port()),
+      MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
+      MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
+      MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
       FINANCE_GRPC_PORT: String(financePort),
       DATABASE_URL: databaseUrl(infra, 'finance'),
       TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
@@ -388,6 +393,13 @@ async function main() {
       },
     });
     const writes = await runFinanceWriteTests({
+      receiptsOnly,
+      gatewayUrl: `http://127.0.0.1:${ports.gateway}`,
+      storageConfig: {
+        MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
+        MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
+        MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
+      },
       request,
       query,
       transaction,

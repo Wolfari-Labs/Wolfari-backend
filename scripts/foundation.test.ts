@@ -9,6 +9,22 @@ import { root, apps, initEnvironment, appEnvironment } from './config.mjs';
 import { migrationFiles } from './migrations.mjs';
 
 describe('development configuration', () => {
+  it('forwards private storage configuration only to Identity and Finance', () => {
+    const values = {
+      MINIO_ENDPOINT: '127.0.0.1:9000',
+      MINIO_ACCESS_KEY: 'test',
+      MINIO_SECRET_KEY: 'test-secret',
+    };
+    for (const app of apps) {
+      const result = appEnvironment(app, values, {});
+      for (const key of Object.keys(values))
+        expect(result[key]).toBe(
+          ['identity-service', 'finance-service'].includes(app.name)
+            ? values[key as keyof typeof values]
+            : undefined,
+        );
+    }
+  });
   it('isolates Gateway-Finance credentials and forwards only the required transport settings', () => {
     const values = {
       GATEWAY_FINANCE_SECRET: 'f'.repeat(64),
@@ -121,7 +137,7 @@ describe('development configuration', () => {
     for (const service of ['identity', 'trip', 'travel', 'finance', 'automation']) {
       expect(
         (await migrationFiles(service)).map((file: { version: string }) => file.version),
-      ).toEqual(service === 'trip' ? ['V001', 'V002'] : ['V001']);
+      ).toEqual(['trip', 'finance'].includes(service) ? ['V001', 'V002'] : ['V001']);
     }
   });
   it('refuses modified SQL before connecting to PostgreSQL', async () => {

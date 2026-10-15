@@ -1,0 +1,334 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Finance receipts",
+    "version": "1.0.0",
+    "description": "API105/106 implementation extension, approved 2026-10-15. Manual report/expense business writers are separate milestones."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/funds/{fund_id}/receipts": {
+      "post": {
+        "operationId": "uploadFinanceReceipt",
+        "summary": "API105 - upload a private temporary receipt",
+        "description": "Current Trip member; active Trip and OPEN Fund. Exactly one multipart file, JPEG/PNG/PDF, 1..10485760 actual bytes. Unknown form/query fields are rejected. Upload does not attach evidence or change Fund balance/version. Cookie sessions require existing CSRF protection. There is no idempotent upload replay. Unbound files expire after 24 hours.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["file"],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "One JPEG, PNG or PDF file, at most 10MiB inclusive; content is validated."
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "image/jpeg, image/png, application/pdf"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Staged FileReference. It cannot be downloaded until bound by a business writer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FileReference"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid multipart, bytes, query or file size/type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cookie CSRF check failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing/inaccessible Fund, unbound file or unauthorized business binding.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Upload blocked by archived Trip or non-OPEN Fund.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency, integrity, deadline or capacity failure; upload retries can create another temporary file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/receipts/download": {
+      "get": {
+        "operationId": "downloadFinanceReceipt",
+        "summary": "API106 - download bound receipt bytes",
+        "description": "Current membership checked every request. Contribution evidence: Self or current Holder; Owner has no override. Expense receipt: current members and non-deleted expense. Retained historical bindings remain readable after replacement. Unbound files are unavailable even to uploader. Archived/closed history is allowed. No body or additional query fields.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "object_key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^funds/[0-9a-f-]{36}/receipts/[0-9a-f-]{36}-[0-9a-f]{64}\\.(jpg|png|pdf)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified original bytes, returned as an attachment.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "attachment; filename=\"receipt.pdf\""
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["nosniff"]
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid multipart, bytes, query or file size/type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing/inaccessible Fund, unbound file or unauthorized business binding.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency, integrity, deadline or capacity failure; upload retries can create another temporary file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "FileReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object_key", "mime_type", "size_bytes"],
+        "properties": {
+          "object_key": {
+            "type": "string",
+            "pattern": "^funds/[0-9a-f-]{36}/receipts/[0-9a-f-]{36}-[0-9a-f]{64}\\.(jpg|png|pdf)$"
+          },
+          "mime_type": {
+            "type": "string",
+            "enum": ["image/jpeg", "image/png", "application/pdf"]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10485760
+          }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["correlation_id"],
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error", "meta"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "details", "retryable"],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "nullable": true,
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "correlation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

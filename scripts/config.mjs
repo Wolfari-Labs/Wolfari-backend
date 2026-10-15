@@ -135,6 +135,9 @@ export function appEnvironment(app, values, inherited = process.env) {
     'SMTP_PORT',
   ];
   const financeKeys = [
+    'MINIO_ENDPOINT',
+    'MINIO_ACCESS_KEY',
+    'MINIO_SECRET_KEY',
     'FINANCE_GRPC_PORT',
     'GATEWAY_FINANCE_SECRET',
     'TRIP_GRPC_TARGET',
@@ -289,6 +292,9 @@ export async function initEnvironment(base = root) {
                     TRIP_GRPC_TARGET: '127.0.0.1:3202',
                     FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
                     FINANCE_GRPC_PORT: '3204',
+                    MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
+                    MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
+                    MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,
                     GATEWAY_FINANCE_SECRET: shared.GATEWAY_FINANCE_SECRET,
                     TRIP_FINANCE_SECRET: shared.TRIP_FINANCE_SECRET,
                   }

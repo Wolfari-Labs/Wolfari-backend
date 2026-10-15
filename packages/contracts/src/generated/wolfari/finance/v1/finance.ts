@@ -479,9 +479,45 @@ export interface CancelContributionResponse {
   operation?: Operation | undefined;
 }
 
+export interface UploadFinanceReceiptRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  mime_type?: string | undefined;
+  content?: Uint8Array | undefined;
+}
+
+export interface UploadFinanceReceiptResponse {
+  object_key?: string | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+}
+
+export interface DownloadFinanceReceiptRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  object_key?: string | undefined;
+}
+
+export interface DownloadFinanceReceiptResponse {
+  object_key?: string | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+  content?: Uint8Array | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  uploadFinanceReceipt(
+    request: UploadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ): Observable<UploadFinanceReceiptResponse>;
+
+  downloadFinanceReceipt(
+    request: DownloadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ): Observable<DownloadFinanceReceiptResponse>;
+
   updateContributionRequest(
     request: UpdateContributionRequestRequest,
     metadata?: Metadata,
@@ -555,6 +591,19 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  uploadFinanceReceipt(
+    request: UploadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ): Promise<UploadFinanceReceiptResponse> | Observable<UploadFinanceReceiptResponse> | UploadFinanceReceiptResponse;
+
+  downloadFinanceReceipt(
+    request: DownloadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<DownloadFinanceReceiptResponse>
+    | Observable<DownloadFinanceReceiptResponse>
+    | DownloadFinanceReceiptResponse;
+
   updateContributionRequest(
     request: UpdateContributionRequestRequest,
     metadata?: Metadata,
@@ -681,6 +730,8 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "uploadFinanceReceipt",
+      "downloadFinanceReceipt",
       "updateContributionRequest",
       "updateContributionAmount",
       "waiveContribution",

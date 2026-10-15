@@ -446,5 +446,21 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.1 API084; contribution management 2026-10-15"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "UploadFinanceReceipt",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 30000,
+    "source": "DDL/API/Event v1.1 API105/106; receipts scope 2026-10-15"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "DownloadFinanceReceipt",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 30000,
+    "source": "DDL/API/Event v1.1 API105/106; receipts scope 2026-10-15"
   }
 ]

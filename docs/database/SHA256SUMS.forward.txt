@@ -1,1 +1,2 @@
 d8375e1ee9385ced86fd3f4b659a96fddff88b72f63e315b5ed5a53e5500ed36  apps/trip-workspace-service/migrations/V002.sql
+ebd20b704e544544f51e7ff1f820eb723fcabc089914af5d76ee4dac2024326b  apps/finance-service/migrations/V002.sql

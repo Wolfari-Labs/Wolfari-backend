@@ -40,7 +40,13 @@ export class FundQueryService {
     @Inject(FinanceTripAccess) private readonly trip: Pick<FinanceTripAccess, 'getAccessContext'>,
   ) {}
 
-  private async access(tripId: string, actor: string, correlation: string, deadline: number) {
+  private async access(
+    tripId: string,
+    actor: string,
+    correlation: string,
+    deadline: number,
+    upload = false,
+  ) {
     let response: TripV1.GetAccessContextResponse;
     try {
       if (Date.now() >= deadline) throw new Error('Expired');
@@ -88,6 +94,8 @@ export class FundQueryService {
       throw new FinanceReadError('SERVICE_UNAVAILABLE');
     if (ctx.allowed !== true || ctx.can_read_trip !== true || membership.left_at)
       throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    if (upload && ctx.trip_state !== CommonV1.TripState.TRIP_STATE_ACTIVE)
+      throw new FinanceReadError('STATE_CONFLICT');
     return membership.role;
   }
 
@@ -109,6 +117,17 @@ export class FundQueryService {
     const fund = await this.funds.findScopeById(readUuid(fundId));
     if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
     await this.access(fund.tripId, readUuid(actor), correlation, deadline);
+  }
+
+  async authorizeReceiptUpload(
+    fundId: string,
+    actor: string,
+    correlation: string,
+    deadline: number,
+  ) {
+    const fund = await this.funds.findScopeById(readUuid(fundId));
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    await this.access(fund.tripId, readUuid(actor), correlation, deadline, true);
   }
 
   async listPaymentDestinations(

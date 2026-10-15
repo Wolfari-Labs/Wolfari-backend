@@ -1,3 +1,4 @@
+import type { ReceiptService } from './receipts/receipt.service';
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { Metadata, status } from '@grpc/grpc-js';
@@ -17,6 +18,10 @@ function setup() {
     getFund: vi.fn().mockResolvedValue({ fund: {} }),
     listPaymentDestinations: vi.fn().mockResolvedValue({ destinations: [] }),
   };
+  const files = {
+    upload: vi.fn().mockResolvedValue({ object_key: 'test' }),
+    download: vi.fn().mockResolvedValue({ content: Buffer.from('test') }),
+  };
   const metadata = new Metadata();
   const commands = {
     configure: vi.fn().mockResolvedValue({ fund: {} }),
@@ -29,6 +34,7 @@ function setup() {
   metadata.set('x-correlation-id', id);
   return {
     queries,
+    files,
     commands,
     receipts,
     metadata,
@@ -45,10 +51,27 @@ function setup() {
         listRequests: vi.fn().mockResolvedValue({ items: [] }),
         listContributions: vi.fn().mockResolvedValue({ items: [] }),
       } as unknown as ContributionQueryService,
+      files as unknown as ReceiptService,
     ),
   };
 }
 describe('Finance gRPC boundary', () => {
+  it.each(['uploadFinanceReceipt', 'downloadFinanceReceipt'] as const)(
+    '%s authenticates file RPC and uses a bounded file deadline',
+    async (method) => {
+      const s = setup();
+      await s.controller[method]({}, s.metadata, { getDeadline: () => Date.now() + 30000 });
+      const mock = method === 'uploadFinanceReceipt' ? s.files.upload : s.files.download;
+      expect(mock.mock.calls[0]![2]).toBeGreaterThan(Date.now() + 20000);
+      expect(mock.mock.calls[0]![2]).toBeLessThanOrEqual(Date.now() + 29000);
+      s.metadata.set('x-caller-service', 'Trip');
+      s.metadata.set('x-service-secret', 'b'.repeat(64));
+      await expect(s.controller[method]({}, s.metadata)).rejects.toMatchObject({
+        error: { code: status.PERMISSION_DENIED },
+      });
+      expect(mock).toHaveBeenCalledTimes(1);
+    },
+  );
   it.each([
     'updateContributionRequest',
     'updateContributionAmount',
