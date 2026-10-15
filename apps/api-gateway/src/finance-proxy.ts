@@ -12,6 +12,7 @@ import {
   projectContributionPage,
 } from './contribution-request-http';
 import { projectOperation } from './membership-proxy';
+import { projectLedgerPage } from './ledger-projection';
 import {
   authenticate,
   ensureQuery,
@@ -150,6 +151,7 @@ export class FinanceProxy {
     const contributions = /^\/api\/v1\/funds\/([^/]+)\/contribution-requests$/.exec(url.pathname);
     const allocations = /^\/api\/v1\/funds\/([^/]+)\/contributions$/.exec(url.pathname);
     const destinations = /^\/api\/v1\/funds\/([^/]+)\/destinations$/.exec(url.pathname);
+    const transactions = /^\/api\/v1\/funds\/([^/]+)\/transactions$/.exec(url.pathname);
     const budget = /^\/api\/v1\/funds\/([^/]+)\/budget$/.exec(url.pathname);
     const edit = /^\/api\/v1\/funds\/([^/]+)\/destinations\/([^/]+)$/.exec(url.pathname);
     const confirm = /^\/api\/v1\/funds\/([^/]+)\/destinations\/([^/]+)\/confirm$/.exec(
@@ -160,7 +162,8 @@ export class FinanceProxy {
       (request.method === 'PATCH' && Boolean(budget || edit));
     if (
       !write &&
-      (request.method !== 'GET' || (!fund && !destinations && !contributions && !allocations))
+      (request.method !== 'GET' ||
+        (!fund && !destinations && !contributions && !allocations && !transactions))
     )
       return fail(response, 404, 'RESOURCE_NOT_FOUND');
     const auth = await authenticate(request, response, this.validateSession, write);
@@ -169,7 +172,11 @@ export class FinanceProxy {
       const listing = !write && Boolean(contributions || allocations);
       ensureQuery(
         url,
-        listing ? ['limit', 'cursor', ...(allocations ? ['status', 'member_user_id'] : [])] : [],
+        listing
+          ? ['limit', 'cursor', ...(allocations ? ['status', 'member_user_id'] : [])]
+          : transactions
+            ? ['limit', 'cursor']
+            : [],
       );
       const id = (fund ??
         destinations ??
@@ -177,7 +184,8 @@ export class FinanceProxy {
         budget ??
         edit ??
         contributions ??
-        allocations)![1]!;
+        allocations ??
+        transactions)![1]!;
       if (write) {
         if (!uuid.test(id) || ((confirm || edit) && !uuid.test((confirm ?? edit)![2]!)))
           throw new RequestError('Invalid ID');
@@ -385,6 +393,34 @@ export class FinanceProxy {
         );
         const data = projectContributionPage(result, normalized, Boolean(contributions), query);
         return json(response, 200, { data, meta: { correlation_id: auth.correlationId } });
+      }
+      if (transactions) {
+        const rawLimit = url.searchParams.get('limit') ?? '20';
+        const cursor = url.searchParams.get('cursor') ?? undefined;
+        if (
+          !rawLimit.length ||
+          /[^0-9]/u.test(rawLimit) ||
+          Number(rawLimit) < 1 ||
+          Number(rawLimit) > 100 ||
+          (cursor !== undefined &&
+            (!cursor.length || cursor.length > 512 || /[^A-Za-z0-9_-]/u.test(cursor)))
+        )
+          throw new RequestError('Invalid ledger pagination');
+        const limit = Number(rawLimit);
+        const result = await this.client.call(
+          'ListFundTransactions',
+          {
+            fund_id: normalized,
+            actor_user_id: auth.actorUserId,
+            limit,
+            cursor,
+          },
+          auth.correlationId,
+        );
+        return json(response, 200, {
+          data: projectLedgerPage(result, normalized, limit),
+          meta: { correlation_id: auth.correlationId },
+        });
       }
       const result = await this.client.call(
         fund ? 'GetFund' : 'ListPaymentDestinations',

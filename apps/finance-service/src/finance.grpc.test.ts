@@ -17,6 +17,7 @@ function setup() {
   const queries = {
     getFund: vi.fn().mockResolvedValue({ fund: {} }),
     listPaymentDestinations: vi.fn().mockResolvedValue({ destinations: [] }),
+    listFundTransactions: vi.fn().mockResolvedValue({ items: [] }),
   };
   const files = {
     upload: vi.fn().mockResolvedValue({ object_key: 'test' }),
@@ -108,6 +109,23 @@ describe('Finance gRPC boundary', () => {
     await expect(s.controller.createContributionRequest({}, s.metadata)).rejects.toMatchObject({
       error: { code: status.PERMISSION_DENIED },
     });
+  });
+  it('restricts ledger RPC to Gateway and maps storage failures to unavailable', async () => {
+    const s = setup();
+    expect(await s.controller.listFundTransactions({}, s.metadata)).toEqual({ items: [] });
+    s.queries.listFundTransactions.mockRejectedValue(new TypeError('PRIVATE DATABASE ERROR'));
+    await expect(s.controller.listFundTransactions({}, s.metadata)).rejects.toMatchObject({
+      error: {
+        code: status.UNAVAILABLE,
+        message: JSON.stringify({ code: 'SERVICE_UNAVAILABLE', details: null }),
+      },
+    });
+    s.metadata.set('x-caller-service', 'Trip');
+    s.metadata.set('x-service-secret', 'b'.repeat(64));
+    await expect(s.controller.listFundTransactions({}, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+    expect(s.queries.listFundTransactions).toHaveBeenCalledTimes(2);
   });
   it.each(['updateFundBudget', 'createPaymentDestination', 'updatePaymentDestination'] as const)(
     '%s accepts only the Gateway caller',

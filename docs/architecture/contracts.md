@@ -24,13 +24,13 @@ Trip guard/recovery và Finance receipt/cancel hỗ trợ đồng thời cả n�
 `BudgetChange` dùng oneof value/clear, `DestinationPatch` giữ optional presence;
 response riêng dùng oneof resource/Operation. Không đổi field export hoặc event catalog.
 
-API078 thêm `CreateContributionRequest`, đưa catalog trên nhánh này lên 50 RPC.
+Trên nhánh đóng góp trước khi tích hợp API077, API078 thêm
+`CreateContributionRequest`, đưa catalog lên 50 RPC.
 Chỉ ApiGateway được gọi; input allocations giữ Money dạng chuỗi, due_at/note có
 optional presence. Response riêng dùng oneof ContributionRequestView/Operation,
 không có snapshot tài khoản. Trip guard/worker và Finance receipt/cancel nhận thêm
 CREATE_CONTRIBUTION_REQUEST. Outbox dùng event ContributionRequested hiện có,
 không đổi event schema hoặc migration. Xem [API078](finance-contribution-requests.md).
-API077 thuộc nhánh ledger riêng, chưa nằm trong số RPC của nhánh này.
 
 API079/080 thêm `ListContributionRequests`/`ListContributions` chỉ ApiGateway,
 đưa catalog lên52. ContributionRequestView thêm repeated contributions và optional
@@ -47,25 +47,32 @@ Trip guard/worker và Finance receipt/cancel nhận bốn command tương ứng.
 ContributionUpdated giữ schema hiện có; metadata fanout có event_id riêng và cùng
 aggregate_version. Không đổi export enum, event REVERSED hoặc migration tại mốc này.
 
+API077 bổ sung `ListFundTransactions` cho ApiGateway từ nhánh sổ quỹ. Sau khi
+kết hợp API070–084 và hai RPC chứng từ API105/106, catalog có 59 RPC. Request có
+actor_user_id/fund_id và optional limit/cursor; response items/next_cursor.
+`LedgerEntryView` có fund_id và giữ sequence int64 dạng chuỗi qua loader/JSON,
+nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi trang;
+`LedgerEntry` của export giữ nguyên. Xem phần API077 trong [Finance](finance-fund-setup.md).
+
 ## Quyết định biểu diễn
 
-| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                                          |
-| ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| 58 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–076, API078–084, API105/106 Finance |
-| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                                      |
-| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                                     |
-| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                                      |
-| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                                       |
-| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định                   |
-| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.1                                                              |
-| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                                                 |
-| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                                                |
-| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                                                |
-| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                                               |
+| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                              |
+| ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| 59 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–084, API105/106 Finance |
+| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                          |
+| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                         |
+| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                          |
+| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                           |
+| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định       |
+| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.1                                                  |
+| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                                     |
+| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                                    |
+| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                                    |
+| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                                   |
 
 ## gRPC
 
-Catalog hiện có Identity 4, Trip 29, Finance 21 và Travel 4 RPC (tổng58). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Catalog hiện có Identity 4, Trip 29, Finance 22 và Travel 4 RPC (tổng 59). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 

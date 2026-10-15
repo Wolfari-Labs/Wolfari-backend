@@ -107,7 +107,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 58 RPCs declared by the catalog', () => {
+  it('loads exactly the 59 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -141,7 +141,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(58);
+    expect(RPC_CATALOG).toHaveLength(59);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)

@@ -13,6 +13,7 @@ service FinanceService {
   rpc ListContributionRequests(ListContributionRequestsRequest) returns (ListContributionRequestsResponse);
   rpc ListContributions(ListContributionsRequest) returns (ListContributionsResponse);
   rpc CreateContributionRequest(CreateContributionRequestRequest) returns (CreateContributionRequestResponse);
+  rpc ListFundTransactions(ListFundTransactionsRequest) returns (ListFundTransactionsResponse);
   rpc UpdateFundBudget(UpdateFundBudgetRequest) returns (UpdateFundBudgetResponse);
   rpc CreatePaymentDestination(CreatePaymentDestinationRequest) returns (CreatePaymentDestinationResponse);
   rpc UpdatePaymentDestination(UpdatePaymentDestinationRequest) returns (UpdatePaymentDestinationResponse);
@@ -100,6 +101,34 @@ message CreateContributionRequestResponse {
     ContributionRequestView contribution_request = 1;
     wolfari.common.v1.Operation operation = 2;
   }
+}
+
+message ListFundTransactionsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListFundTransactionsResponse {
+  repeated LedgerEntryView items = 1;
+  optional string next_cursor = 2;
+}
+// API077 projection; the export LedgerEntry message keeps its existing semantics.
+message LedgerEntryView {
+  string id = 1;
+  string fund_id = 2;
+  int64 sequence = 3;
+  LedgerDirection direction = 4;
+  string transaction_type = 5;
+  string amount = 6;
+  string balance_after = 7;
+  optional string contribution_id = 8;
+  optional string expense_id = 9;
+  optional string refund_id = 10;
+  optional string reversal_of_id = 11;
+  optional string actor_user_id = 12;
+  optional string reason = 13;
+  google.protobuf.Timestamp created_at = 14;
 }
 
 // Configuration only; confirmation is always a separate Holder command.

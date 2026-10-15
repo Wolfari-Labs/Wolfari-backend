@@ -6,6 +6,12 @@ import { FundRepository } from '../repositories/fund.repository';
 import { PaymentDestinationQueryRepository } from '../repositories/payment-destination-query.repository';
 import { destinationResponse, fundResponse } from '../projections/fund-response';
 import { FinanceReadError, loopbackTarget, readUuid } from '../finance.errors';
+import {
+  LedgerRepository,
+  LedgerCursorInputError,
+  LedgerLimitInputError,
+} from '../repositories/ledger.repository';
+import { ledgerResponse } from '../projections/ledger-response';
 
 @Injectable()
 export class FinanceTripAccess implements OnApplicationShutdown {
@@ -38,6 +44,7 @@ export class FundQueryService {
     @Inject(PaymentDestinationQueryRepository)
     private readonly destinations: Pick<PaymentDestinationQueryRepository, 'listByFund'>,
     @Inject(FinanceTripAccess) private readonly trip: Pick<FinanceTripAccess, 'getAccessContext'>,
+    @Inject(LedgerRepository) private readonly ledger: Pick<LedgerRepository, 'listByFundId'>,
   ) {}
 
   private async access(
@@ -99,6 +106,28 @@ export class FundQueryService {
     return membership.role;
   }
 
+  async listFundTransactions(
+    input: FinanceV1.ListFundTransactionsRequest,
+    correlation: string,
+    deadline: number,
+  ): Promise<FinanceV1.ListFundTransactionsResponse> {
+    const id = readUuid(input.fund_id),
+      actor = readUuid(input.actor_user_id);
+    const fund = await this.funds.findScopeById(id);
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    await this.access(fund.tripId, actor, correlation, deadline);
+    try {
+      const page = await this.ledger.listByFundId(id, { limit: input.limit, cursor: input.cursor });
+      return {
+        items: page.items.map((row) => ledgerResponse(row, id)),
+        next_cursor: page.nextCursor ?? undefined,
+      };
+    } catch (error) {
+      if (error instanceof LedgerCursorInputError || error instanceof LedgerLimitInputError)
+        throw new FinanceReadError('VALIDATION_FAILED');
+      throw error;
+    }
+  }
   async getFund(
     input: { trip_id?: unknown; actor_user_id?: unknown },
     correlation: string,

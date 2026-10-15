@@ -1,5 +1,6 @@
 import { runFinanceReadTests } from './finance-read-integration.mjs';
 import { runFinanceWriteTests } from './finance-write-integration.mjs';
+import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
 import { runMembershipTests } from './trip-members-integration.mjs';
@@ -427,6 +428,27 @@ async function main() {
       },
     });
     result.forbidden.push(...writes.forbidden);
+    const ledger = await runFinanceLedgerTests({
+      request,
+      query,
+      transaction,
+      bearer,
+      tripBody,
+      pass,
+      waitFor,
+      actors: result.actors,
+      financeTarget: `127.0.0.1:${financePort}`,
+      financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+      whileTripStopped: async (work) => {
+        await stop(tripProcess);
+        try {
+          return await work();
+        } finally {
+          tripProcess = await start('trip-workspace-service', tripValues);
+        }
+      },
+    });
+    result.forbidden.push(...ledger.forbidden);
     for (const child of children)
       for (const value of [
         ...result.forbidden,

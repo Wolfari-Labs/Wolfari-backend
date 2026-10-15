@@ -129,6 +129,36 @@ export interface CreateContributionRequestResponse {
   operation?: Operation | undefined;
 }
 
+export interface ListFundTransactionsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListFundTransactionsResponse {
+  items?: LedgerEntryView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+/** API077 projection; the export LedgerEntry message keeps its existing semantics. */
+export interface LedgerEntryView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  sequence?: string | undefined;
+  direction?: LedgerDirection | undefined;
+  transaction_type?: string | undefined;
+  amount?: string | undefined;
+  balance_after?: string | undefined;
+  contribution_id?: string | undefined;
+  expense_id?: string | undefined;
+  refund_id?: string | undefined;
+  reversal_of_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  reason?: string | undefined;
+  created_at?: Timestamp | undefined;
+}
+
 /** Configuration only; confirmation is always a separate Holder command. */
 export interface DestinationWrite {
   destination_type?: string | undefined;
@@ -544,6 +574,11 @@ export interface FinanceServiceClient {
     metadata?: Metadata,
   ): Observable<CreateContributionRequestResponse>;
 
+  listFundTransactions(
+    request: ListFundTransactionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListFundTransactionsResponse>;
+
   updateFundBudget(request: UpdateFundBudgetRequest, metadata?: Metadata): Observable<UpdateFundBudgetResponse>;
 
   createPaymentDestination(
@@ -651,6 +686,11 @@ export interface FinanceServiceController {
     | Observable<CreateContributionRequestResponse>
     | CreateContributionRequestResponse;
 
+  listFundTransactions(
+    request: ListFundTransactionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListFundTransactionsResponse> | Observable<ListFundTransactionsResponse> | ListFundTransactionsResponse;
+
   updateFundBudget(
     request: UpdateFundBudgetRequest,
     metadata?: Metadata,
@@ -739,6 +779,7 @@ export function FinanceServiceControllerMethods() {
       "listContributionRequests",
       "listContributions",
       "createContributionRequest",
+      "listFundTransactions",
       "updateFundBudget",
       "createPaymentDestination",
       "updatePaymentDestination",

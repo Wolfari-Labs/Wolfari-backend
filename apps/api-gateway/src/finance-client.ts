@@ -22,6 +22,7 @@ export class FinanceClient {
       | 'ListContributionRequests'
       | 'ListContributions'
       | 'ListPaymentDestinations'
+      | 'ListFundTransactions'
       | 'EnableFund'
       | 'ConfirmPaymentDestination'
       | 'UpdateFundBudget'

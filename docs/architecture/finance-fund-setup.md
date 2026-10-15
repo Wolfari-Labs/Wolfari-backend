@@ -5,7 +5,7 @@
 Đợt này bổ sung parser body và kiểm tra domain cho API070 (bật quỹ), API072
 (cập nhật ngân sách), API074–076 (tạo, xác nhận, sửa đích nhận tiền), thuộc FR-FN01
 của [baseline SRS 2.3 / ERD 1.2 / DDL API Event 1.1](design-baseline.md).
-API070/072/074/075/076 có writer và điều phối Trip–Finance; API071/073 có runtime đọc qua
+API070/072/074/075/076 có writer và điều phối Trip–Finance; API071/073/077 có runtime đọc qua
 Gateway–Finance–Trip–PostgreSQL.
 Chưa kết nối ngân hàng hoặc xử lý thanh toán provider.
 Parser hợp lệ không có nghĩa quỹ đã được tạo hoặc đích nhận tiền đã được xác nhận.
@@ -371,6 +371,49 @@ concurrency, rollback và fault injection ở ranh giới operation. Không gọ
 
 CI có job `finance-integration` chạy cùng lệnh; kết quả CI chỉ được biết sau
 khi người dùng push và workflow chạy. Không suy ra CI pass từ kiểm thử local.
+
+## Lịch sử sổ quỹ — API077
+
+`GET /api/v1/funds/{fund_id}/transactions?limit=20&cursor=...` gọi RPC
+`ListFundTransactions`. Bearer session bắt buộc; không cần Idempotency-Key.
+Owner, Holder và Member đang active đọc được cùng projection lịch sử. Finance
+kiểm Fund thuộc Trip nào rồi kiểm `TRIP_VIEW` hiện tại trước truy vấn mỗi trang.
+Trip archived hoặc Fund CLOSING/CLOSED vẫn đọc được; người đã rời và người ngoài
+không được dùng cursor cũ để lấy dữ liệu. Fund không tồn tại/không được truy cập
+trả404; quỹ có nhưng chưa có bút toán trả200 với items rỗng.
+
+Response có dạng:
+
+```json
+{
+  "data": { "items": [], "next_cursor": null },
+  "meta": { "correlation_id": "<UUID>" }
+}
+```
+
+Mỗi item gồm `id`, `fund_id`, `sequence`, `direction`, `transaction_type`, `amount`,
+`balance_after`, `contribution_id`, `expense_id`, `refund_id`, `reversal_of_id`,
+`actor_user_id`, `reason`, `created_at`. Sequence và tiền trả chuỗi decimal chính xác;
+source IDs/actor/reason không có trả null, thời gian trả ISO8601. Direction IN/OUT;
+type CONTRIBUTION/EXPENSE/REFUND/REVERSAL. Balance_after là số dư ngay sau bút toán đó,
+không tính lại từ trang hiện tại. Dòng REVERSAL giữ riêng và trỏ tới bản gốc.
+Không trả business_key, receipt, chứng từ, destination snapshot hoặc thông tin ngân hàng.
+
+Limit mặc định20, từ1 tới100. Chỉ nhận limit/cursor, từ chối query lạ hoặc lặp.
+Cursor opaque tối đa512 ký tự, dùng version/Fund/sequence cuối của repository
+hiện có; cursor không phải quyền truy cập. Trang sau lấy sequence nhỏ hơn dòng cuối
+trang trước, sắp DESC. Bút toán mới có sequence cao hơn không chen vào trang đang
+đọc tiếp; tải lại trang đầu để thấy mới. Không có total count hoặc snapshot export
+xuyên nhiều request. Frontend giữ cursor nguyên dạng và URL-encode khi gửi tiếp.
+
+Lỗi phân trang400; session401; không truy cập được404; lỗi Trip/SQL/dữ liệu nội bộ503.
+Không ánh xạ lỗi dữ liệu lưu trữ thành lỗi400 hoặc trả trang rỗng khi dependency lỗi.
+GET không đổi số dư/version, không ghi operation/receipt/audit/outbox/ledger.
+Bật quỹ, sửa ngân sách và xác nhận đích không tạo dòng lịch sử thu chi.
+
+Kiểm thử API tại `scripts/finance-ledger-integration.mjs`, nối vào `pnpm.cmd finance:test`
+sau các bài setup. Fixture thu/chi/hoàn/đảo chỉ seed trong DB test riêng; không phải
+implementation writer hoặc bằng chứng ngân hàng/provider đã hoạt động.
 
 ## Kiểm thử parser/domain
 
