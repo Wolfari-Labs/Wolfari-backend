@@ -8,6 +8,8 @@ import { FinanceTripAccess, FundQueryService } from './application/fund-query.se
 import { FinanceGrpcController } from './finance.grpc';
 import { FundCommandRepository } from './repositories/fund-command.repository';
 import { FundCommandService, FundTripClient } from './application/fund-command.service';
+import { ContributionRepository } from './repositories/contribution.repository';
+import { PaymentDestinationRepository } from './repositories/payment-destination.repository';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
@@ -21,6 +23,8 @@ import { FundCommandService, FundTripClient } from './application/fund-command.s
     FundCommandRepository,
     FundCommandService,
     FundTripClient,
+    ContributionRepository,
+    PaymentDestinationRepository,
   ],
 })
 export class AppModule {}
