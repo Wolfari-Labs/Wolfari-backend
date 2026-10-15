@@ -2,6 +2,14 @@
   {
     "package": "wolfari.finance.v1",
     "service": "FinanceService",
+    "method": "ListFundTransactions",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "API077 Fund ledger read"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
     "method": "UpdateFundBudget",
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,

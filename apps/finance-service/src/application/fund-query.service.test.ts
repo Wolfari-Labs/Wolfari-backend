@@ -6,6 +6,7 @@ import type { FundSummary } from '../repositories/fund.repository';
 import { PaymentDestinationQueryRepository } from '../repositories/payment-destination-query.repository';
 import { FundRepository } from '../repositories/fund.repository';
 import { destinationResponse } from '../projections/fund-response';
+import { LedgerCursorInputError, LedgerLimitInputError } from '../repositories/ledger.repository';
 
 const tripId = '10000000-0000-4000-8000-000000000001',
   fundId = '20000000-0000-4000-8000-000000000001';
@@ -53,18 +54,58 @@ function setup(role = CommonV1.MembershipRole.MEMBERSHIP_ROLE_MEMBER) {
   };
   const destinations = { listByFund: vi.fn().mockResolvedValue([row]) };
   const trip = { getAccessContext: vi.fn().mockResolvedValue({ context }) };
+  const ledger = { listByFundId: vi.fn().mockResolvedValue({ items: [], nextCursor: null }) };
   return {
     context,
     funds,
     destinations,
     trip,
-    service: new FundQueryService(funds, destinations, trip),
+    ledger,
+    service: new FundQueryService(funds, destinations, trip, ledger),
   };
 }
 const deadline = () => Date.now() + 5000;
 const input = { fund_id: fundId, actor_user_id: actor };
 
 describe('Finance API read authorization and projection', () => {
+  it('checks current access on every ledger page and distinguishes absent Fund from empty ledger', async () => {
+    const s = setup();
+    expect(await s.service.listFundTransactions(input, actor, deadline())).toEqual({
+      items: [],
+      next_cursor: undefined,
+    });
+    expect(s.trip.getAccessContext.mock.invocationCallOrder[0]).toBeLessThan(
+      s.ledger.listByFundId.mock.invocationCallOrder[0]!,
+    );
+    s.context.membership!.left_at = { seconds: '1', nanos: 0 };
+    await expect(s.service.listFundTransactions(input, actor, deadline())).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+    expect(s.ledger.listByFundId).toHaveBeenCalledTimes(1);
+    s.funds.findScopeById.mockResolvedValue(null);
+    await expect(s.service.listFundTransactions(input, actor, deadline())).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+    });
+    expect(s.ledger.listByFundId).toHaveBeenCalledTimes(1);
+  });
+  it.each([new LedgerCursorInputError(), new LedgerLimitInputError()])(
+    'maps only explicit pagination errors to client validation',
+    async (error) => {
+      const s = setup();
+      s.ledger.listByFundId.mockRejectedValue(error);
+      await expect(s.service.listFundTransactions(input, actor, deadline())).rejects.toMatchObject({
+        code: 'VALIDATION_FAILED',
+      });
+    },
+  );
+  it.each([new TypeError('stored value'), new RangeError('stored amount'), new Error('database')])(
+    'does not misclassify internal failure %s',
+    async (error) => {
+      const s = setup();
+      s.ledger.listByFundId.mockRejectedValue(error);
+      await expect(s.service.listFundTransactions(input, actor, deadline())).rejects.toBe(error);
+    },
+  );
   it('authorizes before reading Fund and returns exact money, nullable budget, no internal timestamps', async () => {
     const s = setup();
     const result = await s.service.getFund(

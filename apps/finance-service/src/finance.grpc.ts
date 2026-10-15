@@ -164,6 +164,16 @@ export class FinanceGrpcController {
       this.queries.getFund(request, correlation, deadline),
     );
   }
+  @GrpcMethod('FinanceService', 'ListFundTransactions')
+  listFundTransactions(
+    request: FinanceV1.ListFundTransactionsRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ListFundTransactions', metadata, call, (correlation, deadline) =>
+      this.queries.listFundTransactions(request, correlation, deadline),
+    );
+  }
   @GrpcMethod('FinanceService', 'ListPaymentDestinations')
   listPaymentDestinations(
     request: FinanceV1.ListPaymentDestinationsRequest,

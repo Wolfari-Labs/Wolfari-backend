@@ -43,6 +43,18 @@ export type LedgerPage = Readonly<{
   nextCursor: string | null;
 }>;
 
+// Only these errors describe client input; corrupt stored rows remain internal failures.
+export class LedgerCursorInputError extends TypeError {
+  constructor() {
+    super('Invalid ledger cursor for this Fund');
+  }
+}
+export class LedgerLimitInputError extends RangeError {
+  constructor() {
+    super('Ledger page limit must be an integer from 1 to 100');
+  }
+}
+
 function sequence(value: unknown): bigint {
   if (typeof value !== 'string' || !value || value[0] === '0' || /[^0-9]/u.test(value)) {
     throw new TypeError('Ledger sequence must be a positive decimal string');
@@ -66,7 +78,7 @@ function readCursor(value: unknown, fundId: string): string | null {
     }
     return sequence(parsed[2]).toString();
   } catch {
-    throw new TypeError('Invalid ledger cursor for this Fund');
+    throw new LedgerCursorInputError();
   }
 }
 
@@ -109,7 +121,7 @@ export class LedgerRepository {
   ): Promise<LedgerPage> {
     const limit = options.limit === undefined ? 20 : options.limit;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-      throw new RangeError('Ledger page limit must be an integer from 1 to 100');
+      throw new LedgerLimitInputError();
     }
     const before = readCursor(options.cursor, fundId);
     const { rows } = await this.db.query<LedgerRow>(

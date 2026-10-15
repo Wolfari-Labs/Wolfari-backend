@@ -24,11 +24,17 @@ Trip guard/recovery và Finance receipt/cancel hỗ trợ đồng thời cả n�
 `BudgetChange` dùng oneof value/clear, `DestinationPatch` giữ optional presence;
 response riêng dùng oneof resource/Operation. Không đổi field export hoặc event catalog.
 
+API077 thêm `ListFundTransactions` cho ApiGateway, catalog lên 50 RPC. Request có
+actor_user_id/fund_id và optional limit/cursor; response items/next_cursor.
+`LedgerEntryView` có fund_id và giữ sequence int64 dạng chuỗi qua loader/JSON,
+nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi trang;
+`LedgerEntry` của export giữ nguyên. Xem phần API077 trong [Finance](finance-fund-setup.md).
+
 ## Quyết định biểu diễn
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 49 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–076 Finance       |
+| 50 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–077 Finance       |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |

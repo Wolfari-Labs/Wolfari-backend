@@ -210,7 +210,7 @@ export async function runFinanceReadTests({
   }
   pass('Reads create no receipts, audit mutations, events or ledger entries');
   return {
-    actors: { owner, holder, outsider },
+    actors: { owner, holder, member, outsider },
     forbidden: [
       owner.access,
       holder.access,

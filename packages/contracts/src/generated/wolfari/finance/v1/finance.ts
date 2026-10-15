@@ -45,6 +45,36 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+export interface ListFundTransactionsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListFundTransactionsResponse {
+  items?: LedgerEntryView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+/** API077 projection; the export LedgerEntry message keeps its existing semantics. */
+export interface LedgerEntryView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  sequence?: string | undefined;
+  direction?: LedgerDirection | undefined;
+  transaction_type?: string | undefined;
+  amount?: string | undefined;
+  balance_after?: string | undefined;
+  contribution_id?: string | undefined;
+  expense_id?: string | undefined;
+  refund_id?: string | undefined;
+  reversal_of_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  reason?: string | undefined;
+  created_at?: Timestamp | undefined;
+}
+
 /** Configuration only; confirmation is always a separate Holder command. */
 export interface DestinationWrite {
   destination_type?: string | undefined;
@@ -339,6 +369,11 @@ export interface FinanceSnapshot {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  listFundTransactions(
+    request: ListFundTransactionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListFundTransactionsResponse>;
+
   updateFundBudget(request: UpdateFundBudgetRequest, metadata?: Metadata): Observable<UpdateFundBudgetResponse>;
 
   createPaymentDestination(
@@ -386,6 +421,11 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  listFundTransactions(
+    request: ListFundTransactionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListFundTransactionsResponse> | Observable<ListFundTransactionsResponse> | ListFundTransactionsResponse;
+
   updateFundBudget(
     request: UpdateFundBudgetRequest,
     metadata?: Metadata,
@@ -465,6 +505,7 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "listFundTransactions",
       "updateFundBudget",
       "createPaymentDestination",
       "updatePaymentDestination",

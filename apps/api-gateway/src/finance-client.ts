@@ -15,6 +15,7 @@ export class FinanceClient {
     methodName:
       | 'GetFund'
       | 'ListPaymentDestinations'
+      | 'ListFundTransactions'
       | 'EnableFund'
       | 'ConfirmPaymentDestination'
       | 'UpdateFundBudget'

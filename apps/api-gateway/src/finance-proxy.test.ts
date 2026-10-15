@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CorrelationMiddleware } from '@wolfari/common';
 import { FinanceProxy, projectDestination, projectFund } from './finance-proxy';
+import { projectLedgerPage } from './ledger-projection';
 
 const id = '10000000-0000-4000-8000-000000000001',
   actor = '20000000-0000-4000-8000-000000000001';
@@ -60,6 +61,80 @@ function setup() {
   return { client, session, proxy, invoke };
 }
 describe('Finance Gateway reads', () => {
+  it('routes ledger reads with trusted actor, default limit and nullable continuation', async () => {
+    const s = setup();
+    s.client.call.mockResolvedValue({ items: [] });
+    const result = await s.invoke(`/api/v1/funds/${id}/transactions`);
+    expect(result.code).toBe(200);
+    expect(result.body).toMatchObject({ data: { items: [], next_cursor: null } });
+    expect(s.client.call).toHaveBeenCalledWith(
+      'ListFundTransactions',
+      {
+        fund_id: id,
+        actor_user_id: actor,
+        limit: 20,
+        cursor: undefined,
+      },
+      expect.any(String),
+    );
+    expect(result.headers.get('Cache-Control')).toBe('no-store');
+  });
+  it.each([
+    'limit=0',
+    'limit=101',
+    'limit=1.5',
+    'limit=',
+    'limit=1%0A',
+    'limit=1&limit=2',
+    'cursor=',
+    'cursor=!',
+    `cursor=${'a'.repeat(513)}`,
+    'cursor=a&cursor=b',
+    'actor_user_id=x',
+    'sort=asc',
+  ])('rejects ledger query %s before transport', async (query) => {
+    const s = setup();
+    expect((await s.invoke(`/api/v1/funds/${id}/transactions?${query}`)).code).toBe(400);
+    expect(s.client.call).not.toHaveBeenCalled();
+  });
+  it('whitelists exact ledger values and rejects malformed downstream pages', () => {
+    const row = {
+      id,
+      fund_id: id,
+      sequence: '9007199254740993',
+      direction: 1,
+      transaction_type: 'REVERSAL',
+      amount: '9223372036854775807',
+      balance_after: '0',
+      reversal_of_id: actor,
+      reason: 'Correction',
+      created_at: { seconds: '0', nanos: 0 },
+      business_key: 'PRIVATE',
+      account_number: 'PRIVATE',
+    };
+    const result = projectLedgerPage({ items: [row] }, id, 20);
+    expect(result.items[0]).toMatchObject({
+      sequence: row.sequence,
+      amount: row.amount,
+      direction: 'IN',
+      contribution_id: null,
+      actor_user_id: null,
+      created_at: '1970-01-01T00:00:00.000Z',
+    });
+    expect(JSON.stringify(result)).not.toContain('PRIVATE');
+    for (const patch of [
+      { sequence: 9007199254740992 },
+      { fund_id: actor },
+      { amount: '0' },
+      { sequence: '1\n' },
+      { direction: 0 },
+      { transaction_type: 'OTHER' },
+      { created_at: null },
+    ])
+      expect(() => projectLedgerPage({ items: [{ ...row, ...patch }] }, id, 20)).toThrow();
+    expect(() => projectLedgerPage({ items: [row, row] }, id, 20)).toThrow();
+    expect(() => projectLedgerPage({ items: [row], next_cursor: 'abc' }, id, 20)).toThrow();
+  });
   it('routes Fund before Trip proxy and obtains actor exclusively from Identity', async () => {
     const s = setup();
     expect(s.proxy.matches({ url: `/api/v1/trips/${id}/fund` } as IncomingMessage)).toBe(true);
