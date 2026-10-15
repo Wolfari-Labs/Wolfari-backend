@@ -1,5 +1,29 @@
 [
   {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "UpdateFundBudget",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "API072 Fund setup"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CreatePaymentDestination",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "API074 Fund setup"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "UpdatePaymentDestination",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "API076 Fund setup"
+  },
+  {
     "package": "wolfari.trip.v1",
     "service": "TripService",
     "method": "ListMembers",
@@ -334,5 +358,37 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.0 API044"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetFund",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API071; Finance read API increment 2026-10-14"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ListPaymentDestinations",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API073; Finance read API increment 2026-10-14"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "EnableFund",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API070; Fund write increment 2026-10-14"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ConfirmPaymentDestination",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API075; Fund write increment 2026-10-14"
   }
 ]

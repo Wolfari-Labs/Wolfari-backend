@@ -6,11 +6,29 @@ Contract mã nguồn được đối chiếu với [DDL/API/Event Specification 
 
 Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, Trip core, Plan access và [Trip invitations](trip-invitations.md) đã có handler tương ứng; phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
 
+Đợt Finance đọc ngày 14/10 thêm `GetFund` và `ListPaymentDestinations` cho API071/073,
+đưa catalog từ 42 lên 44 RPC. Chỉ ApiGateway gọi hai RPC này; Finance kiểm quyền
+hiện tại qua Trip trước khi trả dữ liệu. `FundView` giữ nullable budget/closed_at,
+`PaymentDestinationView` chỉ có thông tin tài khoản với Owner/Holder. Message
+`Fund` cũ của export và năm RPC Finance cũ giữ nguyên field. Xem [Finance API đọc](finance-fund-setup.md).
+
+Đợt ghi tiếp theo thêm `EnableFund`/`ConfirmPaymentDestination`, đưa catalog lên
+46 RPC. Hai response riêng dùng oneof resource/Operation, actor chỉ từ Gateway.
+Trip Begin response thêm `owner_user_id` ở field mới; Begin/Complete có runtime
+cho hai command Fund setup. Finance GetOperationResult/Cancel có runtime cho cùng
+phạm vi; ExecuteTripOperation và các command khác vẫn chưa được mở bởi đợt này.
+
+Đợt cấu hình thêm `UpdateFundBudget`, `CreatePaymentDestination` và
+`UpdatePaymentDestination`, đưa catalog lên 49 RPC. Ba command đều cần Owner;
+Trip guard/recovery và Finance receipt/cancel hỗ trợ đồng thời cả năm command setup.
+`BudgetChange` dùng oneof value/clear, `DestinationPatch` giữ optional presence;
+response riêng dùng oneof resource/Operation. Không đổi field export hoặc event catalog.
+
 ## Quyết định biểu diễn
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 33 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6, Trip core, API031 và vertical slice invitations đã chốt          |
+| 49 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–076 Finance       |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |

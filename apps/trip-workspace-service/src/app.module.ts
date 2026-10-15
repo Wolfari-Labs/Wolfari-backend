@@ -2,6 +2,7 @@ import { PlanService } from './planning/plan.service';
 import { MembershipRepository } from './membership/membership.repository';
 import { LifecycleFinanceClient } from './operations/lifecycle-finance.client';
 import { LifecycleService } from './operations/lifecycle.service';
+import { FinanceOperationService } from './operations/finance-operation.service';
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
@@ -23,6 +24,7 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     MembershipRepository,
     LifecycleFinanceClient,
     LifecycleService,
+    FinanceOperationService,
     TripService,
     PlanService,
     PlanGrpcHandlers,

@@ -114,6 +114,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRIP_GRPC_PORT',
   ];
   const gatewayKeys = [
+    'FINANCE_GRPC_TARGET',
+    'GATEWAY_FINANCE_SECRET',
     'IDENTITY_HTTP_URL',
     'IDENTITY_GRPC_TARGET',
     'GATEWAY_IDENTITY_SECRET',
@@ -132,7 +134,13 @@ export function appEnvironment(app, values, inherited = process.env) {
     'SMTP_HOST',
     'SMTP_PORT',
   ];
-  const financeKeys = ['TRIP_GRPC_TARGET', 'FINANCE_TRIP_SECRET', 'TRIP_FINANCE_SECRET'];
+  const financeKeys = [
+    'FINANCE_GRPC_PORT',
+    'GATEWAY_FINANCE_SECRET',
+    'TRIP_GRPC_TARGET',
+    'FINANCE_TRIP_SECRET',
+    'TRIP_FINANCE_SECRET',
+  ];
   const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET'];
   const allowed = [
     'NODE_ENV',
@@ -184,6 +192,7 @@ export async function initEnvironment(base = root) {
     MAILPIT_UI_PORT: '8025',
     GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+    GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
     FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
     TRIP_FINANCE_SECRET: randomBytes(32).toString('hex'),
     TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -261,6 +270,8 @@ export async function initEnvironment(base = root) {
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
                 GATEWAY_CSRF_KEY: shared.GATEWAY_CSRF_KEY,
+                FINANCE_GRPC_TARGET: '127.0.0.1:3204',
+                GATEWAY_FINANCE_SECRET: shared.GATEWAY_FINANCE_SECRET,
                 WEB_ORIGIN: 'http://127.0.0.1:3000',
               }
             : app.name === 'automation-service'
@@ -277,6 +288,8 @@ export async function initEnvironment(base = root) {
                 ? {
                     TRIP_GRPC_TARGET: '127.0.0.1:3202',
                     FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
+                    FINANCE_GRPC_PORT: '3204',
+                    GATEWAY_FINANCE_SECRET: shared.GATEWAY_FINANCE_SECRET,
                     TRIP_FINANCE_SECRET: shared.TRIP_FINANCE_SECRET,
                   }
                 : app.name === 'travel-intelligence-service'

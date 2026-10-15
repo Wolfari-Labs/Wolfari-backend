@@ -183,7 +183,11 @@ export interface BeginFinanceOperationRequest {
 export interface BeginFinanceOperationResponse {
   context?: AuthorizationContext | undefined;
   active_user_ids?: string[] | undefined;
-  closure_lock_id?: string | undefined;
+  closure_lock_id?:
+    | string
+    | undefined;
+  /** Current Owner at guard acquisition, not supplied by the HTTP caller. */
+  owner_user_id?: string | undefined;
 }
 
 export interface CompleteOperationRequest {

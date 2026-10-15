@@ -8,6 +8,35 @@ function methods(path: string, packageName: string, serviceName: string): Servic
 }
 
 describe('gRPC contracts', () => {
+  it('preserves Finance read presence, exact money and false flags on the wire', () => {
+    const finance = methods(PROTO_PATHS.finance, GRPC_PACKAGES.finance, 'FinanceService');
+    const get = finance.GetFund as MethodDefinition<object, { fund: Record<string, unknown> }>;
+    const absent = get.responseDeserialize(
+      get.responseSerialize({ fund: { current_balance: '9007199254740993' } }),
+    );
+    expect(absent.fund.current_balance).toBe('9007199254740993');
+    expect(absent.fund).not.toHaveProperty('budget_amount');
+    expect(
+      get.responseDeserialize(get.responseSerialize({ fund: { budget_amount: '0' } })).fund
+        .budget_amount,
+    ).toBe('0');
+    const list = finance.ListPaymentDestinations as MethodDefinition<
+      object,
+      { destinations: Record<string, unknown>[] }
+    >;
+    const result = list.responseDeserialize(
+      list.responseSerialize({ destinations: [{ active: false, is_default: false, version: 1 }] }),
+    );
+    expect(result.destinations[0]).toEqual({ active: false, is_default: false, version: 1 });
+    expect(result.destinations[0]).not.toHaveProperty('account_number');
+    for (const method of ['GetFund', 'ListPaymentDestinations']) {
+      expect(
+        RPC_CATALOG.find(
+          (entry) => entry.package === GRPC_PACKAGES.finance && entry.method === method,
+        )?.callers,
+      ).toEqual(['ApiGateway']);
+    }
+  });
   it('round-trips additive lifecycle targets and initiator without altering legacy request fields', () => {
     const finance = methods(PROTO_PATHS.finance, GRPC_PACKAGES.finance, 'FinanceService');
     for (const name of ['ExecuteTripOperation', 'CancelOperationIfNotCommitted']) {
@@ -78,7 +107,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 42 RPCs declared by the catalog', () => {
+  it('loads exactly the 49 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -112,7 +141,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(42);
+    expect(RPC_CATALOG).toHaveLength(49);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)

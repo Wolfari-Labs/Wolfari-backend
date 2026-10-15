@@ -10,8 +10,12 @@ repository's loopback development restriction; this is not production TLS work.
 
 Do not enable against real users before Finance Execute/Get/Cancel and the shared
 BeginFinanceOperation/CompleteOperation protocol exist and all relevant Finance
-writers obey the same guard. This branch intentionally leaves those generic Trip
-RPCs unimplemented. Missing dependency is not a reason to bypass Finance.
+writers obey the same guard. The Fund setup increment now implements Trip
+Begin/Complete and Finance Get/Cancel for ENABLE_FUND, CONFIRM_PAYMENT_DESTINATION,
+UPDATE_FUND_BUDGET, CREATE_PAYMENT_DESTINATION and UPDATE_PAYMENT_DESTINATION
+only; it does not implement Finance ExecuteTripOperation or membership obligations.
+Keep lifecycle disabled with real Finance until those dependencies exist. See
+[Fund setup runtime](finance-fund-setup.md). Missing dependency is not a reason to bypass Finance.
 
 ## API and protocol
 

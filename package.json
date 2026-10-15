@@ -26,6 +26,7 @@
     "trip:invitations:test": "corepack pnpm build && node scripts/trip-integration.mjs --invitations",
     "trip:members:test": "corepack pnpm build && node scripts/trip-integration.mjs --members",
     "trip:retry-lifecycle": "node scripts/trip-retry-lifecycle.mjs",
+    "trip:retry-finance": "node scripts/trip-retry-finance.mjs",
     "trip:replay-invitation": "node scripts/trip-replay-invitation.mjs",
     "identity:replay-email": "node scripts/identity-replay-email.mjs",
     "contracts:lint": "node scripts/contracts.mjs lint",
@@ -33,7 +34,8 @@
     "contracts:check": "node scripts/contracts.mjs check",
     "contracts:test": "vitest run packages/contracts scripts/contracts.test.ts",
     "contracts:breaking": "node scripts/contracts.mjs breaking",
-    "dev:test": "node scripts/launcher-test.mjs"
+    "dev:test": "node scripts/launcher-test.mjs",
+    "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance"
   },
   "devDependencies": {
     "@types/node": "24.13.5",

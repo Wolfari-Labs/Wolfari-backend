@@ -5,10 +5,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { IdentityProxy } from './identity-proxy';
 import { TripProxy } from './trip-proxy';
 import { InvitationProxy } from './invitation-proxy';
+import { FinanceProxy } from './finance-proxy';
 
 @Injectable()
 export class GatewayRouter implements OnApplicationShutdown {
   private readonly identity = new IdentityProxy();
+  private readonly finance = new FinanceProxy((token, correlation) =>
+    this.identity.validateSession(token, correlation),
+  );
   private readonly membership = new MembershipProxy((token, correlation) =>
     this.identity.validateSession(token, correlation),
   );
@@ -24,6 +28,7 @@ export class GatewayRouter implements OnApplicationShutdown {
   );
 
   handle(request: IncomingMessage & { originalUrl?: string }, response: ServerResponse) {
+    if (this.finance.matches(request)) return this.finance.handle(request, response);
     if (this.membership.matches(request)) return this.membership.handle(request, response);
     if (this.invitations.matches(request)) return this.invitations.handle(request, response);
     if (this.plan.matches(request)) return this.plan.handle(request, response);
@@ -32,6 +37,7 @@ export class GatewayRouter implements OnApplicationShutdown {
   }
 
   onApplicationShutdown() {
+    this.finance.close();
     this.membership.close();
     this.invitations.close();
     this.plan.close();

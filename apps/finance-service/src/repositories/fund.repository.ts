@@ -55,6 +55,15 @@ function mapFund(row: FundRow): FundRecord {
 export class FundRepository {
   constructor(@Inject(DatabaseProvider) private readonly db: Pick<DatabaseProvider, 'query'>) {}
 
+  /** Internal routing only; caller must authorize this Trip before exposing Fund data. */
+  async findScopeById(fundId: string): Promise<{ tripId: string; holderUserId: string } | null> {
+    const { rows } = await this.db.query<{ trip_id: string; holder_user_id: string }>(
+      'SELECT trip_id, holder_user_id FROM public.funds WHERE id = $1',
+      [fundId],
+    );
+    return rows[0] ? { tripId: rows[0].trip_id, holderUserId: rows[0].holder_user_id } : null;
+  }
+
   /**
    * Caller supplies a validated Trip UUID and enforces access before exposing data.
    * Reads one snapshot without a row lock; do not use it as a balance/write guard.

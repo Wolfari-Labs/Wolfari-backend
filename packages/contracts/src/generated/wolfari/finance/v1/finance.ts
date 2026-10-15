@@ -9,9 +9,16 @@ import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "../../../google/protobuf/timestamp";
-import { AuthorizationContext, ExportScope, NotFound, Receipt, Recipient } from "../../common/v1/types";
+import { AuthorizationContext, ExportScope, NotFound, Operation, Receipt, Recipient } from "../../common/v1/types";
 
 export const protobufPackage = "wolfari.finance.v1";
+
+export enum PaymentDestinationType {
+  PAYMENT_DESTINATION_TYPE_UNSPECIFIED = 0,
+  PAYMENT_DESTINATION_TYPE_VIETQR = 1,
+  PAYMENT_DESTINATION_TYPE_MOMO_SANDBOX = 2,
+  UNRECOGNIZED = -1,
+}
 
 export enum FundStatus {
   FUND_STATUS_UNSPECIFIED = 0,
@@ -36,6 +43,152 @@ export enum LedgerDirection {
   LEDGER_DIRECTION_IN = 1,
   LEDGER_DIRECTION_OUT = 2,
   UNRECOGNIZED = -1,
+}
+
+/** Configuration only; confirmation is always a separate Holder command. */
+export interface DestinationWrite {
+  destination_type?: string | undefined;
+  is_default?: boolean | undefined;
+  active?: boolean | undefined;
+  bank_code?: string | undefined;
+  account_number?: string | undefined;
+  account_name?: string | undefined;
+  momo_phone?: string | undefined;
+}
+
+export interface BudgetChange {
+  value?: string | undefined;
+  clear?: boolean | undefined;
+}
+
+export interface DestinationPatch {
+  destination_type?: string | undefined;
+  is_default?: boolean | undefined;
+  active?: boolean | undefined;
+  bank_code?: string | undefined;
+  account_number?: string | undefined;
+  account_name?: string | undefined;
+  momo_phone?: string | undefined;
+}
+
+export interface UpdateFundBudgetRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  budget?: BudgetChange | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreatePaymentDestinationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  destination?: DestinationWrite | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdatePaymentDestinationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  destination_id?: string | undefined;
+  patch?: DestinationPatch | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateFundBudgetResponse {
+  fund?: FundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CreatePaymentDestinationResponse {
+  destination?: PaymentDestinationView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdatePaymentDestinationResponse {
+  destination?: PaymentDestinationView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface EnableFundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  holder_user_id?: string | undefined;
+  currency?: string | undefined;
+  budget_amount?: string | undefined;
+  destination?: DestinationWrite | undefined;
+}
+
+export interface ConfirmPaymentDestinationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  destination_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface EnableFundResponse {
+  fund?: FundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmPaymentDestinationResponse {
+  destination?: PaymentDestinationView | undefined;
+  operation?: Operation | undefined;
+}
+
+/** API071/073 read projections. Existing export Fund wire semantics stay unchanged. */
+export interface GetFundRequest {
+  trip_id?: string | undefined;
+  actor_user_id?: string | undefined;
+}
+
+export interface GetFundResponse {
+  fund?: FundView | undefined;
+}
+
+export interface FundView {
+  id?: string | undefined;
+  trip_id?: string | undefined;
+  holder_user_id?: string | undefined;
+  currency?: string | undefined;
+  budget_amount?: string | undefined;
+  current_balance?: string | undefined;
+  reserved_refund?: string | undefined;
+  available_balance?: string | undefined;
+  status?: FundStatus | undefined;
+  finance_version?: number | undefined;
+  closed_at?: Timestamp | undefined;
+}
+
+export interface ListPaymentDestinationsRequest {
+  fund_id?: string | undefined;
+  actor_user_id?: string | undefined;
+}
+
+export interface ListPaymentDestinationsResponse {
+  destinations?: PaymentDestinationView[] | undefined;
+}
+
+export interface PaymentDestinationView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  destination_type?: PaymentDestinationType | undefined;
+  is_default?: boolean | undefined;
+  active?: boolean | undefined;
+  version?: number | undefined;
+  confirmed_by_holder_at?:
+    | Timestamp
+    | undefined;
+  /** Omitted for ordinary members; never filled from client-supplied roles. */
+  bank_code?: string | undefined;
+  account_number?: string | undefined;
+  account_name?: string | undefined;
+  momo_phone?: string | undefined;
 }
 
 export interface ExecuteTripOperationRequest {
@@ -186,6 +339,32 @@ export interface FinanceSnapshot {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  updateFundBudget(request: UpdateFundBudgetRequest, metadata?: Metadata): Observable<UpdateFundBudgetResponse>;
+
+  createPaymentDestination(
+    request: CreatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ): Observable<CreatePaymentDestinationResponse>;
+
+  updatePaymentDestination(
+    request: UpdatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ): Observable<UpdatePaymentDestinationResponse>;
+
+  enableFund(request: EnableFundRequest, metadata?: Metadata): Observable<EnableFundResponse>;
+
+  confirmPaymentDestination(
+    request: ConfirmPaymentDestinationRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmPaymentDestinationResponse>;
+
+  getFund(request: GetFundRequest, metadata?: Metadata): Observable<GetFundResponse>;
+
+  listPaymentDestinations(
+    request: ListPaymentDestinationsRequest,
+    metadata?: Metadata,
+  ): Observable<ListPaymentDestinationsResponse>;
+
   executeTripOperation(
     request: ExecuteTripOperationRequest,
     metadata?: Metadata,
@@ -207,6 +386,53 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  updateFundBudget(
+    request: UpdateFundBudgetRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateFundBudgetResponse> | Observable<UpdateFundBudgetResponse> | UpdateFundBudgetResponse;
+
+  createPaymentDestination(
+    request: CreatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<CreatePaymentDestinationResponse>
+    | Observable<CreatePaymentDestinationResponse>
+    | CreatePaymentDestinationResponse;
+
+  updatePaymentDestination(
+    request: UpdatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<UpdatePaymentDestinationResponse>
+    | Observable<UpdatePaymentDestinationResponse>
+    | UpdatePaymentDestinationResponse;
+
+  enableFund(
+    request: EnableFundRequest,
+    metadata?: Metadata,
+  ): Promise<EnableFundResponse> | Observable<EnableFundResponse> | EnableFundResponse;
+
+  confirmPaymentDestination(
+    request: ConfirmPaymentDestinationRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ConfirmPaymentDestinationResponse>
+    | Observable<ConfirmPaymentDestinationResponse>
+    | ConfirmPaymentDestinationResponse;
+
+  getFund(
+    request: GetFundRequest,
+    metadata?: Metadata,
+  ): Promise<GetFundResponse> | Observable<GetFundResponse> | GetFundResponse;
+
+  listPaymentDestinations(
+    request: ListPaymentDestinationsRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ListPaymentDestinationsResponse>
+    | Observable<ListPaymentDestinationsResponse>
+    | ListPaymentDestinationsResponse;
+
   executeTripOperation(
     request: ExecuteTripOperationRequest,
     metadata?: Metadata,
@@ -239,6 +465,13 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "updateFundBudget",
+      "createPaymentDestination",
+      "updatePaymentDestination",
+      "enableFund",
+      "confirmPaymentDestination",
+      "getFund",
+      "listPaymentDestinations",
       "executeTripOperation",
       "getOperationResult",
       "cancelOperationIfNotCommitted",

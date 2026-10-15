@@ -162,6 +162,8 @@ message BeginFinanceOperationResponse {
   wolfari.common.v1.AuthorizationContext context = 1;
   repeated string active_user_ids = 2;
   optional string closure_lock_id = 3;
+  // Current Owner at guard acquisition, not supplied by the HTTP caller.
+  optional string owner_user_id = 4;
 }
 message CompleteOperationRequest {
   string operation_id = 1;

@@ -4,11 +4,157 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc UpdateFundBudget(UpdateFundBudgetRequest) returns (UpdateFundBudgetResponse);
+  rpc CreatePaymentDestination(CreatePaymentDestinationRequest) returns (CreatePaymentDestinationResponse);
+  rpc UpdatePaymentDestination(UpdatePaymentDestinationRequest) returns (UpdatePaymentDestinationResponse);
+  rpc EnableFund(EnableFundRequest) returns (EnableFundResponse);
+  rpc ConfirmPaymentDestination(ConfirmPaymentDestinationRequest) returns (ConfirmPaymentDestinationResponse);
+  rpc GetFund(GetFundRequest) returns (GetFundResponse);
+  rpc ListPaymentDestinations(ListPaymentDestinationsRequest) returns (ListPaymentDestinationsResponse);
   rpc ExecuteTripOperation(ExecuteTripOperationRequest) returns (ExecuteTripOperationResponse);
   rpc GetOperationResult(GetOperationResultRequest) returns (GetOperationResultResponse);
   rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+}
+
+// Configuration only; confirmation is always a separate Holder command.
+message DestinationWrite {
+  string destination_type = 1;
+  optional bool is_default = 2;
+  optional bool active = 3;
+  optional string bank_code = 4;
+  optional string account_number = 5;
+  optional string account_name = 6;
+  optional string momo_phone = 7;
+}
+message BudgetChange {
+  oneof change {
+    string value = 1;
+    bool clear = 2;
+  }
+}
+message DestinationPatch {
+  optional string destination_type = 1;
+  optional bool is_default = 2;
+  optional bool active = 3;
+  optional string bank_code = 4;
+  optional string account_number = 5;
+  optional string account_name = 6;
+  optional string momo_phone = 7;
+}
+message UpdateFundBudgetRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  BudgetChange budget = 4;
+  int32 expected_finance_version = 5;
+}
+message CreatePaymentDestinationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  DestinationWrite destination = 4;
+  int32 expected_finance_version = 5;
+}
+message UpdatePaymentDestinationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string destination_id = 4;
+  DestinationPatch patch = 5;
+  int32 expected_version = 6;
+  int32 expected_finance_version = 7;
+}
+message UpdateFundBudgetResponse {
+  oneof result {
+    FundView fund = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message CreatePaymentDestinationResponse {
+  oneof result {
+    PaymentDestinationView destination = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message UpdatePaymentDestinationResponse {
+  oneof result {
+    PaymentDestinationView destination = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message EnableFundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string holder_user_id = 4;
+  string currency = 5;
+  optional string budget_amount = 6;
+  DestinationWrite destination = 7;
+}
+message ConfirmPaymentDestinationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string destination_id = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message EnableFundResponse {
+  oneof result {
+    FundView fund = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message ConfirmPaymentDestinationResponse {
+  oneof result {
+    PaymentDestinationView destination = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+// API071/073 read projections. Existing export Fund wire semantics stay unchanged.
+message GetFundRequest {
+  string trip_id = 1;
+  string actor_user_id = 2;
+}
+message GetFundResponse { FundView fund = 1; }
+message FundView {
+  string id = 1;
+  string trip_id = 2;
+  string holder_user_id = 3;
+  string currency = 4;
+  optional string budget_amount = 5;
+  string current_balance = 6;
+  string reserved_refund = 7;
+  string available_balance = 8;
+  FundStatus status = 9;
+  int32 finance_version = 10;
+  google.protobuf.Timestamp closed_at = 11;
+}
+message ListPaymentDestinationsRequest {
+  string fund_id = 1;
+  string actor_user_id = 2;
+}
+message ListPaymentDestinationsResponse { repeated PaymentDestinationView destinations = 1; }
+enum PaymentDestinationType {
+  PAYMENT_DESTINATION_TYPE_UNSPECIFIED = 0;
+  PAYMENT_DESTINATION_TYPE_VIETQR = 1;
+  PAYMENT_DESTINATION_TYPE_MOMO_SANDBOX = 2;
+}
+message PaymentDestinationView {
+  string id = 1;
+  string fund_id = 2;
+  PaymentDestinationType destination_type = 3;
+  bool is_default = 4;
+  bool active = 5;
+  int32 version = 6;
+  google.protobuf.Timestamp confirmed_by_holder_at = 7;
+  // Omitted for ordinary members; never filled from client-supplied roles.
+  optional string bank_code = 8;
+  optional string account_number = 9;
+  optional string account_name = 10;
+  optional string momo_phone = 11;
 }
 message ExecuteTripOperationRequest {
   string operation_id = 1;

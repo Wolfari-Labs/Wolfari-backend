@@ -3,9 +3,24 @@ import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
 import { FundRepository } from './repositories/fund.repository';
 import { LedgerRepository } from './repositories/ledger.repository';
+import { PaymentDestinationQueryRepository } from './repositories/payment-destination-query.repository';
+import { FinanceTripAccess, FundQueryService } from './application/fund-query.service';
+import { FinanceGrpcController } from './finance.grpc';
+import { FundCommandRepository } from './repositories/fund-command.repository';
+import { FundCommandService, FundTripClient } from './application/fund-command.service';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
-  providers: [FundRepository, LedgerRepository],
+  controllers: [FinanceGrpcController],
+  providers: [
+    FundRepository,
+    LedgerRepository,
+    PaymentDestinationQueryRepository,
+    FinanceTripAccess,
+    FundQueryService,
+    FundCommandRepository,
+    FundCommandService,
+    FundTripClient,
+  ],
 })
 export class AppModule {}

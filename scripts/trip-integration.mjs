@@ -1,3 +1,5 @@
+import { runFinanceReadTests } from './finance-read-integration.mjs';
+import { runFinanceWriteTests } from './finance-write-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
 import { runMembershipTests } from './trip-members-integration.mjs';
@@ -16,6 +18,7 @@ import { startTestService } from './test-container.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 
+const financeReadMode = process.argv.includes('--finance');
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 let financeFixture;
@@ -178,6 +181,7 @@ const secrets = {
   IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
   GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+  GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
   FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
   TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -273,7 +277,7 @@ async function main() {
     'identity',
     'trip',
     ...(invitationMode ? ['automation'] : []),
-    ...(membershipMode ? ['finance'] : []),
+    ...(membershipMode || financeReadMode ? ['finance'] : []),
   ]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
   }
@@ -313,6 +317,9 @@ async function main() {
     EXPORT_IDENTITY_SECRET: secrets.EXPORT_IDENTITY_SECRET,
   });
   const tripValues = {
+    ...(financeReadMode
+      ? { FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`, TRIP_FINANCE_SECRET: financeSecret }
+      : {}),
     ...(membershipMode
       ? {
           FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`,
@@ -336,6 +343,16 @@ async function main() {
     AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
   };
   let tripProcess = await start('trip-workspace-service', tripValues);
+  if (financeReadMode)
+    await start('finance-service', {
+      FINANCE_PORT: String(await port()),
+      FINANCE_GRPC_PORT: String(financePort),
+      DATABASE_URL: databaseUrl(infra, 'finance'),
+      TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
+      FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET,
+      GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
+      TRIP_FINANCE_SECRET: financeSecret,
+    });
   await start('api-gateway', {
     GATEWAY_PORT: String(ports.gateway),
     IDENTITY_HTTP_URL: `http://127.0.0.1:${ports.identity}`,
@@ -345,10 +362,71 @@ async function main() {
     GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
     GATEWAY_CSRF_KEY: secrets.GATEWAY_CSRF_KEY,
+    FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`,
+    GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
     WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
+  if (financeReadMode) {
+    const result = await runFinanceReadTests({
+      request,
+      query,
+      account,
+      bearer,
+      tripBody,
+      pass,
+      financeTarget: `127.0.0.1:${financePort}`,
+      financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+      whileTripStopped: async (work) => {
+        await stop(tripProcess);
+        try {
+          return await work();
+        } finally {
+          tripProcess = await start('trip-workspace-service', tripValues);
+        }
+      },
+    });
+    const writes = await runFinanceWriteTests({
+      request,
+      query,
+      transaction,
+      actors: result.actors,
+      bearer,
+      tripBody,
+      pass,
+      waitFor,
+      financeTarget: `127.0.0.1:${financePort}`,
+      tripTarget: `127.0.0.1:${ports.tripGrpc}`,
+      gatewaySecret: secrets.GATEWAY_FINANCE_SECRET,
+      tripSecret: secrets.FINANCE_TRIP_SECRET,
+      financeSecret,
+      restartTrip: async () => {
+        await stop(tripProcess);
+        tripProcess = await start('trip-workspace-service', tripValues);
+      },
+      whileTripStopped: async (work) => {
+        await stop(tripProcess);
+        try {
+          return await work();
+        } finally {
+          tripProcess = await start('trip-workspace-service', tripValues);
+        }
+      },
+    });
+    result.forbidden.push(...writes.forbidden);
+    for (const child of children)
+      for (const value of [
+        ...result.forbidden,
+        ...Object.values(secrets),
+        infra.POSTGRES_PASSWORD,
+      ]) {
+        assert(!child.output.includes(value), `${child.appName} logged private data`);
+      }
+    pass('Finance read application logs contain no tokens, service secrets or account details');
+    console.log(`PASS finance:test completed ${checks} groups.`);
+    return;
+  }
   if (membershipMode) {
     await runMembershipTests({
       request,
