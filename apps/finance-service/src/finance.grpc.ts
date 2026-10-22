@@ -61,9 +61,9 @@ export class FinanceGrpcController {
     metadata?: Metadata,
     call?: DeadlineCall,
   ): Promise<FinanceV1.ExecuteTripOperationResponse> {
-    return this.execute('ExecuteTripOperation', metadata, call, async () => {
+    return this.execute('ExecuteTripOperation', metadata, call, async (correlation) => {
       if (!this.lifecycle) throw new FinanceReadError('SERVICE_UNAVAILABLE');
-      return { receipt: await this.lifecycle.execute(request) };
+      return { receipt: await this.lifecycle.execute(request, correlation) };
     });
   }
 

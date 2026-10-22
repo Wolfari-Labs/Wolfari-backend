@@ -7,7 +7,7 @@ Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm
 
 Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1** và **Trip core**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision.
 
-> Identity đợt 1, Trip core, Plan access, Invitations và các lát cắt Finance API070–125 đã có runtime qua Gateway. Travel, phần lớn nghiệp vụ Automation và event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001, Trip V002 và Finance V002. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
+> Identity đợt 1, Trip core, Plan access, Invitations, các lát cắt Finance API070–125 và nghĩa vụ Finance khi thành viên rời/xóa đã có runtime qua Gateway. Cờ membership lifecycle vẫn mặc định tắt cho production trong khi Automation/Export downstream còn thiếu. Travel, phần lớn nghiệp vụ Automation và event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001, Trip V002 và Finance V002. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
 
 ## Kiến trúc
 

@@ -29,19 +29,26 @@ là SRS 2.3 / ERD 1.2 / DDL API Event 1.1 tại [danh mục tài liệu](../../d
 và [design baseline](../../docs/architecture/design-baseline.md). Không dùng mô tả
 helper bên dưới để tự chốt schema/contract hoặc coi nghiệp vụ đã chạy end-to-end.
 
-## Tích hợp Trip còn chờ
+## Tích hợp Trip member lifecycle
 
 Theo [handoff lifecycle](../../docs/architecture/trip-member-lifecycle-handoff.md),
-Trip đã có BeginFinanceOperation/CompleteOperation, polling và recovery cho các writer
+Trip có BeginFinanceOperation/CompleteOperation, polling và recovery cho các writer
 Finance API070–125, gồm setup, thu, chi, note, refund, closure và payment. GetAccessContext
-không thay guard cho writer. Giữ lifecycle flag false với Finance thật vì bộ nghĩa vụ khi
-rời/xóa thành viên chưa được kiểm đầy đủ cho mọi nghiệp vụ.
+không thay guard cho writer.
 
 Contract Finance Execute/Cancel có `membership_target` gồm membership_id/user_id/
 reason cho LEAVE_MEMBER/REMOVE_MEMBER; actor và người bị tác động có thể khác nhau.
-Finance đã có handler tối thiểu để chặn rời/xóa khi user còn payment attempt hoặc webhook
-exception có thể ảnh hưởng tiền. Handler lưu receipt nguyên tử và tuần tự hóa execute/cancel,
-nhưng chưa thay cho kiểm nghĩa vụ đầy đủ của contribution, expense, refund và các nguồn khác.
+Finance kiểm đầy đủ Holder chưa đóng quỹ, closure, contribution báo chuyển, payment chưa rõ
+và Refund đang xử lý. Contribution PENDING đủ điều kiện được đổi nguyên tử sang
+WAIVED/MEMBER_LEFT; Expense và Financial Note chỉ giữ lịch sử. Handler lưu effect, audit,
+outbox và receipt cùng transaction, đồng thời tuần tự hóa execute/cancel. Xem
+[thiết kế Finance member lifecycle](../../docs/architecture/finance-member-lifecycle.md).
+Flag lifecycle vẫn mặc định false cho production cho tới khi downstream Automation/Export
+và release review hoàn tất.
+
+Chạy focused real-service integration bằng `corepack pnpm finance:lifecycle:test`.
+Bộ test dùng Gateway, Trip, Finance và PostgreSQL cô lập; nó không bật cờ mặc định
+trong cấu hình phát hành.
 
 ## Cấu hình và chạy riêng Finance
 

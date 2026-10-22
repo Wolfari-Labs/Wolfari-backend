@@ -108,16 +108,17 @@ trả idempotency conflict.
 
 ## Lifecycle, Closure và quyền riêng tư
 
-Finance `ExecuteTripOperation` hiện kiểm phần nghĩa vụ Payment khi member rời hoặc bị xóa.
+Finance `ExecuteTripOperation` kiểm nghĩa vụ Payment khi member rời hoặc bị xóa.
 Attempt `CREATED`/`PENDING`, `needs_reconciliation`, success chưa phản ánh đúng ledger hoặc
 webhook `RECEIVED`/`NEEDS_REVIEW` sẽ trả `FINANCE_OBLIGATION_BLOCKED`. Receipt lifecycle
 không trả ID tài chính riêng tư. Execute và cancel dùng advisory lock theo operation ID để
 chỉ một kết quả được lưu.
 
-Đây mới là blocker Payment. Cờ lifecycle tích hợp Finance thật vẫn tắt cho đến khi kiểm đủ
-nghĩa vụ contribution, expense, refund và các nguồn tài chính khác. Closure tiếp tục kiểm
-toàn bộ blocker Payment dưới Fund lock; callback success đến sau khi CLOSING không được tự
-động sửa sổ.
+Payment là một phần của [ma trận Finance member lifecycle](finance-member-lifecycle.md),
+cùng Holder, contribution, Refund và closure. Expense/Financial Note được giữ làm lịch sử
+và không tự chặn. Cờ lifecycle vẫn mặc định tắt cho tới khi hoàn tất downstream
+Automation/Export và release review. Closure tiếp tục kiểm toàn bộ blocker Payment dưới
+Fund lock; callback success đến sau khi CLOSING không được tự động sửa sổ.
 
 ## Cấu hình và vận hành
 

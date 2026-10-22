@@ -26,8 +26,10 @@ const notesOnly = process.argv.includes('--finance-notes');
 const refundsOnly = process.argv.includes('--finance-refunds');
 const closuresOnly = process.argv.includes('--finance-closures');
 const paymentsOnly = process.argv.includes('--finance-payments');
+const lifecycleOnly = process.argv.includes('--finance-lifecycle');
 const allFinance = process.argv.includes('--finance');
 const paymentTestMode = paymentsOnly || allFinance;
+const lifecycleTestMode = lifecycleOnly || allFinance;
 const financeReadMode =
   receiptsOnly ||
   instructionsOnly ||
@@ -36,6 +38,7 @@ const financeReadMode =
   refundsOnly ||
   closuresOnly ||
   paymentsOnly ||
+  lifecycleOnly ||
   allFinance;
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
@@ -346,6 +349,7 @@ async function main() {
           TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'true',
         }
       : {}),
+    ...(lifecycleTestMode ? { TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'true' } : {}),
     TZ: 'America/Los_Angeles',
     TRIP_PORT: String(ports.trip),
     TRIP_GRPC_PORT: String(ports.tripGrpc),
@@ -426,6 +430,7 @@ async function main() {
       refundsOnly,
       closuresOnly,
       paymentsOnly,
+      lifecycleOnly,
       gatewayUrl: `http://127.0.0.1:${ports.gateway}`,
       storageConfig: {
         MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
