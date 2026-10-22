@@ -38,6 +38,7 @@ import { isManualWrite } from '../repositories/manual-contribution.repository';
 import { isContributionReversalWrite } from '../repositories/contribution-reversal.repository';
 import { isExpenseWrite } from '../repositories/expense.repository';
 import { isFinancialNoteWrite } from '../repositories/financial-note.repository';
+import { isRefundWrite } from '../repositories/refund.repository';
 
 type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
@@ -54,7 +55,15 @@ type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ReverseExpenseResponse &
   FinanceV1.CreateFinancialNoteResponse &
   FinanceV1.UpdateFinancialNoteResponse &
-  FinanceV1.DeleteFinancialNoteResponse;
+  FinanceV1.DeleteFinancialNoteResponse &
+  FinanceV1.CreateRefundResponse &
+  FinanceV1.ReportRefundPaidResponse &
+  FinanceV1.ConfirmRefundReceivedResponse &
+  FinanceV1.ConfirmRefundNonreceiptResponse &
+  FinanceV1.CancelRefundResponse &
+  FinanceV1.RequestRefundReversalResponse &
+  FinanceV1.ConsentRefundReversalResponse &
+  FinanceV1.ReverseRefundResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;
@@ -356,6 +365,42 @@ export class FundCommandService {
     }
     if (saved.status !== 'COMMITTED')
       throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
+    if (isRefundWrite(input)) {
+      const current = await this.queries.getFund(
+        { trip_id: input.tripId, actor_user_id: input.actor },
+        correlation,
+        deadline,
+      );
+      const role = await this.queries.authorizeFundRead(
+        input.fundId,
+        input.actor,
+        correlation,
+        deadline,
+      );
+      const row = saved.response.refund;
+      if (
+        !row ||
+        row.fund_id !== input.fundId ||
+        ('refundId' in input && row.id !== input.refundId) ||
+        !row.finance_version
+      )
+        throw new Error('Invalid refund result');
+      const ownerScopes = ['CREATE_REFUND', 'CANCEL_REFUND'];
+      const holderScopes = ['REPORT_REFUND_PAID', 'REQUEST_REFUND_REVERSAL', 'REVERSE_REFUND'];
+      const recipientScopes = [
+        'CONFIRM_REFUND_RECEIVED',
+        'CONFIRM_REFUND_NONRECEIPT',
+        'CONSENT_REFUND_REVERSAL',
+      ];
+      if (
+        (ownerScopes.includes(input.scope) &&
+          role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER) ||
+        (holderScopes.includes(input.scope) && current.fund?.holder_user_id !== input.actor) ||
+        (recipientScopes.includes(input.scope) && row.member_user_id !== input.actor)
+      )
+        throw new FinanceReadError('PERMISSION_DENIED');
+      return { refund: row };
+    }
     if (isExpenseWrite(input)) {
       await this.queries.getFund(
         { trip_id: input.tripId, actor_user_id: input.actor },
@@ -374,12 +419,27 @@ export class FundCommandService {
       return { expense: row };
     }
     if (isFinancialNoteWrite(input)) {
-      const role = await this.queries.authorizeFundRead(input.fundId, input.actor, correlation, deadline);
+      const role = await this.queries.authorizeFundRead(
+        input.fundId,
+        input.actor,
+        correlation,
+        deadline,
+      );
       const row = saved.response.financialNote;
-      if (input.scope !== 'CREATE_FINANCIAL_NOTE' && (!row || (row.created_by_user_id !== input.actor && role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER)))
+      if (
+        input.scope !== 'CREATE_FINANCIAL_NOTE' &&
+        (!row ||
+          (row.created_by_user_id !== input.actor &&
+            role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER))
+      )
         throw new FinanceReadError('PERMISSION_DENIED');
       if (input.scope === 'DELETE_FINANCIAL_NOTE') return { operation: completed.operation };
-      if (!row || row.fund_id !== input.fundId || ('noteId' in input && row.id !== input.noteId) || !row.finance_version)
+      if (
+        !row ||
+        row.fund_id !== input.fundId ||
+        ('noteId' in input && row.id !== input.noteId) ||
+        !row.finance_version
+      )
         throw new Error('Invalid financial note result');
       return { financial_note: row };
     }

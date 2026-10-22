@@ -410,3 +410,16 @@ Response chỉ cho biết có receipt, không trả object key private. Confirm/
 dùng cùng Trip durable guard, command receipt, optimistic version, audit và phục hồi như
 các mutation Expense khác. Xem [thiết kế](../../docs/architecture/finance-expenses.md)
 và [OpenAPI096–104](../../docs/api/finance-expenses.openapi.json).
+
+## Refund API111–119
+
+Owner tạo khoản hoàn cho thành viên khi số dư khả dụng còn đủ. Refund `PENDING` và
+`HOLDER_REPORTED` giữ chỗ số dư nhưng chưa tạo ledger. Holder báo đã trả; chỉ khi chính
+người nhận xác nhận đã nhận thì Finance tạo một `REFUND OUT` và giảm số dư. Người nhận
+có thể báo chưa nhận để Owner hủy và giải phóng giữ chỗ.
+
+Hoàn tác khoản đã xác nhận cần Holder yêu cầu, người nhận đồng ý và Holder thực hiện với
+đúng lý do đã được đồng ý. Finance tạo một `REVERSAL IN` liên kết OUT gốc, không sửa
+ledger cũ. Toàn bộ mutation dùng Trip guard/recovery, command receipt, optimistic version
+và audit; không gọi ngân hàng hoặc provider. Xem [thiết kế](../../docs/architecture/finance-refunds.md)
+và [OpenAPI111–119](../../docs/api/finance-refunds.openapi.json).

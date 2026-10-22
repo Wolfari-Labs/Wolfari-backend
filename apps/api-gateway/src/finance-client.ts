@@ -14,6 +14,15 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'ListRefunds'
+      | 'CreateRefund'
+      | 'ReportRefundPaid'
+      | 'ConfirmRefundReceived'
+      | 'ConfirmRefundNonreceipt'
+      | 'CancelRefund'
+      | 'RequestRefundReversal'
+      | 'ConsentRefundReversal'
+      | 'ReverseRefund'
       | 'ListFinancialNotes'
       | 'CreateFinancialNote'
       | 'UpdateFinancialNote'

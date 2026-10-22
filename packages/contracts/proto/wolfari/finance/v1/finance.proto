@@ -4,6 +4,15 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc ListRefunds(ListRefundsRequest) returns (ListRefundsResponse);
+  rpc CreateRefund(CreateRefundRequest) returns (CreateRefundResponse);
+  rpc ReportRefundPaid(ReportRefundPaidRequest) returns (ReportRefundPaidResponse);
+  rpc ConfirmRefundReceived(ConfirmRefundReceivedRequest) returns (ConfirmRefundReceivedResponse);
+  rpc ConfirmRefundNonreceipt(ConfirmRefundNonreceiptRequest) returns (ConfirmRefundNonreceiptResponse);
+  rpc CancelRefund(CancelRefundRequest) returns (CancelRefundResponse);
+  rpc RequestRefundReversal(RequestRefundReversalRequest) returns (RequestRefundReversalResponse);
+  rpc ConsentRefundReversal(ConsentRefundReversalRequest) returns (ConsentRefundReversalResponse);
+  rpc ReverseRefund(ReverseRefundRequest) returns (ReverseRefundResponse);
   rpc ListFinancialNotes(ListFinancialNotesRequest) returns (ListFinancialNotesResponse);
   rpc CreateFinancialNote(CreateFinancialNoteRequest) returns (CreateFinancialNoteResponse);
   rpc UpdateFinancialNote(UpdateFinancialNoteRequest) returns (UpdateFinancialNoteResponse);
@@ -45,6 +54,105 @@ service FinanceService {
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
 }
+
+message RefundView {
+  string id = 1;
+  string fund_id = 2;
+  string member_user_id = 3;
+  string amount = 4;
+  string status = 5;
+  string reason = 6;
+  google.protobuf.Timestamp holder_reported_at = 7;
+  google.protobuf.Timestamp confirmed_at = 8;
+  google.protobuf.Timestamp nonreceipt_confirmed_at = 9;
+  google.protobuf.Timestamp reversal_requested_at = 10;
+  google.protobuf.Timestamp reversal_consented_at = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  int32 version = 14;
+  int32 finance_version = 15;
+}
+message ListRefundsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+  optional string status = 5;
+}
+message ListRefundsResponse {
+  repeated RefundView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateRefundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string member_user_id = 4;
+  string amount = 5;
+  string reason = 6;
+  int32 expected_finance_version = 7;
+}
+message ReportRefundPaidRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ConfirmRefundReceivedRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ConfirmRefundNonreceiptRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CancelRefundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message RequestRefundReversalRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message ConsentRefundReversalRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ReverseRefundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CreateRefundResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ReportRefundPaidResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConfirmRefundReceivedResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConfirmRefundNonreceiptResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message CancelRefundResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message RequestRefundReversalResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConsentRefundReversalResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ReverseRefundResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
 
 message FinancialNoteView {
   string id = 1;

@@ -37,7 +37,8 @@
     "dev:test": "node scripts/launcher-test.mjs",
     "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance",
     "finance:expenses:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-expenses",
-    "finance:notes:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notes"
+    "finance:notes:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notes",
+    "finance:refunds:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-refunds"
   },
   "devDependencies": {
     "@types/node": "24.13.5",

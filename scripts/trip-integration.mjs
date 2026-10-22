@@ -23,8 +23,14 @@ const receiptsOnly = process.argv.includes('--finance-receipts');
 const instructionsOnly = process.argv.includes('--finance-instructions');
 const expensesOnly = process.argv.includes('--finance-expenses');
 const notesOnly = process.argv.includes('--finance-notes');
+const refundsOnly = process.argv.includes('--finance-refunds');
 const financeReadMode =
-  receiptsOnly || instructionsOnly || expensesOnly || notesOnly || process.argv.includes('--finance');
+  receiptsOnly ||
+  instructionsOnly ||
+  expensesOnly ||
+  notesOnly ||
+  refundsOnly ||
+  process.argv.includes('--finance');
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 let financeFixture;
@@ -402,6 +408,7 @@ async function main() {
       instructionsOnly,
       expensesOnly,
       notesOnly,
+      refundsOnly,
       gatewayUrl: `http://127.0.0.1:${ports.gateway}`,
       storageConfig: {
         MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,

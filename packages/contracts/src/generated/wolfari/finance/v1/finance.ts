@@ -45,6 +45,147 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+export interface RefundView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  status?: string | undefined;
+  reason?: string | undefined;
+  holder_reported_at?: Timestamp | undefined;
+  confirmed_at?: Timestamp | undefined;
+  nonreceipt_confirmed_at?: Timestamp | undefined;
+  reversal_requested_at?: Timestamp | undefined;
+  reversal_consented_at?: Timestamp | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListRefundsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  status?: string | undefined;
+}
+
+export interface ListRefundsResponse {
+  items?: RefundView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateRefundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  reason?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ReportRefundPaidRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmRefundReceivedRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmRefundNonreceiptRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CancelRefundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface RequestRefundReversalRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConsentRefundReversalRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ReverseRefundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreateRefundResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ReportRefundPaidResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmRefundReceivedResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmRefundNonreceiptResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CancelRefundResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RequestRefundReversalResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConsentRefundReversalResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ReverseRefundResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
 export interface FinancialNoteView {
   id?: string | undefined;
   fund_id?: string | undefined;
@@ -845,6 +986,36 @@ export interface GetPaymentInstructionResponse {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  listRefunds(request: ListRefundsRequest, metadata?: Metadata): Observable<ListRefundsResponse>;
+
+  createRefund(request: CreateRefundRequest, metadata?: Metadata): Observable<CreateRefundResponse>;
+
+  reportRefundPaid(request: ReportRefundPaidRequest, metadata?: Metadata): Observable<ReportRefundPaidResponse>;
+
+  confirmRefundReceived(
+    request: ConfirmRefundReceivedRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmRefundReceivedResponse>;
+
+  confirmRefundNonreceipt(
+    request: ConfirmRefundNonreceiptRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmRefundNonreceiptResponse>;
+
+  cancelRefund(request: CancelRefundRequest, metadata?: Metadata): Observable<CancelRefundResponse>;
+
+  requestRefundReversal(
+    request: RequestRefundReversalRequest,
+    metadata?: Metadata,
+  ): Observable<RequestRefundReversalResponse>;
+
+  consentRefundReversal(
+    request: ConsentRefundReversalRequest,
+    metadata?: Metadata,
+  ): Observable<ConsentRefundReversalResponse>;
+
+  reverseRefund(request: ReverseRefundRequest, metadata?: Metadata): Observable<ReverseRefundResponse>;
+
   listFinancialNotes(request: ListFinancialNotesRequest, metadata?: Metadata): Observable<ListFinancialNotesResponse>;
 
   createFinancialNote(
@@ -993,6 +1164,54 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  listRefunds(
+    request: ListRefundsRequest,
+    metadata?: Metadata,
+  ): Promise<ListRefundsResponse> | Observable<ListRefundsResponse> | ListRefundsResponse;
+
+  createRefund(
+    request: CreateRefundRequest,
+    metadata?: Metadata,
+  ): Promise<CreateRefundResponse> | Observable<CreateRefundResponse> | CreateRefundResponse;
+
+  reportRefundPaid(
+    request: ReportRefundPaidRequest,
+    metadata?: Metadata,
+  ): Promise<ReportRefundPaidResponse> | Observable<ReportRefundPaidResponse> | ReportRefundPaidResponse;
+
+  confirmRefundReceived(
+    request: ConfirmRefundReceivedRequest,
+    metadata?: Metadata,
+  ): Promise<ConfirmRefundReceivedResponse> | Observable<ConfirmRefundReceivedResponse> | ConfirmRefundReceivedResponse;
+
+  confirmRefundNonreceipt(
+    request: ConfirmRefundNonreceiptRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ConfirmRefundNonreceiptResponse>
+    | Observable<ConfirmRefundNonreceiptResponse>
+    | ConfirmRefundNonreceiptResponse;
+
+  cancelRefund(
+    request: CancelRefundRequest,
+    metadata?: Metadata,
+  ): Promise<CancelRefundResponse> | Observable<CancelRefundResponse> | CancelRefundResponse;
+
+  requestRefundReversal(
+    request: RequestRefundReversalRequest,
+    metadata?: Metadata,
+  ): Promise<RequestRefundReversalResponse> | Observable<RequestRefundReversalResponse> | RequestRefundReversalResponse;
+
+  consentRefundReversal(
+    request: ConsentRefundReversalRequest,
+    metadata?: Metadata,
+  ): Promise<ConsentRefundReversalResponse> | Observable<ConsentRefundReversalResponse> | ConsentRefundReversalResponse;
+
+  reverseRefund(
+    request: ReverseRefundRequest,
+    metadata?: Metadata,
+  ): Promise<ReverseRefundResponse> | Observable<ReverseRefundResponse> | ReverseRefundResponse;
+
   listFinancialNotes(
     request: ListFinancialNotesRequest,
     metadata?: Metadata,
@@ -1236,6 +1455,15 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "listRefunds",
+      "createRefund",
+      "reportRefundPaid",
+      "confirmRefundReceived",
+      "confirmRefundNonreceipt",
+      "cancelRefund",
+      "requestRefundReversal",
+      "consentRefundReversal",
+      "reverseRefund",
       "listFinancialNotes",
       "createFinancialNote",
       "updateFinancialNote",

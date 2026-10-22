@@ -21,6 +21,7 @@ import { ContributionQueryService } from './application/contribution-query.servi
 import { ContributionReversalService } from './application/contribution-reversal.service';
 import { ExpenseService } from './application/expense.service';
 import { FinancialNoteService } from './application/financial-note.service';
+import { RefundService } from './application/refund.service';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -43,31 +44,168 @@ export class FinanceGrpcController {
     private readonly reversals?: ContributionReversalService,
     private readonly expenses?: ExpenseService,
     private readonly financialNotes?: FinancialNoteService,
+    private readonly refunds?: RefundService,
   ) {}
 
+  @GrpcMethod('FinanceService', 'ListRefunds')
+  listRefunds(request: FinanceV1.ListRefundsRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('ListRefunds', metadata, call, (correlation, deadline) => {
+      if (!this.refunds) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.refunds.list(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'CreateRefund')
+  createRefund(request: FinanceV1.CreateRefundRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('CreateRefund', metadata, call, (correlation, deadline) => {
+      if (!this.refunds) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.refunds.create(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ReportRefundPaid')
+  reportRefundPaid(
+    request: FinanceV1.ReportRefundPaidRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.refundAction('ReportRefundPaid', 'REPORT_REFUND_PAID', request, metadata, call);
+  }
+  @GrpcMethod('FinanceService', 'ConfirmRefundReceived')
+  confirmRefundReceived(
+    request: FinanceV1.ConfirmRefundReceivedRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.refundAction(
+      'ConfirmRefundReceived',
+      'CONFIRM_REFUND_RECEIVED',
+      request,
+      metadata,
+      call,
+    );
+  }
+  @GrpcMethod('FinanceService', 'ConfirmRefundNonreceipt')
+  confirmRefundNonreceipt(
+    request: FinanceV1.ConfirmRefundNonreceiptRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.refundAction(
+      'ConfirmRefundNonreceipt',
+      'CONFIRM_REFUND_NONRECEIPT',
+      request,
+      metadata,
+      call,
+    );
+  }
+  @GrpcMethod('FinanceService', 'CancelRefund')
+  cancelRefund(request: FinanceV1.CancelRefundRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.refundAction('CancelRefund', 'CANCEL_REFUND', request, metadata, call);
+  }
+  @GrpcMethod('FinanceService', 'RequestRefundReversal')
+  requestRefundReversal(
+    request: FinanceV1.RequestRefundReversalRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.refundAction(
+      'RequestRefundReversal',
+      'REQUEST_REFUND_REVERSAL',
+      request,
+      metadata,
+      call,
+    );
+  }
+  @GrpcMethod('FinanceService', 'ConsentRefundReversal')
+  consentRefundReversal(
+    request: FinanceV1.ConsentRefundReversalRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.refundAction(
+      'ConsentRefundReversal',
+      'CONSENT_REFUND_REVERSAL',
+      request,
+      metadata,
+      call,
+    );
+  }
+  @GrpcMethod('FinanceService', 'ReverseRefund')
+  reverseRefund(request: FinanceV1.ReverseRefundRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.refundAction('ReverseRefund', 'REVERSE_REFUND', request, metadata, call);
+  }
+  private refundAction(
+    method:
+      | 'ReportRefundPaid'
+      | 'ConfirmRefundReceived'
+      | 'ConfirmRefundNonreceipt'
+      | 'CancelRefund'
+      | 'RequestRefundReversal'
+      | 'ConsentRefundReversal'
+      | 'ReverseRefund',
+    scope:
+      | 'REPORT_REFUND_PAID'
+      | 'CONFIRM_REFUND_RECEIVED'
+      | 'CONFIRM_REFUND_NONRECEIPT'
+      | 'CANCEL_REFUND'
+      | 'REQUEST_REFUND_REVERSAL'
+      | 'CONSENT_REFUND_REVERSAL'
+      | 'REVERSE_REFUND',
+    request:
+      | FinanceV1.ReportRefundPaidRequest
+      | FinanceV1.ConfirmRefundReceivedRequest
+      | FinanceV1.ConfirmRefundNonreceiptRequest
+      | FinanceV1.CancelRefundRequest
+      | FinanceV1.RequestRefundReversalRequest
+      | FinanceV1.ConsentRefundReversalRequest
+      | FinanceV1.ReverseRefundRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute(method, metadata, call, (correlation, deadline) => {
+      if (!this.refunds) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.refunds.manage(scope, request, correlation, deadline);
+    });
+  }
+
   @GrpcMethod('FinanceService', 'ListFinancialNotes')
-  listFinancialNotes(request: FinanceV1.ListFinancialNotesRequest, metadata?: Metadata, call?: DeadlineCall) {
+  listFinancialNotes(
+    request: FinanceV1.ListFinancialNotesRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
     return this.execute('ListFinancialNotes', metadata, call, (correlation, deadline) => {
       if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return this.financialNotes.list(request, correlation, deadline);
     });
   }
   @GrpcMethod('FinanceService', 'CreateFinancialNote')
-  createFinancialNote(request: FinanceV1.CreateFinancialNoteRequest, metadata?: Metadata, call?: DeadlineCall) {
+  createFinancialNote(
+    request: FinanceV1.CreateFinancialNoteRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
     return this.execute('CreateFinancialNote', metadata, call, (correlation, deadline) => {
       if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return this.financialNotes.create(request, correlation, deadline);
     });
   }
   @GrpcMethod('FinanceService', 'UpdateFinancialNote')
-  updateFinancialNote(request: FinanceV1.UpdateFinancialNoteRequest, metadata?: Metadata, call?: DeadlineCall) {
+  updateFinancialNote(
+    request: FinanceV1.UpdateFinancialNoteRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
     return this.execute('UpdateFinancialNote', metadata, call, (correlation, deadline) => {
       if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return this.financialNotes.manage('UPDATE_FINANCIAL_NOTE', request, correlation, deadline);
     });
   }
   @GrpcMethod('FinanceService', 'DeleteFinancialNote')
-  deleteFinancialNote(request: FinanceV1.DeleteFinancialNoteRequest, metadata?: Metadata, call?: DeadlineCall) {
+  deleteFinancialNote(
+    request: FinanceV1.DeleteFinancialNoteRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
     return this.execute('DeleteFinancialNote', metadata, call, (correlation, deadline) => {
       if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return this.financialNotes.manage('DELETE_FINANCIAL_NOTE', request, correlation, deadline);

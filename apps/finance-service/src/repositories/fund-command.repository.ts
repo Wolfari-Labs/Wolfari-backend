@@ -63,7 +63,18 @@ import {
   mapExpenseRuleError,
   type ExpenseWriteCommand,
 } from './expense.repository';
-import { FinancialNoteRepository, isFinancialNoteWrite, mapFinancialNoteRuleError, type FinancialNoteWriteCommand } from './financial-note.repository';
+import {
+  FinancialNoteRepository,
+  isFinancialNoteWrite,
+  mapFinancialNoteRuleError,
+  type FinancialNoteWriteCommand,
+} from './financial-note.repository';
+import {
+  RefundRepository,
+  isRefundWrite,
+  mapRefundRuleError,
+  type RefundWriteCommand,
+} from './refund.repository';
 
 export type FundWrite = {
   operationId: string;
@@ -75,6 +86,7 @@ export type FundWrite = {
   | ContributionReversalWrite
   | ExpenseWriteCommand
   | FinancialNoteWriteCommand
+  | RefundWriteCommand
   | ManagementWrite
   | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
@@ -103,6 +115,7 @@ export type StoredResult = {
   contribution?: FinanceV1.ContributionView;
   expense?: FinanceV1.ExpenseView;
   financialNote?: FinanceV1.FinancialNoteView;
+  refund?: FinanceV1.RefundView;
 };
 export type FundReceipt = {
   operation_id: string;
@@ -131,6 +144,14 @@ export const fundCommandScope = (value: string) =>
     'CREATE_FINANCIAL_NOTE',
     'UPDATE_FINANCIAL_NOTE',
     'DELETE_FINANCIAL_NOTE',
+    'CREATE_REFUND',
+    'REPORT_REFUND_PAID',
+    'CONFIRM_REFUND_RECEIVED',
+    'CONFIRM_REFUND_NONRECEIPT',
+    'CANCEL_REFUND',
+    'REQUEST_REFUND_REVERSAL',
+    'CONSENT_REFUND_REVERSAL',
+    'REVERSE_REFUND',
     'UPDATE_CONTRIBUTION_REQUEST',
     'UPDATE_CONTRIBUTION_AMOUNT',
     'WAIVE_CONTRIBUTION',
@@ -182,6 +203,8 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
+  const refund = mapRefundRuleError(error);
+  if (refund) return refund;
   const note = mapFinancialNoteRuleError(error);
   if (note) return note;
   const expense = mapExpenseRuleError(error);
@@ -400,7 +423,19 @@ export class FundCommandRepository {
             correlation,
           );
         } else if (isFinancialNoteWrite(input)) {
-          response = await new FinancialNoteRepository(client).execute(client, input, authority, correlation);
+          response = await new FinancialNoteRepository(client).execute(
+            client,
+            input,
+            authority,
+            correlation,
+          );
+        } else if (isRefundWrite(input)) {
+          response = await new RefundRepository(client).execute(
+            client,
+            input,
+            authority,
+            correlation,
+          );
         } else if ('requestId' in input) {
           response = await new ContributionManagementRepository().execute(
             client,
