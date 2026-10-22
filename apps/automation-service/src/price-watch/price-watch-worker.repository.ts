@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
+import { recordPriceAlertCandidates } from './price-alert.repository';
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { NormalizedPriceQuery } from './price-watch.domain';
 import {
@@ -194,10 +195,15 @@ export class PriceWatchWorkerRepository {
         [attempt.id, owner, attempt.attempt_count],
       );
       if (!updated.rowCount) return false;
-      await client.query(
+      await client.query('SELECT id FROM price_query_groups WHERE id=$1 FOR UPDATE', [
+        attempt.query_group_id,
+      ]);
+      const saved = (
+        await client.query<{ id: string; observed_at: Date }>(
         `INSERT INTO price_observations(
            query_group_id,query_attempt_id,price,currency,provider,fare_metadata,observed_at,fetched_at
-         ) VALUES($1,$2,$3,$4,$5,$6::jsonb,clock_timestamp(),clock_timestamp())`,
+         ) VALUES($1,$2,$3,$4,$5,$6::jsonb,clock_timestamp(),clock_timestamp())
+         RETURNING id,observed_at`,
         [
           attempt.query_group_id,
           attempt.id,
@@ -206,7 +212,14 @@ export class PriceWatchWorkerRepository {
           observation.provider,
           JSON.stringify(observation.fare_metadata),
         ],
-      );
+        )
+      ).rows[0]!;
+      await recordPriceAlertCandidates(client, {
+        id: saved.id,
+        queryGroupId: attempt.query_group_id,
+        price: observation.price,
+        observedAt: saved.observed_at,
+      });
       await updateGroupResult(client, {
         queryGroupId: attempt.query_group_id,
         scheduledSlot: attempt.scheduled_slot,

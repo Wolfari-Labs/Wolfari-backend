@@ -24,7 +24,7 @@ Package contract chứa contract, type, validator, fixture, metadata topology v�
 
 ## gRPC
 
-Phân bổ là Identity 4, Trip 29, Finance 5, Travel 4 và Automation 7 RPC. Automation vừa là caller của Trip/Identity vừa cung cấp `AutomationService` cho Gateway ở Price Watch H1; worker H2 dùng lại API139 và không thêm RPC. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Phân bổ là Identity 4, Trip 29, Finance 5, Travel 4 và Automation 7 RPC. Automation vừa là caller của Trip/Identity vừa cung cấp `AutomationService` cho Gateway ở Price Watch H1; worker H2 và alert H3 dùng lại API139, không thêm RPC. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
@@ -48,7 +48,9 @@ Publisher phải qua schema chặt và kiểm tra bất biến producer, aggrega
 
 Consumer chấp nhận field optional bổ sung trong cùng version, nhưng vẫn từ chối thiếu field bắt buộc, sai kiểu, event lạ hoặc version lạ. Hai trường hợp lạ có mã lỗi riêng để runtime chuyển DLQ; package không tự thao tác queue.
 
-Topology metadata dùng exchange topic durable `wolfari.events.v1`, message persistent, mandatory và publisher confirm. Automation nhận 15 event: 2 event invitation ở queue riêng, 13 binding còn lại ở general queue. Export Worker nhận `GenerateExport`, Trip nhận ba kết quả export. Retry metadata là 10 giây, 30 giây, 2 phút, 5 phút và 15 phút.
+Topology metadata dùng exchange topic durable `wolfari.events.v1`, message persistent, mandatory và publisher confirm. Automation nhận 15 event: 2 event invitation ở queue riêng, 8 binding ở general queue và 5 lifecycle binding ở queue Price Watch chuyên biệt. Export Worker nhận `GenerateExport`, Trip nhận ba kết quả export. Retry metadata là 10 giây, 30 giây, 2 phút, 5 phút và 15 phút.
+
+Consumer Price Watch chỉ nhận `MemberLeft`, `MemberRemoved`, `TripArchived`, `TripDeleted`, `TripReopened`. Việc tách queue ngăn consumer nghiệp vụ khác lấy và ACK nhầm lifecycle event. Consumer vẫn validate envelope v1, ghi inbox cùng effect, xử lý revision cũ/duplicate và chỉ ACK sau commit.
 
 Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result trong cùng attempt. Trip không được loại terminal result chỉ vì cùng version với progress. `ExportFailed.retryable` cố định `false` trong catalog v1 hiện hành.
 

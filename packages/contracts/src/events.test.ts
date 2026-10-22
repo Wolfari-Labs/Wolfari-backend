@@ -84,8 +84,8 @@ describe('event contracts', () => {
     for (const entry of EVENT_CATALOG) expect(() => validateEventForPublish(event(entry.event_type))).not.toThrow();
   });
 
-  it('publishes the dedicated invitation and remaining 13/1/3 bindings', () => {
-    expect(EVENT_TOPOLOGY.queues.map(queue => queue.bindings.length)).toEqual([2, 13, 1, 3]);
+  it('publishes dedicated invitation, general Automation, Price Watch and export bindings', () => {
+    expect(EVENT_TOPOLOGY.queues.map(queue => queue.bindings.length)).toEqual([2, 8, 5, 1, 3]);
     expect(EVENT_TOPOLOGY.retry_delays_ms).toEqual([10_000, 30_000, 120_000, 300_000, 900_000]);
   });
 

@@ -6,6 +6,10 @@ Các số liệu dưới đây là bằng chứng theo ngày chạy, không ph�
 
 `corepack pnpm db:test` PASS 25 nhóm trên PostgreSQL Compose cô lập. Kết quả H1 gồm Automation V002 preflight, create replay/conflict, query group dùng chung, version/state và observation scope. H2 kiểm tra V003/readiness, scheduler đồng thời chỉ tạo một group/slot, claim/reclaim lease, stale completion, success/no-result, retry cùng attempt, terminal failure, lease hết lượt và expiry. Lần H2 đầu bị chặn bởi quyền Docker sandbox; hai lượt chạy thật tiếp theo phát hiện fixture dùng thời gian tương lai so với clock DB và PostgreSQL suy tham số trạng thái `text/varchar` khác nhau. Fixture đã dùng clock DB đúng, câu SQL thêm cast tường minh; lượt đầy đủ cuối PASS và dọn container/network/volume.
 
+## Kiểm chứng Price Watch H3 ngày 22-10-2026
+
+Automation V004, fixture alert/lifecycle và số đếm 56 bảng mô hình + 5 bảng lịch sử, 49 FK đã được kiểm tra bằng `corepack pnpm db:test` trên PostgreSQL Compose cô lập. PASS 26 nhóm, gồm cài mới/chạy lại V004, readiness yêu cầu V004, rule/cooldown/lease/stale completion/notification/lifecycle và rollback fixture. Checksum V004 khớp manifest. Compose project/container/volume/network đã được dọn sau test.
+
 ## Kiểm chứng ngày 01-10-2026
 
 Trên nền `63aa8b4` cộng diff review, `corepack pnpm db:test` PASS 17 nhóm: 54 bảng mô hình + 5 bảng lịch sử, 47 FK sau Trip V002, nâng cấp V001→V002 giữ dữ liệu và chặn legacy mơ hồ/duplicate pending nguyên tử; constraints, 20/20 cross-DB denial, runner concurrency, readiness và outage recovery đều PASS. Không sửa V001/V002/checksum baseline hoặc migrate database phát triển. Project/volume thử đã được teardown.

@@ -271,7 +271,11 @@ async function main() {
     '--wait-timeout',
     '180',
     'postgres',
-    ...(invitationMode ? ['rabbitmq', 'mailpit'] : membershipMode ? ['rabbitmq'] : []),
+    ...(invitationMode
+      ? ['rabbitmq', 'mailpit']
+      : membershipMode || priceWatchMode
+        ? ['rabbitmq']
+        : []),
   ]);
   for (const service of [
     'identity',
@@ -282,7 +286,7 @@ async function main() {
   ]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
   }
-  pass('isolated Compose and V001 identity/trip');
+  pass('isolated Compose and required service migrations');
   const financePort = await port();
   const financeSecret = randomBytes(32).toString('hex');
   if (membershipMode)
@@ -350,7 +354,7 @@ async function main() {
       GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
       AUTOMATION_CURSOR_SECRET: secrets.AUTOMATION_CURSOR_SECRET,
       PRICE_WATCH_WORKER_ENABLED: 'true',
-      PRICE_WATCH_WORKER_POLL_MS: '100',
+      PRICE_WATCH_WORKER_POLL_MS: '1000',
       PRICE_WATCH_WORKER_BATCH_SIZE: '10',
       PRICE_WATCH_ATTEMPT_LEASE_MS: '2000',
       PRICE_WATCH_PROVIDER_TIMEOUT_MS: '500',
@@ -358,7 +362,7 @@ async function main() {
       AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
       TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
       AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
-      RABBITMQ_URL: 'amqp://127.0.0.1:9',
+      RABBITMQ_URL: brokerUrl(),
       SMTP_HOST: '127.0.0.1',
       SMTP_PORT: '9',
     });
@@ -379,7 +383,15 @@ async function main() {
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
   if (priceWatchMode) {
-    await runPriceWatchTests({ request, query, account, bearer, tripBody, pass });
+    await runPriceWatchTests({
+      request,
+      query,
+      account,
+      bearer,
+      tripBody,
+      pass,
+      brokerUrl: brokerUrl(),
+    });
     console.log(`PASS price-watch:test completed ${checks} groups.`);
     return;
   }

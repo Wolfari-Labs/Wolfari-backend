@@ -1,8 +1,8 @@
-# Price Watch Core và Worker H1–H2
+# Price Watch Core, Worker và Alert H1–H3
 
 ## Phạm vi
 
-H1 hiện thực API133–139 cho việc cấu hình và quản lý theo dõi giá. H2 chạy scheduler và adapter `MOCK_FLIGHT` xác định để sinh observation thử nghiệm. Hệ thống chưa gọi hãng/nhà cung cấp thật và chưa gửi cảnh báo.
+H1 hiện thực API133–139 cho việc cấu hình và quản lý theo dõi giá. H2 chạy scheduler và adapter `MOCK_FLIGHT` xác định để sinh observation thử nghiệm. H3 đánh giá alert bền vững, tạo notification in-app để bàn giao và phản ứng với lifecycle Trip/membership. Hệ thống chưa gọi hãng/nhà cung cấp thật và chưa gửi push/email.
 
 ## Luồng và quyền
 
@@ -32,7 +32,7 @@ Observation được đọc từ query group hiện tại của watch. Response 
 
 Automation V002 thêm `owner_membership_id uuid NOT NULL` và index `(trip_id, owner_membership_id, status)`. Migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED` nếu đã có watch legacy; không đoán membership từ `user_id`.
 
-Automation V003 thêm `price_query_attempts.next_attempt_at` và index claim cho attempt `PENDING/RUNNING`. `next_attempt_at` là thời điểm đủ điều kiện retry; `claim_until` chỉ là hạn lease. Readiness Automation yêu cầu V001–V003. V001/V002 và checksum cũ không bị sửa.
+Automation V003 thêm `price_query_attempts.next_attempt_at` và index claim cho attempt `PENDING/RUNNING`. `next_attempt_at` là thời điểm đủ điều kiện retry; `claim_until` chỉ là hạn lease. V004 thêm `price_alert_candidates` và `price_watch_trip_lifecycle`. Readiness Automation yêu cầu V001–V004. Các migration/checksum cũ không bị sửa.
 
 Gateway và Automation dùng `GATEWAY_AUTOMATION_SECRET`; cursor dùng `AUTOMATION_CURSOR_SECRET`. Cả hai secret tối thiểu 32 byte và được `env:init` phân phối đúng endpoint. gRPC chỉ bind loopback ở local/test; production hiện fail closed cho đến khi có TLS.
 
@@ -46,7 +46,39 @@ Một attempt có lần gọi đầu và tối đa năm retry sau 10 giây, 30 g
 
 Adapter H2 chỉ hỗ trợ `MOCK_FLIGHT`, không gọi mạng. Giá, fare ID và metadata được sinh xác định từ canonical key + scheduled slot. Metadata lưu và trả ra chỉ gồm whitelist đã nêu ở trên. Worker mặc định tắt, được bật rõ ràng trong test/demo; production không được bật mock.
 
+## Rule alert và cooldown H3
+
+Worker ghi observation và đánh giá toàn bộ watch `ACTIVE` còn hạn của query group trong cùng transaction. Mỗi watch giữ ngưỡng, cooldown và trạng thái riêng dù dùng chung một truy vấn provider.
+
+- Chỉ `price < threshold_price` đủ điều kiện cảnh báo. Giá bằng hoặc cao hơn ngưỡng không cảnh báo và bật lại `alert_armed`.
+- Watch chưa từng alert tạo candidate `FIRST`.
+- Sau khi giá đã quay về ngưỡng rồi giảm xuống, watch tạo `REARMED`.
+- Nếu chưa re-arm, giá phải giảm thêm ít nhất 5% so với `last_alert_price` để tạo `DROP_5_PERCENT`. Phép tính dùng bigint, không dùng số thực.
+- Hai alert thành công phải cách nhau ít nhất 24 giờ; đúng mốc 24 giờ được phép. Observation trong cooldown không tạo lịch chờ và không tiêu thụ trạng thái. Watch chỉ được đánh giá lại khi có observation thành công mới.
+- PATCH đổi threshold hoặc canonical query bật lại `alert_armed` nhưng giữ `last_alert_price` và `last_alert_at`, nên không bỏ qua cooldown.
+
+Mỗi watch chỉ có tối đa một candidate `PENDING/PROCESSING`. Observation mới supersede candidate cũ. Candidate giữ `watch_version` và `observation_id`; khi hoàn tất, repository khóa lại candidate/watch, kiểm tra version, trạng thái, query group, observation mới nhất, hạn watch và rule hiện tại trước khi ghi kết quả. Vì vậy worker cũ, observation cũ hoặc cấu hình đã đổi không thể gửi cảnh báo sai.
+
+## Notification và quyền hiện tại
+
+Alert worker claim candidate bằng lease, tối đa sáu lần với backoff 10/30/120/300/900 giây. Trước khi tạo notification, worker gọi `Trip.GetAccessContext` ngoài transaction Automation. Trip phải đang `ACTIVE` và `membership_id` hiện tại phải đúng bằng `owner_membership_id` lúc tạo watch.
+
+Khi kiểm tra thành công, cùng một transaction cập nhật `last_alert_price`, `last_alert_at`, tắt `alert_armed`, tăng version, tạo notification `PRICE_ALERT/AVAILABLE` có dedupe key và hoàn tất candidate. Nếu transaction thất bại, không phần nào được commit. `AVAILABLE` chỉ là bàn giao cho module Notification; H3 không tạo delivery push/email và không mở rộng Identity contract.
+
+## Lifecycle bất đồng bộ
+
+Queue durable `wolfari.automation.price-watch.v1` chỉ nhận `MemberLeft`, `MemberRemoved`, `TripArchived`, `TripDeleted`, `TripReopened`. Consumer validate event contract, dedupe bằng inbox và retry qua năm hàng đợi TTL trước khi vào DLQ.
+
+- Member leave/remove stop watch gắn với chính `aggregate_id` membership cũ. Cùng `user_id` rejoin bằng membership mới không làm sống lại hoặc bị dừng nhầm.
+- Archive pause watch đang active và suppress candidate mở.
+- Reopen chỉ cập nhật lifecycle revision; watch vẫn paused cho đến khi creator chủ động resume qua API và quyền hiện tại được kiểm tra lại.
+- Delete stop watch active/paused và là terminal; event reopen đến sau không hồi sinh trạng thái đã xóa.
+- Event Trip được áp dụng theo `export_revision`; duplicate và revision cũ không lặp effect. Sau mỗi effect, query group được đối soát lại theo các watch active còn hạn.
+
+Event lifecycle giảm cửa sổ xử lý nền nhưng không thay thế kiểm tra quyền đồng bộ ở API hoặc ngay trước notification.
+
 ## Các mốc sau
 
-- H3: rule threshold, re-arm/cooldown, notification delivery và xử lý lifecycle/current-recipient.
+- Module Notification tiếp quản bản ghi `AVAILABLE` để gửi push/email, quản lý preference và delivery receipt.
 - Provider thật chỉ thêm sau khi chốt điều khoản, rate limit, dữ liệu giá và cách đánh dấu nguồn; không dùng mock để tuyên bố giá thực.
+- Cần bổ sung quan sát vận hành cho backlog/DLQ và kiểm thử production transport; H3 hiện chỉ chứng minh local với provider mock.

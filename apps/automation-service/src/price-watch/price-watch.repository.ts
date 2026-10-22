@@ -273,7 +273,10 @@ export class PriceWatchRepository {
       const groupId = await queryGroup(client, value);
       const changed = await client.query<WatchRow>(
         `UPDATE price_watches SET query_group_id=$2,threshold_price=$3,currency=$4,expires_at=$5,
-           alert_armed=CASE WHEN threshold_price<>$3 THEN true ELSE alert_armed END,
+           alert_armed=CASE
+             WHEN query_group_id<>$2 OR threshold_price<>$3 THEN true
+             ELSE alert_armed
+           END,
            version=version+1,updated_at=now()
          WHERE id=$1
          RETURNING id,query_group_id,user_id,trip_id,owner_membership_id,threshold_price::text,

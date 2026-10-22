@@ -88,12 +88,16 @@ export async function checkPriceWatchRepository(client) {
       request_hash: 'moved',
       threshold_price: '1800000',
     });
+    await client.query('UPDATE price_watches SET alert_armed=false WHERE id=$1', [created.id]);
     const moved = await repository.update(created.id, 2, movedValue, () => {});
     assert.notEqual(moved.query_group_id, second.query_group_id);
     assert.equal((await repository.find(second.id)).query.origin, 'DAD');
     assert.equal((await client.query(
       'SELECT active FROM price_query_groups WHERE id=$1', [second.query_group_id],
     )).rows[0].active, true);
+    assert.equal((await client.query(
+      'SELECT alert_armed FROM price_watches WHERE id=$1', [moved.id],
+    )).rows[0].alert_armed, true);
 
     const paused = await repository.changeStatus(moved.id, 3, 'PAUSED', null, () => {});
     assert.equal(paused.status, 'PAUSED');

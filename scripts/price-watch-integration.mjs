@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import amqp from 'amqplib';
 
-export async function runPriceWatchTests({ request, query, account, bearer, tripBody, pass }) {
+export async function runPriceWatchTests({
+  request,
+  query,
+  account,
+  bearer,
+  tripBody,
+  pass,
+  brokerUrl,
+}) {
   const waitFor = async (work, timeoutMs = 10_000) => {
     const deadline = Date.now() + timeoutMs;
     while (true) {
@@ -49,12 +58,17 @@ export async function runPriceWatchTests({ request, query, account, bearer, trip
     });
 
   const firstKey = randomUUID();
-  const [first, replay] = await Promise.all([
+  const [first, replay, second] = await Promise.all([
     createWatch(firstTrip, firstOwner, firstKey),
     createWatch(firstTrip, firstOwner, firstKey),
+    createWatch(secondTrip, secondOwner, randomUUID(), {
+      ...body,
+      threshold_price: '9000000',
+    }),
   ]);
   assert.equal(first.status, 201);
   assert.equal(replay.status, 201);
+  assert.equal(second.status, 201);
   assert.equal(first.body.data.id, replay.body.data.id);
   assert.equal(
     (
@@ -67,8 +81,6 @@ export async function runPriceWatchTests({ request, query, account, bearer, trip
   );
   pass('concurrent create replays once and key reuse with another intent conflicts');
 
-  const second = await createWatch(secondTrip, secondOwner, randomUUID());
-  assert.equal(second.status, 201);
   assert.equal(second.body.data.query_group_id, first.body.data.query_group_id);
   assert.notEqual(second.body.data.id, first.body.data.id);
   assert.equal(
@@ -199,7 +211,102 @@ export async function runPriceWatchTests({ request, query, account, bearer, trip
   );
   pass('H2 worker creates one deterministic observation for the shared six-hour slot');
 
-  await query('trip', 'UPDATE trips SET archived_at=now() WHERE id=$1', [secondTrip]);
+  const alert = await waitFor(
+    async () => {
+      const rows = await query(
+        'automation',
+        `SELECT n.status,n.type,n.source_id,w.last_alert_price::text,w.last_alert_at,w.version
+         FROM notifications n JOIN price_watches w ON w.id=n.source_id::uuid
+         WHERE n.user_id=$1 AND n.type='PRICE_ALERT'`,
+        [secondOwner.id],
+      );
+      return rows[0];
+    },
+    30_000,
+  ).catch(async error => {
+    const state = await query(
+      'automation',
+      `SELECT w.status AS watch_status,w.version,c.status AS candidate_status,
+         c.attempt_count,c.last_error
+       FROM price_watches w LEFT JOIN price_alert_candidates c ON c.watch_id=w.id
+       WHERE w.id=$1 ORDER BY c.created_at DESC NULLS LAST LIMIT 1`,
+      [second.body.data.id],
+    );
+    throw new Error(`PRICE_ALERT_HANDOFF_TIMEOUT ${JSON.stringify(state[0] ?? {})}`, {
+      cause: error,
+    });
+  });
+  assert.equal(alert.status, 'AVAILABLE');
+  assert.equal(alert.type, 'PRICE_ALERT');
+  assert.equal(alert.source_id, second.body.data.id);
+  assert.equal(alert.version, 2);
+  assert.ok(BigInt(alert.last_alert_price) < 9_000_000n);
+  assert.ok(alert.last_alert_at);
+  assert.equal(
+    (
+      await query(
+        'automation',
+        `SELECT count(*)::int AS n FROM notification_deliveries d
+         JOIN notifications n ON n.id=d.notification_id WHERE n.type='PRICE_ALERT'`,
+      )
+    )[0]?.n,
+    0,
+  );
+  pass('H3 evaluates each watch independently and creates one in-app notification handoff');
+
+  const connection = await amqp.connect(brokerUrl);
+  const channel = await connection.createConfirmChannel();
+  await channel.assertExchange('wolfari.events.v1', 'topic', { durable: true });
+  await waitFor(async () => {
+    try {
+      await channel.checkQueue('wolfari.automation.price-watch.v1');
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  const publishLifecycle = async (type, revision) => {
+    const event = {
+      event_id: randomUUID(),
+      event_type: type,
+      schema_version: 1,
+      occurred_at: new Date().toISOString(),
+      producer: 'Trip',
+      aggregate_type: 'Trip',
+      aggregate_id: secondTrip,
+      aggregate_version: revision,
+      correlation_id: randomUUID(),
+      causation_id: null,
+      operation_id: null,
+      trip_id: secondTrip,
+      actor_user_id: secondOwner.id,
+      system_actor: null,
+      payload: { trip_id: secondTrip, export_revision: revision },
+    };
+    channel.publish('wolfari.events.v1', type, Buffer.from(JSON.stringify(event)), {
+      contentType: 'application/json',
+      messageId: event.event_id,
+      persistent: true,
+      mandatory: true,
+    });
+    await channel.waitForConfirms();
+  };
+  const archivedRevision = (
+    await query(
+      'trip',
+      'UPDATE trips SET archived_at=now(),export_revision=export_revision+1 WHERE id=$1 RETURNING export_revision',
+      [secondTrip],
+    )
+  )[0].export_revision;
+  await publishLifecycle('TripArchived', archivedRevision);
+  await waitFor(async () => {
+    const rows = await query(
+      'automation',
+      'SELECT status,status_reason,version FROM price_watches WHERE id=$1',
+      [second.body.data.id],
+    );
+    return rows[0]?.status === 'PAUSED' ? rows[0] : undefined;
+  });
   assert.equal(
     (
       await request(
@@ -217,12 +324,46 @@ export async function runPriceWatchTests({ request, query, account, bearer, trip
         `/api/v1/price-watches/${second.body.data.id}/pause`,
         'POST',
         {
-          expected_version: 1,
+          expected_version: 3,
         },
         bearer(secondOwner),
       )
     ).status,
     409,
   );
-  pass('archived Trip remains readable to its member and rejects writes');
+  pass('TripArchived event pauses active watches and archived Trip rejects writes');
+
+  const reopenedRevision = (
+    await query(
+      'trip',
+      'UPDATE trips SET archived_at=NULL,export_revision=export_revision+1 WHERE id=$1 RETURNING export_revision',
+      [secondTrip],
+    )
+  )[0].export_revision;
+  await publishLifecycle('TripReopened', reopenedRevision);
+  await waitFor(async () => {
+    const rows = await query(
+      'automation',
+      'SELECT state FROM price_watch_trip_lifecycle WHERE trip_id=$1',
+      [secondTrip],
+    );
+    return rows[0]?.state === 'ACTIVE';
+  });
+  const stillPaused = (
+    await query('automation', 'SELECT status,version FROM price_watches WHERE id=$1', [
+      second.body.data.id,
+    ])
+  )[0];
+  assert.deepEqual(stillPaused, { status: 'PAUSED', version: 3 });
+  const resumedAfterReopen = await request(
+    `/api/v1/price-watches/${second.body.data.id}/resume`,
+    'POST',
+    { expected_version: 3 },
+    bearer(secondOwner),
+  );
+  assert.equal(resumedAfterReopen.status, 200);
+  assert.equal(resumedAfterReopen.body.data.status, 'ACTIVE');
+  await channel.close();
+  await connection.close();
+  pass('TripReopened does not auto-resume; the creator resumes explicitly');
 }
