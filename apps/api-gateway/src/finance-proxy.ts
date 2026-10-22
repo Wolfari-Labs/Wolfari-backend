@@ -2,6 +2,7 @@ import { handlePaymentInstruction } from './payment-instruction-http';
 import { expenseRoute, handleExpense } from './expense-http';
 import { financialNoteRoute, handleFinancialNote } from './financial-note-http';
 import { refundRoute, handleRefund } from './refund-http';
+import { closureRoute, handleClosure } from './closure-http';
 import { FinanceReceiptHttp, receiptRoute } from './finance-receipt-http';
 import {
   contributionManagementRoute,
@@ -137,11 +138,15 @@ export class FinanceProxy {
       /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path) ||
       /^\/api\/v1\/expenses(?:\/|$)/.test(path) ||
       /^\/api\/v1\/notes(?:\/|$)/.test(path) ||
-      /^\/api\/v1\/refunds(?:\/|$)/.test(path)
+      /^\/api\/v1\/refunds(?:\/|$)/.test(path) ||
+      /^\/api\/v1\/closures(?:\/|$)/.test(path)
     );
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const closure = closureRoute(url.pathname);
+    if (closure)
+      return handleClosure(request, response, url, closure, this.validateSession, this.client);
     const expense = expenseRoute(url.pathname);
     if (expense)
       return handleExpense(request, response, url, expense, this.validateSession, this.client);

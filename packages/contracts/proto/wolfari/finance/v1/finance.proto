@@ -4,6 +4,12 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc ListClosures(ListClosuresRequest) returns (ListClosuresResponse);
+  rpc GetClosure(GetClosureRequest) returns (GetClosureResponse);
+  rpc CreateClosure(CreateClosureRequest) returns (CreateClosureResponse);
+  rpc ConfirmClosure(ConfirmClosureRequest) returns (ConfirmClosureResponse);
+  rpc CancelClosure(CancelClosureRequest) returns (CancelClosureResponse);
+  rpc RemindClosure(RemindClosureRequest) returns (RemindClosureResponse);
   rpc ListRefunds(ListRefundsRequest) returns (ListRefundsResponse);
   rpc CreateRefund(CreateRefundRequest) returns (CreateRefundResponse);
   rpc ReportRefundPaid(ReportRefundPaidRequest) returns (ReportRefundPaidResponse);
@@ -54,6 +60,66 @@ service FinanceService {
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
 }
+
+message ClosureConfirmationView {
+  string user_id = 1;
+  optional google.protobuf.Timestamp confirmed_at = 2;
+}
+message ClosureView {
+  string id = 1;
+  string fund_id = 2;
+  string requested_by_user_id = 3;
+  string status = 4;
+  int32 snapshot_finance_version = 5;
+  int32 snapshot_schema_version = 6;
+  string snapshot_json = 7;
+  string snapshot_hash = 8;
+  google.protobuf.Timestamp requested_at = 9;
+  optional google.protobuf.Timestamp cancelled_at = 10;
+  optional string cancelled_reason = 11;
+  optional google.protobuf.Timestamp closed_at = 12;
+  repeated ClosureConfirmationView confirmations = 13;
+  int32 finance_version = 14;
+}
+message ListClosuresRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListClosuresResponse {
+  repeated ClosureView items = 1;
+  optional string next_cursor = 2;
+}
+message GetClosureRequest { string actor_user_id = 1; string closure_id = 2; }
+message GetClosureResponse { ClosureView closure = 1; }
+message CreateClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  int32 expected_finance_version = 4;
+}
+message ConfirmClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string closure_id = 3;
+  string snapshot_hash = 4;
+}
+message CancelClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string closure_id = 3;
+  string reason = 4;
+}
+message RemindClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string closure_id = 3;
+}
+message CreateClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConfirmClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
+message CancelClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
+message RemindClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
 
 message RefundView {
   string id = 1;

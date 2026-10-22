@@ -39,6 +39,7 @@ import { isContributionReversalWrite } from '../repositories/contribution-revers
 import { isExpenseWrite } from '../repositories/expense.repository';
 import { isFinancialNoteWrite } from '../repositories/financial-note.repository';
 import { isRefundWrite } from '../repositories/refund.repository';
+import { isClosureWrite } from '../repositories/closure.repository';
 
 type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
@@ -63,7 +64,11 @@ type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.CancelRefundResponse &
   FinanceV1.RequestRefundReversalResponse &
   FinanceV1.ConsentRefundReversalResponse &
-  FinanceV1.ReverseRefundResponse;
+  FinanceV1.ReverseRefundResponse &
+  FinanceV1.CreateClosureResponse &
+  FinanceV1.ConfirmClosureResponse &
+  FinanceV1.CancelClosureResponse &
+  FinanceV1.RemindClosureResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;
@@ -350,6 +355,7 @@ export class FundCommandService {
           actor: { actor_user_id: input.actor },
           request_hash: input.hash,
           finance_outcome: receiptView(saved).outcome,
+          closure_effect: saved.response.closureEffect,
         },
         correlation,
         deadline,
@@ -365,6 +371,31 @@ export class FundCommandService {
     }
     if (saved.status !== 'COMMITTED')
       throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
+    if (isClosureWrite(input)) {
+      const role = await this.queries.authorizeFundRead(
+        input.fundId,
+        input.actor,
+        correlation,
+        deadline,
+      );
+      const row = saved.response.closure;
+      if (
+        !row ||
+        row.fund_id !== input.fundId ||
+        ('closureId' in input && row.id !== input.closureId) ||
+        !row.finance_version ||
+        !Array.isArray(row.confirmations)
+      )
+        throw new Error('Invalid closure result');
+      if (
+        (['CREATE_CLOSURE', 'CANCEL_CLOSURE', 'REMIND_CLOSURE'].includes(input.scope) &&
+          role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER) ||
+        (input.scope === 'CONFIRM_CLOSURE' &&
+          !row.confirmations.some((item) => item.user_id === input.actor))
+      )
+        throw new FinanceReadError('PERMISSION_DENIED');
+      return { closure: row };
+    }
     if (isRefundWrite(input)) {
       const current = await this.queries.getFund(
         { trip_id: input.tripId, actor_user_id: input.actor },

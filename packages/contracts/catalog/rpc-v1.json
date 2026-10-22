@@ -686,5 +686,53 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.1 API119; refunds 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CreateClosure",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API120; finance closure 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ListClosures",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API121; finance closure 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetClosure",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API122; finance closure 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ConfirmClosure",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API123; finance closure 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CancelClosure",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API124; finance closure 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "RemindClosure",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API125; finance closure 2026-10-22"
   }
 ]

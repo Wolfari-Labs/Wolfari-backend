@@ -38,7 +38,8 @@
     "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance",
     "finance:expenses:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-expenses",
     "finance:notes:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notes",
-    "finance:refunds:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-refunds"
+    "finance:refunds:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-refunds",
+    "finance:closures:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-closures"
   },
   "devDependencies": {
     "@types/node": "24.13.5",

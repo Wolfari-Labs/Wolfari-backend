@@ -22,6 +22,7 @@ import { ContributionReversalService } from './application/contribution-reversal
 import { ExpenseService } from './application/expense.service';
 import { FinancialNoteService } from './application/financial-note.service';
 import { RefundService } from './application/refund.service';
+import { ClosureService } from './application/closure.service';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -45,7 +46,55 @@ export class FinanceGrpcController {
     private readonly expenses?: ExpenseService,
     private readonly financialNotes?: FinancialNoteService,
     private readonly refunds?: RefundService,
+    private readonly closures?: ClosureService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ListClosures')
+  listClosures(request: FinanceV1.ListClosuresRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('ListClosures', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.list(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'GetClosure')
+  getClosure(request: FinanceV1.GetClosureRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('GetClosure', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.get(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'CreateClosure')
+  createClosure(request: FinanceV1.CreateClosureRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('CreateClosure', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.create(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ConfirmClosure')
+  confirmClosure(
+    request: FinanceV1.ConfirmClosureRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ConfirmClosure', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.confirm(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'CancelClosure')
+  cancelClosure(request: FinanceV1.CancelClosureRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('CancelClosure', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.cancel(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'RemindClosure')
+  remindClosure(request: FinanceV1.RemindClosureRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('RemindClosure', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.remind(request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ListRefunds')
   listRefunds(request: FinanceV1.ListRefundsRequest, metadata?: Metadata, call?: DeadlineCall) {

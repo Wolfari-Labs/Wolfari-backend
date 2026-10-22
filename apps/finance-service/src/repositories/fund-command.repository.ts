@@ -75,6 +75,8 @@ import {
   mapRefundRuleError,
   type RefundWriteCommand,
 } from './refund.repository';
+import { ClosureRepository, isClosureWrite, type ClosureWriteCommand } from './closure.repository';
+import { ClosureRuleError } from '../domain/closure-management';
 
 export type FundWrite = {
   operationId: string;
@@ -87,6 +89,7 @@ export type FundWrite = {
   | ExpenseWriteCommand
   | FinancialNoteWriteCommand
   | RefundWriteCommand
+  | ClosureWriteCommand
   | ManagementWrite
   | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
@@ -116,6 +119,8 @@ export type StoredResult = {
   expense?: FinanceV1.ExpenseView;
   financialNote?: FinanceV1.FinancialNoteView;
   refund?: FinanceV1.RefundView;
+  closure?: FinanceV1.ClosureView;
+  closureEffect?: CommonV1.ClosureEffect;
 };
 export type FundReceipt = {
   operation_id: string;
@@ -152,6 +157,10 @@ export const fundCommandScope = (value: string) =>
     'REQUEST_REFUND_REVERSAL',
     'CONSENT_REFUND_REVERSAL',
     'REVERSE_REFUND',
+    'CREATE_CLOSURE',
+    'CONFIRM_CLOSURE',
+    'CANCEL_CLOSURE',
+    'REMIND_CLOSURE',
     'UPDATE_CONTRIBUTION_REQUEST',
     'UPDATE_CONTRIBUTION_AMOUNT',
     'WAIVE_CONTRIBUTION',
@@ -198,11 +207,13 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
           : row.response.error === 'VERSION_CONFLICT'
             ? 'VERSION_CONFLICT'
             : 'STATE_CONFLICT',
+      closure_effect: row.response.closureEffect,
     },
     completed_at: { seconds: String(Math.floor(ms / 1000)), nanos: (ms % 1000) * 1000000 },
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
+  if (error instanceof ClosureRuleError) return new FinanceReadError(error.code);
   const refund = mapRefundRuleError(error);
   if (refund) return refund;
   const note = mapFinancialNoteRuleError(error);
@@ -320,6 +331,12 @@ export class FundCommandRepository {
     correlation: string,
   ) {
     const ctx = guard.context;
+    const closureWrite = isClosureWrite(input);
+    const closureLockValid = closureWrite
+      ? input.scope === 'CREATE_CLOSURE'
+        ? !guard.closure_lock_id
+        : guard.closure_lock_id === input.closureId
+      : !guard.closure_lock_id;
     if (
       ctx?.actor?.actor_user_id !== input.actor ||
       ctx.actor.system_actor !== undefined ||
@@ -330,7 +347,7 @@ export class FundCommandRepository {
       !ctx.active_user_ids.includes(guard.owner_user_id) ||
       !Number.isInteger(ctx.context_revision) ||
       Number(ctx.context_revision) < 1 ||
-      guard.closure_lock_id
+      !closureLockValid
     )
       throw new FinanceReadError('SERVICE_UNAVAILABLE');
     const authority = {
@@ -338,6 +355,7 @@ export class FundCommandRepository {
       ownerUserId: guard.owner_user_id,
       activeMemberUserIds: new Set(ctx.active_user_ids),
       tripArchived: false,
+      closureLockId: guard.closure_lock_id,
     };
     return this.db.withTransaction(async (client) => {
       await this.lock(client, input.operationId);
@@ -431,6 +449,13 @@ export class FundCommandRepository {
           );
         } else if (isRefundWrite(input)) {
           response = await new RefundRepository(client).execute(
+            client,
+            input,
+            authority,
+            correlation,
+          );
+        } else if (isClosureWrite(input)) {
+          response = await new ClosureRepository(client).execute(
             client,
             input,
             authority,

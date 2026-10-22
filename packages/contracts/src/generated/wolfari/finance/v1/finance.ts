@@ -45,6 +45,96 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+export interface ClosureConfirmationView {
+  user_id?: string | undefined;
+  confirmed_at?: Timestamp | undefined;
+}
+
+export interface ClosureView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  requested_by_user_id?: string | undefined;
+  status?: string | undefined;
+  snapshot_finance_version?: number | undefined;
+  snapshot_schema_version?: number | undefined;
+  snapshot_json?: string | undefined;
+  snapshot_hash?: string | undefined;
+  requested_at?: Timestamp | undefined;
+  cancelled_at?: Timestamp | undefined;
+  cancelled_reason?: string | undefined;
+  closed_at?: Timestamp | undefined;
+  confirmations?: ClosureConfirmationView[] | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListClosuresRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListClosuresResponse {
+  items?: ClosureView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface GetClosureRequest {
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+}
+
+export interface GetClosureResponse {
+  closure?: ClosureView | undefined;
+}
+
+export interface CreateClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+  snapshot_hash?: string | undefined;
+}
+
+export interface CancelClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+  reason?: string | undefined;
+}
+
+export interface RemindClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+}
+
+export interface CreateClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CancelClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RemindClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
 export interface RefundView {
   id?: string | undefined;
   fund_id?: string | undefined;
@@ -986,6 +1076,18 @@ export interface GetPaymentInstructionResponse {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  listClosures(request: ListClosuresRequest, metadata?: Metadata): Observable<ListClosuresResponse>;
+
+  getClosure(request: GetClosureRequest, metadata?: Metadata): Observable<GetClosureResponse>;
+
+  createClosure(request: CreateClosureRequest, metadata?: Metadata): Observable<CreateClosureResponse>;
+
+  confirmClosure(request: ConfirmClosureRequest, metadata?: Metadata): Observable<ConfirmClosureResponse>;
+
+  cancelClosure(request: CancelClosureRequest, metadata?: Metadata): Observable<CancelClosureResponse>;
+
+  remindClosure(request: RemindClosureRequest, metadata?: Metadata): Observable<RemindClosureResponse>;
+
   listRefunds(request: ListRefundsRequest, metadata?: Metadata): Observable<ListRefundsResponse>;
 
   createRefund(request: CreateRefundRequest, metadata?: Metadata): Observable<CreateRefundResponse>;
@@ -1164,6 +1266,36 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  listClosures(
+    request: ListClosuresRequest,
+    metadata?: Metadata,
+  ): Promise<ListClosuresResponse> | Observable<ListClosuresResponse> | ListClosuresResponse;
+
+  getClosure(
+    request: GetClosureRequest,
+    metadata?: Metadata,
+  ): Promise<GetClosureResponse> | Observable<GetClosureResponse> | GetClosureResponse;
+
+  createClosure(
+    request: CreateClosureRequest,
+    metadata?: Metadata,
+  ): Promise<CreateClosureResponse> | Observable<CreateClosureResponse> | CreateClosureResponse;
+
+  confirmClosure(
+    request: ConfirmClosureRequest,
+    metadata?: Metadata,
+  ): Promise<ConfirmClosureResponse> | Observable<ConfirmClosureResponse> | ConfirmClosureResponse;
+
+  cancelClosure(
+    request: CancelClosureRequest,
+    metadata?: Metadata,
+  ): Promise<CancelClosureResponse> | Observable<CancelClosureResponse> | CancelClosureResponse;
+
+  remindClosure(
+    request: RemindClosureRequest,
+    metadata?: Metadata,
+  ): Promise<RemindClosureResponse> | Observable<RemindClosureResponse> | RemindClosureResponse;
+
   listRefunds(
     request: ListRefundsRequest,
     metadata?: Metadata,
@@ -1455,6 +1587,12 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "listClosures",
+      "getClosure",
+      "createClosure",
+      "confirmClosure",
+      "cancelClosure",
+      "remindClosure",
       "listRefunds",
       "createRefund",
       "reportRefundPaid",

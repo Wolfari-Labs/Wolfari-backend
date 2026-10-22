@@ -423,3 +423,18 @@ Hoàn tác khoản đã xác nhận cần Holder yêu cầu, người nhận đ�
 ledger cũ. Toàn bộ mutation dùng Trip guard/recovery, command receipt, optimistic version
 và audit; không gọi ngân hàng hoặc provider. Xem [thiết kế](../../docs/architecture/finance-refunds.md)
 và [OpenAPI111–119](../../docs/api/finance-refunds.openapi.json).
+
+## Finance Closure API120–125
+
+Owner có thể bắt đầu đóng quỹ khi Fund `OPEN`, số dư và tổng ledger đều bằng 0, Holder còn
+active và không còn contribution, payment exception, expense hoặc refund dang dở. Finance
+tạo snapshot canonical schema 1, SHA-256 và danh sách mọi thành viên active; Fund chuyển
+sang `CLOSING`. Mỗi user trong snapshot chỉ xác nhận chính mình bằng đúng hash. Xác nhận
+cuối chuyển Fund sang `CLOSED`; Owner có thể hủy phiên pending để Fund về `OPEN`.
+
+Trip giữ `closure_lock_id` trong toàn bộ phiên. Command receipt mang effect set/release để
+worker phục hồi lock nếu Finance đã commit nhưng Complete bị mất. Reminder chỉ ghi tín hiệu
+`ClosureRequested` bền vững và trả accepted; Automation chưa giao email/push trong mốc này.
+Snapshot công khai không chứa payment destination, tài khoản, object key hoặc provider payload.
+Xem [thiết kế và protocol](../../docs/architecture/finance-closures.md) và
+[OpenAPI120–125](../../docs/api/finance-closures.openapi.json).

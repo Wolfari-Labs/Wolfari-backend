@@ -26,6 +26,8 @@ import { FinancialNoteService } from './application/financial-note.service';
 import { FinancialNoteRepository } from './repositories/financial-note.repository';
 import { RefundService } from './application/refund.service';
 import { RefundRepository } from './repositories/refund.repository';
+import { ClosureService } from './application/closure.service';
+import { ClosureRepository } from './repositories/closure.repository';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
@@ -57,6 +59,8 @@ import { RefundRepository } from './repositories/refund.repository';
     FinancialNoteRepository,
     RefundService,
     RefundRepository,
+    ClosureService,
+    ClosureRepository,
   ],
 })
 export class AppModule {}

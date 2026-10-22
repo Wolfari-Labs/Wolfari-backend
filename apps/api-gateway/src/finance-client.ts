@@ -14,6 +14,12 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'ListClosures'
+      | 'GetClosure'
+      | 'CreateClosure'
+      | 'ConfirmClosure'
+      | 'CancelClosure'
+      | 'RemindClosure'
       | 'ListRefunds'
       | 'CreateRefund'
       | 'ReportRefundPaid'
