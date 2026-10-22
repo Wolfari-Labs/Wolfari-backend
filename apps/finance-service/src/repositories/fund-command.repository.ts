@@ -57,6 +57,12 @@ import {
   isContributionReversalWrite,
   type ContributionReversalWrite,
 } from './contribution-reversal.repository';
+import {
+  ExpenseRepository,
+  isExpenseWrite,
+  mapExpenseRuleError,
+  type ExpenseWriteCommand,
+} from './expense.repository';
 
 export type FundWrite = {
   operationId: string;
@@ -66,6 +72,7 @@ export type FundWrite = {
 } & (
   | ManualWrite
   | ContributionReversalWrite
+  | ExpenseWriteCommand
   | ManagementWrite
   | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
@@ -92,6 +99,7 @@ export type StoredResult = {
   destination?: FinanceV1.PaymentDestinationView;
   contributionRequest?: FinanceV1.ContributionRequestView;
   contribution?: FinanceV1.ContributionView;
+  expense?: FinanceV1.ExpenseView;
 };
 export type FundReceipt = {
   operation_id: string;
@@ -109,6 +117,11 @@ export const fundCommandScope = (value: string) =>
     'CONFIRM_RECEIVED',
     'REJECT_TRANSFER',
     'REVERSE_CONTRIBUTION',
+    'CREATE_EXPENSE',
+    'UPDATE_EXPENSE',
+    'DELETE_EXPENSE',
+    'SUBMIT_EXPENSE',
+    'WITHDRAW_EXPENSE',
     'UPDATE_CONTRIBUTION_REQUEST',
     'UPDATE_CONTRIBUTION_AMOUNT',
     'WAIVE_CONTRIBUTION',
@@ -160,6 +173,8 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
+  const expense = mapExpenseRuleError(error);
+  if (expense) return expense;
   if (error instanceof ContributionStateConflictError)
     return new FinanceReadError('STATE_CONFLICT');
   if (error instanceof ContributionVersionConflictError)
@@ -361,6 +376,13 @@ export class FundCommandRepository {
           );
         } else if (isContributionReversalWrite(input)) {
           response = await new ContributionReversalRepository().execute(
+            client,
+            input,
+            authority,
+            correlation,
+          );
+        } else if (isExpenseWrite(input)) {
+          response = await new ExpenseRepository(client, new ReceiptRepository(this.db)).execute(
             client,
             input,
             authority,

@@ -45,6 +45,124 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+export interface NullableStringChange {
+  value?: string | undefined;
+  clear?: boolean | undefined;
+}
+
+export interface ExpenseView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  category?: string | undefined;
+  status?: string | undefined;
+  created_by_user_id?: string | undefined;
+  receipt_available?: boolean | undefined;
+  submitted_at?: Timestamp | undefined;
+  paid_at?: Timestamp | undefined;
+  payment_method?: string | undefined;
+  paid_by_user_id?: string | undefined;
+  confirmed_at?: Timestamp | undefined;
+  confirmed_by_user_id?: string | undefined;
+  rejected_reason?: string | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListExpensesRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  status?: string | undefined;
+}
+
+export interface ListExpensesResponse {
+  items?: ExpenseView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  category?: string | undefined;
+  receipt_object_key?: string | undefined;
+  paid_at?: string | undefined;
+  payment_method?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreateExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdateExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  title?: string | undefined;
+  description?: NullableStringChange | undefined;
+  amount?: string | undefined;
+  category?: NullableStringChange | undefined;
+  receipt_object_key?: NullableStringChange | undefined;
+  paid_at?: NullableStringChange | undefined;
+  payment_method?: NullableStringChange | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface DeleteExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface SubmitExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface WithdrawExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface DeleteExpenseResponse {
+  operation?: Operation | undefined;
+}
+
+export interface SubmitExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface WithdrawExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
 export interface ContributionAllocationInput {
   member_user_id?: string | undefined;
   amount?: string | undefined;
@@ -616,6 +734,18 @@ export interface GetPaymentInstructionResponse {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  listExpenses(request: ListExpensesRequest, metadata?: Metadata): Observable<ListExpensesResponse>;
+
+  createExpense(request: CreateExpenseRequest, metadata?: Metadata): Observable<CreateExpenseResponse>;
+
+  updateExpense(request: UpdateExpenseRequest, metadata?: Metadata): Observable<UpdateExpenseResponse>;
+
+  deleteExpense(request: DeleteExpenseRequest, metadata?: Metadata): Observable<DeleteExpenseResponse>;
+
+  submitExpense(request: SubmitExpenseRequest, metadata?: Metadata): Observable<SubmitExpenseResponse>;
+
+  withdrawExpense(request: WithdrawExpenseRequest, metadata?: Metadata): Observable<WithdrawExpenseResponse>;
+
   getPaymentInstruction(
     request: GetPaymentInstructionRequest,
     metadata?: Metadata,
@@ -729,6 +859,36 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  listExpenses(
+    request: ListExpensesRequest,
+    metadata?: Metadata,
+  ): Promise<ListExpensesResponse> | Observable<ListExpensesResponse> | ListExpensesResponse;
+
+  createExpense(
+    request: CreateExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<CreateExpenseResponse> | Observable<CreateExpenseResponse> | CreateExpenseResponse;
+
+  updateExpense(
+    request: UpdateExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateExpenseResponse> | Observable<UpdateExpenseResponse> | UpdateExpenseResponse;
+
+  deleteExpense(
+    request: DeleteExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteExpenseResponse> | Observable<DeleteExpenseResponse> | DeleteExpenseResponse;
+
+  submitExpense(
+    request: SubmitExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<SubmitExpenseResponse> | Observable<SubmitExpenseResponse> | SubmitExpenseResponse;
+
+  withdrawExpense(
+    request: WithdrawExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<WithdrawExpenseResponse> | Observable<WithdrawExpenseResponse> | WithdrawExpenseResponse;
+
   getPaymentInstruction(
     request: GetPaymentInstructionRequest,
     metadata?: Metadata,
@@ -907,6 +1067,12 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "listExpenses",
+      "createExpense",
+      "updateExpense",
+      "deleteExpense",
+      "submitExpense",
+      "withdrawExpense",
       "getPaymentInstruction",
       "reportContributionTransfer",
       "confirmContributionReceived",

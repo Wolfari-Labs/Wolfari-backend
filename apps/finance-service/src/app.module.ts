@@ -20,6 +20,8 @@ import { PaymentDestinationRepository } from './repositories/payment-destination
 import { ContributionCommandService } from './application/contribution-command.service';
 import { ContributionQueryService } from './application/contribution-query.service';
 import { ContributionListRepository } from './repositories/contribution-list.repository';
+import { ExpenseService } from './application/expense.service';
+import { ExpenseRepository } from './repositories/expense.repository';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
@@ -45,6 +47,8 @@ import { ContributionListRepository } from './repositories/contribution-list.rep
     ContributionCommandService,
     ContributionQueryService,
     ContributionListRepository,
+    ExpenseService,
+    ExpenseRepository,
   ],
 })
 export class AppModule {}

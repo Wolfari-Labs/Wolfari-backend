@@ -510,5 +510,53 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.1 API085; contribution reversal 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ListExpenses",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API096; expense list 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CreateExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API097; expense draft 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "UpdateExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API098; expense draft 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "DeleteExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API099; expense draft 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "SubmitExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API100; expense submit 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "WithdrawExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API101; expense withdraw 2026-10-22"
   }
 ]

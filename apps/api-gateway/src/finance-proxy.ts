@@ -1,4 +1,5 @@
 import { handlePaymentInstruction } from './payment-instruction-http';
+import { expenseRoute, handleExpense } from './expense-http';
 import { FinanceReceiptHttp, receiptRoute } from './finance-receipt-http';
 import {
   contributionManagementRoute,
@@ -131,11 +132,15 @@ export class FinanceProxy {
     const path = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname;
     return (
       /^\/api\/v1\/trips\/[^/]+\/fund(?:\/|$)/.test(path) ||
-      /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path)
+      /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path) ||
+      /^\/api\/v1\/expenses(?:\/|$)/.test(path)
     );
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const expense = expenseRoute(url.pathname);
+    if (expense)
+      return handleExpense(request, response, url, expense, this.validateSession, this.client);
     const instruction = /^\/api\/v1\/contributions\/([^/]+)\/vietqr$/.exec(url.pathname);
     if (instruction)
       return handlePaymentInstruction(

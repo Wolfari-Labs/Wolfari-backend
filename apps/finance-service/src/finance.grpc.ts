@@ -19,6 +19,7 @@ import { readUuid } from './finance.errors';
 import { ContributionCommandService } from './application/contribution-command.service';
 import { ContributionQueryService } from './application/contribution-query.service';
 import { ContributionReversalService } from './application/contribution-reversal.service';
+import { ExpenseService } from './application/expense.service';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -39,7 +40,55 @@ export class FinanceGrpcController {
     private readonly manual?: ManualContributionService,
     private readonly instructions?: PaymentInstructionService,
     private readonly reversals?: ContributionReversalService,
+    private readonly expenses?: ExpenseService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ListExpenses')
+  listExpenses(request: FinanceV1.ListExpensesRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('ListExpenses', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.list(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'CreateExpense')
+  createExpense(request: FinanceV1.CreateExpenseRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('CreateExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.create(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'UpdateExpense')
+  updateExpense(request: FinanceV1.UpdateExpenseRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('UpdateExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.manage('UPDATE_EXPENSE', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'DeleteExpense')
+  deleteExpense(request: FinanceV1.DeleteExpenseRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('DeleteExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.manage('DELETE_EXPENSE', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'SubmitExpense')
+  submitExpense(request: FinanceV1.SubmitExpenseRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('SubmitExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.manage('SUBMIT_EXPENSE', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'WithdrawExpense')
+  withdrawExpense(
+    request: FinanceV1.WithdrawExpenseRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('WithdrawExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.manage('WITHDRAW_EXPENSE', request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ReverseContribution')
   reverseContribution(

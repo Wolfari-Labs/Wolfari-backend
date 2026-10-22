@@ -35,7 +35,8 @@
     "contracts:test": "vitest run packages/contracts scripts/contracts.test.ts",
     "contracts:breaking": "node scripts/contracts.mjs breaking",
     "dev:test": "node scripts/launcher-test.mjs",
-    "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance"
+    "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance",
+    "finance:expenses:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-expenses"
   },
   "devDependencies": {
     "@types/node": "24.13.5",

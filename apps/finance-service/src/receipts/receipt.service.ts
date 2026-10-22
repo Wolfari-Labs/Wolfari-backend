@@ -124,16 +124,26 @@ export class ReceiptService {
     uploader: string,
     signal: AbortSignal,
     currentContribution?: string,
+    currentExpense?: string,
   ) {
     return this.bounded(async () => {
       if (signal.aborted) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       if (!RECEIPT_KEY.test(key)) throw new FinanceReadError('VALIDATION_FAILED');
-      const file = await this.files.pendingAttachment(
-        readUuid(fund),
-        key,
-        readUuid(uploader),
-        currentContribution,
-      );
+      const file =
+        currentExpense === undefined
+          ? await this.files.pendingAttachment(
+              readUuid(fund),
+              key,
+              readUuid(uploader),
+              currentContribution,
+            )
+          : await this.files.pendingAttachment(
+              readUuid(fund),
+              key,
+              readUuid(uploader),
+              currentContribution,
+              currentExpense,
+            );
       await this.storage.withSignal(signal, () => this.storage.verify(file));
       if (signal.aborted) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return file;

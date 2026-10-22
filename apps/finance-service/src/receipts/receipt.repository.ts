@@ -52,11 +52,14 @@ export class ReceiptRepository {
     key: string,
     uploader: string,
     currentContribution?: string,
+    currentExpense?: string,
   ): Promise<FinanceFile> {
     const result = await this.db.query<FinanceFile>(
       `SELECT * FROM finance_files WHERE fund_id=$1 AND object_key=$2 AND uploader_user_id=$3
-       AND state='READY' AND (bound_at IS NULL OR (contribution_id=$4::uuid AND expense_id IS NULL))`,
-      [fund, key, uploader, currentContribution ?? null],
+       AND state='READY' AND (bound_at IS NULL
+         OR (contribution_id=$4::uuid AND expense_id IS NULL)
+         OR (expense_id=$5::uuid AND contribution_id IS NULL))`,
+      [fund, key, uploader, currentContribution ?? null, currentExpense ?? null],
     );
     if (!result.rows[0]) throw new FinanceReadError('STATE_CONFLICT');
     return result.rows[0];
@@ -93,15 +96,16 @@ export class ReceiptRepository {
       [fund, key],
     );
     const row = result.rows[0];
-    if (
-      reuseCurrent &&
-      row?.uploader_user_id === uploader &&
-      row.state === 'READY' &&
-      'contributionId' in target &&
-      row.contribution_id === target.contributionId &&
-      !row.expense_id
-    )
-      return;
+    if (reuseCurrent && row?.uploader_user_id === uploader && row.state === 'READY') {
+      if (
+        'contributionId' in target &&
+        row.contribution_id === target.contributionId &&
+        !row.expense_id
+      )
+        return;
+      if ('expenseId' in target && row.expense_id === target.expenseId && !row.contribution_id)
+        return;
+    }
     if (
       !row ||
       row.uploader_user_id !== uploader ||

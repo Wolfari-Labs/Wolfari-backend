@@ -1,0 +1,472 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Finance Expenses",
+    "version": "1.0.0",
+    "description": "API096-101 for shared-activity expense proposals. Draft, submit and withdraw do not move Fund money. Confirmation, rejection and reversal are intentionally outside this increment."
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/funds/{fund_id}/expenses": {
+      "get": {
+        "operationId": "listExpenses",
+        "summary": "API096 List expenses",
+        "parameters": [
+          { "$ref": "#/components/parameters/FundId" },
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/ExpenseStatus" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A current-member page; deleted drafts are excluded.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExpensePageEnvelope" },
+                "example": {
+                  "data": { "items": [], "next_cursor": null },
+                  "meta": { "correlation_id": "10000000-0000-4000-8000-000000000001" }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      },
+      "post": {
+        "operationId": "createExpense",
+        "summary": "API097 Create an expense draft",
+        "description": "Any active member may create a DRAFT. The Fund balance and ledger remain unchanged.",
+        "parameters": [
+          { "$ref": "#/components/parameters/FundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateExpenseInput" },
+              "example": {
+                "title": "Taxi sân bay",
+                "amount": "250000",
+                "category": "Di chuyển",
+                "expected_finance_version": 4
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/ExpenseResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/v1/expenses/{expense_id}": {
+      "patch": {
+        "operationId": "updateExpense",
+        "summary": "API098 Update a draft",
+        "description": "Creator or Owner; DRAFT only. JSON null clears nullable metadata. A no-op keeps both versions unchanged.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExpenseId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateExpenseInput" },
+              "example": {
+                "description": "Từ sân bay về khách sạn",
+                "expected_version": 1,
+                "expected_finance_version": 5
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ExpenseResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteExpense",
+        "summary": "API099 Soft-delete a draft",
+        "description": "Creator or Owner; DRAFT only. The retained private file/history is not physically deleted.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExpenseId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExpenseActionInput" },
+              "example": { "expected_version": 1, "expected_finance_version": 5 }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/OperationResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/v1/expenses/{expense_id}/submit": {
+      "post": {
+        "operationId": "submitExpense",
+        "summary": "API100 Submit a draft to the Holder",
+        "description": "Creator or Owner; DRAFT to SUBMITTED. No ledger entry is created.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExpenseId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/ExpenseAction" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ExpenseResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/v1/expenses/{expense_id}/withdraw": {
+      "post": {
+        "operationId": "withdrawExpense",
+        "summary": "API101 Withdraw a submitted proposal",
+        "description": "Creator only; SUBMITTED to DRAFT. Owner cannot withdraw another member's proposal.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExpenseId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/ExpenseAction" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ExpenseResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "parameters": {
+      "FundId": {
+        "name": "fund_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "ExpenseId": {
+        "name": "expense_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": { "type": "string", "maxLength": 1024, "pattern": "^[A-Za-z0-9_-]+$" }
+      }
+    },
+    "requestBodies": {
+      "ExpenseAction": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ExpenseActionInput" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ExpenseStatus": {
+        "type": "string",
+        "enum": ["DRAFT", "SUBMITTED", "CONFIRMED", "REJECTED", "REVERSED"]
+      },
+      "Money": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,18}$",
+        "description": "Positive VND integer no greater than signed int64 max."
+      },
+      "CreateExpenseInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "amount", "expected_finance_version"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": { "type": "string", "minLength": 1, "maxLength": 10000, "nullable": true },
+          "amount": { "$ref": "#/components/schemas/Money" },
+          "category": { "type": "string", "minLength": 1, "maxLength": 80, "nullable": true },
+          "receipt_object_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "nullable": true
+          },
+          "paid_at": { "type": "string", "format": "date-time", "nullable": true },
+          "payment_method": { "type": "string", "minLength": 1, "maxLength": 30, "nullable": true },
+          "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        }
+      },
+      "UpdateExpenseInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "anyOf": [
+          { "required": ["title"] },
+          { "required": ["description"] },
+          { "required": ["amount"] },
+          { "required": ["category"] },
+          { "required": ["receipt_object_key"] },
+          { "required": ["paid_at"] },
+          { "required": ["payment_method"] }
+        ],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": { "type": "string", "minLength": 1, "maxLength": 10000, "nullable": true },
+          "amount": { "$ref": "#/components/schemas/Money" },
+          "category": { "type": "string", "minLength": 1, "maxLength": 80, "nullable": true },
+          "receipt_object_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "nullable": true
+          },
+          "paid_at": { "type": "string", "format": "date-time", "nullable": true },
+          "payment_method": { "type": "string", "minLength": 1, "maxLength": 30, "nullable": true },
+          "expected_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+          "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        },
+        "description": "At least one mutable field is required. Unlike create, title and amount are optional."
+      },
+      "ExpenseActionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "properties": {
+          "expected_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+          "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        }
+      },
+      "Expense": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "title",
+          "description",
+          "amount",
+          "category",
+          "status",
+          "created_by_user_id",
+          "receipt_available",
+          "submitted_at",
+          "paid_at",
+          "payment_method",
+          "paid_by_user_id",
+          "confirmed_at",
+          "confirmed_by_user_id",
+          "rejected_reason",
+          "created_at",
+          "updated_at",
+          "version",
+          "finance_version"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fund_id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": { "type": "string", "nullable": true },
+          "amount": { "$ref": "#/components/schemas/Money" },
+          "category": { "type": "string", "nullable": true },
+          "status": { "$ref": "#/components/schemas/ExpenseStatus" },
+          "created_by_user_id": { "type": "string", "format": "uuid" },
+          "receipt_available": { "type": "boolean" },
+          "submitted_at": { "type": "string", "format": "date-time", "nullable": true },
+          "paid_at": { "type": "string", "format": "date-time", "nullable": true },
+          "payment_method": { "type": "string", "nullable": true },
+          "paid_by_user_id": { "type": "string", "format": "uuid", "nullable": true },
+          "confirmed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "confirmed_by_user_id": { "type": "string", "format": "uuid", "nullable": true },
+          "rejected_reason": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "version": { "type": "integer", "minimum": 1 },
+          "finance_version": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["correlation_id"],
+        "properties": { "correlation_id": { "type": "string", "format": "uuid" } }
+      },
+      "ExpenseEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Expense" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "ExpensePageEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "next_cursor"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "maxItems": 100,
+                "items": { "$ref": "#/components/schemas/Expense" }
+              },
+              "next_cursor": { "type": "string", "maxLength": 1024, "nullable": true }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "Operation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation_id", "trip_id", "state", "error_code", "outcome", "next_retry_at"],
+        "properties": {
+          "operation_id": { "type": "string", "format": "uuid" },
+          "trip_id": { "type": "string", "format": "uuid" },
+          "state": {
+            "type": "string",
+            "enum": ["PROCESSING", "PENDING_RECOVERY", "SUCCEEDED", "FAILED", "NEEDS_REVIEW"]
+          },
+          "error_code": { "type": "string", "nullable": true },
+          "outcome": { "type": "object", "nullable": true },
+          "next_retry_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "OperationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Operation" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["error", "meta"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "message", "details", "retryable"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "nullable": true },
+              "retryable": { "type": "boolean" }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      }
+    },
+    "responses": {
+      "ExpenseResult": {
+        "description": "Current expense snapshot.",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ExpenseEnvelope" } }
+        }
+      },
+      "OperationResult": {
+        "description": "Completed delete operation.",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/OperationEnvelope" } }
+        }
+      },
+      "Pending": {
+        "description": "Outcome is being completed or recovered. Poll the operation and retry the original request with the same key.",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/OperationEnvelope" } }
+        }
+      },
+      "BadRequest": {
+        "description": "VALIDATION_FAILED",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Unauthenticated": {
+        "description": "UNAUTHENTICATED",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Forbidden": {
+        "description": "PERMISSION_DENIED",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "NotFound": {
+        "description": "RESOURCE_NOT_FOUND",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Conflict": {
+        "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Unavailable": {
+        "description": "SERVICE_UNAVAILABLE",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    }
+  }
+}

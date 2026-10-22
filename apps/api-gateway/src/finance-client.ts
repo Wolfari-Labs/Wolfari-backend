@@ -14,6 +14,12 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'ListExpenses'
+      | 'CreateExpense'
+      | 'UpdateExpense'
+      | 'DeleteExpense'
+      | 'SubmitExpense'
+      | 'WithdrawExpense'
       | 'GetPaymentInstruction'
       | 'ReportContributionTransfer'
       | 'ConfirmContributionReceived'

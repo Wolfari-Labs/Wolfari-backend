@@ -382,3 +382,15 @@ liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn 
 ## API086 TEST payment instruction
 
 GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable reference. No money/state writes or bank verification. External QuickLink SVG is TEST-only and discloses transfer details to Casso when loaded. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).
+
+## Expense proposal API096–101
+
+Thành viên hiện tại có thể tạo DRAFT cho khoản chi hoạt động chung. Creator hoặc
+Owner sửa, xóa mềm và submit draft; chỉ Creator rút SUBMITTED về DRAFT. Các thao
+tác dùng optimistic version, UUID Idempotency-Key, Trip durable guard, audit và
+command receipt. PATCH no-op không tăng version.
+
+DRAFT/SUBMITTED chưa trừ quỹ và không tạo ledger. Response chỉ cho biết có receipt,
+không trả object key private. API102–104 confirm/reject/reverse thuộc mốc tiếp theo.
+Xem [thiết kế](../../docs/architecture/finance-expenses.md) và
+[OpenAPI096–101](../../docs/api/finance-expenses.openapi.json).

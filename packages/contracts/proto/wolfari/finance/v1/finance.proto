@@ -4,6 +4,12 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
+  rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+  rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
+  rpc DeleteExpense(DeleteExpenseRequest) returns (DeleteExpenseResponse);
+  rpc SubmitExpense(SubmitExpenseRequest) returns (SubmitExpenseResponse);
+  rpc WithdrawExpense(WithdrawExpenseRequest) returns (WithdrawExpenseResponse);
   rpc GetPaymentInstruction(GetPaymentInstructionRequest) returns (GetPaymentInstructionResponse);
   rpc ReportContributionTransfer(ReportContributionTransferRequest) returns (ReportContributionTransferResponse);
   rpc ConfirmContributionReceived(ConfirmContributionReceivedRequest) returns (ConfirmContributionReceivedResponse);
@@ -31,6 +37,119 @@ service FinanceService {
   rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+}
+
+message NullableStringChange {
+  oneof change {
+    string value = 1;
+    bool clear = 2;
+  }
+}
+message ExpenseView {
+  string id = 1;
+  string fund_id = 2;
+  string title = 3;
+  optional string description = 4;
+  string amount = 5;
+  optional string category = 6;
+  string status = 7;
+  string created_by_user_id = 8;
+  bool receipt_available = 9;
+  google.protobuf.Timestamp submitted_at = 10;
+  google.protobuf.Timestamp paid_at = 11;
+  optional string payment_method = 12;
+  optional string paid_by_user_id = 13;
+  google.protobuf.Timestamp confirmed_at = 14;
+  optional string confirmed_by_user_id = 15;
+  optional string rejected_reason = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+  int32 version = 19;
+  int32 finance_version = 20;
+}
+message ListExpensesRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+  optional string status = 5;
+}
+message ListExpensesResponse {
+  repeated ExpenseView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string title = 4;
+  optional string description = 5;
+  string amount = 6;
+  optional string category = 7;
+  optional string receipt_object_key = 8;
+  optional string paid_at = 9;
+  optional string payment_method = 10;
+  int32 expected_finance_version = 11;
+}
+message CreateExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message UpdateExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  optional string title = 4;
+  NullableStringChange description = 5;
+  optional string amount = 6;
+  NullableStringChange category = 7;
+  NullableStringChange receipt_object_key = 8;
+  NullableStringChange paid_at = 9;
+  NullableStringChange payment_method = 10;
+  int32 expected_version = 11;
+  int32 expected_finance_version = 12;
+}
+message DeleteExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message SubmitExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message WithdrawExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message UpdateExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message DeleteExpenseResponse { wolfari.common.v1.Operation operation = 1; }
+message SubmitExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message WithdrawExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
 }
 
 message ContributionAllocationInput {

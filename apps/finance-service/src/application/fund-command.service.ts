@@ -35,12 +35,18 @@ import {
 } from '../finance.errors';
 import { isManualWrite } from '../repositories/manual-contribution.repository';
 import { isContributionReversalWrite } from '../repositories/contribution-reversal.repository';
+import { isExpenseWrite } from '../repositories/expense.repository';
 
 type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
   FinanceV1.CreateContributionRequestResponse &
   FinanceV1.UpdateContributionAmountResponse &
-  FinanceV1.ReverseContributionResponse;
+  FinanceV1.ReverseContributionResponse &
+  FinanceV1.CreateExpenseResponse &
+  FinanceV1.UpdateExpenseResponse &
+  FinanceV1.DeleteExpenseResponse &
+  FinanceV1.SubmitExpenseResponse &
+  FinanceV1.WithdrawExpenseResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;
@@ -318,8 +324,9 @@ export class FundCommandService {
         return pending();
       }
     }
+    let completed: TripV1.CompleteOperationResponse;
     try {
-      const result = await this.trip.call<TripV1.CompleteOperationResponse>(
+      completed = await this.trip.call<TripV1.CompleteOperationResponse>(
         'CompleteOperation',
         {
           operation_id: operationId,
@@ -331,9 +338,9 @@ export class FundCommandService {
         deadline,
       );
       if (
-        result.operation?.operation_id !== operationId ||
-        result.operation.trip_id !== input.tripId ||
-        result.operation.state !== (saved.status === 'COMMITTED' ? 3 : 4)
+        completed.operation?.operation_id !== operationId ||
+        completed.operation.trip_id !== input.tripId ||
+        completed.operation.state !== (saved.status === 'COMMITTED' ? 3 : 4)
       )
         throw new Error('Invalid completion');
     } catch {
@@ -341,6 +348,23 @@ export class FundCommandService {
     }
     if (saved.status !== 'COMMITTED')
       throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
+    if (isExpenseWrite(input)) {
+      await this.queries.getFund(
+        { trip_id: input.tripId, actor_user_id: input.actor },
+        correlation,
+        deadline,
+      );
+      if (input.scope === 'DELETE_EXPENSE') return { operation: completed.operation };
+      const row = saved.response.expense;
+      if (
+        !row ||
+        row.fund_id !== input.fundId ||
+        ('expenseId' in input && row.id !== input.expenseId) ||
+        !row.finance_version
+      )
+        throw new Error('Invalid expense result');
+      return { expense: row };
+    }
     if ('requestId' in input) {
       const current = await this.queries.getFund(
         { trip_id: input.tripId, actor_user_id: input.actor },

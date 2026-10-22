@@ -58,7 +58,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                              |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| 64 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–089, API105/106 Finance |
+| 70 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle, API070–101 và API105/106 Finance |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                          |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                         |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                          |
@@ -72,7 +72,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 ## gRPC
 
-Catalog hiện có Identity 4, Trip 29, Finance 27 và Travel 4 RPC (tổng 64). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Catalog hiện có Identity 4, Trip 29, Finance 33 và Travel 4 RPC (tổng 70). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 API087–089 thêm `ReportContributionTransfer`, `ConfirmContributionReceived`,
 `RejectContributionTransfer`, chỉ ApiGateway, response Contribution/Operation.
@@ -134,7 +134,8 @@ API086 adds Finance `GetPaymentInstruction` (Gateway only, 2000ms) and optional 
 API085 adds Finance `ReverseContribution` for ApiGateway, taking operation/actor/
 contribution IDs, reason and the expected contribution/Finance versions. Response
 is the existing ContributionView/Operation oneof. Trip guard/recovery and Finance
-receipt/cancel add `REVERSE_CONTRIBUTION`. Catalog now has 64 RPC: Identity 4,
-Trip 29, Finance 27 and Travel 4. `ContributionUpdated` schema v1 widens its status
+receipt/cancel add `REVERSE_CONTRIBUTION`. Expense API096–101 adds six Gateway-only
+Finance RPCs and five durable command scopes. Catalog now has 70 RPC: Identity 4,
+Trip 29, Finance 33 and Travel 4. `ContributionUpdated` schema v1 widens its status
 enum with REVERSED; no new event type, schema version or database migration is
 introduced. See [contribution reversal](finance-contribution-reversal.md).
