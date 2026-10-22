@@ -558,5 +558,29 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.1 API101; expense withdraw 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ConfirmExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API102; expense confirmation 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "RejectExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API103; expense rejection 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ReverseExpense",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API104; expense reversal 2026-10-22"
   }
 ]

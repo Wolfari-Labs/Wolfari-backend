@@ -271,4 +271,313 @@ export async function runExpenseDraftTests(h, helpers) {
   pass(
     'Expense API096-101 enforces roles, replay, cursor, immutable receipt history and no-ledger behavior',
   );
+
+  const requestId = randomUUID();
+  const contributionId = randomUUID();
+  await query(
+    'finance',
+    `INSERT INTO contribution_requests(id,fund_id,title,status,created_by_user_id)
+     VALUES($1,$2,'Expense balance fixture','CLOSED',$3)`,
+    [requestId, fundId, owner.id],
+  );
+  await query(
+    'finance',
+    `INSERT INTO contributions
+     (id,request_id,fund_id,member_user_id,amount,status,destination_snapshot,
+      destination_version,confirmed_by_user_id,confirmed_at,self_contribution)
+     VALUES($1,$2,$3,$4,600000,'CONFIRMED',$5::jsonb,1,$4,now(),true)`,
+    [contributionId, requestId, fundId, holder.id, JSON.stringify({ type: 'TEST' })],
+  );
+  await query(
+    'finance',
+    `INSERT INTO fund_transactions
+     (fund_id,sequence,direction,transaction_type,amount,balance_after,contribution_id,
+      actor_user_id,business_key)
+     VALUES($1,1,'IN','CONTRIBUTION',600000,600000,$2,$3,$4)`,
+    [fundId, contributionId, holder.id, `expense-fixture:${contributionId}`],
+  );
+  financeVersion = (
+    await query(
+      'finance',
+      `UPDATE funds SET current_balance=600000,finance_version=finance_version+1,
+       updated_at=clock_timestamp() WHERE id=$1 RETURNING finance_version`,
+      [fundId],
+    )
+  )[0].finance_version;
+
+  const secondId = second.body.data.id;
+  const secondItem = `/api/v1/expenses/${secondId}`;
+  const secondSubmitted = await mutate(
+    `${secondItem}/submit`,
+    'POST',
+    { expected_version: 1, expected_finance_version: financeVersion },
+    owner,
+  );
+  assert.equal(secondSubmitted.status, 200);
+  financeVersion = secondSubmitted.body.data.finance_version;
+  assert.equal(
+    (
+      await mutate(
+        `${secondItem}/confirm`,
+        'POST',
+        {
+          paid_at: '2026-10-22T14:15:30+07:00',
+          payment_method: 'BANK_TRANSFER',
+          expected_version: 2,
+          expected_finance_version: financeVersion,
+        },
+        owner,
+      )
+    ).status,
+    403,
+  );
+  const confirmKey = randomUUID();
+  const confirmed = await mutate(
+    `${secondItem}/confirm`,
+    'POST',
+    {
+      paid_at: '2026-10-22T14:15:30+07:00',
+      payment_method: 'BANK_TRANSFER',
+      expected_version: 2,
+      expected_finance_version: financeVersion,
+    },
+    holder,
+    confirmKey,
+  );
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmed.body.data.status, 'CONFIRMED');
+  assert.equal(confirmed.body.data.paid_by_user_id, holder.id);
+  assert.equal(confirmed.body.data.confirmed_by_user_id, holder.id);
+  assert.equal(confirmed.body.data.payment_method, 'BANK_TRANSFER');
+  financeVersion = confirmed.body.data.finance_version;
+  const confirmedReplay = await mutate(
+    `${secondItem}/confirm`,
+    'POST',
+    {
+      paid_at: '2026-10-22T14:15:30+07:00',
+      payment_method: 'BANK_TRANSFER',
+      expected_version: 2,
+      expected_finance_version: financeVersion - 1,
+    },
+    holder,
+    confirmKey,
+  );
+  assert.equal(confirmedReplay.status, 200);
+  assert.equal(confirmedReplay.body.data.id, secondId);
+  assert.equal(confirmedReplay.body.data.finance_version, financeVersion);
+  let ledger = await query(
+    'finance',
+    `SELECT direction,transaction_type,amount::text,balance_after::text,expense_id,
+            reversal_of_id,reason
+     FROM fund_transactions WHERE fund_id=$1 ORDER BY sequence`,
+    [fundId],
+  );
+  assert.deepEqual(ledger[1], {
+    direction: 'OUT',
+    transaction_type: 'EXPENSE',
+    amount: '500000',
+    balance_after: '100000',
+    expense_id: secondId,
+    reversal_of_id: null,
+    reason: null,
+  });
+
+  const reversed = await mutate(
+    `${secondItem}/reverse`,
+    'POST',
+    {
+      reason: 'Merchant returned payment',
+      expected_version: 3,
+      expected_finance_version: financeVersion,
+    },
+    holder,
+  );
+  assert.equal(reversed.status, 200);
+  assert.equal(reversed.body.data.status, 'REVERSED');
+  assert.equal(reversed.body.data.receipt_available, second.body.data.receipt_available);
+  assert.equal(reversed.body.data.paid_at, confirmed.body.data.paid_at);
+  financeVersion = reversed.body.data.finance_version;
+  assert.equal(
+    (
+      await mutate(
+        `${secondItem}/reverse`,
+        'POST',
+        {
+          reason: 'Again',
+          expected_version: 4,
+          expected_finance_version: financeVersion,
+        },
+        holder,
+      )
+    ).status,
+    409,
+  );
+  ledger = await query(
+    'finance',
+    `SELECT id,direction,transaction_type,amount::text,balance_after::text,expense_id,
+            reversal_of_id,reason
+     FROM fund_transactions WHERE fund_id=$1 ORDER BY sequence`,
+    [fundId],
+  );
+  assert.equal(ledger.length, 3);
+  assert.equal(ledger[2].direction.trimEnd(), 'IN');
+  assert.equal(ledger[2].transaction_type, 'REVERSAL');
+  assert.equal(ledger[2].amount, '500000');
+  assert.equal(ledger[2].balance_after, '600000');
+  assert.equal(ledger[2].expense_id, null);
+  assert.equal(ledger[2].reversal_of_id, ledger[1].id);
+  assert.equal(ledger[2].reason, 'Merchant returned payment');
+
+  const rejectedDraft = await mutate(
+    collection,
+    'POST',
+    { title: 'Duplicate dinner', amount: '50000', expected_finance_version: financeVersion },
+    owner,
+  );
+  assert.equal(rejectedDraft.status, 201);
+  financeVersion = rejectedDraft.body.data.finance_version;
+  const rejectedSubmitted = await mutate(
+    `/api/v1/expenses/${rejectedDraft.body.data.id}/submit`,
+    'POST',
+    { expected_version: 1, expected_finance_version: financeVersion },
+    owner,
+  );
+  assert.equal(rejectedSubmitted.status, 200);
+  financeVersion = rejectedSubmitted.body.data.finance_version;
+  const rejected = await mutate(
+    `/api/v1/expenses/${rejectedDraft.body.data.id}/reject`,
+    'POST',
+    {
+      reason: 'Duplicate request',
+      expected_version: 2,
+      expected_finance_version: financeVersion,
+    },
+    holder,
+  );
+  assert.equal(rejected.status, 200);
+  assert.equal(rejected.body.data.status, 'REJECTED');
+  assert.equal(rejected.body.data.rejected_reason, 'Duplicate request');
+  financeVersion = rejected.body.data.finance_version;
+  assert.equal(
+    (
+      await query('finance', 'SELECT count(*) AS n FROM fund_transactions WHERE fund_id=$1', [
+        fundId,
+      ])
+    )[0].n,
+    '3',
+  );
+
+  await query(
+    'finance',
+    `INSERT INTO fund_refunds
+     (fund_id,member_user_id,amount,status,reason,requested_by_user_id)
+     VALUES($1,$2,500000,'PENDING','Reserved for member',$3)`,
+    [fundId, holder.id, owner.id],
+  );
+  financeVersion = (
+    await query(
+      'finance',
+      `UPDATE funds SET finance_version=finance_version+1,updated_at=clock_timestamp()
+       WHERE id=$1 RETURNING finance_version`,
+      [fundId],
+    )
+  )[0].finance_version;
+  const overspend = await mutate(
+    collection,
+    'POST',
+    { title: 'Over available balance', amount: '150000', expected_finance_version: financeVersion },
+    owner,
+  );
+  assert.equal(overspend.status, 201);
+  financeVersion = overspend.body.data.finance_version;
+  const overspendSubmitted = await mutate(
+    `/api/v1/expenses/${overspend.body.data.id}/submit`,
+    'POST',
+    { expected_version: 1, expected_finance_version: financeVersion },
+    owner,
+  );
+  assert.equal(overspendSubmitted.status, 200);
+  financeVersion = overspendSubmitted.body.data.finance_version;
+  assert.equal(
+    (
+      await mutate(
+        `/api/v1/expenses/${overspend.body.data.id}/confirm`,
+        'POST',
+        {
+          paid_at: '2026-10-22T15:00:00+07:00',
+          payment_method: 'CASH',
+          expected_version: 2,
+          expected_finance_version: financeVersion,
+        },
+        holder,
+      )
+    ).status,
+    409,
+  );
+
+  const concurrentDrafts = [];
+  for (const title of ['Concurrent A', 'Concurrent B']) {
+    const draft = await mutate(
+      collection,
+      'POST',
+      { title, amount: '80000', expected_finance_version: financeVersion },
+      owner,
+    );
+    assert.equal(draft.status, 201);
+    financeVersion = draft.body.data.finance_version;
+    concurrentDrafts.push(draft.body.data);
+  }
+  for (const draft of concurrentDrafts) {
+    const submission = await mutate(
+      `/api/v1/expenses/${draft.id}/submit`,
+      'POST',
+      { expected_version: 1, expected_finance_version: financeVersion },
+      owner,
+    );
+    assert.equal(submission.status, 200);
+    financeVersion = submission.body.data.finance_version;
+  }
+  const competing = await Promise.all(
+    concurrentDrafts.map((draft) =>
+      mutate(
+        `/api/v1/expenses/${draft.id}/confirm`,
+        'POST',
+        {
+          paid_at: '2026-10-22T16:00:00+07:00',
+          payment_method: 'CASH',
+          expected_version: 2,
+          expected_finance_version: financeVersion,
+        },
+        holder,
+      ),
+    ),
+  );
+  assert.deepEqual(competing.map((result) => result.status).sort(), [200, 409]);
+  const settledRows = await query(
+    'finance',
+    'SELECT status FROM fund_expenses WHERE id=ANY($1::uuid[]) ORDER BY status',
+    [concurrentDrafts.map((draft) => draft.id)],
+  );
+  assert.deepEqual(
+    settledRows.map((row) => row.status),
+    ['CONFIRMED', 'SUBMITTED'],
+  );
+  const finalFund = (
+    await query('finance', 'SELECT current_balance::text FROM funds WHERE id=$1', [fundId])
+  )[0];
+  assert.equal(finalFund.current_balance, '520000');
+  assert.equal(
+    (
+      await query(
+        'finance',
+        `SELECT COALESCE(SUM(CASE WHEN direction='IN' THEN amount ELSE -amount END),0)::text AS balance
+         FROM fund_transactions WHERE fund_id=$1`,
+        [fundId],
+      )
+    )[0].balance,
+    finalFund.current_balance,
+  );
+  pass(
+    'Expense API102-104 enforces Holder settlement, reservation, replay, linked reversal and concurrent balance safety',
+  );
 }

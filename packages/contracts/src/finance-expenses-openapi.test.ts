@@ -12,7 +12,7 @@ const ajv = new Ajv({ strict: false, allErrors: true });
 addFormats(ajv);
 const id = '10000000-0000-4000-8000-000000000001';
 
-describe('Finance API096-101 OpenAPI', () => {
+describe('Finance API096-104 OpenAPI', () => {
   it('resolves every local reference and compiles schemas', () => {
     const walk = (value: unknown): void => {
       if (!value || typeof value !== 'object') return;
@@ -27,11 +27,13 @@ describe('Finance API096-101 OpenAPI', () => {
       for (const child of Object.values(value)) walk(child);
     };
     walk(spec);
-    expect(Object.keys(spec.paths)).toHaveLength(4);
+    expect(Object.keys(spec.paths)).toHaveLength(7);
     for (const name of [
       'CreateExpenseInput',
       'UpdateExpenseInput',
       'ExpenseActionInput',
+      'ConfirmExpenseInput',
+      'ExpenseReasonInput',
       'Expense',
       'ExpenseEnvelope',
       'ExpensePageEnvelope',

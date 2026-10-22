@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Finance Expenses",
-    "version": "1.0.0",
-    "description": "API096-101 for shared-activity expense proposals. Draft, submit and withdraw do not move Fund money. Confirmation, rejection and reversal are intentionally outside this increment."
+    "version": "1.1.0",
+    "description": "API096-104 for shared-activity expenses. Draft, submit and withdraw do not move Fund money; Holder confirmation creates one OUT ledger entry, rejection creates none, and reversal creates one linked IN entry."
   },
   "security": [{ "bearerAuth": [] }],
   "paths": {
@@ -179,6 +179,93 @@
           "503": { "$ref": "#/components/responses/Unavailable" }
         }
       }
+    },
+    "/api/v1/expenses/{expense_id}/confirm": {
+      "post": {
+        "operationId": "confirmExpense",
+        "summary": "API102 Confirm and pay a submitted expense",
+        "description": "Current Holder only; SUBMITTED to CONFIRMED. Available balance includes active refund reservations. Success creates exactly one EXPENSE OUT entry.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExpenseId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ConfirmExpenseInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ExpenseResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/v1/expenses/{expense_id}/reject": {
+      "post": {
+        "operationId": "rejectExpense",
+        "summary": "API103 Reject a submitted expense",
+        "description": "Current Holder only; SUBMITTED to terminal REJECTED. No ledger entry or balance change is made.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExpenseId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExpenseReasonInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ExpenseResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/v1/expenses/{expense_id}/reverse": {
+      "post": {
+        "operationId": "reverseExpense",
+        "summary": "API104 Reverse a confirmed expense",
+        "description": "Current Holder only; CONFIRMED to terminal REVERSED. Success preserves payment and receipt history and creates exactly one REVERSAL IN linked to the original OUT.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExpenseId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExpenseReasonInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/ExpenseResult" },
+          "202": { "$ref": "#/components/responses/Pending" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
     }
   },
   "components": {
@@ -291,6 +378,27 @@
         "additionalProperties": false,
         "required": ["expected_version", "expected_finance_version"],
         "properties": {
+          "expected_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+          "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        }
+      },
+      "ConfirmExpenseInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["paid_at", "payment_method", "expected_version", "expected_finance_version"],
+        "properties": {
+          "paid_at": { "type": "string", "format": "date-time" },
+          "payment_method": { "type": "string", "minLength": 1, "maxLength": 30 },
+          "expected_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+          "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        }
+      },
+      "ExpenseReasonInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason", "expected_version", "expected_finance_version"],
+        "properties": {
+          "reason": { "type": "string", "minLength": 1, "maxLength": 1024 },
           "expected_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
           "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
         }

@@ -15,7 +15,12 @@ describe('expense HTTP projection', () => {
       expenseId: id,
       action: 'submit',
     });
-    expect(expenseRoute(`/api/v1/expenses/${id}/confirm`)).toBeUndefined();
+    for (const action of ['confirm', 'reject', 'reverse'] as const)
+      expect(expenseRoute(`/api/v1/expenses/${id}/${action}`)).toEqual({
+        kind: 'item',
+        expenseId: id,
+        action,
+      });
   });
 
   it('projects a strict public expense without private receipt key', () => {

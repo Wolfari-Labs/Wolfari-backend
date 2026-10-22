@@ -1,13 +1,24 @@
 import type { FundSetupContext } from './fund-setup';
 import type {
   ExpenseAction,
+  ExpenseConfirm,
   ExpensePatch,
+  ExpenseReasonAction,
   ExpenseStatus,
   ExpenseWrite,
 } from '../inputs/expense.input';
 
 export type ExpenseScope =
-  'CREATE_EXPENSE' | 'UPDATE_EXPENSE' | 'DELETE_EXPENSE' | 'SUBMIT_EXPENSE' | 'WITHDRAW_EXPENSE';
+  | 'CREATE_EXPENSE'
+  | 'UPDATE_EXPENSE'
+  | 'DELETE_EXPENSE'
+  | 'SUBMIT_EXPENSE'
+  | 'WITHDRAW_EXPENSE'
+  | 'CONFIRM_EXPENSE'
+  | 'REJECT_EXPENSE'
+  | 'REVERSE_EXPENSE';
+type ExpenseDraftMutationScope =
+  'UPDATE_EXPENSE' | 'DELETE_EXPENSE' | 'SUBMIT_EXPENSE' | 'WITHDRAW_EXPENSE';
 export type ExpenseState = {
   id: string;
   createdByUserId: string;
@@ -31,12 +42,17 @@ function base(expectedFinanceVersion: number, financeVersion: number, fundStatus
   if (fundStatus !== 'OPEN') throw new ExpenseRuleError('STATE_CONFLICT');
   if (financeVersion === 2147483647) throw new ExpenseRuleError('STATE_CONFLICT');
 }
-function actor(scope: ExpenseScope, state: ExpenseState, authority: FundSetupContext) {
+function actor(scope: ExpenseDraftMutationScope, state: ExpenseState, authority: FundSetupContext) {
   const creator = authority.actorUserId === state.createdByUserId;
   const owner = authority.actorUserId === authority.ownerUserId;
   if (scope === 'WITHDRAW_EXPENSE' ? !creator : !creator && !owner)
     throw new ExpenseRuleError('PERMISSION_DENIED');
 }
+type ExpenseContext = {
+  financeVersion: number;
+  fundStatus: string;
+  holderUserId: string;
+} & FundSetupContext;
 export function assertCanCreateExpense(
   body: ExpenseWrite,
   context: { financeVersion: number; fundStatus: string } & FundSetupContext,
@@ -46,7 +62,7 @@ export function assertCanCreateExpense(
     throw new ExpenseRuleError('PERMISSION_DENIED');
 }
 export function planExpenseMutation(
-  scope: Exclude<ExpenseScope, 'CREATE_EXPENSE'>,
+  scope: ExpenseDraftMutationScope,
   body: ExpensePatch | ExpenseAction,
   state: ExpenseState,
   context: { financeVersion: number; fundStatus: string } & FundSetupContext,
@@ -71,4 +87,25 @@ export function planExpenseMutation(
     (patch.paidAt !== undefined && patch.paidAt?.getTime() !== state.paidAt?.getTime()) ||
     (patch.paymentMethod !== undefined && patch.paymentMethod !== state.paymentMethod);
   return { changed, status: 'DRAFT' as const };
+}
+
+export function planExpenseSettlement(
+  scope: 'CONFIRM_EXPENSE' | 'REJECT_EXPENSE' | 'REVERSE_EXPENSE',
+  body: ExpenseConfirm | ExpenseReasonAction,
+  state: ExpenseState,
+  context: ExpenseContext,
+) {
+  base(body.expectedFinanceVersion, context.financeVersion, context.fundStatus);
+  if (body.expectedVersion !== state.version) throw new ExpenseRuleError('VERSION_CONFLICT');
+  if (
+    context.actorUserId !== context.holderUserId ||
+    !context.activeMemberUserIds.has(context.actorUserId)
+  )
+    throw new ExpenseRuleError('PERMISSION_DENIED');
+  if (scope === 'REVERSE_EXPENSE') {
+    if (state.status !== 'CONFIRMED') throw new ExpenseRuleError('STATE_CONFLICT');
+    return { status: 'REVERSED' as const };
+  }
+  if (state.status !== 'SUBMITTED') throw new ExpenseRuleError('STATE_CONFLICT');
+  return { status: scope === 'CONFIRM_EXPENSE' ? ('CONFIRMED' as const) : ('REJECTED' as const) };
 }

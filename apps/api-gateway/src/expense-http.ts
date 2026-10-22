@@ -22,17 +22,23 @@ import {
 type Request = IncomingMessage & { originalUrl?: string; body?: unknown };
 export type ExpenseRoute =
   | { kind: 'collection'; fundId: string }
-  | { kind: 'item'; expenseId: string; action?: 'submit' | 'withdraw' };
+  | {
+      kind: 'item';
+      expenseId: string;
+      action?: 'submit' | 'withdraw' | 'confirm' | 'reject' | 'reverse';
+    };
 
 export function expenseRoute(path: string): ExpenseRoute | undefined {
   const collection = /^\/api\/v1\/funds\/([^/]+)\/expenses$/.exec(path);
   if (collection) return { kind: 'collection', fundId: collection[1]! };
-  const item = /^\/api\/v1\/expenses\/([^/]+)(?:\/(submit|withdraw))?$/.exec(path);
+  const item = /^\/api\/v1\/expenses\/([^/]+)(?:\/(submit|withdraw|confirm|reject|reverse))?$/.exec(
+    path,
+  );
   if (!item) return undefined;
   return {
     kind: 'item',
     expenseId: item[1]!,
-    action: item[2] as 'submit' | 'withdraw' | undefined,
+    action: item[2] as 'submit' | 'withdraw' | 'confirm' | 'reject' | 'reverse' | undefined,
   };
 }
 
@@ -94,6 +100,19 @@ function validateWrite(body: Record<string, unknown>, create: boolean) {
 }
 function validateAction(body: Record<string, unknown>) {
   onlyKeys(body, ['expected_version', 'expected_finance_version']);
+  version(body.expected_version);
+  version(body.expected_finance_version);
+}
+function validateConfirm(body: Record<string, unknown>) {
+  onlyKeys(body, ['paid_at', 'payment_method', 'expected_version', 'expected_finance_version']);
+  instant(body.paid_at);
+  stringValue(body.payment_method, 30);
+  version(body.expected_version);
+  version(body.expected_finance_version);
+}
+function validateReasonAction(body: Record<string, unknown>) {
+  onlyKeys(body, ['reason', 'expected_version', 'expected_finance_version']);
+  stringValue(body.reason, 1024);
   version(body.expected_version);
   version(body.expected_finance_version);
 }
@@ -201,9 +220,19 @@ export async function handleExpense(
     const operationId = idempotencyKey(request, true);
     const body = await requestBody(request);
     if (create || update) validateWrite(body, create);
+    else if (route.kind === 'item' && route.action === 'confirm') validateConfirm(body);
+    else if (route.kind === 'item' && (route.action === 'reject' || route.action === 'reverse'))
+      validateReasonAction(body);
     else validateAction(body);
     let method:
-      'CreateExpense' | 'UpdateExpense' | 'DeleteExpense' | 'SubmitExpense' | 'WithdrawExpense';
+      | 'CreateExpense'
+      | 'UpdateExpense'
+      | 'DeleteExpense'
+      | 'SubmitExpense'
+      | 'WithdrawExpense'
+      | 'ConfirmExpense'
+      | 'RejectExpense'
+      | 'ReverseExpense';
     let payload: Record<string, unknown>;
     if (create) {
       method = 'CreateExpense';
@@ -231,7 +260,13 @@ export async function handleExpense(
         ? 'DeleteExpense'
         : route.kind === 'item' && route.action === 'submit'
           ? 'SubmitExpense'
-          : 'WithdrawExpense';
+          : route.kind === 'item' && route.action === 'withdraw'
+            ? 'WithdrawExpense'
+            : route.kind === 'item' && route.action === 'confirm'
+              ? 'ConfirmExpense'
+              : route.kind === 'item' && route.action === 'reject'
+                ? 'RejectExpense'
+                : 'ReverseExpense';
       payload = { ...body, expense_id: id };
     }
     const result = await client.call(

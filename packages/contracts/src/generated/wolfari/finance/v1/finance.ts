@@ -144,6 +144,34 @@ export interface WithdrawExpenseRequest {
   expected_finance_version?: number | undefined;
 }
 
+export interface ConfirmExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  paid_at?: string | undefined;
+  payment_method?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface RejectExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ReverseExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
 export interface UpdateExpenseResponse {
   expense?: ExpenseView | undefined;
   operation?: Operation | undefined;
@@ -159,6 +187,21 @@ export interface SubmitExpenseResponse {
 }
 
 export interface WithdrawExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RejectExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ReverseExpenseResponse {
   expense?: ExpenseView | undefined;
   operation?: Operation | undefined;
 }
@@ -746,6 +789,12 @@ export interface FinanceServiceClient {
 
   withdrawExpense(request: WithdrawExpenseRequest, metadata?: Metadata): Observable<WithdrawExpenseResponse>;
 
+  confirmExpense(request: ConfirmExpenseRequest, metadata?: Metadata): Observable<ConfirmExpenseResponse>;
+
+  rejectExpense(request: RejectExpenseRequest, metadata?: Metadata): Observable<RejectExpenseResponse>;
+
+  reverseExpense(request: ReverseExpenseRequest, metadata?: Metadata): Observable<ReverseExpenseResponse>;
+
   getPaymentInstruction(
     request: GetPaymentInstructionRequest,
     metadata?: Metadata,
@@ -888,6 +937,21 @@ export interface FinanceServiceController {
     request: WithdrawExpenseRequest,
     metadata?: Metadata,
   ): Promise<WithdrawExpenseResponse> | Observable<WithdrawExpenseResponse> | WithdrawExpenseResponse;
+
+  confirmExpense(
+    request: ConfirmExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<ConfirmExpenseResponse> | Observable<ConfirmExpenseResponse> | ConfirmExpenseResponse;
+
+  rejectExpense(
+    request: RejectExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<RejectExpenseResponse> | Observable<RejectExpenseResponse> | RejectExpenseResponse;
+
+  reverseExpense(
+    request: ReverseExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<ReverseExpenseResponse> | Observable<ReverseExpenseResponse> | ReverseExpenseResponse;
 
   getPaymentInstruction(
     request: GetPaymentInstructionRequest,
@@ -1073,6 +1137,9 @@ export function FinanceServiceControllerMethods() {
       "deleteExpense",
       "submitExpense",
       "withdrawExpense",
+      "confirmExpense",
+      "rejectExpense",
+      "reverseExpense",
       "getPaymentInstruction",
       "reportContributionTransfer",
       "confirmContributionReceived",

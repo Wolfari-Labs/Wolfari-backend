@@ -17,6 +17,9 @@ const FUND_COMMANDS = [
   'DELETE_EXPENSE',
   'SUBMIT_EXPENSE',
   'WITHDRAW_EXPENSE',
+  'CONFIRM_EXPENSE',
+  'REJECT_EXPENSE',
+  'REVERSE_EXPENSE',
   'UPDATE_CONTRIBUTION_REQUEST',
   'UPDATE_CONTRIBUTION_AMOUNT',
   'WAIVE_CONTRIBUTION',
@@ -152,6 +155,9 @@ export class FinanceOperationService implements OnModuleInit, OnApplicationShutd
           'DELETE_EXPENSE',
           'SUBMIT_EXPENSE',
           'WITHDRAW_EXPENSE',
+          'CONFIRM_EXPENSE',
+          'REJECT_EXPENSE',
+          'REVERSE_EXPENSE',
         ].includes(input.command!),
       );
       if (trip.archived_at || trip.closure_lock_id) return fail('STATE_CONFLICT', 409);
@@ -290,7 +296,8 @@ export class FinanceOperationService implements OnModuleInit, OnApplicationShutd
         'UPDATE_FUND_BUDGET','CREATE_PAYMENT_DESTINATION','UPDATE_PAYMENT_DESTINATION','CREATE_CONTRIBUTION_REQUEST',
         'UPDATE_CONTRIBUTION_REQUEST','UPDATE_CONTRIBUTION_AMOUNT','WAIVE_CONTRIBUTION','CANCEL_CONTRIBUTION',
         'REPORT_TRANSFER','CONFIRM_RECEIVED','REJECT_TRANSFER','REVERSE_CONTRIBUTION',
-        'CREATE_EXPENSE','UPDATE_EXPENSE','DELETE_EXPENSE','SUBMIT_EXPENSE','WITHDRAW_EXPENSE')
+        'CREATE_EXPENSE','UPDATE_EXPENSE','DELETE_EXPENSE','SUBMIT_EXPENSE','WITHDRAW_EXPENSE',
+        'CONFIRM_EXPENSE','REJECT_EXPENSE','REVERSE_EXPENSE')
       AND state IN ('PROCESSING','PENDING_RECOVERY') AND next_retry_at<=clock_timestamp()
       ORDER BY next_retry_at,operation_id LIMIT 20`)
     ).rows;

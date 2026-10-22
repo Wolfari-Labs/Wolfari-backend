@@ -46,7 +46,10 @@ type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.UpdateExpenseResponse &
   FinanceV1.DeleteExpenseResponse &
   FinanceV1.SubmitExpenseResponse &
-  FinanceV1.WithdrawExpenseResponse;
+  FinanceV1.WithdrawExpenseResponse &
+  FinanceV1.ConfirmExpenseResponse &
+  FinanceV1.RejectExpenseResponse &
+  FinanceV1.ReverseExpenseResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;

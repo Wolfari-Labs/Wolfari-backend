@@ -3,16 +3,19 @@ import {
   assertCanCreateExpense,
   ExpenseRuleError,
   planExpenseMutation,
+  planExpenseSettlement,
   type ExpenseState,
 } from './expense-management';
 
 const creator = '10000000-0000-4000-8000-000000000001';
 const owner = '10000000-0000-4000-8000-000000000002';
 const member = '10000000-0000-4000-8000-000000000003';
+const holder = '10000000-0000-4000-8000-000000000005';
 const context = (actorUserId: string) => ({
   actorUserId,
   ownerUserId: owner,
-  activeMemberUserIds: new Set([creator, owner, member]),
+  holderUserId: holder,
+  activeMemberUserIds: new Set([creator, owner, member, holder]),
   tripArchived: false,
   financeVersion: 4,
   fundStatus: 'OPEN',
@@ -119,6 +122,67 @@ describe('expense management rules', () => {
           { ...action, expectedVersion: 3 },
           state,
           context(creator),
+        ),
+      'VERSION_CONFLICT',
+    );
+  });
+
+  it('allows only the current Holder to confirm or reject a submitted expense', () => {
+    const submitted = { ...state, status: 'SUBMITTED' as const };
+    expect(
+      planExpenseSettlement(
+        'CONFIRM_EXPENSE',
+        { ...action, paidAt: new Date('2026-10-22T03:15:30Z'), paymentMethod: 'CASH' },
+        submitted,
+        context(holder),
+      ),
+    ).toEqual({ status: 'CONFIRMED' });
+    expect(
+      planExpenseSettlement(
+        'REJECT_EXPENSE',
+        { ...action, reason: 'Duplicate' },
+        submitted,
+        context(holder),
+      ),
+    ).toEqual({ status: 'REJECTED' });
+    code(
+      () =>
+        planExpenseSettlement(
+          'CONFIRM_EXPENSE',
+          { ...action, paidAt: new Date(), paymentMethod: 'CASH' },
+          submitted,
+          context(owner),
+        ),
+      'PERMISSION_DENIED',
+    );
+  });
+
+  it('allows the Holder to reverse only a confirmed expense', () => {
+    expect(
+      planExpenseSettlement(
+        'REVERSE_EXPENSE',
+        { ...action, reason: 'Payment returned' },
+        { ...state, status: 'CONFIRMED' },
+        context(holder),
+      ),
+    ).toEqual({ status: 'REVERSED' });
+    code(
+      () =>
+        planExpenseSettlement(
+          'REVERSE_EXPENSE',
+          { ...action, reason: 'Payment returned' },
+          { ...state, status: 'SUBMITTED' },
+          context(holder),
+        ),
+      'STATE_CONFLICT',
+    );
+    code(
+      () =>
+        planExpenseSettlement(
+          'REJECT_EXPENSE',
+          { ...action, expectedFinanceVersion: 3, reason: 'Duplicate' },
+          { ...state, status: 'SUBMITTED' },
+          context(holder),
         ),
       'VERSION_CONFLICT',
     );

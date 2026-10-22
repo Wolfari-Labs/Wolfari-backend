@@ -10,6 +10,9 @@ service FinanceService {
   rpc DeleteExpense(DeleteExpenseRequest) returns (DeleteExpenseResponse);
   rpc SubmitExpense(SubmitExpenseRequest) returns (SubmitExpenseResponse);
   rpc WithdrawExpense(WithdrawExpenseRequest) returns (WithdrawExpenseResponse);
+  rpc ConfirmExpense(ConfirmExpenseRequest) returns (ConfirmExpenseResponse);
+  rpc RejectExpense(RejectExpenseRequest) returns (RejectExpenseResponse);
+  rpc ReverseExpense(ReverseExpenseRequest) returns (ReverseExpenseResponse);
   rpc GetPaymentInstruction(GetPaymentInstructionRequest) returns (GetPaymentInstructionResponse);
   rpc ReportContributionTransfer(ReportContributionTransferRequest) returns (ReportContributionTransferResponse);
   rpc ConfirmContributionReceived(ConfirmContributionReceivedRequest) returns (ConfirmContributionReceivedResponse);
@@ -132,6 +135,31 @@ message WithdrawExpenseRequest {
   int32 expected_version = 4;
   int32 expected_finance_version = 5;
 }
+message ConfirmExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  string paid_at = 4;
+  string payment_method = 5;
+  int32 expected_version = 6;
+  int32 expected_finance_version = 7;
+}
+message RejectExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message ReverseExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
 message UpdateExpenseResponse {
   oneof result {
     ExpenseView expense = 1;
@@ -146,6 +174,24 @@ message SubmitExpenseResponse {
   }
 }
 message WithdrawExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message ConfirmExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message RejectExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message ReverseExpenseResponse {
   oneof result {
     ExpenseView expense = 1;
     wolfari.common.v1.Operation operation = 2;

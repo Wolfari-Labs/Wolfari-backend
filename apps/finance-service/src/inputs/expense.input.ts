@@ -28,6 +28,13 @@ export type ExpenseAction = {
   expectedVersion: number;
   expectedFinanceVersion: number;
 };
+export type ExpenseConfirm = ExpenseAction & {
+  paidAt: Date;
+  paymentMethod: string;
+};
+export type ExpenseReasonAction = ExpenseAction & {
+  reason: string;
+};
 export type ExpensePage = {
   fundId: string;
   limit: number;
@@ -122,6 +129,32 @@ export function parseUpdateExpense(input: unknown): ExpensePatch {
 export function parseExpenseAction(input: unknown): ExpenseAction {
   const body = record(input, ['expected_version', 'expected_finance_version']);
   return {
+    expectedVersion: version(body.expected_version),
+    expectedFinanceVersion: version(body.expected_finance_version),
+  };
+}
+
+export function parseExpenseConfirm(input: unknown): ExpenseConfirm {
+  const body = record(input, [
+    'paid_at',
+    'payment_method',
+    'expected_version',
+    'expected_finance_version',
+  ]);
+  const paidAt = instant(body.paid_at);
+  if (!paidAt) return invalid();
+  return {
+    paidAt,
+    paymentMethod: text(body.payment_method, 30)!,
+    expectedVersion: version(body.expected_version),
+    expectedFinanceVersion: version(body.expected_finance_version),
+  };
+}
+
+export function parseExpenseReasonAction(input: unknown): ExpenseReasonAction {
+  const body = record(input, ['reason', 'expected_version', 'expected_finance_version']);
+  return {
+    reason: text(body.reason, 1024)!,
     expectedVersion: version(body.expected_version),
     expectedFinanceVersion: version(body.expected_finance_version),
   };

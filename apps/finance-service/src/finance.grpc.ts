@@ -89,6 +89,35 @@ export class FinanceGrpcController {
       return this.expenses.manage('WITHDRAW_EXPENSE', request, correlation, deadline);
     });
   }
+  @GrpcMethod('FinanceService', 'ConfirmExpense')
+  confirmExpense(
+    request: FinanceV1.ConfirmExpenseRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ConfirmExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.manage('CONFIRM_EXPENSE', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'RejectExpense')
+  rejectExpense(request: FinanceV1.RejectExpenseRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('RejectExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.manage('REJECT_EXPENSE', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ReverseExpense')
+  reverseExpense(
+    request: FinanceV1.ReverseExpenseRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ReverseExpense', metadata, call, (correlation, deadline) => {
+      if (!this.expenses) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.expenses.manage('REVERSE_EXPENSE', request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ReverseContribution')
   reverseContribution(

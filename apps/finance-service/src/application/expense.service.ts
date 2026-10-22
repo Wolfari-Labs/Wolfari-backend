@@ -5,7 +5,9 @@ import { FinanceReadError, readUuid } from '../finance.errors';
 import {
   parseCreateExpense,
   parseExpenseAction,
+  parseExpenseConfirm,
   parseExpensePage,
+  parseExpenseReasonAction,
   parseUpdateExpense,
 } from '../inputs/expense.input';
 import { expenseResponse } from '../projections/expense-response';
@@ -72,7 +74,14 @@ export class ExpenseService {
   }
   async manage(
     scope: Exclude<ExpenseWriteCommand['scope'], 'CREATE_EXPENSE'>,
-    request: FinanceV1.UpdateExpenseRequest & FinanceV1.DeleteExpenseRequest,
+    request:
+      | FinanceV1.UpdateExpenseRequest
+      | FinanceV1.DeleteExpenseRequest
+      | FinanceV1.SubmitExpenseRequest
+      | FinanceV1.WithdrawExpenseRequest
+      | FinanceV1.ConfirmExpenseRequest
+      | FinanceV1.RejectExpenseRequest
+      | FinanceV1.ReverseExpenseRequest,
     correlation: string,
     deadline: number,
   ) {
@@ -86,30 +95,50 @@ export class ExpenseService {
       )
     ).rows[0];
     if (!found) throw new FinanceReadError('RESOURCE_NOT_FOUND');
-    const description = nullableChange(request.description);
-    const category = nullableChange(request.category);
-    const receipt = nullableChange(request.receipt_object_key);
-    const paidAt = nullableChange(request.paid_at);
-    const paymentMethod = nullableChange(request.payment_method);
-    const body =
-      scope === 'UPDATE_EXPENSE'
-        ? parseUpdateExpense({
-            ...(request.title === undefined ? {} : { title: request.title }),
-            ...(description.present ? { description: description.value } : {}),
-            ...(request.amount === undefined ? {} : { amount: request.amount }),
-            ...(category.present ? { category: category.value } : {}),
-            ...(receipt.present ? { receipt_object_key: receipt.value } : {}),
-            ...(paidAt.present ? { paid_at: paidAt.value } : {}),
-            ...(paymentMethod.present ? { payment_method: paymentMethod.value } : {}),
-            expected_version: request.expected_version,
-            expected_finance_version: request.expected_finance_version,
-          })
-        : parseExpenseAction({
-            expected_version: request.expected_version,
-            expected_finance_version: request.expected_finance_version,
-          });
+    const body = (() => {
+      if (scope === 'UPDATE_EXPENSE') {
+        const update = request as FinanceV1.UpdateExpenseRequest;
+        const description = nullableChange(update.description);
+        const category = nullableChange(update.category);
+        const receipt = nullableChange(update.receipt_object_key);
+        const paidAt = nullableChange(update.paid_at);
+        const paymentMethod = nullableChange(update.payment_method);
+        return parseUpdateExpense({
+          ...(update.title === undefined ? {} : { title: update.title }),
+          ...(description.present ? { description: description.value } : {}),
+          ...(update.amount === undefined ? {} : { amount: update.amount }),
+          ...(category.present ? { category: category.value } : {}),
+          ...(receipt.present ? { receipt_object_key: receipt.value } : {}),
+          ...(paidAt.present ? { paid_at: paidAt.value } : {}),
+          ...(paymentMethod.present ? { payment_method: paymentMethod.value } : {}),
+          expected_version: update.expected_version,
+          expected_finance_version: update.expected_finance_version,
+        });
+      }
+      if (scope === 'CONFIRM_EXPENSE') {
+        const confirm = request as FinanceV1.ConfirmExpenseRequest;
+        return parseExpenseConfirm({
+          paid_at: confirm.paid_at,
+          payment_method: confirm.payment_method,
+          expected_version: confirm.expected_version,
+          expected_finance_version: confirm.expected_finance_version,
+        });
+      }
+      if (scope === 'REJECT_EXPENSE' || scope === 'REVERSE_EXPENSE') {
+        const reason = request as FinanceV1.RejectExpenseRequest | FinanceV1.ReverseExpenseRequest;
+        return parseExpenseReasonAction({
+          reason: reason.reason,
+          expected_version: reason.expected_version,
+          expected_finance_version: reason.expected_finance_version,
+        });
+      }
+      return parseExpenseAction({
+        expected_version: request.expected_version,
+        expected_finance_version: request.expected_finance_version,
+      });
+    })();
     return this.run(
-      { scope, fundId: found.fund_id, expenseId, body },
+      { scope, fundId: found.fund_id, expenseId, body } as ExpenseWriteCommand,
       operationId,
       actor,
       correlation,

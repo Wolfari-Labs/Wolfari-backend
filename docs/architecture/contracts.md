@@ -56,23 +56,23 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 ## Quyết định biểu diễn
 
-| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                              |
-| ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| 70 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle, API070–101 và API105/106 Finance |
-| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                          |
-| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                         |
-| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                          |
-| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                           |
-| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định       |
-| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.1                                                  |
-| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                                     |
-| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                                    |
-| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                                    |
-| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                                   |
+| Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
+| ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
+| 73 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle, API070–106 Finance         |
+| Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
+| ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
+| Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
+| Ngày lịch                            | chuỗi `YYYY-MM-DD`                               | Không gắn múi giờ giả cho ngày lịch                                     |
+| Enum                                 | `UNSPECIFIED=0`                                  | Tương thích Protobuf; validator nghiệp vụ từ chối giá trị chưa xác định |
+| 19 event                             | JSON UTF-8, JSON Schema draft-07                 | Mục 7 của DDL/API/Event v1.1                                            |
+| Envelope actor                       | đúng một trong `actor_user_id`, `system_actor`   | Bất biến actor của đặc tả                                               |
+| Correlation ID                       | UUID hợp lệ; đầu vào sai được thay bằng UUID mới | Đồng bộ HTTP, event và cột UUID trong V001                              |
+| `GetProfiles.display_name`           | giữ nguyên tên RPC                               | Identity đợt 1 ánh xạ từ `users.full_name`                              |
+| Export result ID                     | UUIDv5 từ `job_id:attempt_id:event_type`         | Bảo đảm retry cùng attempt/type tạo cùng ID                             |
 
 ## gRPC
 
-Catalog hiện có Identity 4, Trip 29, Finance 33 và Travel 4 RPC (tổng 70). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Catalog hiện có Identity 4, Trip 29, Finance 36 và Travel 4 RPC (tổng 73). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 API087–089 thêm `ReportContributionTransfer`, `ConfirmContributionReceived`,
 `RejectContributionTransfer`, chỉ ApiGateway, response Contribution/Operation.
@@ -136,6 +136,17 @@ contribution IDs, reason and the expected contribution/Finance versions. Respons
 is the existing ContributionView/Operation oneof. Trip guard/recovery and Finance
 receipt/cancel add `REVERSE_CONTRIBUTION`. Expense API096–101 adds six Gateway-only
 Finance RPCs and five durable command scopes. Catalog now has 70 RPC: Identity 4,
-Trip 29, Finance 33 and Travel 4. `ContributionUpdated` schema v1 widens its status
+Trip 29, Finance 33 and Travel 4 at that milestone. `ContributionUpdated` schema v1 widens its status
 enum with REVERSED; no new event type, schema version or database migration is
 introduced. See [contribution reversal](finance-contribution-reversal.md).
+
+## Expense settlement API102–104
+
+API102–104 add Finance `ConfirmExpense`, `RejectExpense` and `ReverseExpense` for
+ApiGateway. Confirm takes authoritative paid time/method and creates one EXPENSE OUT;
+reject takes a reason and creates no ledger entry; reverse takes a reason and creates
+one REVERSAL IN linked to the original OUT. Trip guard/recovery and Finance
+receipt/cancel add the three matching durable command scopes. Catalog now has 73 RPC:
+Identity 4, Trip 29, Finance 36 and Travel 4. The existing `ExpenseView`/Operation
+oneof is reused. No event type, schema version or database migration is added. See
+[expenses](finance-expenses.md).

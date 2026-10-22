@@ -5,12 +5,22 @@ import {
   assertCanCreateExpense,
   ExpenseRuleError,
   planExpenseMutation,
+  planExpenseSettlement,
   type ExpenseState,
 } from '../domain/expense-management';
+import {
+  assertCanSpend,
+  InsufficientAvailableBalanceError,
+  type RefundForBalance,
+} from '../domain/fund-balance';
+import { calculateBalanceAfterEntry } from '../domain/ledger-balance';
+import { calculateLedgerReversal, LedgerReversalNotAllowedError } from '../domain/ledger-reversal';
 import type {
   ExpenseAction,
+  ExpenseConfirm,
   ExpensePage,
   ExpensePatch,
+  ExpenseReasonAction,
   ExpenseWrite,
 } from '../inputs/expense.input';
 import { expenseCursor } from '../inputs/expense.input';
@@ -26,6 +36,12 @@ export type ExpenseWriteCommand =
       fundId: string;
       expenseId: string;
       body: ExpensePatch | ExpenseAction;
+    }
+  | {
+      scope: 'CONFIRM_EXPENSE' | 'REJECT_EXPENSE' | 'REVERSE_EXPENSE';
+      fundId: string;
+      expenseId: string;
+      body: ExpenseConfirm | ExpenseReasonAction;
     };
 export const isExpenseWrite = (input: FundWrite): input is FundWrite & ExpenseWriteCommand =>
   [
@@ -34,6 +50,9 @@ export const isExpenseWrite = (input: FundWrite): input is FundWrite & ExpenseWr
     'DELETE_EXPENSE',
     'SUBMIT_EXPENSE',
     'WITHDRAW_EXPENSE',
+    'CONFIRM_EXPENSE',
+    'REJECT_EXPENSE',
+    'REVERSE_EXPENSE',
   ].includes(input.scope);
 
 const columns = `id,fund_id,title,description,amount::text,category,receipt_object_key,status,
@@ -59,6 +78,27 @@ function state(row: ExpenseRow): ExpenseState {
     paidAt: row.paid_at === null ? null : new Date(row.paid_at),
     paymentMethod: row.payment_method,
   };
+}
+
+async function lockedRefunds(client: Client, fundId: string): Promise<RefundForBalance[]> {
+  return (
+    await client.query<{ amount: string; status: RefundForBalance['status'] }>(
+      'SELECT amount::text,status FROM fund_refunds WHERE fund_id=$1 ORDER BY id FOR UPDATE',
+      [fundId],
+    )
+  ).rows.map((refund) => ({ amount: BigInt(refund.amount), status: refund.status }));
+}
+
+async function nextLedgerSequence(client: Client, fundId: string) {
+  const last = (
+    await client.query<{ sequence: string }>(
+      'SELECT COALESCE(MAX(sequence),0)::text AS sequence FROM fund_transactions WHERE fund_id=$1',
+      [fundId],
+    )
+  ).rows[0]!;
+  const sequence = BigInt(last.sequence) + 1n;
+  if (sequence > 9223372036854775807n) throw new FinanceReadError('STATE_CONFLICT');
+  return sequence;
 }
 
 @Injectable()
@@ -120,8 +160,14 @@ export class ExpenseRepository {
     correlation: string,
   ): Promise<StoredResult> {
     const fund = (
-      await client.query<{ status: string; finance_version: number }>(
-        'SELECT status,finance_version FROM funds WHERE id=$1 AND trip_id=$2 FOR UPDATE',
+      await client.query<{
+        status: string;
+        finance_version: number;
+        holder_user_id: string;
+        current_balance: string;
+      }>(
+        `SELECT status,finance_version,holder_user_id,current_balance::text
+         FROM funds WHERE id=$1 AND trip_id=$2 FOR UPDATE`,
         [input.fundId, input.tripId],
       )
     ).rows[0];
@@ -130,9 +176,12 @@ export class ExpenseRepository {
       ...authority,
       financeVersion: fund.finance_version,
       fundStatus: fund.status,
+      holderUserId: fund.holder_user_id,
     };
     let row: ExpenseRow;
     let fromVersion: number | null = null;
+    let balanceAfter: bigint | undefined;
+    let auditDetails: Record<string, unknown> = {};
     if (input.scope === 'CREATE_EXPENSE') {
       assertCanCreateExpense(input.body, context);
       row = (
@@ -169,8 +218,24 @@ export class ExpenseRepository {
       ).rows[0]!;
       if (!row) throw new FinanceReadError('RESOURCE_NOT_FOUND');
       fromVersion = row.version;
-      const plan = planExpenseMutation(input.scope, input.body, state(row), context);
-      if (!plan.changed) {
+      const settlement = ['CONFIRM_EXPENSE', 'REJECT_EXPENSE', 'REVERSE_EXPENSE'].includes(
+        input.scope,
+      );
+      const plan = settlement
+        ? planExpenseSettlement(
+            input.scope as 'CONFIRM_EXPENSE' | 'REJECT_EXPENSE' | 'REVERSE_EXPENSE',
+            input.body as ExpenseConfirm | ExpenseReasonAction,
+            state(row),
+            context,
+          )
+        : planExpenseMutation(
+            input.scope as
+              'UPDATE_EXPENSE' | 'DELETE_EXPENSE' | 'SUBMIT_EXPENSE' | 'WITHDRAW_EXPENSE',
+            input.body as ExpensePatch | ExpenseAction,
+            state(row),
+            context,
+          );
+      if ('changed' in plan && !plan.changed) {
         return {
           version: 1,
           tripId: input.tripId,
@@ -235,7 +300,7 @@ export class ExpenseRepository {
             [row.id],
           )
         ).rows[0]!;
-      } else {
+      } else if (input.scope === 'WITHDRAW_EXPENSE') {
         row = (
           await client.query<ExpenseRow>(
             `UPDATE fund_expenses SET status='DRAFT',submitted_at=NULL,
@@ -243,13 +308,154 @@ export class ExpenseRepository {
             [row.id],
           )
         ).rows[0]!;
+      } else if (input.scope === 'CONFIRM_EXPENSE') {
+        const body = input.body as ExpenseConfirm;
+        try {
+          const refunds = await lockedRefunds(client, input.fundId);
+          assertCanSpend(BigInt(fund.current_balance), refunds, BigInt(row.amount));
+          balanceAfter = calculateBalanceAfterEntry(
+            BigInt(fund.current_balance),
+            'OUT',
+            BigInt(row.amount),
+          );
+        } catch (error) {
+          if (error instanceof InsufficientAvailableBalanceError || error instanceof RangeError)
+            throw new FinanceReadError('STATE_CONFLICT');
+          throw error;
+        }
+        const sequence = await nextLedgerSequence(client, input.fundId);
+        const ledger = (
+          await client.query<{ id: string }>(
+            `INSERT INTO fund_transactions
+            (fund_id,sequence,direction,transaction_type,amount,balance_after,expense_id,actor_user_id,business_key)
+            VALUES($1,$2,'OUT','EXPENSE',$3,$4,$5,$6,$7) RETURNING id`,
+            [
+              input.fundId,
+              sequence.toString(),
+              row.amount,
+              balanceAfter.toString(),
+              row.id,
+              input.actor,
+              `expense:${row.id}`,
+            ],
+          )
+        ).rows[0]!;
+        row = (
+          await client.query<ExpenseRow>(
+            `UPDATE fund_expenses SET status='CONFIRMED',paid_at=$2,payment_method=$3,
+            paid_by_user_id=$4,confirmed_by_user_id=$4,confirmed_at=clock_timestamp(),
+            version=version+1,updated_at=clock_timestamp() WHERE id=$1 RETURNING ${columns}`,
+            [row.id, body.paidAt, body.paymentMethod, input.actor],
+          )
+        ).rows[0]!;
+        auditDetails = { ledger_id: ledger.id };
+      } else if (input.scope === 'REJECT_EXPENSE') {
+        const body = input.body as ExpenseReasonAction;
+        row = (
+          await client.query<ExpenseRow>(
+            `UPDATE fund_expenses SET status='REJECTED',rejected_reason=$2,
+            version=version+1,updated_at=clock_timestamp() WHERE id=$1 RETURNING ${columns}`,
+            [row.id, body.reason],
+          )
+        ).rows[0]!;
+        auditDetails = { reason: body.reason };
+      } else {
+        const body = input.body as ExpenseReasonAction;
+        const originals = (
+          await client.query<{
+            id: string;
+            direction: string;
+            transaction_type: string;
+            amount: string;
+            reversal_of_id: string | null;
+          }>(
+            `SELECT id,direction,transaction_type,amount::text,reversal_of_id
+             FROM fund_transactions WHERE fund_id=$1 AND expense_id=$2 ORDER BY id FOR UPDATE`,
+            [input.fundId, row.id],
+          )
+        ).rows;
+        if (originals.length !== 1) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        const original = originals[0]!;
+        const direction = original.direction.trimEnd();
+        if (
+          direction !== 'OUT' ||
+          original.transaction_type !== 'EXPENSE' ||
+          BigInt(original.amount) !== BigInt(row.amount) ||
+          original.reversal_of_id !== null
+        )
+          throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        const existing = await client.query(
+          'SELECT id FROM fund_transactions WHERE reversal_of_id=$1 FOR UPDATE',
+          [original.id],
+        );
+        try {
+          const effect = calculateLedgerReversal(
+            {
+              id: original.id,
+              direction,
+              amount: BigInt(original.amount),
+              reversalOfId: original.reversal_of_id,
+            },
+            {
+              currentBalance: BigInt(fund.current_balance),
+              refunds: await lockedRefunds(client, input.fundId),
+              hasExistingReversal: Boolean(existing.rowCount),
+            },
+          );
+          balanceAfter = effect.balanceAfter;
+        } catch (error) {
+          if (
+            error instanceof LedgerReversalNotAllowedError ||
+            error instanceof InsufficientAvailableBalanceError ||
+            error instanceof RangeError
+          )
+            throw new FinanceReadError('STATE_CONFLICT');
+          throw error;
+        }
+        const sequence = await nextLedgerSequence(client, input.fundId);
+        const reversal = (
+          await client.query<{ id: string }>(
+            `INSERT INTO fund_transactions
+            (fund_id,sequence,direction,transaction_type,amount,balance_after,reversal_of_id,actor_user_id,reason,business_key)
+            VALUES($1,$2,'IN','REVERSAL',$3,$4,$5,$6,$7,$8) RETURNING id`,
+            [
+              input.fundId,
+              sequence.toString(),
+              row.amount,
+              balanceAfter.toString(),
+              original.id,
+              input.actor,
+              body.reason,
+              `reversal:expense:${row.id}`,
+            ],
+          )
+        ).rows[0]!;
+        row = (
+          await client.query<ExpenseRow>(
+            `UPDATE fund_expenses SET status='REVERSED',version=version+1,
+            updated_at=clock_timestamp() WHERE id=$1 RETURNING ${columns}`,
+            [row.id],
+          )
+        ).rows[0]!;
+        auditDetails = {
+          reason: body.reason,
+          original_ledger_id: original.id,
+          reversal_ledger_id: reversal.id,
+        };
       }
     }
     const financeVersion = fund.finance_version + 1;
-    await client.query(
-      'UPDATE funds SET finance_version=$2,updated_at=clock_timestamp() WHERE id=$1',
-      [input.fundId, financeVersion],
-    );
+    if (balanceAfter === undefined)
+      await client.query(
+        'UPDATE funds SET finance_version=$2,updated_at=clock_timestamp() WHERE id=$1',
+        [input.fundId, financeVersion],
+      );
+    else
+      await client.query(
+        `UPDATE funds SET current_balance=$2,finance_version=$3,
+        updated_at=clock_timestamp() WHERE id=$1`,
+        [input.fundId, balanceAfter.toString(), financeVersion],
+      );
     await client.query(
       `INSERT INTO finance_audit_logs
       (fund_id,actor_user_id,action,entity_type,entity_id,from_version,to_version,correlation_id,details)
@@ -262,7 +468,11 @@ export class ExpenseRepository {
         fromVersion,
         row.version,
         correlation,
-        JSON.stringify({ operation_id: input.operationId, finance_version: financeVersion }),
+        JSON.stringify({
+          operation_id: input.operationId,
+          finance_version: financeVersion,
+          ...auditDetails,
+        }),
       ],
     );
     return {

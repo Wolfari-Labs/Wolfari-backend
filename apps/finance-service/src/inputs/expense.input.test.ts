@@ -4,7 +4,9 @@ import {
   expenseCursor,
   parseCreateExpense,
   parseExpenseAction,
+  parseExpenseConfirm,
   parseExpensePage,
+  parseExpenseReasonAction,
   parseUpdateExpense,
 } from './expense.input';
 
@@ -78,6 +80,48 @@ describe('expense input', () => {
         }),
       );
     invalid(() => parseExpenseAction({ expected_version: 0, expected_finance_version: 1 }));
+  });
+
+  it('parses Holder confirmation and reason actions strictly', () => {
+    expect(
+      parseExpenseConfirm({
+        paid_at: '2026-10-22T10:15:30.123+07:00',
+        payment_method: '  BANK_TRANSFER  ',
+        expected_version: 2,
+        expected_finance_version: 4,
+      }),
+    ).toMatchObject({
+      paidAt: new Date('2026-10-22T03:15:30.123Z'),
+      paymentMethod: 'BANK_TRANSFER',
+      expectedVersion: 2,
+      expectedFinanceVersion: 4,
+    });
+    expect(
+      parseExpenseReasonAction({
+        reason: '  Duplicate expense  ',
+        expected_version: 3,
+        expected_finance_version: 5,
+      }),
+    ).toEqual({
+      reason: 'Duplicate expense',
+      expectedVersion: 3,
+      expectedFinanceVersion: 5,
+    });
+    invalid(() =>
+      parseExpenseConfirm({
+        paid_at: null,
+        payment_method: 'CASH',
+        expected_version: 2,
+        expected_finance_version: 4,
+      }),
+    );
+    invalid(() =>
+      parseExpenseReasonAction({
+        reason: 'bad\u0000reason',
+        expected_version: 2,
+        expected_finance_version: 4,
+      }),
+    );
   });
 
   it('binds an opaque cursor to Fund and status while retaining microseconds', () => {
