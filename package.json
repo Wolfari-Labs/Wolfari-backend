@@ -25,6 +25,7 @@
     "trip:test": "corepack pnpm build && node scripts/trip-integration.mjs",
     "trip:invitations:test": "corepack pnpm build && node scripts/trip-integration.mjs --invitations",
     "trip:members:test": "corepack pnpm build && node scripts/trip-integration.mjs --members",
+    "price-watch:test": "corepack pnpm build && node scripts/trip-integration.mjs --price-watch",
     "trip:retry-lifecycle": "node scripts/trip-retry-lifecycle.mjs",
     "trip:replay-invitation": "node scripts/trip-replay-invitation.mjs",
     "identity:replay-email": "node scripts/identity-replay-email.mjs",

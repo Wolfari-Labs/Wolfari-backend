@@ -334,5 +334,61 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.0 API044"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "CreatePriceWatch",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API133"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "ListPriceWatches",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API134"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "UpdatePriceWatch",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API135"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "PausePriceWatch",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API136"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "ResumePriceWatch",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API137"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "StopPriceWatch",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API138"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "ListPriceObservations",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API139"
   }
 ]

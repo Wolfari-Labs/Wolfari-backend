@@ -2,6 +2,10 @@
 
 Các số liệu dưới đây là bằng chứng theo ngày chạy, không phải trạng thái kiểm thử của mọi HEAD mới. Bộ tài liệu chính thức hiện hành đã chốt ngày 02/10/2026 tại [danh mục tài liệu](../README.md).
 
+## Kiểm chứng Price Watch ngày 22-10-2026
+
+`corepack pnpm db:test` PASS 24 nhóm trên PostgreSQL Compose cô lập. Kết quả gồm Automation V002 preflight từ chối watch legacy, cài mới/idempotent migration, readiness yêu cầu V002, và PriceWatchRepository thật với create replay/conflict, query group dùng chung, no-op/version conflict, re-arm threshold, chuyển query riêng, state transition và observation scope. Lần chạy đầu phát hiện `jsonb` đổi thứ tự key làm so sánh `JSON.stringify` sai; repository đã chuyển sang canonical JSON sắp key và lần chạy cuối PASS. Container, network và volume thử đã được dọn.
+
 ## Kiểm chứng ngày 01-10-2026
 
 Trên nền `63aa8b4` cộng diff review, `corepack pnpm db:test` PASS 17 nhóm: 54 bảng mô hình + 5 bảng lịch sử, 47 FK sau Trip V002, nâng cấp V001→V002 giữ dữ liệu và chặn legacy mơ hồ/duplicate pending nguyên tử; constraints, 20/20 cross-DB denial, runner concurrency, readiness và outage recovery đều PASS. Không sửa V001/V002/checksum baseline hoặc migrate database phát triển. Project/volume thử đã được teardown.

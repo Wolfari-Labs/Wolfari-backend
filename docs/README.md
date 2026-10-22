@@ -19,13 +19,15 @@ Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026**
 - [Baseline kiến trúc](architecture/design-baseline.md), [cấu trúc repo](architecture/repository-bootstrap.md), [môi trường local](architecture/development-environment.md).
 - [Database/migration](database/README.md), [Mermaid ERD](erd/), [Protobuf và event](architecture/contracts.md).
 - [Identity](architecture/identity-phase1.md), [Trip core](architecture/trip-core.md), [Plan access](architecture/trip-plan-access-control.md), [Invitations](architecture/trip-invitations.md).
-- OpenAPI runtime: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Invitations](api/trip-invitations.openapi.json).
+- [Price Watch Core H1](architecture/price-watch-core.md) quản lý API133–139; provider/scheduler/alert thuộc H2/H3.
+- OpenAPI runtime: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Invitations](api/trip-invitations.openapi.json), [Price Watch](api/price-watch.openapi.yaml).
 - Bàn giao: [Plan access cho Planning](architecture/trip-plan-access-control-handoff.md), [Invitations](architecture/trip-invitations-handoff.md).
 - Contract thực thi ở [packages/contracts](../packages/contracts/README.md); migration ở `apps/<service>/migrations`. Không dùng hình ERD hoặc DOCX thay migration.
 
 ## Kiểm chứng và lịch sử
 
 - [Database](database/validation.md), [Identity](architecture/identity-validation.md), [Trip core](architecture/trip-core-validation.md), [Plan access](architecture/trip-plan-access-control-validation.md), [Invitations](architecture/trip-invitations-validation.md) giữ bằng chứng theo ngày/SHA; không coi số liệu cũ là kết quả HEAD mới.
+- [Price Watch H1](architecture/price-watch-validation.md) ghi bằng chứng unit, contract, PostgreSQL, E2E và regression ngày 22/10/2026.
 - [Hồ sơ đồng bộ 80 mục và 15 chỉnh sửa](history/documentation-update-2026-10-02.md) là lịch sử trước khi chốt, không phải hướng dẫn sửa lại bản chính thức.
 - [Nguồn cũ và cách khôi phục](history/README.md). Tài liệu lịch sử và manifest bundle không phải đầu vào runtime.
 

@@ -15,9 +15,11 @@ import { compose } from './infrastructure.mjs';
 import { startTestService } from './test-container.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
+import { runPriceWatchTests } from './price-watch-integration.mjs';
 
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
+const priceWatchMode = process.argv.includes('--price-watch');
 let financeFixture;
 function brokerUrl() {
   const value = new URL(`amqp://127.0.0.1:${infra.RABBITMQ_PORT}`);
@@ -166,7 +168,7 @@ async function request(path, method = 'GET', body, headers = {}) {
   };
 }
 
-const ports = { gateway: 0, identity: 0, trip: 0, identityGrpc: 0, tripGrpc: 0 };
+const ports = { gateway: 0, identity: 0, trip: 0, identityGrpc: 0, tripGrpc: 0, automationGrpc: 0 };
 const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const secrets = {
   IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey
@@ -178,6 +180,8 @@ const secrets = {
   IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
   GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+  GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
+  AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
   FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
   TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -273,6 +277,7 @@ async function main() {
     'identity',
     'trip',
     ...(invitationMode ? ['automation'] : []),
+    ...(priceWatchMode ? ['automation'] : []),
     ...(membershipMode ? ['finance'] : []),
   ]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
@@ -336,6 +341,23 @@ async function main() {
     AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
   };
   let tripProcess = await start('trip-workspace-service', tripValues);
+  if (priceWatchMode) {
+    const automationPort = await port();
+    await start('automation-service', {
+      AUTOMATION_PORT: String(automationPort),
+      AUTOMATION_GRPC_PORT: String(ports.automationGrpc),
+      DATABASE_URL: databaseUrl(infra, 'automation'),
+      GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
+      AUTOMATION_CURSOR_SECRET: secrets.AUTOMATION_CURSOR_SECRET,
+      IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.identityGrpc}`,
+      AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
+      TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
+      AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
+      RABBITMQ_URL: 'amqp://127.0.0.1:9',
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: '9',
+    });
+  }
   await start('api-gateway', {
     GATEWAY_PORT: String(ports.gateway),
     IDENTITY_HTTP_URL: `http://127.0.0.1:${ports.identity}`,
@@ -344,11 +366,18 @@ async function main() {
     TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
     GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
+    AUTOMATION_GRPC_TARGET: `127.0.0.1:${ports.automationGrpc}`,
+    GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
     GATEWAY_CSRF_KEY: secrets.GATEWAY_CSRF_KEY,
     WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
+  if (priceWatchMode) {
+    await runPriceWatchTests({ request, query, account, bearer, tripBody, pass });
+    console.log(`PASS price-watch:test completed ${checks} groups.`);
+    return;
+  }
   if (membershipMode) {
     await runMembershipTests({
       request,
@@ -386,6 +415,9 @@ async function main() {
     const automationPort = await port();
     await start('automation-service', {
       AUTOMATION_PORT: String(automationPort),
+      AUTOMATION_GRPC_PORT: String(ports.automationGrpc),
+      GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
+      AUTOMATION_CURSOR_SECRET: secrets.AUTOMATION_CURSOR_SECRET,
       DATABASE_URL: databaseUrl(infra, 'automation'),
       IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.identityGrpc}`,
       AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,

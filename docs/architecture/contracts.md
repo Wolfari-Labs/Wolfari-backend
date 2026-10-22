@@ -10,7 +10,7 @@ Package contract chứa contract, type, validator, fixture, metadata topology v�
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 33 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Mục 6, Trip core, API031 và vertical slice invitations đã chốt          |
+| 49 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Baseline, Trip/Finance và Price Watch API133–139 đã triển khai contract |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -24,11 +24,13 @@ Package contract chứa contract, type, validator, fixture, metadata topology v�
 
 ## gRPC
 
-Phân bổ là Identity 4, Trip 20, Finance 5 và Travel 4 RPC. Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Phân bổ là Identity 4, Trip 29, Finance 5, Travel 4 và Automation 7 RPC. Automation vừa là caller của Trip/Identity vừa cung cấp `AutomationService` cho Gateway ở Price Watch H1. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
 `GetAccessContext` trả membership, policy, trạng thái Trip, ba revision và các cờ quyền whitelist. RPC này chỉ cho Finance, Travel và Automation. API Gateway dùng `UpdatePlanPolicy`; không có REST route công khai cho access context.
+
+Bảy RPC Automation ánh xạ API133–139: tạo/list/cập nhật/pause/resume/stop Price Watch và đọc observation. Create có khóa chống lặp riêng, các mutation còn lại dùng version lạc quan. Contract tách request/response theo từng RPC để tuân Buf STANDARD; response chỉ chứa truy vấn giá đã chuẩn hóa và metadata giá đã lọc.
 
 Loader chung dùng `keepCase=true`, `longs=String`, `defaults=false`, `arrays=false`, `objects=false`, `oneofs=true`. Cấu hình này giữ `snake_case`, không làm mất optional presence và khớp mã ts-proto sinh với `snakeToCamel=false`, `forceLong=string`, `useDate=false`.
 

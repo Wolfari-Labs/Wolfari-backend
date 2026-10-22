@@ -7,6 +7,7 @@ export * as IdentityV1 from './generated/wolfari/identity/v1/identity';
 export * as TripV1 from './generated/wolfari/trip/v1/trip';
 export * as FinanceV1 from './generated/wolfari/finance/v1/finance';
 export * as TravelV1 from './generated/wolfari/travel/v1/travel';
+export * as AutomationV1 from './generated/wolfari/automation/v1/automation';
 
 const assetRoot = existsSync(resolve(__dirname, 'proto')) ? __dirname : resolve(__dirname, '..');
 const protoRoot = resolve(assetRoot, 'proto');
@@ -17,6 +18,7 @@ export const PROTO_PATHS = Object.freeze({
   trip: resolve(protoRoot, 'wolfari/trip/v1/trip.proto'),
   finance: resolve(protoRoot, 'wolfari/finance/v1/finance.proto'),
   travel: resolve(protoRoot, 'wolfari/travel/v1/travel.proto'),
+  automation: resolve(protoRoot, 'wolfari/automation/v1/automation.proto'),
 });
 
 export const GRPC_PACKAGES = Object.freeze({
@@ -24,6 +26,7 @@ export const GRPC_PACKAGES = Object.freeze({
   trip: 'wolfari.trip.v1',
   finance: 'wolfari.finance.v1',
   travel: 'wolfari.travel.v1',
+  automation: 'wolfari.automation.v1',
 });
 
 export const GRPC_LOADER_OPTIONS: Readonly<ProtoLoaderOptions> = Object.freeze({

@@ -120,10 +120,15 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRIP_HTTP_URL',
     'TRIP_GRPC_TARGET',
     'GATEWAY_TRIP_SECRET',
+    'AUTOMATION_GRPC_TARGET',
+    'GATEWAY_AUTOMATION_SECRET',
     'GATEWAY_CSRF_KEY',
     'WEB_ORIGIN',
   ];
   const automationKeys = [
+    'AUTOMATION_GRPC_PORT',
+    'GATEWAY_AUTOMATION_SECRET',
+    'AUTOMATION_CURSOR_SECRET',
     'IDENTITY_GRPC_TARGET',
     'AUTOMATION_IDENTITY_SECRET',
     'TRIP_GRPC_TARGET',
@@ -184,6 +189,7 @@ export async function initEnvironment(base = root) {
     MAILPIT_UI_PORT: '8025',
     GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+    GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
     FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
     TRIP_FINANCE_SECRET: randomBytes(32).toString('hex'),
     TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -196,6 +202,7 @@ export async function initEnvironment(base = root) {
     GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
     IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
     TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
+    AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
     IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey
       .export({ type: 'pkcs8', format: 'der' })
       .toString('base64'),
@@ -260,11 +267,16 @@ export async function initEnvironment(base = root) {
                 TRIP_HTTP_URL: `http://127.0.0.1:${appPort(base, 'trip-workspace-service', 'TRIP_PORT', 3102)}`,
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
+                AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',
+                GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
                 GATEWAY_CSRF_KEY: shared.GATEWAY_CSRF_KEY,
                 WEB_ORIGIN: 'http://127.0.0.1:3000',
               }
             : app.name === 'automation-service'
               ? {
+                  AUTOMATION_GRPC_PORT: '3205',
+                  GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
+                  AUTOMATION_CURSOR_SECRET: shared.AUTOMATION_CURSOR_SECRET,
                   AUTOMATION_IDENTITY_SECRET: shared.AUTOMATION_IDENTITY_SECRET,
                   IDENTITY_GRPC_TARGET: '127.0.0.1:3201',
                   TRIP_GRPC_TARGET: '127.0.0.1:3202',

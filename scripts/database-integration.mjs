@@ -15,6 +15,7 @@ import { checkFundRepository } from '../apps/finance-service/tests/database/fund
 import { checkLedgerRepository } from '../apps/finance-service/tests/database/ledger-repository.integration.mjs';
 import { checkContributionRepository } from '../apps/finance-service/tests/database/contribution-repository.integration.mjs';
 import { checkPaymentDestinationRepository } from '../apps/finance-service/tests/database/payment-destination-repository.integration.mjs';
+import { checkPriceWatchRepository } from '../apps/automation-service/tests/database/price-watch-repository.integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -104,12 +105,14 @@ async function launchApps() {
   for (const app of apps) app.testPort = await port();
   const grpcPort = await port();
   const tripGrpcPort = await port();
+  const automationGrpcPort = await port();
   const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const secrets = Object.fromEntries(['GATEWAY', 'AUTOMATION', 'TRIP', 'FINANCE', 'TRAVEL', 'EXPORT'].map(caller => [`${caller}_IDENTITY_SECRET`, randomBytes(32).toString('hex')]));
   const gatewayTripSecret = randomBytes(32).toString('hex');
   const financeTripSecret = randomBytes(32).toString('hex');
   const travelTripSecret = randomBytes(32).toString('hex');
   const automationTripSecret = randomBytes(32).toString('hex');
+  const gatewayAutomationSecret = randomBytes(32).toString('hex');
   const gatewayPort = apps.find(app => app.name === 'api-gateway').testPort;
   const identityPort = apps.find(app => app.name === 'identity-service').testPort;
   const tripPort = apps.find(app => app.name === 'trip-workspace-service').testPort;
@@ -127,6 +130,8 @@ async function launchApps() {
         IDENTITY_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
       } : {}),
       ...(app.name === 'automation-service' ? {
+        AUTOMATION_GRPC_PORT: String(automationGrpcPort), GATEWAY_AUTOMATION_SECRET: gatewayAutomationSecret,
+        AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
         TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`, AUTOMATION_TRIP_SECRET: automationTripSecret,
         AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
         IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`, RABBITMQ_URL: 'amqp://127.0.0.1:9',
@@ -149,6 +154,7 @@ async function launchApps() {
         IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`,
         TRIP_HTTP_URL: `http://127.0.0.1:${tripPort}`,
         TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
+        AUTOMATION_GRPC_TARGET: `127.0.0.1:${automationGrpcPort}`, GATEWAY_AUTOMATION_SECRET: gatewayAutomationSecret,
         WEB_ORIGIN: `http://127.0.0.1:${gatewayPort}`,
       } : {}),
     };
@@ -207,6 +213,18 @@ async function main() {
     await client.query('DELETE FROM trips WHERE id=$1',[fixtureTrip]);
   });
   pass('V001 upgrade preserves data; ambiguous acceptance and duplicate pending fail without partial migration');
+  await migrate('automation',databaseUrl(env,'automation'),files.automation.slice(0,1));
+  await db('automation',async client=>{
+    const group=(await client.query(`INSERT INTO price_query_groups(provider,transport_type,canonical_key,origin,destination,departure_date,passenger_count,currency,params) VALUES('MOCK_FLIGHT','FLIGHT','upgrade-fixture','DAD','SGN','2026-11-01',1,'VND','{}') RETURNING id`)).rows[0];
+    await client.query(`INSERT INTO price_watches(query_group_id,user_id,trip_id,threshold_price,currency,expires_at,client_request_id,request_hash) VALUES($1,'90000000-0000-4000-8000-000000000011','90000000-0000-4000-8000-000000000012',1000000,'VND',now()+interval '1 day','90000000-0000-4000-8000-000000000013','fixture')`,[group.id]);
+  });
+  await assert.rejects(migrate('automation',databaseUrl(env,'automation'),files.automation),error=>error.message==='PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED');
+  await db('automation',async client=>{
+    assert.deepEqual(await history(client,files.automation),['V001']);
+    await client.query('DELETE FROM price_watches');
+    await client.query('DELETE FROM price_query_groups');
+  });
+  pass('Automation V002 refuses to guess membership ownership for existing watches');
   for (const service of services) {
     await migrate(service, databaseUrl(env, service), files[service]);
     await migrate(service, databaseUrl(env, service), files[service]);
@@ -217,13 +235,15 @@ async function main() {
   for (const [index, service] of services.entries()) await db(service, async client => {
     assert.equal((await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'")).rows[0].n, counts[index]);
     fks += (await client.query("SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace")).rows[0].n;
-    assert.deepEqual(await history(client, files[service]), service === 'trip' ? ['V001', 'V002'] : ['V001']);
+    assert.deepEqual(await history(client, files[service]), service === 'trip' || service === 'automation' ? ['V001', 'V002'] : ['V001']);
   });
   assert.equal(fks, 47); pass('54 bảng mô hình + 5 lịch sử, 47 FK');
   await db('trip', async client => {
     await client.query(await readFile(resolve(root,'apps/trip-workspace-service/tests/database/V002_constraints.sql'),'utf8'));
   });
   pass('V002 normalized pending email and same-Trip acceptance constraints');
+  await db('automation', checkPriceWatchRepository);
+  pass('Automation PriceWatchRepository: idempotency, shared query, version, transition and observations');
   for (const service of ['identity', 'trip', 'finance']) await db(service, async client => {
     await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
     if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
@@ -292,6 +312,14 @@ async function main() {
   });
   await health(tripApp,'ready');
   pass('Trip requires V002, not merely V001, for readiness');
+  const automationApp = apps.find(a => a.service === 'automation');
+  await db('automation',async client=>{
+    await client.query("DELETE FROM schema_migrations WHERE version='V002'");
+    try {assert.equal((await health(automationApp,'ready',503)).checks.migrations,'missing');}
+    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V002')");}
+  });
+  await health(automationApp,'ready');
+  pass('Automation requires V002 for readiness');
   const travel = apps.find(a => a.service === 'travel');
   await db('travel', async client => {
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');

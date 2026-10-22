@@ -58,9 +58,16 @@ describe('development configuration', () => {
       }
     }
   });
+  it('distributes the Gateway-Automation secret only to both endpoints', () => {
+    const values = { AUTOMATION_GRPC_PORT: '3205', AUTOMATION_GRPC_TARGET: '127.0.0.1:3205', GATEWAY_AUTOMATION_SECRET: 'g'.repeat(64), AUTOMATION_CURSOR_SECRET: 'c'.repeat(64) };
+    const environment = (name: string) => appEnvironment(apps.find(app => app.name === name)!, values, {});
+    expect(environment('api-gateway')).toMatchObject({ AUTOMATION_GRPC_TARGET: values.AUTOMATION_GRPC_TARGET, GATEWAY_AUTOMATION_SECRET: values.GATEWAY_AUTOMATION_SECRET });
+    expect(environment('automation-service')).toMatchObject({ AUTOMATION_GRPC_PORT: values.AUTOMATION_GRPC_PORT, GATEWAY_AUTOMATION_SECRET: values.GATEWAY_AUTOMATION_SECRET, AUTOMATION_CURSOR_SECRET: values.AUTOMATION_CURSOR_SECRET });
+    expect(environment('trip-workspace-service')).not.toHaveProperty('GATEWAY_AUTOMATION_SECRET');
+  });
   it('verifies every baseline SQL checksum against the committed manifest', async () => {
     for (const service of ['identity', 'trip', 'travel', 'finance', 'automation']) {
-      expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(service === 'trip' ? ['V001', 'V002'] : ['V001']);
+      expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(service === 'trip' || service === 'automation' ? ['V001', 'V002'] : ['V001']);
     }
   });
   it('refuses modified SQL before connecting to PostgreSQL', async () => {

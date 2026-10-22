@@ -5,9 +5,9 @@
 
 Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm nhỏ. Sản phẩm hướng tới việc cùng xây dựng lịch trình, lưu địa điểm, quản lý quỹ, nhận nhắc việc và xuất kế hoạch.
 
-Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1** và **Trip core**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision.
+Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core** và **Price Watch Core H1**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision. Price Watch H1 quản lý watch và lịch sử observation qua Gateway/Automation, chưa chạy provider hoặc scheduler.
 
-> Identity đợt 1, Trip core, Plan access và Invitations đã có runtime qua Gateway. Travel/Finance, phần lớn nghiệp vụ Automation và event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001 và Trip V002. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
+> Identity đợt 1, Trip core, Plan access, Invitations và Price Watch Core H1 đã có runtime qua Gateway. Travel/Finance, Price Watch provider/scheduler/alert, phần lớn nghiệp vụ Automation và event handler, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001, Trip V002 và Automation V002. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
 
 ## Kiến trúc
 
@@ -74,7 +74,7 @@ Năm service nghiệp vụ và Gateway bổ sung:
 GET /health/ready
 ```
 
-Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
+Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip và Automation); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
 
 ## Lệnh phát triển
 
@@ -91,6 +91,7 @@ corepack pnpm db:test
 corepack pnpm identity:test
 corepack pnpm trip:test
 corepack pnpm trip:invitations:test
+corepack pnpm price-watch:test
 
 # Contract
 corepack pnpm contracts:lint
@@ -108,6 +109,7 @@ corepack pnpm test
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
 `trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.
 `trip:invitations:test` bổ sung RabbitMQ/Mailpit riêng để kiểm thử vòng đời lời mời, rejoin, rollback, race, email, retry và ACK. Trip cần migration V002; baseline V001 được giữ nguyên.
+`price-watch:test` chạy Gateway, Identity, Trip, Automation và PostgreSQL riêng để kiểm thử API133–139, quyền Trip, chống lặp, version, state machine và query group dùng chung. Automation cần V002; H1 không gọi provider.
 
 ## Tài liệu
 
@@ -129,6 +131,9 @@ corepack pnpm test
 - [Bàn giao invitations](docs/architecture/trip-invitations-handoff.md)
 - [Bàn giao Plan access cho Planning](docs/architecture/trip-plan-access-control-handoff.md)
 - [Kết quả kiểm tra Trip Plan access](docs/architecture/trip-plan-access-control-validation.md)
+- [Price Watch Core H1](docs/architecture/price-watch-core.md)
+- [OpenAPI Price Watch](docs/api/price-watch.openapi.yaml)
+- [Kết quả kiểm tra Price Watch H1](docs/architecture/price-watch-validation.md)
 - [Database và migration](docs/database/README.md)
 - [Kết quả kiểm tra database](docs/database/validation.md)
 - [SRS v2.3 chính thức](docs/Wolfari_SRS_v2.3_ChinhThuc.docx)
