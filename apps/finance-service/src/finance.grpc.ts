@@ -18,6 +18,7 @@ import {
 import { readUuid } from './finance.errors';
 import { ContributionCommandService } from './application/contribution-command.service';
 import { ContributionQueryService } from './application/contribution-query.service';
+import { ContributionReversalService } from './application/contribution-reversal.service';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -37,7 +38,20 @@ export class FinanceGrpcController {
     private readonly files?: ReceiptService,
     private readonly manual?: ManualContributionService,
     private readonly instructions?: PaymentInstructionService,
+    private readonly reversals?: ContributionReversalService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ReverseContribution')
+  reverseContribution(
+    request: FinanceV1.ReverseContributionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ReverseContribution', metadata, call, (correlation, deadline) => {
+      if (!this.reversals) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.reversals.run(request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'GetPaymentInstruction')
   getPaymentInstruction(

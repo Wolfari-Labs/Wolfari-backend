@@ -212,8 +212,8 @@ Mutation, audit, outbox và receipt commit nguyên tử. 082–084 phát Contrib
 schema hiện có. 081 phát một ContributionUpdated cho mỗi khoản PENDING/TRANSFER_REPORTED;
 event_id riêng, cùng aggregate_version mới. Không còn khoản chờ thì không phát event.
 Consumer phải deduplicate bằng event_id, không bỏ các event khác cùng Fund version.
-Đây là outbox, chưa chứng minh reminder Automation end-to-end. REVERSED chưa có trong
-event này; API085 cần phạm vi contract riêng, không tự mở rộng tại đây.
+Đây là outbox, chưa chứng minh reminder Automation end-to-end. API085 đã mở rộng
+event này với REVERSED trong phạm vi riêng; xem [contribution reversal](finance-contribution-reversal.md).
 
 Trip guard, worker recovery, Finance GetOperationResult/Cancel và CLI retry dùng
 cùng bốn command mới. Kiểm thử quản lý nối sau API078–080 trong `finance:test`, có

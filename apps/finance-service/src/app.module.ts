@@ -4,6 +4,7 @@ import { ManualContributionService } from './application/manual-contribution.ser
 import { ReceiptRepository } from './receipts/receipt.repository';
 import { ReceiptStorage } from './receipts/receipt-storage';
 import { PaymentInstructionRepository } from './repositories/payment-instruction.repository';
+import { ContributionReversalService } from './application/contribution-reversal.service';
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
@@ -25,6 +26,7 @@ import { ContributionListRepository } from './repositories/contribution-list.rep
   controllers: [FinanceGrpcController],
   providers: [
     PaymentInstructionService,
+    ContributionReversalService,
     PaymentInstructionRepository,
     ManualContributionService,
     ReceiptService,

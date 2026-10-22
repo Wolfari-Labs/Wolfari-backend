@@ -644,6 +644,7 @@ describe('Manual contribution Gateway', () => {
     ['report-transfer', 'ReportContributionTransfer', 'TRANSFER_REPORTED', {}],
     ['confirm-received', 'ConfirmContributionReceived', 'CONFIRMED', {}],
     ['reject-transfer', 'RejectContributionTransfer', 'PENDING', { reason: 'not received' }],
+    ['reverse', 'ReverseContribution', 'REVERSED', { reason: 'recorded twice' }],
   ] as const)(
     '%s uses session actor and a private-field whitelist',
     async (action, rpc, status, fields) => {

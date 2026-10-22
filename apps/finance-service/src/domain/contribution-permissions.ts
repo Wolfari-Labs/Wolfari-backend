@@ -1,5 +1,9 @@
 export type ContributionAction =
-  'VIEW_PAYMENT_INSTRUCTION' | 'REPORT_TRANSFER' | 'CONFIRM_RECEIVED' | 'REJECT_TRANSFER';
+  | 'VIEW_PAYMENT_INSTRUCTION'
+  | 'REPORT_TRANSFER'
+  | 'CONFIRM_RECEIVED'
+  | 'REJECT_TRANSFER'
+  | 'REVERSE_CONTRIBUTION';
 
 /** Trusted, current context for the contribution's Fund and Trip, not client input. */
 export type ContributionPermissionContext = Readonly<{
@@ -43,6 +47,7 @@ export function assertContributionActionAllowed(
       return;
     case 'CONFIRM_RECEIVED':
     case 'REJECT_TRANSFER':
+    case 'REVERSE_CONTRIBUTION':
       if (context.actorUserId !== context.holderUserId) {
         throw new ContributionPermissionDeniedError(
           'Only the Fund Holder can review a transfer report',

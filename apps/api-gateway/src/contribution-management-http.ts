@@ -19,7 +19,7 @@ import {
 export function contributionManagementRoute(path: string) {
   const request = /^\/api\/v1\/funds\/([^/]+)\/contribution-requests\/([^/]+)$/.exec(path);
   const contribution =
-    /^\/api\/v1\/contributions\/([^/]+)(?:\/(waive|cancel|report-transfer|confirm-received|reject-transfer))?$/.exec(
+    /^\/api\/v1\/contributions\/([^/]+)(?:\/(waive|cancel|report-transfer|confirm-received|reject-transfer|reverse))?$/.exec(
       path,
     );
   if (request)
@@ -39,11 +39,13 @@ export function contributionManagementRoute(path: string) {
           ? ('ConfirmContributionReceived' as const)
           : contribution[2] === 'reject-transfer'
             ? ('RejectContributionTransfer' as const)
-            : contribution[2] === 'waive'
-              ? ('WaiveContribution' as const)
-              : contribution[2] === 'cancel'
-                ? ('CancelContribution' as const)
-                : ('UpdateContributionAmount' as const),
+            : contribution[2] === 'reverse'
+              ? ('ReverseContribution' as const)
+              : contribution[2] === 'waive'
+                ? ('WaiveContribution' as const)
+                : contribution[2] === 'cancel'
+                  ? ('CancelContribution' as const)
+                  : ('UpdateContributionAmount' as const),
     contribution_id: contribution[1]!,
   };
 }
@@ -127,6 +129,7 @@ export async function handleContributionManagement(
       ReportContributionTransfer: 'TRANSFER_REPORTED',
       ConfirmContributionReceived: 'CONFIRMED',
       RejectContributionTransfer: 'PENDING',
+      ReverseContribution: 'REVERSED',
     }[route.rpc];
     if (data.id !== route.contribution_id.toLowerCase() || data.status !== expected)
       throw new Error('Invalid updated contribution');

@@ -52,6 +52,11 @@ import {
   ContributionStateConflictError,
   ContributionVersionConflictError,
 } from '../domain/contribution-transition';
+import {
+  ContributionReversalRepository,
+  isContributionReversalWrite,
+  type ContributionReversalWrite,
+} from './contribution-reversal.repository';
 
 export type FundWrite = {
   operationId: string;
@@ -60,6 +65,7 @@ export type FundWrite = {
   hash: string;
 } & (
   | ManualWrite
+  | ContributionReversalWrite
   | ManagementWrite
   | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
@@ -102,6 +108,7 @@ export const fundCommandScope = (value: string) =>
     'REPORT_TRANSFER',
     'CONFIRM_RECEIVED',
     'REJECT_TRANSFER',
+    'REVERSE_CONTRIBUTION',
     'UPDATE_CONTRIBUTION_REQUEST',
     'UPDATE_CONTRIBUTION_AMOUNT',
     'WAIVE_CONTRIBUTION',
@@ -347,6 +354,13 @@ export class FundCommandRepository {
           );
         } else if (isManualWrite(input)) {
           response = await new ManualContributionRepository(new ReceiptRepository(this.db)).execute(
+            client,
+            input,
+            authority,
+            correlation,
+          );
+        } else if (isContributionReversalWrite(input)) {
+          response = await new ContributionReversalRepository().execute(
             client,
             input,
             authority,

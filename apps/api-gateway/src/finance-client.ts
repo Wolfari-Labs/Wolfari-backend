@@ -18,6 +18,7 @@ export class FinanceClient {
       | 'ReportContributionTransfer'
       | 'ConfirmContributionReceived'
       | 'RejectContributionTransfer'
+      | 'ReverseContribution'
       | 'UpdateContributionRequest'
       | 'UpdateContributionAmount'
       | 'WaiveContribution'

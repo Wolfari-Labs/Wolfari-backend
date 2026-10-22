@@ -34,11 +34,13 @@ import {
   type FinanceReadErrorCode,
 } from '../finance.errors';
 import { isManualWrite } from '../repositories/manual-contribution.repository';
+import { isContributionReversalWrite } from '../repositories/contribution-reversal.repository';
 
 type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
   FinanceV1.CreateContributionRequestResponse &
-  FinanceV1.UpdateContributionAmountResponse;
+  FinanceV1.UpdateContributionAmountResponse &
+  FinanceV1.ReverseContributionResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;
@@ -367,7 +369,7 @@ export class FundCommandService {
       )
         throw new Error('Invalid contribution update snapshot');
       if (
-        isManualWrite(input) &&
+        (isContributionReversalWrite(input) || isManualWrite(input)) &&
         input.actor !==
           (input.scope === 'REPORT_TRANSFER' ? row.member_user_id : current.fund?.holder_user_id)
       )

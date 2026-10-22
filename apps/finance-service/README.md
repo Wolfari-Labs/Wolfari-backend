@@ -10,7 +10,9 @@ gồm transaction, quyền Trip và recovery; đã bổ sung
 [API105/106 chứng từ private](../../docs/architecture/finance-receipts.md).
 API087–089 bổ sung báo chuyển, xác nhận thu và từ chối thủ công; chưa ghi chi hoặc
 kết nối provider. Xem [luồng thu thủ công](../../docs/architecture/finance-manual-contributions.md)
-và [OpenAPI](../../docs/api/finance-contributions.openapi.json). Xác nhận do Holder
+và [OpenAPI](../../docs/api/finance-contributions.openapi.json). API085 bổ sung
+[đảo khoản thu đã xác nhận](../../docs/architecture/finance-contribution-reversal.md)
+bằng một ledger OUT đối ứng; đây không phải hoàn tiền thật. Xác nhận do Holder
 đối chiếu bên ngoài; ứng dụng không tự xác minh ngân hàng.
 
 README này mô tả code hiện tại và cách kiểm thử module. Baseline thiết kế hiện hành
@@ -23,7 +25,8 @@ helper bên dưới để tự chốt schema/contract hoặc coi nghiệp vụ �
 Theo [handoff lifecycle](../../docs/architecture/trip-member-lifecycle-handoff.md),
 Trip đã có BeginFinanceOperation/CompleteOperation, polling và recovery cho năm
 command setup, CREATE_CONTRIBUTION_REQUEST, bốn command quản lý API081–084 và ba
-command thủ công REPORT_TRANSFER/CONFIRM_RECEIVED/REJECT_TRANSFER. GetAccessContext không thay guard
+command thủ công REPORT_TRANSFER/CONFIRM_RECEIVED/REJECT_TRANSFER và
+REVERSE_CONTRIBUTION. GetAccessContext không thay guard
 cho writer. Giữ lifecycle flag false với Finance thật vì nghĩa vụ khi rời/xóa thành
 viên chưa có handler đầy đủ.
 
@@ -284,6 +287,14 @@ idempotency header hoặc quyền nghiệp vụ; không log evidence key. Unit t
 parser với domain kiểm sai actor, quỹ đóng, version cũ, trạng thái đã kết thúc và
 số tiền thu từ dữ liệu đã lưu. Chưa có route API087–089 hoặc transaction ghi tiền;
 parser hợp lệ không thay Trip guard, khóa dòng hay chống ghi trùng ở database.
+
+## Đảo khoản thu đã xác nhận
+
+API085 chỉ cho current Holder active đổi CONFIRMED thành REVERSED. Writer tìm đúng
+một ledger IN CONTRIBUTION cùng Fund/amount, giữ ledger và chứng từ gốc, rồi append
+một OUT REVERSAL liên kết bằng `reversal_of_id`. Số dư khả dụng phải đủ sau khi giữ
+chỗ Refund PENDING/HOLDER_REPORTED. Contribution, balance, audit, receipt và event
+commit cùng transaction. Xem [thiết kế API085](../../docs/architecture/finance-contribution-reversal.md).
 
 ## Đọc đợt đóng góp và khoản đóng góp
 

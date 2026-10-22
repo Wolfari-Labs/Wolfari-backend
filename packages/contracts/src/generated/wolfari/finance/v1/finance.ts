@@ -576,6 +576,20 @@ export interface RejectContributionTransferResponse {
   operation?: Operation | undefined;
 }
 
+export interface ReverseContributionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  reason?: string | undefined;
+}
+
+export interface ReverseContributionResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
 export interface GetPaymentInstructionRequest {
   contribution_id?: string | undefined;
   actor_user_id?: string | undefined;
@@ -621,6 +635,11 @@ export interface FinanceServiceClient {
     request: RejectContributionTransferRequest,
     metadata?: Metadata,
   ): Observable<RejectContributionTransferResponse>;
+
+  reverseContribution(
+    request: ReverseContributionRequest,
+    metadata?: Metadata,
+  ): Observable<ReverseContributionResponse>;
 
   uploadFinanceReceipt(
     request: UploadFinanceReceiptRequest,
@@ -738,6 +757,11 @@ export interface FinanceServiceController {
     | Promise<RejectContributionTransferResponse>
     | Observable<RejectContributionTransferResponse>
     | RejectContributionTransferResponse;
+
+  reverseContribution(
+    request: ReverseContributionRequest,
+    metadata?: Metadata,
+  ): Promise<ReverseContributionResponse> | Observable<ReverseContributionResponse> | ReverseContributionResponse;
 
   uploadFinanceReceipt(
     request: UploadFinanceReceiptRequest,
@@ -887,6 +911,7 @@ export function FinanceServiceControllerMethods() {
       "reportContributionTransfer",
       "confirmContributionReceived",
       "rejectContributionTransfer",
+      "reverseContribution",
       "uploadFinanceReceipt",
       "downloadFinanceReceipt",
       "updateContributionRequest",

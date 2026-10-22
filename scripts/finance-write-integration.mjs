@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { runFinanceConfigurationTests } from './finance-configuration-integration.mjs';
 import { runContributionRequestTests } from './finance-contribution-request-integration.mjs';
+import { runContributionReversalTests } from './finance-contribution-reversal-integration.mjs';
 const require = createRequire(import.meta.url);
 const apiRequire = createRequire(new URL('../apps/api-gateway/package.json', import.meta.url));
 const { Client, credentials, Metadata } = apiRequire('@grpc/grpc-js');
@@ -620,6 +621,12 @@ export async function runFinanceWriteTests(h) {
       tripClient,
       pollTerminal,
       financeDb,
+    });
+    await runContributionReversalTests(h, {
+      newTrip,
+      write,
+      enableBody,
+      pollTerminal,
     });
     const instructionKeys = await runPaymentInstructionTests(h, { newTrip, write, enableBody });
     return {

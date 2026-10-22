@@ -1122,6 +1122,105 @@
         }
       }
     },
+    "/api/v1/contributions/{id}/reverse": {
+      "post": {
+        "operationId": "reverseContribution",
+        "summary": "API085 reverseContribution",
+        "description": "Current active Holder only: CONFIRMED to REVERSED. Append one exact opposite OUT REVERSAL linked to the original CONTRIBUTION ledger entry, then reduce Fund balance. This is an accounting correction, not a bank refund. The original ledger, confirmation and evidence remain immutable. Fund/request must be OPEN and Trip active without closure lock. Reserved PENDING/HOLDER_REPORTED refunds remain unavailable, so reversal fails when available balance is insufficient. Expected contribution and Finance versions plus UUID Idempotency-Key are required. Replay rechecks the current Holder; a contribution can be reversed once only.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ContributionReasonInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved public REVERSED contribution snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/Contribution" },
+                    "meta": { "$ref": "#/components/schemas/Meta" }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/Operation" },
+                    "meta": { "$ref": "#/components/schemas/Meta" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: malformed reason, version or request.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: actor is not the current active Holder.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: scoped Finance record or current membership is absent.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT, including insufficient available balance or an existing reversal.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency failure or malformed persisted ledger invariant.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contributions/{id}/report-transfer": {
       "post": {
         "operationId": "reportContributionTransfer",
@@ -2210,7 +2309,9 @@
           "reason": {
             "type": "string",
             "minLength": 1,
-            "description": "Nonblank reason, no NUL. Retained with waiver/cancellation history."
+            "maxLength": 1024,
+            "pattern": "\\S",
+            "description": "Nonblank reason, no NUL, at most 1024 characters. Retained with waiver, cancellation or reversal history."
           },
           "expected_version": {
             "type": "integer",

@@ -27,31 +27,94 @@ const hash = 'a'.repeat(64);
 
 function payload(eventType: string): Record<string, unknown> {
   switch (eventType) {
-    case 'AccountStatusChanged': return { user_id: id.user, status: 'ACTIVE', user_version: 7 };
-    case 'MemberInvited': return { invitation_id: id.invitation, trip_id: id.trip, invitation_version: 7 };
-    case 'PlanUpdated': return { trip_id: id.trip, plan_version: 7, changed_entities: [], source_version: 1, tombstones: [] };
+    case 'AccountStatusChanged':
+      return { user_id: id.user, status: 'ACTIVE', user_version: 7 };
+    case 'MemberInvited':
+      return { invitation_id: id.invitation, trip_id: id.trip, invitation_version: 7 };
+    case 'PlanUpdated':
+      return {
+        trip_id: id.trip,
+        plan_version: 7,
+        changed_entities: [],
+        source_version: 1,
+        tombstones: [],
+      };
     case 'MemberLeft':
     case 'MemberRemoved':
-    case 'MemberJoined': return { trip_id: id.trip, user_id: id.user, membership_revision: 7 };
+    case 'MemberJoined':
+      return { trip_id: id.trip, user_id: id.user, membership_revision: 7 };
     case 'TripArchived':
-    case 'TripReopened': return { trip_id: id.trip, export_revision: 7 };
-    case 'TripDeleted': return { trip_id: id.trip, export_revision: 7, deleted_at: '2026-09-23T10:00:00.000Z' };
-    case 'ContributionRequested': return { fund_id: id.fund, trip_id: id.trip, request_id: id.request, contribution_ids: [id.contribution], finance_version: 7 };
-    case 'ContributionUpdated': return { fund_id: id.fund, trip_id: id.trip, contribution_id: id.contribution, status: 'CONFIRMED', finance_version: 7 };
-    case 'ClosureRequested': return { fund_id: id.fund, trip_id: id.trip, closure_id: id.closure, snapshot_hash: hash, finance_version: 7 };
+    case 'TripReopened':
+      return { trip_id: id.trip, export_revision: 7 };
+    case 'TripDeleted':
+      return { trip_id: id.trip, export_revision: 7, deleted_at: '2026-09-23T10:00:00.000Z' };
+    case 'ContributionRequested':
+      return {
+        fund_id: id.fund,
+        trip_id: id.trip,
+        request_id: id.request,
+        contribution_ids: [id.contribution],
+        finance_version: 7,
+      };
+    case 'ContributionUpdated':
+      return {
+        fund_id: id.fund,
+        trip_id: id.trip,
+        contribution_id: id.contribution,
+        status: 'CONFIRMED',
+        finance_version: 7,
+      };
+    case 'ClosureRequested':
+      return {
+        fund_id: id.fund,
+        trip_id: id.trip,
+        closure_id: id.closure,
+        snapshot_hash: hash,
+        finance_version: 7,
+      };
     case 'ClosureCancelled':
-    case 'FinanceClosed': return { fund_id: id.fund, trip_id: id.trip, closure_id: id.closure, finance_version: 7 };
-    case 'GenerateExport': return { job_id: id.job, attempt_id: id.attempt, job_version: 7, snapshot_key: 'private/snapshot.json', snapshot_hash: hash, snapshot_schema_version: 1, format: 'XLSX', preset_version: 1, result_key: 'private/result.xlsx' };
-    case 'ExportStarted': return { job_id: id.job, attempt_id: id.attempt };
-    case 'ExportCompleted': return { job_id: id.job, attempt_id: id.attempt, result_key: 'private/result.xlsx', sha256: hash, mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size_bytes: 42, completed_at: '2026-09-23T10:00:00.000Z' };
-    case 'ExportFailed': return { job_id: id.job, attempt_id: id.attempt, error_code: 'RENDER_FAILED', retryable: false };
-    case 'AccountEmailRequested': return { user_id: id.user, token_id: id.token, purpose: 'VERIFY_EMAIL' };
-    default: throw new Error(`Missing fixture for ${eventType}`);
+    case 'FinanceClosed':
+      return { fund_id: id.fund, trip_id: id.trip, closure_id: id.closure, finance_version: 7 };
+    case 'GenerateExport':
+      return {
+        job_id: id.job,
+        attempt_id: id.attempt,
+        job_version: 7,
+        snapshot_key: 'private/snapshot.json',
+        snapshot_hash: hash,
+        snapshot_schema_version: 1,
+        format: 'XLSX',
+        preset_version: 1,
+        result_key: 'private/result.xlsx',
+      };
+    case 'ExportStarted':
+      return { job_id: id.job, attempt_id: id.attempt };
+    case 'ExportCompleted':
+      return {
+        job_id: id.job,
+        attempt_id: id.attempt,
+        result_key: 'private/result.xlsx',
+        sha256: hash,
+        mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        size_bytes: 42,
+        completed_at: '2026-09-23T10:00:00.000Z',
+      };
+    case 'ExportFailed':
+      return {
+        job_id: id.job,
+        attempt_id: id.attempt,
+        error_code: 'RENDER_FAILED',
+        retryable: false,
+      };
+    case 'AccountEmailRequested':
+      return { user_id: id.user, token_id: id.token, purpose: 'VERIFY_EMAIL' };
+    default:
+      throw new Error(`Missing fixture for ${eventType}`);
   }
 }
 
 function event(eventType: string): Record<string, unknown> {
-  const catalog = EVENT_CATALOG.find(entry => entry.event_type === eventType)!;
+  const catalog = EVENT_CATALOG.find((entry) => entry.event_type === eventType)!;
   const body = payload(eventType);
   const aggregateId = catalog.aggregate_id_field ? body[catalog.aggregate_id_field] : id.aggregate;
   return {
@@ -74,18 +137,23 @@ function event(eventType: string): Record<string, unknown> {
 }
 
 function errorCode(work: () => void): string | undefined {
-  try { work(); } catch (error) { return error instanceof ContractValidationError ? error.code : undefined; }
+  try {
+    work();
+  } catch (error) {
+    return error instanceof ContractValidationError ? error.code : undefined;
+  }
   return undefined;
 }
 
 describe('event contracts', () => {
   it('validates fixtures for all 19 catalogued event types', () => {
     expect(EVENT_CATALOG).toHaveLength(19);
-    for (const entry of EVENT_CATALOG) expect(() => validateEventForPublish(event(entry.event_type))).not.toThrow();
+    for (const entry of EVENT_CATALOG)
+      expect(() => validateEventForPublish(event(entry.event_type))).not.toThrow();
   });
 
   it('publishes the dedicated invitation and remaining 13/1/3 bindings', () => {
-    expect(EVENT_TOPOLOGY.queues.map(queue => queue.bindings.length)).toEqual([2, 13, 1, 3]);
+    expect(EVENT_TOPOLOGY.queues.map((queue) => queue.bindings.length)).toEqual([2, 13, 1, 3]);
     expect(EVENT_TOPOLOGY.retry_delays_ms).toEqual([10_000, 30_000, 120_000, 300_000, 900_000]);
   });
 
@@ -96,15 +164,53 @@ describe('event contracts', () => {
     expect(errorCode(() => validateEventForPublish(value))).toBe('INVALID_EVENT');
   });
 
+  it('accepts REVERSED as the terminal contribution correction status', () => {
+    const value = event('ContributionUpdated');
+    (value.payload as Record<string, unknown>).status = 'REVERSED';
+    expect(() => validateEventForPublish(value)).not.toThrow();
+  });
+
   it.each([
-    ['unknown event', () => ({ ...event('AccountStatusChanged'), event_type: 'SomethingNew' }), 'UNKNOWN_EVENT'],
-    ['unknown version', () => ({ ...event('AccountStatusChanged'), schema_version: 2 }), 'UNKNOWN_SCHEMA_VERSION'],
-    ['invalid UUID', () => ({ ...event('AccountStatusChanged'), correlation_id: 'request-123' }), 'INVALID_EVENT'],
-    ['both actors', () => ({ ...event('AccountStatusChanged'), system_actor: 'Automation' }), 'INVALID_EVENT'],
-    ['no actor', () => ({ ...event('AccountStatusChanged'), actor_user_id: null }), 'INVALID_EVENT'],
-    ['wrong producer', () => ({ ...event('AccountStatusChanged'), producer: 'Trip' }), 'INVALID_EVENT'],
-    ['wrong payload', () => ({ ...event('MemberInvited'), payload: payload('AccountStatusChanged') }), 'INVALID_EVENT'],
-    ['version mismatch', () => ({ ...event('AccountStatusChanged'), aggregate_version: 8 }), 'INVALID_EVENT'],
+    [
+      'unknown event',
+      () => ({ ...event('AccountStatusChanged'), event_type: 'SomethingNew' }),
+      'UNKNOWN_EVENT',
+    ],
+    [
+      'unknown version',
+      () => ({ ...event('AccountStatusChanged'), schema_version: 2 }),
+      'UNKNOWN_SCHEMA_VERSION',
+    ],
+    [
+      'invalid UUID',
+      () => ({ ...event('AccountStatusChanged'), correlation_id: 'request-123' }),
+      'INVALID_EVENT',
+    ],
+    [
+      'both actors',
+      () => ({ ...event('AccountStatusChanged'), system_actor: 'Automation' }),
+      'INVALID_EVENT',
+    ],
+    [
+      'no actor',
+      () => ({ ...event('AccountStatusChanged'), actor_user_id: null }),
+      'INVALID_EVENT',
+    ],
+    [
+      'wrong producer',
+      () => ({ ...event('AccountStatusChanged'), producer: 'Trip' }),
+      'INVALID_EVENT',
+    ],
+    [
+      'wrong payload',
+      () => ({ ...event('MemberInvited'), payload: payload('AccountStatusChanged') }),
+      'INVALID_EVENT',
+    ],
+    [
+      'version mismatch',
+      () => ({ ...event('AccountStatusChanged'), aggregate_version: 8 }),
+      'INVALID_EVENT',
+    ],
   ])('rejects %s with a classified error', (_name, fixture, code) => {
     expect(errorCode(() => validateEventForPublish(fixture()))).toBe(code);
   });

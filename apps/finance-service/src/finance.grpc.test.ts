@@ -11,6 +11,7 @@ import type { FundQueryService } from './application/fund-query.service';
 import { FinanceReadError } from './finance.errors';
 import type { FundCommandService } from './application/fund-command.service';
 import type { FundCommandRepository } from './repositories/fund-command.repository';
+import type { ContributionReversalService } from './application/contribution-reversal.service';
 
 const id = '10000000-0000-4000-8000-000000000001';
 const secret = 'a'.repeat(64);
@@ -31,6 +32,7 @@ function setup() {
     confirm: vi.fn().mockResolvedValue({ destination: {} }),
   };
   const receipts = { find: vi.fn().mockResolvedValue(undefined), cancel: vi.fn() };
+  const reversals = { run: vi.fn().mockResolvedValue({ contribution: {} }) };
   metadata.set('x-caller-service', 'ApiGateway');
   metadata.set('x-service-secret', secret);
   metadata.set('x-correlation-id', id);
@@ -57,10 +59,23 @@ function setup() {
       {
         run: vi.fn().mockResolvedValue({ contribution: {} }),
       } as unknown as ManualContributionService,
+      undefined,
+      reversals as unknown as ContributionReversalService,
     ),
+    reversals,
   };
 }
 describe('Finance gRPC boundary', () => {
+  it('restricts contribution reversal to Gateway', async () => {
+    const s = setup();
+    expect(await s.controller.reverseContribution({}, s.metadata)).toEqual({ contribution: {} });
+    s.metadata.set('x-caller-service', 'Trip');
+    s.metadata.set('x-service-secret', 'b'.repeat(64));
+    await expect(s.controller.reverseContribution({}, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+    expect(s.reversals.run).toHaveBeenCalledTimes(1);
+  });
   it.each([
     'reportContributionTransfer',
     'confirmContributionReceived',

@@ -8,6 +8,7 @@ service FinanceService {
   rpc ReportContributionTransfer(ReportContributionTransferRequest) returns (ReportContributionTransferResponse);
   rpc ConfirmContributionReceived(ConfirmContributionReceivedRequest) returns (ConfirmContributionReceivedResponse);
   rpc RejectContributionTransfer(RejectContributionTransferRequest) returns (RejectContributionTransferResponse);
+  rpc ReverseContribution(ReverseContributionRequest) returns (ReverseContributionResponse);
   rpc UploadFinanceReceipt(UploadFinanceReceiptRequest) returns (UploadFinanceReceiptResponse);
   rpc DownloadFinanceReceipt(DownloadFinanceReceiptRequest) returns (DownloadFinanceReceiptResponse);
   rpc UpdateContributionRequest(UpdateContributionRequestRequest) returns (UpdateContributionRequestResponse);
@@ -537,6 +538,21 @@ message RejectContributionTransferRequest {
   string reason = 6;
 }
 message RejectContributionTransferResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message ReverseContributionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+  string reason = 6;
+}
+message ReverseContributionResponse {
   oneof result {
     ContributionView contribution = 1;
     wolfari.common.v1.Operation operation = 2;
