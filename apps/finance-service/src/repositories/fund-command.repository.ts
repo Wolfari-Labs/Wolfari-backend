@@ -63,6 +63,7 @@ import {
   mapExpenseRuleError,
   type ExpenseWriteCommand,
 } from './expense.repository';
+import { FinancialNoteRepository, isFinancialNoteWrite, mapFinancialNoteRuleError, type FinancialNoteWriteCommand } from './financial-note.repository';
 
 export type FundWrite = {
   operationId: string;
@@ -73,6 +74,7 @@ export type FundWrite = {
   | ManualWrite
   | ContributionReversalWrite
   | ExpenseWriteCommand
+  | FinancialNoteWriteCommand
   | ManagementWrite
   | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
@@ -100,6 +102,7 @@ export type StoredResult = {
   contributionRequest?: FinanceV1.ContributionRequestView;
   contribution?: FinanceV1.ContributionView;
   expense?: FinanceV1.ExpenseView;
+  financialNote?: FinanceV1.FinancialNoteView;
 };
 export type FundReceipt = {
   operation_id: string;
@@ -125,6 +128,9 @@ export const fundCommandScope = (value: string) =>
     'CONFIRM_EXPENSE',
     'REJECT_EXPENSE',
     'REVERSE_EXPENSE',
+    'CREATE_FINANCIAL_NOTE',
+    'UPDATE_FINANCIAL_NOTE',
+    'DELETE_FINANCIAL_NOTE',
     'UPDATE_CONTRIBUTION_REQUEST',
     'UPDATE_CONTRIBUTION_AMOUNT',
     'WAIVE_CONTRIBUTION',
@@ -176,6 +182,8 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
+  const note = mapFinancialNoteRuleError(error);
+  if (note) return note;
   const expense = mapExpenseRuleError(error);
   if (expense) return expense;
   if (error instanceof ContributionStateConflictError)
@@ -391,6 +399,8 @@ export class FundCommandRepository {
             authority,
             correlation,
           );
+        } else if (isFinancialNoteWrite(input)) {
+          response = await new FinancialNoteRepository(client).execute(client, input, authority, correlation);
         } else if ('requestId' in input) {
           response = await new ContributionManagementRepository().execute(
             client,

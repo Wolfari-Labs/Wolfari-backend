@@ -14,6 +14,10 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'ListFinancialNotes'
+      | 'CreateFinancialNote'
+      | 'UpdateFinancialNote'
+      | 'DeleteFinancialNote'
       | 'ListExpenses'
       | 'CreateExpense'
       | 'UpdateExpense'

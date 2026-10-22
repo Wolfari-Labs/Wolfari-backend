@@ -20,6 +20,7 @@ import { ContributionCommandService } from './application/contribution-command.s
 import { ContributionQueryService } from './application/contribution-query.service';
 import { ContributionReversalService } from './application/contribution-reversal.service';
 import { ExpenseService } from './application/expense.service';
+import { FinancialNoteService } from './application/financial-note.service';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -41,7 +42,37 @@ export class FinanceGrpcController {
     private readonly instructions?: PaymentInstructionService,
     private readonly reversals?: ContributionReversalService,
     private readonly expenses?: ExpenseService,
+    private readonly financialNotes?: FinancialNoteService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ListFinancialNotes')
+  listFinancialNotes(request: FinanceV1.ListFinancialNotesRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('ListFinancialNotes', metadata, call, (correlation, deadline) => {
+      if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.financialNotes.list(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'CreateFinancialNote')
+  createFinancialNote(request: FinanceV1.CreateFinancialNoteRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('CreateFinancialNote', metadata, call, (correlation, deadline) => {
+      if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.financialNotes.create(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'UpdateFinancialNote')
+  updateFinancialNote(request: FinanceV1.UpdateFinancialNoteRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('UpdateFinancialNote', metadata, call, (correlation, deadline) => {
+      if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.financialNotes.manage('UPDATE_FINANCIAL_NOTE', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'DeleteFinancialNote')
+  deleteFinancialNote(request: FinanceV1.DeleteFinancialNoteRequest, metadata?: Metadata, call?: DeadlineCall) {
+    return this.execute('DeleteFinancialNote', metadata, call, (correlation, deadline) => {
+      if (!this.financialNotes) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.financialNotes.manage('DELETE_FINANCIAL_NOTE', request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ListExpenses')
   listExpenses(request: FinanceV1.ListExpensesRequest, metadata?: Metadata, call?: DeadlineCall) {

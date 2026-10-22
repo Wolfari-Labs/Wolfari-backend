@@ -1,5 +1,14 @@
 # Finance Service
 
+## Financial Notes API107–110
+
+Financial Notes lưu hoạt động chung ngoài sổ quỹ. Amount/payer là thông tin tham
+khảo; mọi create/update/delete đều không tạo ledger, không đổi balance và không giữ
+chỗ Refund. Member hiện tại được tạo, Creator hoặc Owner được sửa/xóa khi Fund OPEN;
+GET vẫn đọc được lịch sử khi Trip archived hoặc Fund CLOSED. Xem
+[thiết kế](../../docs/architecture/finance-notes.md) và
+[OpenAPI107–110](../../docs/api/finance-notes.openapi.json).
+
 Finance dùng `DatabaseModule.forService('finance')` và `DatabaseProvider` từ
 `@wolfari/database`, dựa trên `pg`. Module này đã được nối trong `AppModule`.
 Code hiện có domain tiền/số dư/ledger/đóng góp, parser và bước chuẩn bị request;

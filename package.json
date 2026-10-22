@@ -36,7 +36,8 @@
     "contracts:breaking": "node scripts/contracts.mjs breaking",
     "dev:test": "node scripts/launcher-test.mjs",
     "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance",
-    "finance:expenses:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-expenses"
+    "finance:expenses:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-expenses",
+    "finance:notes:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notes"
   },
   "devDependencies": {
     "@types/node": "24.13.5",

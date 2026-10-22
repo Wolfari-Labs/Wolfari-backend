@@ -45,6 +45,74 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+export interface FinancialNoteView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  payer_user_id?: string | undefined;
+  created_by_user_id?: string | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListFinancialNotesRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListFinancialNotesResponse {
+  items?: FinancialNoteView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateFinancialNoteRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  payer_user_id?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreateFinancialNoteResponse {
+  financial_note?: FinancialNoteView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdateFinancialNoteRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  note_id?: string | undefined;
+  description?: string | undefined;
+  amount?: NullableStringChange | undefined;
+  payer_user_id?: NullableStringChange | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateFinancialNoteResponse {
+  financial_note?: FinancialNoteView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface DeleteFinancialNoteRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  note_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface DeleteFinancialNoteResponse {
+  operation?: Operation | undefined;
+}
+
 export interface NullableStringChange {
   value?: string | undefined;
   clear?: boolean | undefined;
@@ -777,6 +845,23 @@ export interface GetPaymentInstructionResponse {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  listFinancialNotes(request: ListFinancialNotesRequest, metadata?: Metadata): Observable<ListFinancialNotesResponse>;
+
+  createFinancialNote(
+    request: CreateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Observable<CreateFinancialNoteResponse>;
+
+  updateFinancialNote(
+    request: UpdateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Observable<UpdateFinancialNoteResponse>;
+
+  deleteFinancialNote(
+    request: DeleteFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Observable<DeleteFinancialNoteResponse>;
+
   listExpenses(request: ListExpensesRequest, metadata?: Metadata): Observable<ListExpensesResponse>;
 
   createExpense(request: CreateExpenseRequest, metadata?: Metadata): Observable<CreateExpenseResponse>;
@@ -908,6 +993,26 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  listFinancialNotes(
+    request: ListFinancialNotesRequest,
+    metadata?: Metadata,
+  ): Promise<ListFinancialNotesResponse> | Observable<ListFinancialNotesResponse> | ListFinancialNotesResponse;
+
+  createFinancialNote(
+    request: CreateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Promise<CreateFinancialNoteResponse> | Observable<CreateFinancialNoteResponse> | CreateFinancialNoteResponse;
+
+  updateFinancialNote(
+    request: UpdateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateFinancialNoteResponse> | Observable<UpdateFinancialNoteResponse> | UpdateFinancialNoteResponse;
+
+  deleteFinancialNote(
+    request: DeleteFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteFinancialNoteResponse> | Observable<DeleteFinancialNoteResponse> | DeleteFinancialNoteResponse;
+
   listExpenses(
     request: ListExpensesRequest,
     metadata?: Metadata,
@@ -1131,6 +1236,10 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "listFinancialNotes",
+      "createFinancialNote",
+      "updateFinancialNote",
+      "deleteFinancialNote",
       "listExpenses",
       "createExpense",
       "updateExpense",

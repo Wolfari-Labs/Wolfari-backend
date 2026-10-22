@@ -4,6 +4,10 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc ListFinancialNotes(ListFinancialNotesRequest) returns (ListFinancialNotesResponse);
+  rpc CreateFinancialNote(CreateFinancialNoteRequest) returns (CreateFinancialNoteResponse);
+  rpc UpdateFinancialNote(UpdateFinancialNoteRequest) returns (UpdateFinancialNoteResponse);
+  rpc DeleteFinancialNote(DeleteFinancialNoteRequest) returns (DeleteFinancialNoteResponse);
   rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
   rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
   rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
@@ -41,6 +45,68 @@ service FinanceService {
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
 }
+
+message FinancialNoteView {
+  string id = 1;
+  string fund_id = 2;
+  string description = 3;
+  optional string amount = 4;
+  optional string payer_user_id = 5;
+  string created_by_user_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  int32 version = 9;
+  int32 finance_version = 10;
+}
+message ListFinancialNotesRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListFinancialNotesResponse {
+  repeated FinancialNoteView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateFinancialNoteRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string description = 4;
+  optional string amount = 5;
+  optional string payer_user_id = 6;
+  int32 expected_finance_version = 7;
+}
+message CreateFinancialNoteResponse {
+  oneof result {
+    FinancialNoteView financial_note = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message UpdateFinancialNoteRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string note_id = 3;
+  optional string description = 4;
+  NullableStringChange amount = 5;
+  NullableStringChange payer_user_id = 6;
+  int32 expected_version = 7;
+  int32 expected_finance_version = 8;
+}
+message UpdateFinancialNoteResponse {
+  oneof result {
+    FinancialNoteView financial_note = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message DeleteFinancialNoteRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string note_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message DeleteFinancialNoteResponse { wolfari.common.v1.Operation operation = 1; }
 
 message NullableStringChange {
   oneof change {

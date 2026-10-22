@@ -4,6 +4,7 @@ import { Client, credentials, Metadata } from '@grpc/grpc-js';
 import { loadSync, type MethodDefinition, type ServiceDefinition } from '@grpc/proto-loader';
 import {
   GRPC_LOADER_OPTIONS,
+  CommonV1,
   PROTO_PATHS,
   type FinanceV1,
   type TripV1,
@@ -36,6 +37,7 @@ import {
 import { isManualWrite } from '../repositories/manual-contribution.repository';
 import { isContributionReversalWrite } from '../repositories/contribution-reversal.repository';
 import { isExpenseWrite } from '../repositories/expense.repository';
+import { isFinancialNoteWrite } from '../repositories/financial-note.repository';
 
 type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
@@ -49,7 +51,10 @@ type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.WithdrawExpenseResponse &
   FinanceV1.ConfirmExpenseResponse &
   FinanceV1.RejectExpenseResponse &
-  FinanceV1.ReverseExpenseResponse;
+  FinanceV1.ReverseExpenseResponse &
+  FinanceV1.CreateFinancialNoteResponse &
+  FinanceV1.UpdateFinancialNoteResponse &
+  FinanceV1.DeleteFinancialNoteResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;
@@ -367,6 +372,16 @@ export class FundCommandService {
       )
         throw new Error('Invalid expense result');
       return { expense: row };
+    }
+    if (isFinancialNoteWrite(input)) {
+      const role = await this.queries.authorizeFundRead(input.fundId, input.actor, correlation, deadline);
+      const row = saved.response.financialNote;
+      if (input.scope !== 'CREATE_FINANCIAL_NOTE' && (!row || (row.created_by_user_id !== input.actor && role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER)))
+        throw new FinanceReadError('PERMISSION_DENIED');
+      if (input.scope === 'DELETE_FINANCIAL_NOTE') return { operation: completed.operation };
+      if (!row || row.fund_id !== input.fundId || ('noteId' in input && row.id !== input.noteId) || !row.finance_version)
+        throw new Error('Invalid financial note result');
+      return { financial_note: row };
     }
     if ('requestId' in input) {
       const current = await this.queries.getFund(

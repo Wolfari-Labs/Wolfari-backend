@@ -1,0 +1,23 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Wolfari Financial Notes API", "version": "1.0.0" },
+  "paths": {
+    "/api/v1/funds/{fund_id}/notes": {
+      "get": { "operationId": "listFinancialNotes", "responses": { "200": { "description": "Visible non-deleted notes" } } },
+      "post": { "operationId": "createFinancialNote", "responses": { "201": { "description": "Created note" }, "202": { "description": "Operation pending recovery" } } }
+    },
+    "/api/v1/notes/{id}": {
+      "patch": { "operationId": "updateFinancialNote", "responses": { "200": { "description": "Updated or unchanged note" }, "202": { "description": "Operation pending recovery" } } },
+      "delete": { "operationId": "deleteFinancialNote", "responses": { "200": { "description": "Deleted" }, "202": { "description": "Operation pending recovery" } } }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Money": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$", "maxLength": 19 },
+      "FinancialNote": { "type": "object", "required": ["id","fund_id","description","amount","payer_user_id","created_by_user_id","created_at","updated_at","version","finance_version"], "properties": { "id": { "type":"string","format":"uuid" }, "fund_id": { "type":"string","format":"uuid" }, "description": { "type":"string","minLength":1 }, "amount": { "oneOf": [{ "$ref":"#/components/schemas/Money" }, { "type":"null" }] }, "payer_user_id": { "oneOf": [{ "type":"string","format":"uuid" }, { "type":"null" }] }, "created_by_user_id": { "type":"string","format":"uuid" }, "created_at": { "type":"string","format":"date-time" }, "updated_at": { "type":"string","format":"date-time" }, "version": { "type":"integer","minimum":1 }, "finance_version": { "type":"integer","minimum":1 } }, "additionalProperties": false },
+      "CreateFinancialNoteInput": { "type":"object", "required":["description","expected_finance_version"], "properties": { "description":{"type":"string","minLength":1}, "amount":{"oneOf":[{"$ref":"#/components/schemas/Money"},{"type":"null"}]}, "payer_user_id":{"oneOf":[{"type":"string","format":"uuid"},{"type":"null"}]}, "expected_finance_version":{"type":"integer","minimum":1} }, "additionalProperties":false },
+      "UpdateFinancialNoteInput": { "type":"object", "required":["expected_version","expected_finance_version"], "anyOf":[{"required":["description"]},{"required":["amount"]},{"required":["payer_user_id"]}], "properties": { "description":{"type":"string","minLength":1}, "amount":{"oneOf":[{"$ref":"#/components/schemas/Money"},{"type":"null"}]}, "payer_user_id":{"oneOf":[{"type":"string","format":"uuid"},{"type":"null"}]}, "expected_version":{"type":"integer","minimum":1}, "expected_finance_version":{"type":"integer","minimum":1} }, "additionalProperties":false },
+      "DeleteFinancialNoteInput": { "type":"object", "required":["expected_version","expected_finance_version"], "properties":{"expected_version":{"type":"integer","minimum":1},"expected_finance_version":{"type":"integer","minimum":1}},"additionalProperties":false }
+    }
+  }
+}

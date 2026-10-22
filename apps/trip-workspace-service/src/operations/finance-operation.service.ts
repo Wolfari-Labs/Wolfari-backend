@@ -20,6 +20,9 @@ const FUND_COMMANDS = [
   'CONFIRM_EXPENSE',
   'REJECT_EXPENSE',
   'REVERSE_EXPENSE',
+  'CREATE_FINANCIAL_NOTE',
+  'UPDATE_FINANCIAL_NOTE',
+  'DELETE_FINANCIAL_NOTE',
   'UPDATE_CONTRIBUTION_REQUEST',
   'UPDATE_CONTRIBUTION_AMOUNT',
   'WAIVE_CONTRIBUTION',
@@ -158,6 +161,9 @@ export class FinanceOperationService implements OnModuleInit, OnApplicationShutd
           'CONFIRM_EXPENSE',
           'REJECT_EXPENSE',
           'REVERSE_EXPENSE',
+          'CREATE_FINANCIAL_NOTE',
+          'UPDATE_FINANCIAL_NOTE',
+          'DELETE_FINANCIAL_NOTE',
         ].includes(input.command!),
       );
       if (trip.archived_at || trip.closure_lock_id) return fail('STATE_CONFLICT', 409);
@@ -297,7 +303,8 @@ export class FinanceOperationService implements OnModuleInit, OnApplicationShutd
         'UPDATE_CONTRIBUTION_REQUEST','UPDATE_CONTRIBUTION_AMOUNT','WAIVE_CONTRIBUTION','CANCEL_CONTRIBUTION',
         'REPORT_TRANSFER','CONFIRM_RECEIVED','REJECT_TRANSFER','REVERSE_CONTRIBUTION',
         'CREATE_EXPENSE','UPDATE_EXPENSE','DELETE_EXPENSE','SUBMIT_EXPENSE','WITHDRAW_EXPENSE',
-        'CONFIRM_EXPENSE','REJECT_EXPENSE','REVERSE_EXPENSE')
+        'CONFIRM_EXPENSE','REJECT_EXPENSE','REVERSE_EXPENSE',
+        'CREATE_FINANCIAL_NOTE','UPDATE_FINANCIAL_NOTE','DELETE_FINANCIAL_NOTE')
       AND state IN ('PROCESSING','PENDING_RECOVERY') AND next_retry_at<=clock_timestamp()
       ORDER BY next_retry_at,operation_id LIMIT 20`)
     ).rows;
