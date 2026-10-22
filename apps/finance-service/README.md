@@ -8,7 +8,10 @@ các reader Fund, Ledger, Contribution và PaymentDestination đã đăng ký tr
 và [API078–084 tạo/đọc/quản lý đợt thu](../../docs/architecture/finance-contribution-requests.md),
 gồm transaction, quyền Trip và recovery; đã bổ sung
 [API105/106 chứng từ private](../../docs/architecture/finance-receipts.md).
-Chưa ghi nhận thu/chi hoặc kết nối provider.
+API087–089 bổ sung báo chuyển, xác nhận thu và từ chối thủ công; chưa ghi chi hoặc
+kết nối provider. Xem [luồng thu thủ công](../../docs/architecture/finance-manual-contributions.md)
+và [OpenAPI](../../docs/api/finance-contributions.openapi.json). Xác nhận do Holder
+đối chiếu bên ngoài; ứng dụng không tự xác minh ngân hàng.
 
 README này mô tả code hiện tại và cách kiểm thử module. Baseline thiết kế hiện hành
 là SRS 2.3 / ERD 1.2 / DDL API Event 1.1 tại [danh mục tài liệu](../../docs/README.md)
@@ -19,7 +22,8 @@ helper bên dưới để tự chốt schema/contract hoặc coi nghiệp vụ �
 
 Theo [handoff lifecycle](../../docs/architecture/trip-member-lifecycle-handoff.md),
 Trip đã có BeginFinanceOperation/CompleteOperation, polling và recovery cho năm
-command setup, CREATE_CONTRIBUTION_REQUEST và bốn command quản lý API081–084. GetAccessContext không thay guard
+command setup, CREATE_CONTRIBUTION_REQUEST, bốn command quản lý API081–084 và ba
+command thủ công REPORT_TRANSFER/CONFIRM_RECEIVED/REJECT_TRANSFER. GetAccessContext không thay guard
 cho writer. Giữ lifecycle flag false với Finance thật vì nghĩa vụ khi rời/xóa thành
 viên chưa có handler đầy đủ.
 

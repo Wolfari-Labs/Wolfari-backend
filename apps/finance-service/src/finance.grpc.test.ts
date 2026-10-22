@@ -1,3 +1,4 @@
+import type { ManualContributionService } from './application/manual-contribution.service';
 import type { ReceiptService } from './receipts/receipt.service';
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
@@ -53,10 +54,26 @@ function setup() {
         listContributions: vi.fn().mockResolvedValue({ items: [] }),
       } as unknown as ContributionQueryService,
       files as unknown as ReceiptService,
+      {
+        run: vi.fn().mockResolvedValue({ contribution: {} }),
+      } as unknown as ManualContributionService,
     ),
   };
 }
 describe('Finance gRPC boundary', () => {
+  it.each([
+    'reportContributionTransfer',
+    'confirmContributionReceived',
+    'rejectContributionTransfer',
+  ] as const)('%s restricts manual commands to Gateway', async (method) => {
+    const s = setup();
+    expect(await s.controller[method]({}, s.metadata)).toEqual({ contribution: {} });
+    s.metadata.set('x-caller-service', 'Trip');
+    s.metadata.set('x-service-secret', 'b'.repeat(64));
+    await expect(s.controller[method]({}, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+  });
   it.each(['uploadFinanceReceipt', 'downloadFinanceReceipt'] as const)(
     '%s authenticates file RPC and uses a bounded file deadline',
     async (method) => {

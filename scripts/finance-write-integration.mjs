@@ -1,3 +1,4 @@
+import { runManualContributionTests } from './finance-manual-contribution-integration.mjs';
 import { runFinanceReceiptTests } from './finance-receipt-integration.mjs';
 import { runContributionManagementTests } from './finance-contribution-management-integration.mjs';
 import assert from 'node:assert/strict';
@@ -602,9 +603,19 @@ export async function runFinanceWriteTests(h) {
       financeDb,
     });
     const receiptKeys = await runFinanceReceiptTests(h, { newTrip, write, enableBody, financeDb });
+    const manualKeys = await runManualContributionTests(h, {
+      newTrip,
+      write,
+      enableBody,
+      repo,
+      tripClient,
+      pollTerminal,
+      financeDb,
+    });
     return {
       forbidden: [
         ...receiptKeys,
+        ...manualKeys,
         owner.access,
         holder.access,
         outsider.access,

@@ -4,6 +4,9 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc ReportContributionTransfer(ReportContributionTransferRequest) returns (ReportContributionTransferResponse);
+  rpc ConfirmContributionReceived(ConfirmContributionReceivedRequest) returns (ConfirmContributionReceivedResponse);
+  rpc RejectContributionTransfer(RejectContributionTransferRequest) returns (RejectContributionTransferResponse);
   rpc UploadFinanceReceipt(UploadFinanceReceiptRequest) returns (UploadFinanceReceiptResponse);
   rpc DownloadFinanceReceipt(DownloadFinanceReceiptRequest) returns (DownloadFinanceReceiptResponse);
   rpc UpdateContributionRequest(UpdateContributionRequestRequest) returns (UpdateContributionRequestResponse);
@@ -493,4 +496,48 @@ message DownloadFinanceReceiptResponse {
   string mime_type = 2;
   int32 size_bytes = 3;
   bytes content = 4;
+}
+
+message ReportContributionTransferRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+  optional string evidence_object_key = 6;
+}
+message ReportContributionTransferResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message ConfirmContributionReceivedRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ConfirmContributionReceivedResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message RejectContributionTransferRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+  string reason = 6;
+}
+message RejectContributionTransferResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
 }

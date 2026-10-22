@@ -1,4 +1,5 @@
 import { ReceiptService } from './receipts/receipt.service';
+import { ManualContributionService } from './application/manual-contribution.service';
 import { ReceiptRepository } from './receipts/receipt.repository';
 import { ReceiptStorage } from './receipts/receipt-storage';
 import { Module } from '@nestjs/common';
@@ -21,6 +22,7 @@ import { ContributionListRepository } from './repositories/contribution-list.rep
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
   controllers: [FinanceGrpcController],
   providers: [
+    ManualContributionService,
     ReceiptService,
     ReceiptRepository,
     ReceiptStorage,

@@ -1,4 +1,5 @@
 import { ReceiptService } from './receipts/receipt.service';
+import { ManualContributionService } from './application/manual-contribution.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
@@ -33,7 +34,42 @@ export class FinanceGrpcController {
     private readonly contributions: ContributionCommandService,
     private readonly contributionQueries: ContributionQueryService,
     private readonly files?: ReceiptService,
+    private readonly manual?: ManualContributionService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ReportContributionTransfer')
+  reportContributionTransfer(
+    request: FinanceV1.ReportContributionTransferRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ReportContributionTransfer', metadata, call, (correlation, deadline) => {
+      if (!this.manual) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.manual.run('REPORT_TRANSFER', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ConfirmContributionReceived')
+  confirmContributionReceived(
+    request: FinanceV1.ConfirmContributionReceivedRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ConfirmContributionReceived', metadata, call, (correlation, deadline) => {
+      if (!this.manual) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.manual.run('CONFIRM_RECEIVED', request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'RejectContributionTransfer')
+  rejectContributionTransfer(
+    request: FinanceV1.RejectContributionTransferRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('RejectContributionTransfer', metadata, call, (correlation, deadline) => {
+      if (!this.manual) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.manual.run('REJECT_TRANSFER', request, correlation, deadline);
+    });
+  }
 
   private async fileWork<T>(
     call: DeadlineCall | undefined,

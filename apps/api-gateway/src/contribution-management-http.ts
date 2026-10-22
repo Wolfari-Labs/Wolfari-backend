@@ -18,7 +18,10 @@ import {
 
 export function contributionManagementRoute(path: string) {
   const request = /^\/api\/v1\/funds\/([^/]+)\/contribution-requests\/([^/]+)$/.exec(path);
-  const contribution = /^\/api\/v1\/contributions\/([^/]+)(?:\/(waive|cancel))?$/.exec(path);
+  const contribution =
+    /^\/api\/v1\/contributions\/([^/]+)(?:\/(waive|cancel|report-transfer|confirm-received|reject-transfer))?$/.exec(
+      path,
+    );
   if (request)
     return {
       method: 'PATCH',
@@ -30,11 +33,17 @@ export function contributionManagementRoute(path: string) {
   return {
     method: contribution[2] ? 'POST' : 'PATCH',
     rpc:
-      contribution[2] === 'waive'
-        ? ('WaiveContribution' as const)
-        : contribution[2] === 'cancel'
-          ? ('CancelContribution' as const)
-          : ('UpdateContributionAmount' as const),
+      contribution[2] === 'report-transfer'
+        ? ('ReportContributionTransfer' as const)
+        : contribution[2] === 'confirm-received'
+          ? ('ConfirmContributionReceived' as const)
+          : contribution[2] === 'reject-transfer'
+            ? ('RejectContributionTransfer' as const)
+            : contribution[2] === 'waive'
+              ? ('WaiveContribution' as const)
+              : contribution[2] === 'cancel'
+                ? ('CancelContribution' as const)
+                : ('UpdateContributionAmount' as const),
     contribution_id: contribution[1]!,
   };
 }
@@ -60,13 +69,21 @@ export async function handleContributionManagement(
     const operationId = idempotencyKey(request, true);
     const body = await requestBody(request);
     const fields =
-      route.rpc === 'UpdateContributionRequest'
-        ? ['title', 'due_at', 'note']
-        : route.rpc === 'UpdateContributionAmount'
-          ? ['amount']
-          : ['reason'];
+      route.rpc === 'ReportContributionTransfer'
+        ? ['evidence_object_key']
+        : route.rpc === 'ConfirmContributionReceived'
+          ? []
+          : route.rpc === 'UpdateContributionRequest'
+            ? ['title', 'due_at', 'note']
+            : route.rpc === 'UpdateContributionAmount'
+              ? ['amount']
+              : ['reason'];
     onlyKeys(body, [...fields, 'expected_version', 'expected_finance_version']);
-    if (!fields.some((key) => Object.hasOwn(body, key))) throw new RequestError('Empty patch');
+    if (
+      !['ReportContributionTransfer', 'ConfirmContributionReceived'].includes(route.rpc) &&
+      !fields.some((key) => Object.hasOwn(body, key))
+    )
+      throw new RequestError('Empty patch');
     for (const key of fields.filter((key) => Object.hasOwn(body, key)))
       if (typeof body[key] !== 'string') throw new RequestError('Invalid field');
     for (const key of ['expected_version', 'expected_finance_version'])
@@ -107,6 +124,9 @@ export async function handleContributionManagement(
       UpdateContributionAmount: 'PENDING',
       WaiveContribution: 'WAIVED',
       CancelContribution: 'CANCELLED',
+      ReportContributionTransfer: 'TRANSFER_REPORTED',
+      ConfirmContributionReceived: 'CONFIRMED',
+      RejectContributionTransfer: 'PENDING',
     }[route.rpc];
     if (data.id !== route.contribution_id.toLowerCase() || data.status !== expected)
       throw new Error('Invalid updated contribution');

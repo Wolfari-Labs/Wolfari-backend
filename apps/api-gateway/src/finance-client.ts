@@ -14,6 +14,9 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'ReportContributionTransfer'
+      | 'ConfirmContributionReceived'
+      | 'RejectContributionTransfer'
       | 'UpdateContributionRequest'
       | 'UpdateContributionAmount'
       | 'WaiveContribution'

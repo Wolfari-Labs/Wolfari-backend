@@ -89,7 +89,7 @@ export class ReceiptStorage {
       stream.destroy();
     }
   }
-  /** Future attachment calls this before opening its business transaction. */
+  /** Attachment preflight calls this before opening its business transaction. */
   async verify(file: FinanceFile) {
     await this.read(file);
   }

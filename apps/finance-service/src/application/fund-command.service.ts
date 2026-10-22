@@ -33,6 +33,7 @@ import {
   readUuid,
   type FinanceReadErrorCode,
 } from '../finance.errors';
+import { isManualWrite } from '../repositories/manual-contribution.repository';
 
 type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
@@ -277,6 +278,7 @@ export class FundCommandService {
     command: UnhashedWrite,
     correlation: string,
     deadline: number,
+    prepare?: () => Promise<void>,
   ): Promise<CommandResponse> {
     const { operationId, ...intent } = command;
     const input = { ...command, hash: fundCommandHash(intent) } as FundWrite;
@@ -286,6 +288,9 @@ export class FundCommandService {
     let saved = await this.repo.find(operationId);
     if (saved) this.repo.verify(saved, input);
     else {
+      // External storage verification happens before the guard/SQL write and is skipped on replay.
+      await prepare?.();
+      if (prepare && Date.now() >= deadline) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       let guard: TripV1.BeginFinanceOperationResponse;
       try {
         guard = await this.trip.call(
@@ -335,7 +340,7 @@ export class FundCommandService {
     if (saved.status !== 'COMMITTED')
       throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
     if ('requestId' in input) {
-      await this.queries.getFund(
+      const current = await this.queries.getFund(
         { trip_id: input.tripId, actor_user_id: input.actor },
         correlation,
         deadline,
@@ -361,6 +366,12 @@ export class FundCommandService {
         !row.finance_version
       )
         throw new Error('Invalid contribution update snapshot');
+      if (
+        isManualWrite(input) &&
+        input.actor !==
+          (input.scope === 'REPORT_TRANSFER' ? row.member_user_id : current.fund?.holder_user_id)
+      )
+        throw new FinanceReadError('PERMISSION_DENIED');
       return { contribution: row };
     }
     // Persisted snapshots guarantee repeatability. Reauthorize private reads even on terminal replay.

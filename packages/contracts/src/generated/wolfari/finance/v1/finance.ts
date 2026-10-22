@@ -535,9 +535,65 @@ export interface DownloadFinanceReceiptResponse {
   content?: Uint8Array | undefined;
 }
 
+export interface ReportContributionTransferRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  evidence_object_key?: string | undefined;
+}
+
+export interface ReportContributionTransferResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmContributionReceivedRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmContributionReceivedResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RejectContributionTransferRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  reason?: string | undefined;
+}
+
+export interface RejectContributionTransferResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  reportContributionTransfer(
+    request: ReportContributionTransferRequest,
+    metadata?: Metadata,
+  ): Observable<ReportContributionTransferResponse>;
+
+  confirmContributionReceived(
+    request: ConfirmContributionReceivedRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmContributionReceivedResponse>;
+
+  rejectContributionTransfer(
+    request: RejectContributionTransferRequest,
+    metadata?: Metadata,
+  ): Observable<RejectContributionTransferResponse>;
+
   uploadFinanceReceipt(
     request: UploadFinanceReceiptRequest,
     metadata?: Metadata,
@@ -626,6 +682,30 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  reportContributionTransfer(
+    request: ReportContributionTransferRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ReportContributionTransferResponse>
+    | Observable<ReportContributionTransferResponse>
+    | ReportContributionTransferResponse;
+
+  confirmContributionReceived(
+    request: ConfirmContributionReceivedRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ConfirmContributionReceivedResponse>
+    | Observable<ConfirmContributionReceivedResponse>
+    | ConfirmContributionReceivedResponse;
+
+  rejectContributionTransfer(
+    request: RejectContributionTransferRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<RejectContributionTransferResponse>
+    | Observable<RejectContributionTransferResponse>
+    | RejectContributionTransferResponse;
+
   uploadFinanceReceipt(
     request: UploadFinanceReceiptRequest,
     metadata?: Metadata,
@@ -770,6 +850,9 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "reportContributionTransfer",
+      "confirmContributionReceived",
+      "rejectContributionTransfer",
       "uploadFinanceReceipt",
       "downloadFinanceReceipt",
       "updateContributionRequest",

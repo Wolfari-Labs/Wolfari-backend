@@ -42,6 +42,16 @@ import {
   type ManagementWrite,
 } from './contribution-management.repository';
 import { ContributionManagementError } from '../domain/contribution-management';
+import { ReceiptRepository } from '../receipts/receipt.repository';
+import {
+  ManualContributionRepository,
+  isManualWrite,
+  type ManualWrite,
+} from './manual-contribution.repository';
+import {
+  ContributionStateConflictError,
+  ContributionVersionConflictError,
+} from '../domain/contribution-transition';
 
 export type FundWrite = {
   operationId: string;
@@ -49,6 +59,7 @@ export type FundWrite = {
   tripId: string;
   hash: string;
 } & (
+  | ManualWrite
   | ManagementWrite
   | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
@@ -88,6 +99,9 @@ export type FundReceipt = {
 type Client = Pick<DatabaseProvider, 'query'>;
 export const fundCommandScope = (value: string) =>
   [
+    'REPORT_TRANSFER',
+    'CONFIRM_RECEIVED',
+    'REJECT_TRANSFER',
     'UPDATE_CONTRIBUTION_REQUEST',
     'UPDATE_CONTRIBUTION_AMOUNT',
     'WAIVE_CONTRIBUTION',
@@ -139,6 +153,10 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
+  if (error instanceof ContributionStateConflictError)
+    return new FinanceReadError('STATE_CONFLICT');
+  if (error instanceof ContributionVersionConflictError)
+    return new FinanceReadError('VERSION_CONFLICT');
   if (error instanceof ContributionManagementError) return new FinanceReadError(error.code);
   if (error instanceof FinanceReadError) return error;
   if (error instanceof ContributionPermissionDeniedError)
@@ -322,6 +340,13 @@ export class FundCommandRepository {
           };
         } else if (input.scope === 'CREATE_CONTRIBUTION_REQUEST') {
           response = await new ContributionCommandRepository().create(
+            client,
+            input,
+            authority,
+            correlation,
+          );
+        } else if (isManualWrite(input)) {
+          response = await new ManualContributionRepository(new ReceiptRepository(this.db)).execute(
             client,
             input,
             authority,

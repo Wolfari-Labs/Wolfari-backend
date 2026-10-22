@@ -57,7 +57,7 @@ describe('Finance API078–084 OpenAPI', () => {
     };
     walk(spec);
     expect(spec.openapi).toBe('3.0.3');
-    expect(Object.keys(spec.paths)).toHaveLength(6);
+    expect(Object.keys(spec.paths)).toHaveLength(9);
     for (const path of Object.values(spec.paths) as {
       get?: {
         parameters: { name: string }[];

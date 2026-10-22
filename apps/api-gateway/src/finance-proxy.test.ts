@@ -636,3 +636,59 @@ describe('Contribution management Gateway', () => {
     ).toBe(503);
   });
 });
+
+describe('Manual contribution Gateway', () => {
+  const headers = { 'content-type': 'application/json', 'idempotency-key': id };
+  const versions = { expected_version: 1, expected_finance_version: 2 };
+  it.each([
+    ['report-transfer', 'ReportContributionTransfer', 'TRANSFER_REPORTED', {}],
+    ['confirm-received', 'ConfirmContributionReceived', 'CONFIRMED', {}],
+    ['reject-transfer', 'RejectContributionTransfer', 'PENDING', { reason: 'not received' }],
+  ] as const)(
+    '%s uses session actor and a private-field whitelist',
+    async (action, rpc, status, fields) => {
+      const s = setup();
+      s.client.call.mockResolvedValue({
+        contribution: {
+          id,
+          fund_id: id,
+          request_id: id,
+          member_user_id: actor,
+          amount: '9007199254740993',
+          status,
+          version: 2,
+          finance_version: 3,
+          self_contribution: false,
+          transfer_evidence_object_key: 'PRIVATE',
+        },
+      } as never);
+      const r = await s.invoke(`/api/v1/contributions/${id}/${action}`, {
+        method: 'POST',
+        headers,
+        body: { ...versions, ...fields },
+      });
+      expect(r.code).toBe(200);
+      expect(JSON.stringify(r.body)).not.toContain('PRIVATE');
+      expect(s.client.call).toHaveBeenCalledWith(
+        rpc,
+        expect.objectContaining({ actor_user_id: actor, contribution_id: id, operation_id: id }),
+        expect.any(String),
+      );
+    },
+  );
+  it.each([
+    { amount: '1' },
+    { actor_user_id: actor },
+    { evidence_object_key: null },
+    { expected_version: '1' },
+  ])('rejects malformed report fields before RPC', async (patch) => {
+    const s = setup();
+    const r = await s.invoke(`/api/v1/contributions/${id}/report-transfer`, {
+      method: 'POST',
+      headers,
+      body: { ...versions, ...patch },
+    });
+    expect(r.code).toBe(400);
+    expect(s.client.call).not.toHaveBeenCalled();
+  });
+});

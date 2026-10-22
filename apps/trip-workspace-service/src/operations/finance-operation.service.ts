@@ -8,6 +8,9 @@ import { protobufTimestamp } from '../grpc-common';
 import { LifecycleFinanceClient } from './lifecycle-finance.client';
 
 const FUND_COMMANDS = [
+  'REPORT_TRANSFER',
+  'CONFIRM_RECEIVED',
+  'REJECT_TRANSFER',
   'UPDATE_CONTRIBUTION_REQUEST',
   'UPDATE_CONTRIBUTION_AMOUNT',
   'WAIVE_CONTRIBUTION',
@@ -129,7 +132,16 @@ export class FinanceOperationService implements OnModuleInit, OnApplicationShutd
         };
       }
       const { trip, members } = await this.repo.lockTrip(client, tripId);
-      this.repo.actor(members, actor, input.command !== 'CONFIRM_PAYMENT_DESTINATION');
+      this.repo.actor(
+        members,
+        actor,
+        ![
+          'CONFIRM_PAYMENT_DESTINATION',
+          'REPORT_TRANSFER',
+          'CONFIRM_RECEIVED',
+          'REJECT_TRANSFER',
+        ].includes(input.command!),
+      );
       if (trip.archived_at || trip.closure_lock_id) return fail('STATE_CONFLICT', 409);
       if (
         input.expected_context_revision !== undefined &&
@@ -264,7 +276,8 @@ export class FinanceOperationService implements OnModuleInit, OnApplicationShutd
       await this.repo.db.query<{ operation_id: string }>(`SELECT operation_id FROM trip_operations
       WHERE operation_type IN ('ENABLE_FUND','CONFIRM_PAYMENT_DESTINATION',
         'UPDATE_FUND_BUDGET','CREATE_PAYMENT_DESTINATION','UPDATE_PAYMENT_DESTINATION','CREATE_CONTRIBUTION_REQUEST',
-        'UPDATE_CONTRIBUTION_REQUEST','UPDATE_CONTRIBUTION_AMOUNT','WAIVE_CONTRIBUTION','CANCEL_CONTRIBUTION')
+        'UPDATE_CONTRIBUTION_REQUEST','UPDATE_CONTRIBUTION_AMOUNT','WAIVE_CONTRIBUTION','CANCEL_CONTRIBUTION',
+        'REPORT_TRANSFER','CONFIRM_RECEIVED','REJECT_TRANSFER')
       AND state IN ('PROCESSING','PENDING_RECOVERY') AND next_retry_at<=clock_timestamp()
       ORDER BY next_retry_at,operation_id LIMIT 20`)
     ).rows;

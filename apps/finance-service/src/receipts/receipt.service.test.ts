@@ -17,12 +17,14 @@ async function setup() {
     authorizeFundRead: vi.fn(),
   };
   const files = {
+    pendingAttachment: vi.fn().mockResolvedValue({}),
     create: vi.fn().mockResolvedValue(undefined),
     ready: vi.fn().mockResolvedValue(undefined),
     readable: vi.fn(),
     claimExpired: vi.fn(),
   };
   const storage = {
+    verify: vi.fn().mockResolvedValue(undefined),
     put: vi.fn().mockResolvedValue(undefined),
     read: vi.fn(),
     remove: vi.fn(),
@@ -43,6 +45,27 @@ async function setup() {
   };
 }
 describe('Receipt failure lifecycle', () => {
+  it('bounds report evidence verification and treats cancelled preparation as unavailable', async () => {
+    const s = await setup();
+    const key = `funds/${id}/receipts/${id}-${'a'.repeat(64)}.png`;
+    const releases: (() => void)[] = [];
+    s.storage.verify.mockImplementation(
+      () => new Promise<void>((resolve) => releases.push(resolve)),
+    );
+    const first = s.service.prepareAttachment(id, key, id, new AbortController().signal, id);
+    const second = s.service.prepareAttachment(id, key, id, new AbortController().signal);
+    await expect(
+      s.service.prepareAttachment(id, key, id, new AbortController().signal),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    await vi.waitFor(() => expect(releases).toHaveLength(2));
+    releases.forEach((release) => release());
+    await Promise.all([first, second]);
+    expect(s.files.pendingAttachment).toHaveBeenCalledWith(id, key, id, id);
+    await expect(
+      s.service.prepareAttachment(id, key, id, AbortSignal.abort()),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    expect(s.storage.verify).toHaveBeenCalledTimes(2);
+  });
   it('does not put an object if metadata creation fails', async () => {
     const s = await setup();
     s.files.create.mockRejectedValue(new Error('Database unavailable'));

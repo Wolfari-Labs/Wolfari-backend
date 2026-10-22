@@ -13,8 +13,6 @@ export type FinanceFile = {
   contribution_id: string | null;
   expense_id: string | null;
 };
-type Transaction = Parameters<Parameters<DatabaseProvider['withTransaction']>[0]>[0];
-
 @Injectable()
 export class ReceiptRepository {
   constructor(@Inject(DatabaseProvider) private readonly db: DatabaseProvider) {}
@@ -49,11 +47,16 @@ export class ReceiptRepository {
     );
     if (result.rowCount !== 1) throw new FinanceReadError('SERVICE_UNAVAILABLE');
   }
-  async pendingAttachment(fund: string, key: string, uploader: string): Promise<FinanceFile> {
+  async pendingAttachment(
+    fund: string,
+    key: string,
+    uploader: string,
+    currentContribution?: string,
+  ): Promise<FinanceFile> {
     const result = await this.db.query<FinanceFile>(
       `SELECT * FROM finance_files WHERE fund_id=$1 AND object_key=$2 AND uploader_user_id=$3
-       AND state='READY' AND bound_at IS NULL`,
-      [fund, key, uploader],
+       AND state='READY' AND (bound_at IS NULL OR (contribution_id=$4::uuid AND expense_id IS NULL))`,
+      [fund, key, uploader, currentContribution ?? null],
     );
     if (!result.rows[0]) throw new FinanceReadError('STATE_CONFLICT');
     return result.rows[0];
@@ -72,16 +75,17 @@ export class ReceiptRepository {
     return result.rows[0];
   }
 
-  /** Internal future business writer: caller holds Fund lock and Trip mutation guard.
+  /** Internal business writer: caller holds Fund lock and Trip mutation guard.
    * Object must first be verified by ReceiptStorage.verify; no storage RPC inside this transaction.
    * Lock order is Fund -> file; READY is rechecked here against the cleanup claimant.
    */
   async bind(
-    tx: Transaction,
+    tx: Pick<DatabaseProvider, 'query'>,
     fund: string,
     key: string,
     uploader: string,
     target: { contributionId: string } | { expenseId: string },
+    reuseCurrent = false,
   ) {
     await tx.query('SELECT id FROM funds WHERE id=$1 FOR UPDATE', [fund]);
     const result = await tx.query<FinanceFile>(
@@ -89,6 +93,15 @@ export class ReceiptRepository {
       [fund, key],
     );
     const row = result.rows[0];
+    if (
+      reuseCurrent &&
+      row?.uploader_user_id === uploader &&
+      row.state === 'READY' &&
+      'contributionId' in target &&
+      row.contribution_id === target.contributionId &&
+      !row.expense_id
+    )
+      return;
     if (
       !row ||
       row.uploader_user_id !== uploader ||

@@ -3,7 +3,9 @@
 API105 uploads a private temporary document; API106 downloads a document only after a
 Finance business record has bound it. This milestone does not report or confirm a
 contribution, post a ledger entry, or implement expense submission. Business bindings
-in integration tests are explicit fixtures for those future writers.
+in this receipt suite are explicit fixtures. The separate
+[API087–089 manual contribution flow](finance-manual-contributions.md) now binds
+contribution evidence through its report transaction; expense submission remains pending.
 
 The implementation follows SRS2.3 / DDL API Event1.1 and the approved receipt scope
 of 2026-10-15. `finance_files` is an implementation extension to the baseline ERD;

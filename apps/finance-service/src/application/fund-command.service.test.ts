@@ -237,3 +237,71 @@ describe('Fund write coordination', () => {
     expect(s.trip.call).not.toHaveBeenCalled();
   });
 });
+
+describe('Manual command replay coordination', () => {
+  const input = {
+    scope: 'CONFIRM_RECEIVED' as const,
+    actor: id,
+    operationId: id,
+    tripId: id,
+    fundId: id,
+    requestId: id,
+    contributionId: id,
+    body: {
+      command: {
+        action: 'CONFIRM_RECEIVED' as const,
+        expectedVersion: 2,
+        expectedFinanceVersion: 3,
+      },
+    },
+  };
+  const row = {
+    operation_id: id,
+    actor_user_id: id,
+    command_scope: 'CONFIRM_RECEIVED',
+    request_hash: 'a'.repeat(64),
+    status: 'COMMITTED',
+    response: {
+      version: 1,
+      tripId: id,
+      contribution: {
+        id,
+        fund_id: id,
+        request_id: id,
+        member_user_id: id,
+        finance_version: 4,
+        status: 'CONFIRMED',
+      },
+    },
+    completed_at: new Date(),
+  };
+  it('returns saved snapshot without storage calls or a second mutation', async () => {
+    const s = setup(),
+      prepare = vi.fn();
+    s.repo.find.mockResolvedValue(row as never);
+    s.queries.getFund.mockResolvedValue({ fund: { holder_user_id: id } });
+    expect(await s.service.run(input, id, Date.now() + 2000, prepare)).toEqual({
+      contribution: row.response.contribution,
+    });
+    expect(prepare).not.toHaveBeenCalled();
+    expect(s.repo.execute).not.toHaveBeenCalled();
+  });
+  it('denies terminal replay when Holder has changed', async () => {
+    const s = setup();
+    s.repo.find.mockResolvedValue(row as never);
+    s.queries.getFund.mockResolvedValue({ fund: { holder_user_id: 'changed' } });
+    await expect(s.service.run(input, id, Date.now() + 2000)).rejects.toMatchObject({
+      code: 'PERMISSION_DENIED',
+    });
+  });
+  it('does not acquire a Trip guard after failed storage preparation', async () => {
+    const s = setup();
+    await expect(
+      s.service.run(input, id, Date.now() + 2000, async () => {
+        throw new Error('storage unavailable');
+      }),
+    ).rejects.toThrow('storage unavailable');
+    expect(s.trip.call).not.toHaveBeenCalled();
+    expect(s.repo.execute).not.toHaveBeenCalled();
+  });
+});

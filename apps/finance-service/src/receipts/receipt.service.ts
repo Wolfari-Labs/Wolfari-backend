@@ -115,15 +115,29 @@ export class ReceiptService {
       this.cleaning = false;
     }
   }
-  /** Internal preflight for future business writers, before their SQL transaction.
+  /** Internal preflight for business writers, before their SQL transaction.
    * Does not replace the business Trip guard or bind's locked state/ownership check.
    */
-  async prepareAttachment(fund: string, key: string, uploader: string, signal: AbortSignal) {
-    if (!RECEIPT_KEY.test(key) || signal.aborted) throw new FinanceReadError('VALIDATION_FAILED');
-    const file = await this.files.pendingAttachment(readUuid(fund), key, readUuid(uploader));
-    await this.storage.withSignal(signal, () => this.storage.verify(file));
-    if (signal.aborted) throw new FinanceReadError('SERVICE_UNAVAILABLE');
-    return file;
+  async prepareAttachment(
+    fund: string,
+    key: string,
+    uploader: string,
+    signal: AbortSignal,
+    currentContribution?: string,
+  ) {
+    return this.bounded(async () => {
+      if (signal.aborted) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      if (!RECEIPT_KEY.test(key)) throw new FinanceReadError('VALIDATION_FAILED');
+      const file = await this.files.pendingAttachment(
+        readUuid(fund),
+        key,
+        readUuid(uploader),
+        currentContribution,
+      );
+      await this.storage.withSignal(signal, () => this.storage.verify(file));
+      if (signal.aborted) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return file;
+    });
   }
   onModuleInit() {
     this.timer = setInterval(
