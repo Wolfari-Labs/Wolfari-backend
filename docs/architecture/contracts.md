@@ -58,7 +58,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                                          |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| 62 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–084, API087–089, API105/106 Finance |
+| 63 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle và API070–084, API086–089, API105/106 Finance |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                                      |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                                     |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                                      |
@@ -72,7 +72,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 ## gRPC
 
-Catalog hiện có Identity 4, Trip 29, Finance 25 và Travel 4 RPC (tổng 62). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Catalog hiện có Identity 4, Trip 29, Finance 26 và Travel 4 RPC (tổng 63). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 API087–089 thêm `ReportContributionTransfer`, `ConfirmContributionReceived`,
 `RejectContributionTransfer`, chỉ ApiGateway, response Contribution/Operation.
@@ -124,3 +124,7 @@ TLS/mTLS production, service identity và observability đầy đủ còn ngoài
 Không giữ transaction database mở trong lúc gọi RPC hoặc publish message.
 
 API105/106 add UploadFinanceReceipt and DownloadFinanceReceipt (ApiGateway only), 30s deadline, bounded bytes payload and dedicated 12MiB file-client limits. Existing business client limits remain unchanged. See finance-receipts.md.
+
+## Payment instruction API086
+
+API086 adds Finance `GetPaymentInstruction` (Gateway only, 2000ms) and optional `finance_closure_locked` on Trip GetAccessContextResponse. Missing closure observation fails closed for this new reader; existing readers retain their semantics. Catalog: 63 RPC (Identity 4, Trip 29, Finance 26, Travel 4). No event or migration change. See [payment instructions](finance-payment-instructions.md).

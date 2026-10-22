@@ -1,3 +1,4 @@
+import { handlePaymentInstruction } from './payment-instruction-http';
 import { FinanceReceiptHttp, receiptRoute } from './finance-receipt-http';
 import {
   contributionManagementRoute,
@@ -135,6 +136,16 @@ export class FinanceProxy {
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const instruction = /^\/api\/v1\/contributions\/([^/]+)\/vietqr$/.exec(url.pathname);
+    if (instruction)
+      return handlePaymentInstruction(
+        request,
+        response,
+        url,
+        instruction[1]!,
+        this.validateSession,
+        this.client,
+      );
     const fileRoute = receiptRoute(url.pathname);
     if (fileRoute) return this.files.handle(request, response, url, fileRoute);
     const management = contributionManagementRoute(url.pathname);

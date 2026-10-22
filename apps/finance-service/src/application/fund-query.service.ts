@@ -53,6 +53,7 @@ export class FundQueryService {
     correlation: string,
     deadline: number,
     upload = false,
+    instruction = false,
   ) {
     let response: TripV1.GetAccessContextResponse;
     try {
@@ -103,6 +104,11 @@ export class FundQueryService {
       throw new FinanceReadError('RESOURCE_NOT_FOUND');
     if (upload && ctx.trip_state !== CommonV1.TripState.TRIP_STATE_ACTIVE)
       throw new FinanceReadError('STATE_CONFLICT');
+    if (instruction) {
+      if (typeof response.finance_closure_locked !== 'boolean')
+        throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      if (response.finance_closure_locked) throw new FinanceReadError('STATE_CONFLICT');
+    }
     return membership.role;
   }
 
@@ -146,6 +152,17 @@ export class FundQueryService {
     const fund = await this.funds.findScopeById(readUuid(fundId));
     if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
     await this.access(fund.tripId, readUuid(actor), correlation, deadline);
+  }
+
+  async authorizePaymentInstruction(
+    fundId: string,
+    actor: string,
+    correlation: string,
+    deadline: number,
+  ) {
+    const fund = await this.funds.findScopeById(readUuid(fundId));
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    await this.access(fund.tripId, readUuid(actor), correlation, deadline, true, true);
   }
 
   async authorizeReceiptUpload(

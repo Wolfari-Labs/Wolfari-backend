@@ -149,7 +149,11 @@ export interface GetAccessContextRequest {
 }
 
 export interface GetAccessContextResponse {
-  context?: AccessContext | undefined;
+  context?:
+    | AccessContext
+    | undefined;
+  /** Read-time observation only; not a write guard. Missing means unknown. */
+  finance_closure_locked?: boolean | undefined;
 }
 
 export interface PlanPolicySettings {

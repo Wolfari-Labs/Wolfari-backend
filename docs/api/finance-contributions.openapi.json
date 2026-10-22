@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Finance Contributions",
-    "version": "1.2.0",
-    "description": "Implemented API078-084 and API087-089 for shared group activity funds. Manual confirmation records the full issued amount after the current Holder checks their bank externally. No automatic bank verification, provider callback, partial payment, reversal or refund writer. Local service-secret transport rejects production mode."
+    "version": "1.3.0",
+    "description": "Implemented API078-084 and API087-089 for shared group activity funds. Manual confirmation records the full issued amount after the current Holder checks their bank externally. No automatic bank verification, provider callback, partial payment, reversal or refund writer. Local service-secret transport rejects production mode. API086 provides Self-only TEST VietQR QuickLink instructions from the issued destination snapshot. The external image request discloses recipient/amount/reference to Casso; no automatic payment verification."
   },
   "security": [
     {
@@ -1538,6 +1538,116 @@
           }
         }
       }
+    },
+    "/api/v1/contributions/{contribution_id}/vietqr": {
+      "get": {
+        "operationId": "getPaymentInstruction",
+        "summary": "API086 Self TEST VietQR instruction",
+        "description": "Only PENDING, OPEN Fund/request, active Trip/membership and explicit unlocked closure context. Owner/Holder have no Self override. No writes. Existing downloaded QR cannot be revoked. MoMo is unsupported here. UI must show TEST/warning and load images with no-referrer. TEST is not a bank sandbox: never use real accounts for demonstrations.",
+        "parameters": [
+          {
+            "name": "contribution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "VALIDATION_FAILED: invalid ID or unexpected query.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: missing contribution, non-Self or inactive membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "STATE_CONFLICT: lifecycle, in-flight payment, unsupported destination/account/amount or changed Holder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: malformed snapshot, missing closure context or dependency failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Private TEST instruction; showing a QR does not prove payment.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-referrer"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PaymentInstruction"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2171,6 +2281,66 @@
             "type": "string",
             "minLength": 1,
             "pattern": "\\S"
+          }
+        }
+      },
+      "PaymentInstruction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contribution_id",
+          "amount",
+          "currency",
+          "reference",
+          "recipient_name",
+          "bank_code",
+          "bank_bin",
+          "account_number",
+          "qr_url",
+          "environment",
+          "warning"
+        ],
+        "properties": {
+          "contribution_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,12}$"
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["VND"]
+          },
+          "reference": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{25}$"
+          },
+          "recipient_name": {
+            "type": "string"
+          },
+          "bank_code": {
+            "type": "string"
+          },
+          "bank_bin": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "account_number": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9]{1,19}$"
+          },
+          "qr_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "environment": {
+            "type": "string",
+            "enum": ["TEST"]
+          },
+          "warning": {
+            "type": "string"
           }
         }
       }

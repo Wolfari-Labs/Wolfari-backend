@@ -129,6 +129,8 @@ message GetAccessContextRequest {
 }
 message GetAccessContextResponse {
   wolfari.common.v1.AccessContext context = 1;
+  // Read-time observation only; not a write guard. Missing means unknown.
+  optional bool finance_closure_locked = 2;
 }
 
 message PlanPolicySettings {

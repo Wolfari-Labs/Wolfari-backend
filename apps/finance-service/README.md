@@ -367,3 +367,7 @@ liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn 
   `corepack pnpm db:migrate --service finance` để nâng database phát triển.
 - `corepack pnpm finance:test` kiểm tra trong database/MinIO cô lập. Manual thu và
   expense writer chưa thuộc mốc này; liên kết nghiệp vụ trong test là fixture.
+
+## API086 TEST payment instruction
+
+GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable reference. No money/state writes or bank verification. External QuickLink SVG is TEST-only and discloses transfer details to Casso when loaded. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).

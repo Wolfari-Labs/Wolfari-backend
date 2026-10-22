@@ -1,3 +1,4 @@
+import { PaymentInstructionService } from './application/payment-instruction.service';
 import { ReceiptService } from './receipts/receipt.service';
 import { ManualContributionService } from './application/manual-contribution.service';
 import { Controller } from '@nestjs/common';
@@ -35,7 +36,20 @@ export class FinanceGrpcController {
     private readonly contributionQueries: ContributionQueryService,
     private readonly files?: ReceiptService,
     private readonly manual?: ManualContributionService,
+    private readonly instructions?: PaymentInstructionService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'GetPaymentInstruction')
+  getPaymentInstruction(
+    request: FinanceV1.GetPaymentInstructionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('GetPaymentInstruction', metadata, call, (correlation, deadline) => {
+      if (!this.instructions) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.instructions.get(request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ReportContributionTransfer')
   reportContributionTransfer(

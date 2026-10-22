@@ -279,3 +279,26 @@ describe('read repository scoping', () => {
     },
   );
 });
+
+describe('Payment instruction lifecycle authorization', () => {
+  it('requires explicit unlocked context, active Trip and current membership', async () => {
+    const s = setup();
+    const read = () => s.service.authorizePaymentInstruction(fundId, actor, actor, deadline());
+    await expect(read()).rejects.toThrow('SERVICE_UNAVAILABLE');
+    s.trip.getAccessContext.mockResolvedValue({
+      context: s.context,
+      finance_closure_locked: false,
+    });
+    await expect(read()).resolves.toBeUndefined();
+    s.trip.getAccessContext.mockResolvedValue({ context: s.context, finance_closure_locked: true });
+    await expect(read()).rejects.toThrow('STATE_CONFLICT');
+    s.trip.getAccessContext.mockResolvedValue({
+      context: s.context,
+      finance_closure_locked: false,
+    });
+    s.context.trip_state = CommonV1.TripState.TRIP_STATE_ARCHIVED;
+    await expect(read()).rejects.toThrow('STATE_CONFLICT');
+    s.context.membership!.left_at = { seconds: '1', nanos: 0 };
+    await expect(read()).rejects.toThrow('RESOURCE_NOT_FOUND');
+  });
+});

@@ -576,9 +576,37 @@ export interface RejectContributionTransferResponse {
   operation?: Operation | undefined;
 }
 
+export interface GetPaymentInstructionRequest {
+  contribution_id?: string | undefined;
+  actor_user_id?: string | undefined;
+}
+
+export interface PaymentInstruction {
+  contribution_id?: string | undefined;
+  amount?: string | undefined;
+  currency?: string | undefined;
+  reference?: string | undefined;
+  recipient_name?: string | undefined;
+  bank_code?: string | undefined;
+  bank_bin?: string | undefined;
+  account_number?: string | undefined;
+  qr_url?: string | undefined;
+  environment?: string | undefined;
+  warning?: string | undefined;
+}
+
+export interface GetPaymentInstructionResponse {
+  instruction?: PaymentInstruction | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  getPaymentInstruction(
+    request: GetPaymentInstructionRequest,
+    metadata?: Metadata,
+  ): Observable<GetPaymentInstructionResponse>;
+
   reportContributionTransfer(
     request: ReportContributionTransferRequest,
     metadata?: Metadata,
@@ -682,6 +710,11 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  getPaymentInstruction(
+    request: GetPaymentInstructionRequest,
+    metadata?: Metadata,
+  ): Promise<GetPaymentInstructionResponse> | Observable<GetPaymentInstructionResponse> | GetPaymentInstructionResponse;
+
   reportContributionTransfer(
     request: ReportContributionTransferRequest,
     metadata?: Metadata,
@@ -850,6 +883,7 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "getPaymentInstruction",
       "reportContributionTransfer",
       "confirmContributionReceived",
       "rejectContributionTransfer",

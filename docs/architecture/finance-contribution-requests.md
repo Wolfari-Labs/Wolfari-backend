@@ -162,7 +162,7 @@ ListContributionRequests, ListContributions và bốn RPC quản lý API081–08
 tại mốc contribution management. Nhánh receipts bổ sung hai RPC thành58, xem
 [chứng từ private](finance-receipts.md). Sau tích hợp ledger API077, catalog có59;
 [API087–089 thu thủ công](finance-manual-contributions.md) bổ sung ba RPC thành62.
-API085/086, instruction/QR, ghi chi, provider, closure và Finance membership obligations
+API086 instruction/QR: xem [payment instructions](finance-payment-instructions.md). API085, ghi chi, provider, closure và Finance membership obligations
 chưa được mở. Giữ TRIP_MEMBERSHIP_LIFECYCLE_ENABLED=false với Finance thật.
 
 ## Kiểm thử

@@ -692,3 +692,41 @@ describe('Manual contribution Gateway', () => {
     expect(s.client.call).not.toHaveBeenCalled();
   });
 });
+
+describe('Payment instruction Gateway', () => {
+  it('routes an authenticated read, rejects query injection and keeps private headers', async () => {
+    const s = setup();
+    const data = {
+      contribution_id: id,
+      amount: '300000',
+      currency: 'VND',
+      reference: '0000000000000000000000001',
+      recipient_name: 'TEST',
+      bank_code: 'VCB',
+      bank_bin: '970436',
+      account_number: '000123',
+      environment: 'TEST',
+      warning: 'TEST ONLY',
+      qr_url:
+        'https://img.vietqr.io/image/970436-000123-compact2.svg?amount=300000&addInfo=0000000000000000000000001&accountName=TEST',
+    };
+    s.client.call.mockResolvedValue({ instruction: { ...data, evidence_object_key: 'hidden' } });
+    const path = `/api/v1/contributions/${id}/vietqr`;
+    const result = await s.invoke(path);
+    expect(result.code).toBe(200);
+    expect(result.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(result.headers.get('Referrer-Policy')).toBe('no-referrer');
+    expect(result.body).toMatchObject({ data });
+    expect(JSON.stringify(result.body)).not.toContain('hidden');
+    expect(s.client.call).toHaveBeenCalledWith(
+      'GetPaymentInstruction',
+      { contribution_id: id, actor_user_id: actor },
+      expect.any(String),
+    );
+    expect((await s.invoke(path + '?actor_user_id=' + id)).code).toBe(400);
+    expect((await s.invoke(path, { method: 'POST' })).code).toBe(404);
+    expect(s.client.call).toHaveBeenCalledTimes(1);
+    s.client.call.mockResolvedValue({ instruction: { ...data, qr_url: 'https://evil.test' } });
+    expect((await s.invoke(path)).code).toBe(503);
+  });
+});

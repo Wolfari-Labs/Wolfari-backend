@@ -20,7 +20,8 @@ import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 
 const receiptsOnly = process.argv.includes('--finance-receipts');
-const financeReadMode = receiptsOnly || process.argv.includes('--finance');
+const instructionsOnly = process.argv.includes('--finance-instructions');
+const financeReadMode = receiptsOnly || instructionsOnly || process.argv.includes('--finance');
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 let financeFixture;
@@ -395,6 +396,7 @@ async function main() {
     });
     const writes = await runFinanceWriteTests({
       receiptsOnly,
+      instructionsOnly,
       gatewayUrl: `http://127.0.0.1:${ports.gateway}`,
       storageConfig: {
         MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,

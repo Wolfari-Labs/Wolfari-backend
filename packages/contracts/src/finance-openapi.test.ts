@@ -41,7 +41,7 @@ const request = {
   created_by_user_id: id,
   created_at: { seconds: '1792000000', nanos: 0 },
 };
-describe('Finance API078–084 OpenAPI', () => {
+describe('Finance API078â€“084 OpenAPI', () => {
   it('resolves every local reference and compiles all documented response schemas', () => {
     const walk = (value: unknown): void => {
       if (!value || typeof value !== 'object') return;
@@ -57,7 +57,7 @@ describe('Finance API078–084 OpenAPI', () => {
     };
     walk(spec);
     expect(spec.openapi).toBe('3.0.3');
-    expect(Object.keys(spec.paths)).toHaveLength(9);
+    expect(Object.keys(spec.paths)).toHaveLength(10);
     for (const path of Object.values(spec.paths) as {
       get?: {
         parameters: { name: string }[];
@@ -83,7 +83,8 @@ describe('Finance API078–084 OpenAPI', () => {
         >;
       };
     }[]) {
-      if (path.get) expect(path.get.parameters.map((p) => p.name)).toContain('cursor');
+      if (path.get && !path.get.parameters.some((p) => p.name === 'contribution_id'))
+        expect(path.get.parameters.map((p) => p.name)).toContain('cursor');
       for (const method of Object.values(path))
         for (const response of Object.values(method.responses)) {
           const content = response.content['application/json'];

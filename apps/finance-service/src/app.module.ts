@@ -1,7 +1,9 @@
+import { PaymentInstructionService } from './application/payment-instruction.service';
 import { ReceiptService } from './receipts/receipt.service';
 import { ManualContributionService } from './application/manual-contribution.service';
 import { ReceiptRepository } from './receipts/receipt.repository';
 import { ReceiptStorage } from './receipts/receipt-storage';
+import { PaymentInstructionRepository } from './repositories/payment-instruction.repository';
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
@@ -22,6 +24,8 @@ import { ContributionListRepository } from './repositories/contribution-list.rep
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
   controllers: [FinanceGrpcController],
   providers: [
+    PaymentInstructionService,
+    PaymentInstructionRepository,
     ManualContributionService,
     ReceiptService,
     ReceiptRepository,

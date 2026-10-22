@@ -256,15 +256,17 @@ export class TripGrpcController implements TripV1.TripServiceController {
     metadata?: Metadata,
   ): Promise<TripV1.GetAccessContextResponse> {
     this.authorize('GetAccessContext', metadata);
-    return this.execute(async () => ({
-      context: protobufAccessContext(
-        await this.access.getContext({
-          tripId: request.trip_id,
-          userId: request.user_id,
-          action: request.action,
-        }),
-      ),
-    }));
+    return this.execute(async () => {
+      const context = await this.access.getContext({
+        tripId: request.trip_id,
+        userId: request.user_id,
+        action: request.action,
+      });
+      return {
+        context: protobufAccessContext(context),
+        finance_closure_locked: context.finance_closure_locked,
+      };
+    });
   }
 
   updatePlanPolicy(

@@ -14,6 +14,7 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'GetPaymentInstruction'
       | 'ReportContributionTransfer'
       | 'ConfirmContributionReceived'
       | 'RejectContributionTransfer'

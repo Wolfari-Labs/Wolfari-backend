@@ -4,6 +4,7 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc GetPaymentInstruction(GetPaymentInstructionRequest) returns (GetPaymentInstructionResponse);
   rpc ReportContributionTransfer(ReportContributionTransferRequest) returns (ReportContributionTransferResponse);
   rpc ConfirmContributionReceived(ConfirmContributionReceivedRequest) returns (ConfirmContributionReceivedResponse);
   rpc RejectContributionTransfer(RejectContributionTransferRequest) returns (RejectContributionTransferResponse);
@@ -540,4 +541,25 @@ message RejectContributionTransferResponse {
     ContributionView contribution = 1;
     wolfari.common.v1.Operation operation = 2;
   }
+}
+
+message GetPaymentInstructionRequest {
+  string contribution_id = 1;
+  string actor_user_id = 2;
+}
+message PaymentInstruction {
+  string contribution_id = 1;
+  string amount = 2;
+  string currency = 3;
+  string reference = 4;
+  string recipient_name = 5;
+  string bank_code = 6;
+  string bank_bin = 7;
+  string account_number = 8;
+  string qr_url = 9;
+  string environment = 10;
+  string warning = 11;
+}
+message GetPaymentInstructionResponse {
+  PaymentInstruction instruction = 1;
 }

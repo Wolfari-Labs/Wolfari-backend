@@ -1,3 +1,4 @@
+import { runPaymentInstructionTests } from './finance-payment-instruction-integration.mjs';
 import { runManualContributionTests } from './finance-manual-contribution-integration.mjs';
 import { runFinanceReceiptTests } from './finance-receipt-integration.mjs';
 import { runContributionManagementTests } from './finance-contribution-management-integration.mjs';
@@ -105,6 +106,14 @@ export async function runFinanceWriteTests(h) {
     });
     return post(path, body, user, key);
   };
+  if (h.instructionsOnly) {
+    try {
+      return { forbidden: await runPaymentInstructionTests(h, { newTrip, write, enableBody }) };
+    } finally {
+      tripClient.onApplicationShutdown();
+      rpcClient.close();
+    }
+  }
   if (h.receiptsOnly) {
     try {
       return {
@@ -612,8 +621,10 @@ export async function runFinanceWriteTests(h) {
       pollTerminal,
       financeDb,
     });
+    const instructionKeys = await runPaymentInstructionTests(h, { newTrip, write, enableBody });
     return {
       forbidden: [
+        ...instructionKeys,
         ...receiptKeys,
         ...manualKeys,
         owner.access,
