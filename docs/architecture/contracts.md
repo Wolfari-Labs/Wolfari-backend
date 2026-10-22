@@ -24,7 +24,7 @@ Package contract chứa contract, type, validator, fixture, metadata topology v�
 
 ## gRPC
 
-Phân bổ là Identity 4, Trip 29, Finance 5, Travel 4 và Automation 7 RPC. Automation vừa là caller của Trip/Identity vừa cung cấp `AutomationService` cho Gateway ở Price Watch H1. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Phân bổ là Identity 4, Trip 29, Finance 5, Travel 4 và Automation 7 RPC. Automation vừa là caller của Trip/Identity vừa cung cấp `AutomationService` cho Gateway ở Price Watch H1; worker H2 dùng lại API139 và không thêm RPC. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 

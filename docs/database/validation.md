@@ -2,9 +2,9 @@
 
 Các số liệu dưới đây là bằng chứng theo ngày chạy, không phải trạng thái kiểm thử của mọi HEAD mới. Bộ tài liệu chính thức hiện hành đã chốt ngày 02/10/2026 tại [danh mục tài liệu](../README.md).
 
-## Kiểm chứng Price Watch ngày 22-10-2026
+## Kiểm chứng Price Watch H1–H2 ngày 22-10-2026
 
-`corepack pnpm db:test` PASS 24 nhóm trên PostgreSQL Compose cô lập. Kết quả gồm Automation V002 preflight từ chối watch legacy, cài mới/idempotent migration, readiness yêu cầu V002, và PriceWatchRepository thật với create replay/conflict, query group dùng chung, no-op/version conflict, re-arm threshold, chuyển query riêng, state transition và observation scope. Lần chạy đầu phát hiện `jsonb` đổi thứ tự key làm so sánh `JSON.stringify` sai; repository đã chuyển sang canonical JSON sắp key và lần chạy cuối PASS. Container, network và volume thử đã được dọn.
+`corepack pnpm db:test` PASS 25 nhóm trên PostgreSQL Compose cô lập. Kết quả H1 gồm Automation V002 preflight, create replay/conflict, query group dùng chung, version/state và observation scope. H2 kiểm tra V003/readiness, scheduler đồng thời chỉ tạo một group/slot, claim/reclaim lease, stale completion, success/no-result, retry cùng attempt, terminal failure, lease hết lượt và expiry. Lần H2 đầu bị chặn bởi quyền Docker sandbox; hai lượt chạy thật tiếp theo phát hiện fixture dùng thời gian tương lai so với clock DB và PostgreSQL suy tham số trạng thái `text/varchar` khác nhau. Fixture đã dùng clock DB đúng, câu SQL thêm cast tường minh; lượt đầy đủ cuối PASS và dọn container/network/volume.
 
 ## Kiểm chứng ngày 01-10-2026
 

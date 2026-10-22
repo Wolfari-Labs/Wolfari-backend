@@ -91,10 +91,23 @@ export async function checkPriceWatchRepository(client) {
     const moved = await repository.update(created.id, 2, movedValue, () => {});
     assert.notEqual(moved.query_group_id, second.query_group_id);
     assert.equal((await repository.find(second.id)).query.origin, 'DAD');
+    assert.equal((await client.query(
+      'SELECT active FROM price_query_groups WHERE id=$1', [second.query_group_id],
+    )).rows[0].active, true);
 
     const paused = await repository.changeStatus(moved.id, 3, 'PAUSED', null, () => {});
     assert.equal(paused.status, 'PAUSED');
     assert.equal(paused.version, 4);
+    assert.deepEqual((await client.query(
+      'SELECT active,next_check_at FROM price_query_groups WHERE id=$1', [moved.query_group_id],
+    )).rows[0], { active: false, next_check_at: null });
+    const resumed = await repository.changeStatus(moved.id, 4, 'ACTIVE', null, () => {});
+    assert.equal(resumed.version, 5);
+    assert.equal((await client.query(
+      'SELECT active FROM price_query_groups WHERE id=$1', [moved.query_group_id],
+    )).rows[0].active, true);
+    const pausedAgain = await repository.changeStatus(moved.id, 5, 'PAUSED', null, () => {});
+    assert.equal(pausedAgain.version, 6);
     await client.query('UPDATE price_watches SET version=2147483647 WHERE id=$1', [moved.id]);
     await assert.rejects(
       repository.changeStatus(moved.id, 2147483647, 'ACTIVE', null, () => {}),

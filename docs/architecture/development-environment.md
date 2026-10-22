@@ -36,7 +36,7 @@ Cổng hạ tầng: PostgreSQL 5432, AMQP 5672, RabbitMQ UI 15672, MinIO API 900
 
 `dev` build common/database/contracts rồi chạy app từ `dist`. Sửa `src` của app/package hoặc proto/schema contract sẽ đóng app, build lại và tải lại. Ctrl+C đóng qua IPC/Nest shutdown hook, kết thúc pool; app quá 6 giây bị dừng. Sửa `.env` cần chạy lại `dev`.
 
-Readiness service trả 200 với `status=ok`, `service`, `checks.database=up`, `checks.migrations=up` và `correlation_id`; lỗi DB hoặc thiếu migration bắt buộc trả 503 (Trip cần V001 và V002, service khác cần V001). Gateway readiness kiểm tra Identity/Trip; Worker chưa có readiness cho dependency chưa tích hợp. Không trả connection string hoặc SQL lỗi thô. Probe DB tối đa 3 giây; liveness độc lập DB. Identity/Trip/Automation có `/health/dependencies`; Automation bổ sung `/health/invitations` cho backlog và ACK lời mời.
+Readiness service trả 200 với `status=ok`, `service`, `checks.database=up`, `checks.migrations=up` và `correlation_id`; lỗi DB hoặc thiếu migration bắt buộc trả 503 (Trip cần V001/V002, Automation cần V001–V003, service khác cần V001). Gateway readiness kiểm tra Identity/Trip; Worker chưa có readiness cho dependency chưa tích hợp. Không trả connection string hoặc SQL lỗi thô. Probe DB tối đa 3 giây; liveness độc lập DB. Identity/Trip/Automation có `/health/dependencies`; Automation bổ sung `/health/invitations` cho backlog và ACK lời mời.
 
 ## Provider cho module
 

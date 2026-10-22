@@ -1,8 +1,8 @@
-# Price Watch Core H1
+# Price Watch Core và Worker H1–H2
 
 ## Phạm vi
 
-H1 hiện thực API133–139 cho việc cấu hình và quản lý theo dõi giá. Mốc này chưa gọi hãng hay nhà cung cấp, chưa có scheduler, chưa tự sinh quan sát giá và chưa gửi cảnh báo. Endpoint lịch sử có thể trả danh sách rỗng cho đến H2.
+H1 hiện thực API133–139 cho việc cấu hình và quản lý theo dõi giá. H2 chạy scheduler và adapter `MOCK_FLIGHT` xác định để sinh observation thử nghiệm. Hệ thống chưa gọi hãng/nhà cung cấp thật và chưa gửi cảnh báo.
 
 ## Luồng và quyền
 
@@ -30,12 +30,23 @@ Observation được đọc từ query group hiện tại của watch. Response 
 
 ## Migration và vận hành
 
-Automation V002 thêm `owner_membership_id uuid NOT NULL` và index `(trip_id, owner_membership_id, status)`. Migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED` nếu đã có watch legacy; không đoán membership từ `user_id`. Readiness Automation yêu cầu cả V001 và V002.
+Automation V002 thêm `owner_membership_id uuid NOT NULL` và index `(trip_id, owner_membership_id, status)`. Migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED` nếu đã có watch legacy; không đoán membership từ `user_id`.
+
+Automation V003 thêm `price_query_attempts.next_attempt_at` và index claim cho attempt `PENDING/RUNNING`. `next_attempt_at` là thời điểm đủ điều kiện retry; `claim_until` chỉ là hạn lease. Readiness Automation yêu cầu V001–V003. V001/V002 và checksum cũ không bị sửa.
 
 Gateway và Automation dùng `GATEWAY_AUTOMATION_SECRET`; cursor dùng `AUTOMATION_CURSOR_SECRET`. Cả hai secret tối thiểu 32 byte và được `env:init` phân phối đúng endpoint. gRPC chỉ bind loopback ở local/test; production hiện fail closed cho đến khi có TLS.
 
+## Scheduler, attempt và lease H2
+
+UTC được chia thành các slot `00:00`, `06:00`, `12:00`, `18:00`. Scheduler dùng `FOR UPDATE SKIP LOCKED`, unique `(query_group_id, scheduled_slot)` và không tạo backlog cho các slot đã bỏ lỡ. Group chỉ được chạy khi còn ít nhất một watch `ACTIVE` chưa hết hạn. Create/resume/chuyển query đánh thức group; pause/stop/chuyển khỏi group tắt group khi không còn watch active. Watch đến `expires_at` được chuyển `EXPIRED` và tăng version.
+
+Attempt được claim với `claim_owner`, `claim_until` và `attempt_count`. Finalize luôn kiểm tra cả owner và generation `attempt_count`, nên kết quả từ worker đã mất lease không thể ghi đè worker mới. Provider chạy ngoài transaction. Crash trước finalize được reclaim sau lease; crash ở lượt provider cuối được chuyển `FAILED/LEASE_EXHAUSTED` mà không gọi vượt giới hạn.
+
+Một attempt có lần gọi đầu và tối đa năm retry sau 10 giây, 30 giây, 2 phút, 5 phút và 15 phút. Success ghi observation cùng transaction với trạng thái `SUCCEEDED`; `NO_RESULT` không ghi observation; lỗi tạm thời giữ cùng attempt ở `PENDING`; lỗi vĩnh viễn hoặc hết lượt thành `FAILED`. Slot mới vẫn được phép chạy sau một slot lỗi. `last_error` chỉ lưu mã an toàn và lịch sử giá cũ không bị xóa.
+
+Adapter H2 chỉ hỗ trợ `MOCK_FLIGHT`, không gọi mạng. Giá, fare ID và metadata được sinh xác định từ canonical key + scheduled slot. Metadata lưu và trả ra chỉ gồm whitelist đã nêu ở trên. Worker mặc định tắt, được bật rõ ràng trong test/demo; production không được bật mock.
+
 ## Các mốc sau
 
-- H2: scheduler slot, attempt/lease, adapter mock xác định, ghi observation và retry hữu hạn.
 - H3: rule threshold, re-arm/cooldown, notification delivery và xử lý lifecycle/current-recipient.
 - Provider thật chỉ thêm sau khi chốt điều khoản, rate limit, dữ liệu giá và cách đánh dấu nguồn; không dùng mock để tuyên bố giá thực.

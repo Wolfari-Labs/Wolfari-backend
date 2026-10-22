@@ -143,6 +143,30 @@ async function queryGroup(client: PoolClient, value: NormalizedWatchWrite): Prom
   return found.id;
 }
 
+async function wakeQueryGroup(client: PoolClient, id: string): Promise<void> {
+  await client.query(
+    `UPDATE price_query_groups SET active=true,
+       next_check_at=LEAST(COALESCE(next_check_at,clock_timestamp()),clock_timestamp()),
+       updated_at=clock_timestamp() WHERE id=$1`,
+    [id],
+  );
+}
+
+async function reconcileQueryGroup(client: PoolClient, id: string): Promise<void> {
+  await client.query(
+    `UPDATE price_query_groups q SET active=state.has_active,
+       next_check_at=CASE WHEN state.has_active THEN COALESCE(q.next_check_at,clock_timestamp()) ELSE NULL END,
+       updated_at=clock_timestamp()
+     FROM (
+       SELECT EXISTS(
+         SELECT 1 FROM price_watches w
+         WHERE w.query_group_id=$1 AND w.status='ACTIVE' AND w.expires_at>clock_timestamp()
+       ) AS has_active
+     ) state WHERE q.id=$1`,
+    [id],
+  );
+}
+
 @Injectable()
 export class PriceWatchRepository {
   constructor(private readonly database: DatabaseProvider) {}
@@ -197,6 +221,7 @@ export class PriceWatchRepository {
           JSON.stringify(input.value.query),
         ],
       );
+      await wakeQueryGroup(client, queryGroupId);
       return project(inserted.rows[0]!);
     });
   }
@@ -265,6 +290,10 @@ export class PriceWatchRepository {
           JSON.stringify(value.query),
         ],
       );
+      if (current.status === 'ACTIVE') await wakeQueryGroup(client, groupId);
+      else await reconcileQueryGroup(client, groupId);
+      if (current.query_group_id !== groupId)
+        await reconcileQueryGroup(client, current.query_group_id);
       return project(changed.rows[0]!);
     });
   }
@@ -291,6 +320,8 @@ export class PriceWatchRepository {
          WHERE id=$1`,
         [id, next, reason],
       );
+      if (next === 'ACTIVE') await wakeQueryGroup(client, current.query_group_id);
+      else await reconcileQueryGroup(client, current.query_group_id);
       const changed = await client.query<WatchRow>(`${WATCH_SELECT} WHERE w.id=$1`, [id]);
       return project(changed.rows[0]!);
     });

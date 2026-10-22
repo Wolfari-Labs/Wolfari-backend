@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 export async function runPriceWatchTests({ request, query, account, bearer, tripBody, pass }) {
+  const waitFor = async (work, timeoutMs = 10_000) => {
+    const deadline = Date.now() + timeoutMs;
+    while (true) {
+      const value = await work();
+      if (value) return value;
+      if (Date.now() >= deadline) throw new Error('PRICE_WATCH_WORKER_TIMEOUT');
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  };
   const firstOwner = await account('Price Watch First Owner');
   const secondOwner = await account('Price Watch Second Owner');
   const outsider = await account('Price Watch Outsider');
@@ -165,15 +174,30 @@ export async function runPriceWatchTests({ request, query, account, bearer, trip
   );
   pass('pause/resume/stop state machine makes STOPPED terminal');
 
-  const observations = await request(
-    `/api/v1/price-watches/${first.body.data.id}/observations`,
-    'GET',
-    undefined,
-    bearer(firstOwner),
-  );
+  const observations = await waitFor(async () => {
+    const result = await request(
+      `/api/v1/price-watches/${first.body.data.id}/observations`,
+      'GET',
+      undefined,
+      bearer(firstOwner),
+    );
+    assert.equal(result.status, 200);
+    return result.body.data.length ? result : undefined;
+  });
   assert.equal(observations.status, 200);
-  assert.deepEqual(observations.body.data, []);
-  pass('H1 observation endpoint is authorized and empty before scheduler/provider H2');
+  assert.equal(observations.body.data.length, 1);
+  assert.equal(observations.body.data[0].provider, 'MOCK_FLIGHT');
+  assert.equal(observations.body.data[0].currency, 'VND');
+  assert.equal(observations.body.data[0].fare_metadata.baggage_summary, 'MOCK_DATA');
+  assert.equal(
+    (await query(
+      'automation',
+      'SELECT count(*)::int AS n FROM price_query_attempts WHERE query_group_id=$1',
+      [first.body.data.query_group_id],
+    ))[0]?.n,
+    1,
+  );
+  pass('H2 worker creates one deterministic observation for the shared six-hour slot');
 
   await query('trip', 'UPDATE trips SET archived_at=now() WHERE id=$1', [secondTrip]);
   assert.equal(

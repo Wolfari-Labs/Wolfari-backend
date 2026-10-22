@@ -16,6 +16,7 @@ import { checkLedgerRepository } from '../apps/finance-service/tests/database/le
 import { checkContributionRepository } from '../apps/finance-service/tests/database/contribution-repository.integration.mjs';
 import { checkPaymentDestinationRepository } from '../apps/finance-service/tests/database/payment-destination-repository.integration.mjs';
 import { checkPriceWatchRepository } from '../apps/automation-service/tests/database/price-watch-repository.integration.mjs';
+import { checkPriceWatchWorkerRepository } from '../apps/automation-service/tests/database/price-watch-worker-repository.integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -235,7 +236,7 @@ async function main() {
   for (const [index, service] of services.entries()) await db(service, async client => {
     assert.equal((await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'")).rows[0].n, counts[index]);
     fks += (await client.query("SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace")).rows[0].n;
-    assert.deepEqual(await history(client, files[service]), service === 'trip' || service === 'automation' ? ['V001', 'V002'] : ['V001']);
+    assert.deepEqual(await history(client, files[service]), service === 'automation' ? ['V001', 'V002', 'V003'] : service === 'trip' ? ['V001', 'V002'] : ['V001']);
   });
   assert.equal(fks, 47); pass('54 bảng mô hình + 5 lịch sử, 47 FK');
   await db('trip', async client => {
@@ -244,6 +245,8 @@ async function main() {
   pass('V002 normalized pending email and same-Trip acceptance constraints');
   await db('automation', checkPriceWatchRepository);
   pass('Automation PriceWatchRepository: idempotency, shared query, version, transition and observations');
+  await db('automation', client => checkPriceWatchWorkerRepository(client, databaseUrl(env, 'automation')));
+  pass('Automation PriceWatchWorkerRepository: slot, lease, retry, terminal result and expiry');
   for (const service of ['identity', 'trip', 'finance']) await db(service, async client => {
     await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
     if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
@@ -314,12 +317,12 @@ async function main() {
   pass('Trip requires V002, not merely V001, for readiness');
   const automationApp = apps.find(a => a.service === 'automation');
   await db('automation',async client=>{
-    await client.query("DELETE FROM schema_migrations WHERE version='V002'");
+    await client.query("DELETE FROM schema_migrations WHERE version='V003'");
     try {assert.equal((await health(automationApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V002')");}
+    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");}
   });
   await health(automationApp,'ready');
-  pass('Automation requires V002 for readiness');
+  pass('Automation requires V003 for readiness');
   const travel = apps.find(a => a.service === 'travel');
   await db('travel', async client => {
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');
