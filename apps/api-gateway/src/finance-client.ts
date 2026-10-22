@@ -14,6 +14,12 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'CreatePaymentAttempt'
+      | 'GetPaymentAttempt'
+      | 'ReconcilePaymentAttempt'
+      | 'ReceiveMomoWebhook'
+      | 'ListPaymentExceptions'
+      | 'ResolvePaymentException'
       | 'ListClosures'
       | 'GetClosure'
       | 'CreateClosure'

@@ -40,6 +40,7 @@ import { isExpenseWrite } from '../repositories/expense.repository';
 import { isFinancialNoteWrite } from '../repositories/financial-note.repository';
 import { isRefundWrite } from '../repositories/refund.repository';
 import { isClosureWrite } from '../repositories/closure.repository';
+import { isPaymentWrite } from '../repositories/payment.repository';
 
 type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
@@ -68,7 +69,10 @@ type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.CreateClosureResponse &
   FinanceV1.ConfirmClosureResponse &
   FinanceV1.CancelClosureResponse &
-  FinanceV1.RemindClosureResponse;
+  FinanceV1.RemindClosureResponse &
+  FinanceV1.CreatePaymentAttemptResponse &
+  FinanceV1.ReconcilePaymentAttemptResponse &
+  FinanceV1.ResolvePaymentExceptionResponse;
 const service = loadSync(PROTO_PATHS.trip, GRPC_LOADER_OPTIONS)[
   'wolfari.trip.v1.TripService'
 ] as ServiceDefinition;
@@ -371,6 +375,33 @@ export class FundCommandService {
     }
     if (saved.status !== 'COMMITTED')
       throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
+    if (isPaymentWrite(input)) {
+      const current = await this.queries.getFund(
+        { trip_id: input.tripId, actor_user_id: input.actor },
+        correlation,
+        deadline,
+      );
+      if (current.fund?.id !== input.fundId) throw new Error('Invalid Payment Fund result');
+      if (input.scope === 'RECONCILE_PAYMENT_ATTEMPT') {
+        if (current.fund.holder_user_id !== input.actor)
+          throw new FinanceReadError('PERMISSION_DENIED');
+        return { operation: completed.operation };
+      }
+      if (input.scope === 'RESOLVE_PAYMENT_EXCEPTION') {
+        const row = saved.response.paymentException;
+        if (
+          current.fund.holder_user_id !== input.actor ||
+          !row ||
+          row.id !== input.paymentExceptionId
+        )
+          throw new FinanceReadError('PERMISSION_DENIED');
+        return { payment_exception: row };
+      }
+      const row = saved.response.paymentAttempt;
+      if (!row || row.contribution_id !== input.contributionId)
+        throw new Error('Invalid Payment attempt result');
+      return { payment_attempt: row };
+    }
     if (isClosureWrite(input)) {
       const role = await this.queries.authorizeFundRead(
         input.fundId,

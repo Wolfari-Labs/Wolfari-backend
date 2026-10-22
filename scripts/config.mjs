@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|GATEWAY_|SMTP_|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -143,6 +143,14 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRIP_GRPC_TARGET',
     'FINANCE_TRIP_SECRET',
     'TRIP_FINANCE_SECRET',
+    'MOMO_SANDBOX_MODE',
+    'MOMO_PARTNER_CODE',
+    'MOMO_ACCESS_KEY',
+    'MOMO_SECRET_KEY',
+    'MOMO_CREATE_URL',
+    'MOMO_QUERY_URL',
+    'MOMO_REDIRECT_URL',
+    'MOMO_IPN_URL',
   ];
   const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET'];
   const allowed = [

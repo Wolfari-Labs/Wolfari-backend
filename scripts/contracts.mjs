@@ -85,8 +85,8 @@ async function validateCatalogs() {
     readJson('schemas/events-v1.schema.json'),
   ]);
   const catalogRpcKeys = rpc.map((item) => `${item.package}.${item.service}/${item.method}`).sort();
-  if (rpc.length !== 92 || new Set(catalogRpcKeys).size !== 92) {
-    throw new Error('RPC_CATALOG_INVALID: expected 92 unique RPCs');
+  if (rpc.length !== 98 || new Set(catalogRpcKeys).size !== 98) {
+    throw new Error('RPC_CATALOG_INVALID: expected 98 unique RPCs');
   }
   if (events.length !== 19 || new Set(events.map((item) => item.event_type)).size !== 19) {
     throw new Error('EVENT_CATALOG_INVALID: expected 19 unique events');

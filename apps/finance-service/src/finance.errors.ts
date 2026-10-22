@@ -5,7 +5,8 @@ export type FinanceReadErrorCode =
   | 'SERVICE_UNAVAILABLE'
   | 'STATE_CONFLICT'
   | 'VERSION_CONFLICT'
-  | 'IDEMPOTENCY_CONFLICT';
+  | 'IDEMPOTENCY_CONFLICT'
+  | 'FINANCE_OBLIGATION_BLOCKED';
 export class FinanceReadError extends Error {
   constructor(public readonly code: FinanceReadErrorCode) {
     super(code);

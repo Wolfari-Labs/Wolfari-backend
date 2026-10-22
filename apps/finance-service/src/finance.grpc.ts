@@ -1,7 +1,7 @@
 import { PaymentInstructionService } from './application/payment-instruction.service';
 import { ReceiptService } from './receipts/receipt.service';
 import { ManualContributionService } from './application/manual-contribution.service';
-import { Controller } from '@nestjs/common';
+import { Controller, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
 import { status, type Metadata } from '@grpc/grpc-js';
@@ -13,6 +13,7 @@ import { FundCommandService } from './application/fund-command.service';
 import {
   FundCommandRepository,
   fundCommandScope,
+  lifecycleCommandScope,
   receiptView,
 } from './repositories/fund-command.repository';
 import { readUuid } from './finance.errors';
@@ -23,6 +24,8 @@ import { ExpenseService } from './application/expense.service';
 import { FinancialNoteService } from './application/financial-note.service';
 import { RefundService } from './application/refund.service';
 import { ClosureService } from './application/closure.service';
+import { PaymentService } from './application/payment.service';
+import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -32,6 +35,7 @@ type DeadlineCall = {
 };
 @Controller()
 export class FinanceGrpcController {
+  private readonly logger = new Logger('FinanceGrpc');
   constructor(
     private readonly queries: FundQueryService,
     private readonly config: ConfigService,
@@ -47,7 +51,88 @@ export class FinanceGrpcController {
     private readonly financialNotes?: FinancialNoteService,
     private readonly refunds?: RefundService,
     private readonly closures?: ClosureService,
+    private readonly payments?: PaymentService,
+    private readonly lifecycle?: LifecycleFinanceRepository,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ExecuteTripOperation')
+  executeTripOperation(
+    request: FinanceV1.ExecuteTripOperationRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<FinanceV1.ExecuteTripOperationResponse> {
+    return this.execute('ExecuteTripOperation', metadata, call, async () => {
+      if (!this.lifecycle) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return { receipt: await this.lifecycle.execute(request) };
+    });
+  }
+
+  @GrpcMethod('FinanceService', 'CreatePaymentAttempt')
+  createPaymentAttempt(
+    request: FinanceV1.CreatePaymentAttemptRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('CreatePaymentAttempt', metadata, call, (correlation, deadline) => {
+      if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.payments.create(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'GetPaymentAttempt')
+  getPaymentAttempt(
+    request: FinanceV1.GetPaymentAttemptRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('GetPaymentAttempt', metadata, call, (correlation, deadline) => {
+      if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.payments.get(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ReconcilePaymentAttempt')
+  reconcilePaymentAttempt(
+    request: FinanceV1.ReconcilePaymentAttemptRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ReconcilePaymentAttempt', metadata, call, (correlation, deadline) => {
+      if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.payments.reconcile(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ReceiveMomoWebhook')
+  receiveMomoWebhook(
+    request: FinanceV1.ReceiveMomoWebhookRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ReceiveMomoWebhook', metadata, call, () => {
+      if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.payments.webhook(request);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ListPaymentExceptions')
+  listPaymentExceptions(
+    request: FinanceV1.ListPaymentExceptionsRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ListPaymentExceptions', metadata, call, (correlation, deadline) => {
+      if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.payments.listExceptions(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ResolvePaymentException')
+  resolvePaymentException(
+    request: FinanceV1.ResolvePaymentExceptionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ResolvePaymentException', metadata, call, (correlation, deadline) => {
+      if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.payments.resolve(request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ListClosures')
   listClosures(request: FinanceV1.ListClosuresRequest, metadata?: Metadata, call?: DeadlineCall) {
@@ -455,6 +540,10 @@ export class FinanceGrpcController {
       return await work(correlation.toLowerCase(), deadline);
     } catch (error) {
       const code = error instanceof FinanceReadError ? error.code : 'SERVICE_UNAVAILABLE';
+      if (!(error instanceof FinanceReadError))
+        this.logger.warn(
+          `FINANCE_RPC_FAILURE method=${method} code=${String((error as { code?: unknown })?.code ?? 'UNKNOWN').slice(0, 32)}`,
+        );
       throw new RpcException({
         code: {
           VALIDATION_FAILED: status.INVALID_ARGUMENT,
@@ -464,6 +553,7 @@ export class FinanceGrpcController {
           STATE_CONFLICT: status.FAILED_PRECONDITION,
           VERSION_CONFLICT: status.ABORTED,
           IDEMPOTENCY_CONFLICT: status.ALREADY_EXISTS,
+          FINANCE_OBLIGATION_BLOCKED: status.FAILED_PRECONDITION,
         }[code],
         message: JSON.stringify({ code, details: null }),
       });
@@ -640,7 +730,8 @@ export class FinanceGrpcController {
       async (): Promise<FinanceV1.GetOperationResultResponse> => {
         const row = await this.receipts.find(readUuid(request.operation_id));
         if (!row) return { not_found: {} };
-        if (!fundCommandScope(row.command_scope)) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        if (!fundCommandScope(row.command_scope) && !lifecycleCommandScope(row.command_scope))
+          throw new FinanceReadError('SERVICE_UNAVAILABLE');
         return { receipt: receiptView(row) };
       },
     );
@@ -651,9 +742,13 @@ export class FinanceGrpcController {
     metadata?: Metadata,
     call?: DeadlineCall,
   ): Promise<FinanceV1.CancelOperationIfNotCommittedResponse> {
-    return this.execute('CancelOperationIfNotCommitted', metadata, call, async () => ({
-      receipt: receiptView(await this.receipts.cancel(request)),
-    }));
+    return this.execute('CancelOperationIfNotCommitted', metadata, call, async () => {
+      if (lifecycleCommandScope(request.command_scope ?? '')) {
+        if (!this.lifecycle) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        return { receipt: await this.lifecycle.cancel(request) };
+      }
+      return { receipt: receiptView(await this.receipts.cancel(request)) };
+    });
   }
   @GrpcMethod('FinanceService', 'GetFund')
   getFund(request: FinanceV1.GetFundRequest, metadata?: Metadata, call?: DeadlineCall) {

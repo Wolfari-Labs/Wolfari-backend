@@ -12,6 +12,7 @@ import { runExpenseDraftTests } from './finance-expense-integration.mjs';
 import { runFinancialNoteTests } from './finance-notes-integration.mjs';
 import { runRefundTests } from './finance-refund-integration.mjs';
 import { runClosureTests } from './finance-closure-integration.mjs';
+import { runPaymentTests } from './finance-payment-integration.mjs';
 const require = createRequire(import.meta.url);
 const apiRequire = createRequire(new URL('../apps/api-gateway/package.json', import.meta.url));
 const { Client, credentials, Metadata } = apiRequire('@grpc/grpc-js');
@@ -111,6 +112,15 @@ export async function runFinanceWriteTests(h) {
     });
     return post(path, body, user, key);
   };
+  if (h.paymentsOnly) {
+    try {
+      await runPaymentTests(h, { newTrip, write, rpc });
+      return { forbidden: [owner.access, holder.access, outsider.access] };
+    } finally {
+      tripClient.onApplicationShutdown();
+      rpcClient.close();
+    }
+  }
   if (h.instructionsOnly) {
     try {
       return { forbidden: await runPaymentInstructionTests(h, { newTrip, write, enableBody }) };
@@ -704,6 +714,7 @@ export async function runFinanceWriteTests(h) {
       tripClient,
       fundCommandHash,
     });
+    await runPaymentTests(h, { newTrip, write, rpc });
     const instructionKeys = await runPaymentInstructionTests(h, { newTrip, write, enableBody });
     return {
       forbidden: [

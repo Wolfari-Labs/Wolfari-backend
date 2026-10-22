@@ -58,7 +58,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 92 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle, API070–125 Finance         |
+| 98 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Catalog gồm Trip/Plan/Invitations/lifecycle, API070–125 Finance         |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -72,7 +72,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 ## gRPC
 
-Catalog hiện có Identity 4, Trip 29, Finance 55 và Travel 4 RPC (tổng 92). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Catalog hiện có Identity 4, Trip 29, Finance 61 và Travel 4 RPC (tổng 98). Automation chỉ là caller. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
 
 API087–089 thêm `ReportContributionTransfer`, `ConfirmContributionReceived`,
 `RejectContributionTransfer`, chỉ ApiGateway, response Contribution/Operation.
@@ -178,3 +178,16 @@ Contract dùng bảng/cột V001 và ba event v1 `ClosureRequested`, `ClosureCan
 `FinanceClosed`, không thêm migration hay event type. Reminder tạo durable outbox signal,
 chưa phải xác nhận notification đã giao. Xem [Finance Closure](finance-closures.md) và
 [OpenAPI120–125](../api/finance-closures.openapi.json).
+
+## Payment Sandbox API090–095
+
+Payment Sandbox thêm sáu Finance RPC chỉ dành cho ApiGateway: tạo và đọc payment attempt,
+yêu cầu đối soát, nhận MoMo IPN, liệt kê ngoại lệ theo Fund và xử lý ngoại lệ. Ba writer
+do người dùng khởi tạo dùng durable Trip operation; IPN là server-to-server và chỉ được ACK
+sau khi receipt đã lưu bền vững. `PaymentAttemptView` và `PaymentExceptionView` là projection
+an toàn, không chứa destination snapshot, provider payload, chữ ký hoặc secret.
+
+Contract dùng các bảng V001 hiện có và không thêm event type hay migration. Thành công từ
+IPN/query hội tụ vào một transaction xác nhận contribution và append đúng một ledger IN;
+trạng thái chưa chắc chắn được giữ để đối soát. Xem [Payment Sandbox](finance-payments.md)
+và [OpenAPI090–095](../api/finance-payments.openapi.json).

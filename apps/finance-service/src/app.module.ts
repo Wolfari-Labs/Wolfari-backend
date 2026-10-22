@@ -28,6 +28,11 @@ import { RefundService } from './application/refund.service';
 import { RefundRepository } from './repositories/refund.repository';
 import { ClosureService } from './application/closure.service';
 import { ClosureRepository } from './repositories/closure.repository';
+import { PaymentService } from './application/payment.service';
+import { PaymentProcessor } from './application/payment-processor';
+import { PaymentRepository } from './repositories/payment.repository';
+import { MomoSandboxProvider } from './providers/momo-sandbox.provider';
+import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
@@ -61,6 +66,11 @@ import { ClosureRepository } from './repositories/closure.repository';
     RefundRepository,
     ClosureService,
     ClosureRepository,
+    PaymentService,
+    PaymentProcessor,
+    PaymentRepository,
+    MomoSandboxProvider,
+    LifecycleFinanceRepository,
   ],
 })
 export class AppModule {}

@@ -45,6 +45,111 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+export interface PaymentAttemptView {
+  id?: string | undefined;
+  contribution_id?: string | undefined;
+  provider?: string | undefined;
+  environment?: string | undefined;
+  amount?: string | undefined;
+  currency?: string | undefined;
+  status?: string | undefined;
+  needs_reconciliation?: boolean | undefined;
+  payment_url?: string | undefined;
+  expires_at?: Timestamp | undefined;
+  error_code?: string | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+}
+
+export interface PaymentExceptionView {
+  id?: string | undefined;
+  payment_attempt_id?: string | undefined;
+  processing_status?: string | undefined;
+  review_reason?: string | undefined;
+  received_at?: Timestamp | undefined;
+  reviewed_at?: Timestamp | undefined;
+}
+
+export interface CreatePaymentAttemptRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  provider?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreatePaymentAttemptResponse {
+  payment_attempt?: PaymentAttemptView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface GetPaymentAttemptRequest {
+  actor_user_id?: string | undefined;
+  payment_attempt_id?: string | undefined;
+}
+
+export interface GetPaymentAttemptResponse {
+  payment_attempt?: PaymentAttemptView | undefined;
+}
+
+export interface ReconcilePaymentAttemptRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  payment_attempt_id?: string | undefined;
+  reason?: string | undefined;
+}
+
+export interface ReconcilePaymentAttemptResponse {
+  operation?: Operation | undefined;
+}
+
+export interface ReceiveMomoWebhookRequest {
+  partner_code?: string | undefined;
+  order_id?: string | undefined;
+  request_id?: string | undefined;
+  amount?: string | undefined;
+  order_info?: string | undefined;
+  order_type?: string | undefined;
+  transaction_id?: string | undefined;
+  result_code?: number | undefined;
+  message?: string | undefined;
+  pay_type?: string | undefined;
+  response_time?: string | undefined;
+  extra_data?: string | undefined;
+  signature?: string | undefined;
+}
+
+export interface ReceiveMomoWebhookResponse {
+}
+
+export interface ListPaymentExceptionsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListPaymentExceptionsResponse {
+  items?: PaymentExceptionView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface ResolvePaymentExceptionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  payment_exception_id?: string | undefined;
+  resolution?: string | undefined;
+  linked_attempt_id?: string | undefined;
+  reason?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ResolvePaymentExceptionResponse {
+  payment_exception?: PaymentExceptionView | undefined;
+  operation?: Operation | undefined;
+}
+
 export interface ClosureConfirmationView {
   user_id?: string | undefined;
   confirmed_at?: Timestamp | undefined;
@@ -1076,6 +1181,30 @@ export interface GetPaymentInstructionResponse {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  createPaymentAttempt(
+    request: CreatePaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Observable<CreatePaymentAttemptResponse>;
+
+  getPaymentAttempt(request: GetPaymentAttemptRequest, metadata?: Metadata): Observable<GetPaymentAttemptResponse>;
+
+  reconcilePaymentAttempt(
+    request: ReconcilePaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Observable<ReconcilePaymentAttemptResponse>;
+
+  receiveMomoWebhook(request: ReceiveMomoWebhookRequest, metadata?: Metadata): Observable<ReceiveMomoWebhookResponse>;
+
+  listPaymentExceptions(
+    request: ListPaymentExceptionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListPaymentExceptionsResponse>;
+
+  resolvePaymentException(
+    request: ResolvePaymentExceptionRequest,
+    metadata?: Metadata,
+  ): Observable<ResolvePaymentExceptionResponse>;
+
   listClosures(request: ListClosuresRequest, metadata?: Metadata): Observable<ListClosuresResponse>;
 
   getClosure(request: GetClosureRequest, metadata?: Metadata): Observable<GetClosureResponse>;
@@ -1266,6 +1395,42 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  createPaymentAttempt(
+    request: CreatePaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Promise<CreatePaymentAttemptResponse> | Observable<CreatePaymentAttemptResponse> | CreatePaymentAttemptResponse;
+
+  getPaymentAttempt(
+    request: GetPaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Promise<GetPaymentAttemptResponse> | Observable<GetPaymentAttemptResponse> | GetPaymentAttemptResponse;
+
+  reconcilePaymentAttempt(
+    request: ReconcilePaymentAttemptRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ReconcilePaymentAttemptResponse>
+    | Observable<ReconcilePaymentAttemptResponse>
+    | ReconcilePaymentAttemptResponse;
+
+  receiveMomoWebhook(
+    request: ReceiveMomoWebhookRequest,
+    metadata?: Metadata,
+  ): Promise<ReceiveMomoWebhookResponse> | Observable<ReceiveMomoWebhookResponse> | ReceiveMomoWebhookResponse;
+
+  listPaymentExceptions(
+    request: ListPaymentExceptionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListPaymentExceptionsResponse> | Observable<ListPaymentExceptionsResponse> | ListPaymentExceptionsResponse;
+
+  resolvePaymentException(
+    request: ResolvePaymentExceptionRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ResolvePaymentExceptionResponse>
+    | Observable<ResolvePaymentExceptionResponse>
+    | ResolvePaymentExceptionResponse;
+
   listClosures(
     request: ListClosuresRequest,
     metadata?: Metadata,
@@ -1587,6 +1752,12 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "createPaymentAttempt",
+      "getPaymentAttempt",
+      "reconcilePaymentAttempt",
+      "receiveMomoWebhook",
+      "listPaymentExceptions",
+      "resolvePaymentException",
       "listClosures",
       "getClosure",
       "createClosure",

@@ -25,6 +25,9 @@ const expensesOnly = process.argv.includes('--finance-expenses');
 const notesOnly = process.argv.includes('--finance-notes');
 const refundsOnly = process.argv.includes('--finance-refunds');
 const closuresOnly = process.argv.includes('--finance-closures');
+const paymentsOnly = process.argv.includes('--finance-payments');
+const allFinance = process.argv.includes('--finance');
+const paymentTestMode = paymentsOnly || allFinance;
 const financeReadMode =
   receiptsOnly ||
   instructionsOnly ||
@@ -32,7 +35,8 @@ const financeReadMode =
   notesOnly ||
   refundsOnly ||
   closuresOnly ||
-  process.argv.includes('--finance');
+  paymentsOnly ||
+  allFinance;
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 let financeFixture;
@@ -370,6 +374,15 @@ async function main() {
       FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET,
       GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
       TRIP_FINANCE_SECRET: financeSecret,
+      ...(paymentTestMode
+        ? {
+            NODE_ENV: 'test',
+            MOMO_SANDBOX_MODE: 'mock',
+            MOMO_PARTNER_CODE: 'MOMO_TEST',
+            MOMO_ACCESS_KEY: 'access',
+            MOMO_SECRET_KEY: 'secret',
+          }
+        : {}),
     });
   await start('api-gateway', {
     GATEWAY_PORT: String(ports.gateway),
@@ -412,6 +425,7 @@ async function main() {
       notesOnly,
       refundsOnly,
       closuresOnly,
+      paymentsOnly,
       gatewayUrl: `http://127.0.0.1:${ports.gateway}`,
       storageConfig: {
         MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,

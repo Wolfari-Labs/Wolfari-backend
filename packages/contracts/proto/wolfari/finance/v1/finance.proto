@@ -4,6 +4,12 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc CreatePaymentAttempt(CreatePaymentAttemptRequest) returns (CreatePaymentAttemptResponse);
+  rpc GetPaymentAttempt(GetPaymentAttemptRequest) returns (GetPaymentAttemptResponse);
+  rpc ReconcilePaymentAttempt(ReconcilePaymentAttemptRequest) returns (ReconcilePaymentAttemptResponse);
+  rpc ReceiveMomoWebhook(ReceiveMomoWebhookRequest) returns (ReceiveMomoWebhookResponse);
+  rpc ListPaymentExceptions(ListPaymentExceptionsRequest) returns (ListPaymentExceptionsResponse);
+  rpc ResolvePaymentException(ResolvePaymentExceptionRequest) returns (ResolvePaymentExceptionResponse);
   rpc ListClosures(ListClosuresRequest) returns (ListClosuresResponse);
   rpc GetClosure(GetClosureRequest) returns (GetClosureResponse);
   rpc CreateClosure(CreateClosureRequest) returns (CreateClosureResponse);
@@ -59,6 +65,94 @@ service FinanceService {
   rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+}
+
+message PaymentAttemptView {
+  string id = 1;
+  string contribution_id = 2;
+  string provider = 3;
+  string environment = 4;
+  string amount = 5;
+  string currency = 6;
+  string status = 7;
+  bool needs_reconciliation = 8;
+  optional string payment_url = 9;
+  optional google.protobuf.Timestamp expires_at = 10;
+  optional string error_code = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+message PaymentExceptionView {
+  string id = 1;
+  optional string payment_attempt_id = 2;
+  string processing_status = 3;
+  string review_reason = 4;
+  google.protobuf.Timestamp received_at = 5;
+  optional google.protobuf.Timestamp reviewed_at = 6;
+}
+message CreatePaymentAttemptRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string provider = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CreatePaymentAttemptResponse {
+  oneof result {
+    PaymentAttemptView payment_attempt = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message GetPaymentAttemptRequest { string actor_user_id = 1; string payment_attempt_id = 2; }
+message GetPaymentAttemptResponse { PaymentAttemptView payment_attempt = 1; }
+message ReconcilePaymentAttemptRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string payment_attempt_id = 3;
+  string reason = 4;
+}
+message ReconcilePaymentAttemptResponse { wolfari.common.v1.Operation operation = 1; }
+message ReceiveMomoWebhookRequest {
+  string partner_code = 1;
+  string order_id = 2;
+  string request_id = 3;
+  string amount = 4;
+  string order_info = 5;
+  string order_type = 6;
+  string transaction_id = 7;
+  int32 result_code = 8;
+  string message = 9;
+  string pay_type = 10;
+  string response_time = 11;
+  string extra_data = 12;
+  string signature = 13;
+}
+message ReceiveMomoWebhookResponse {}
+message ListPaymentExceptionsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListPaymentExceptionsResponse {
+  repeated PaymentExceptionView items = 1;
+  optional string next_cursor = 2;
+}
+message ResolvePaymentExceptionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string payment_exception_id = 3;
+  string resolution = 4;
+  optional string linked_attempt_id = 5;
+  string reason = 6;
+  int32 expected_finance_version = 7;
+}
+message ResolvePaymentExceptionResponse {
+  oneof result {
+    PaymentExceptionView payment_exception = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
 }
 
 message ClosureConfirmationView {

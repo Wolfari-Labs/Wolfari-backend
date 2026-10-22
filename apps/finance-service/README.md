@@ -32,19 +32,16 @@ helper bên dưới để tự chốt schema/contract hoặc coi nghiệp vụ �
 ## Tích hợp Trip còn chờ
 
 Theo [handoff lifecycle](../../docs/architecture/trip-member-lifecycle-handoff.md),
-Trip đã có BeginFinanceOperation/CompleteOperation, polling và recovery cho năm
-command setup, CREATE_CONTRIBUTION_REQUEST, bốn command quản lý API081–084 và ba
-command thủ công REPORT_TRANSFER/CONFIRM_RECEIVED/REJECT_TRANSFER và
-REVERSE_CONTRIBUTION. GetAccessContext không thay guard
-cho writer. Giữ lifecycle flag false với Finance thật vì nghĩa vụ khi rời/xóa thành
-viên chưa có handler đầy đủ.
+Trip đã có BeginFinanceOperation/CompleteOperation, polling và recovery cho các writer
+Finance API070–125, gồm setup, thu, chi, note, refund, closure và payment. GetAccessContext
+không thay guard cho writer. Giữ lifecycle flag false với Finance thật vì bộ nghĩa vụ khi
+rời/xóa thành viên chưa được kiểm đầy đủ cho mọi nghiệp vụ.
 
 Contract Finance Execute/Cancel có `membership_target` gồm membership_id/user_id/
 reason cho LEAVE_MEMBER/REMOVE_MEMBER; actor và người bị tác động có thể khác nhau.
-Finance chưa có handler ExecuteTripOperation cho lifecycle; Get/Cancel hiện chỉ
-hỗ trợ các command Finance nêu trên. Khi mở lifecycle phải kiểm target, lưu
-receipt cùng tác động local nguyên tử và xử lý execute/cancel race theo protocol
-được thống nhất; không dùng reader hoặc transition helper làm thay thế.
+Finance đã có handler tối thiểu để chặn rời/xóa khi user còn payment attempt hoặc webhook
+exception có thể ảnh hưởng tiền. Handler lưu receipt nguyên tử và tuần tự hóa execute/cancel,
+nhưng chưa thay cho kiểm nghĩa vụ đầy đủ của contribution, expense, refund và các nguồn khác.
 
 ## Cấu hình và chạy riêng Finance
 
@@ -385,12 +382,27 @@ liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn 
 - Migration mới `migrations/V002.sql`; Finance readiness yêu cầu V001+V002.
 - `corepack pnpm env:init` bổ sung cấu hình MinIO; người dùng tự chạy
   `corepack pnpm db:migrate --service finance` để nâng database phát triển.
-- `corepack pnpm finance:test` kiểm tra trong database/MinIO cô lập. Manual thu và
-  expense writer chưa thuộc mốc này; liên kết nghiệp vụ trong test là fixture.
+- `corepack pnpm finance:test` kiểm tra toàn bộ Finance hiện có trong database/MinIO cô lập.
 
 ## API086 TEST payment instruction
 
 GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable reference. No money/state writes or bank verification. External QuickLink SVG is TEST-only and discloses transfer details to Casso when loaded. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).
+
+## Payment Sandbox API090–095
+
+Self có thể tạo một `MOMO_SANDBOX` attempt cho contribution PENDING từ 1.000 đến
+50.000.000 VND. Finance lưu attempt và định danh provider trước khi worker gọi MoMo;
+redirect chỉ dùng để quay lại giao diện và không xác nhận tiền. IPN được kiểm HMAC, đối
+chiếu partner/order/request/amount và lưu receipt trước khi trả 204. Chỉ `resultCode=0`
+có thể xác nhận contribution và append một ledger IN; kết quả pending/authorized, timeout
+hoặc response không chắc chắn đi qua query/reconcile.
+
+Self hoặc Holder đọc attempt; Holder yêu cầu reconcile và xử lý ngoại lệ; Owner/Holder
+xem danh sách ngoại lệ theo Fund. API không trả provider payload, chữ ký, secret hoặc
+destination snapshot. CI dùng provider mock deterministic chỉ trong `NODE_ENV=test`;
+remote mode chỉ nhận endpoint MoMo Sandbox cố định và secret từ environment. Chạy focused
+bằng `corepack pnpm finance:payments:test`. Xem [thiết kế](../../docs/architecture/finance-payments.md)
+và [OpenAPI090–095](../../docs/api/finance-payments.openapi.json).
 
 ## Expense API096–104
 

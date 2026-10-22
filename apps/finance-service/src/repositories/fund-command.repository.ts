@@ -77,6 +77,12 @@ import {
 } from './refund.repository';
 import { ClosureRepository, isClosureWrite, type ClosureWriteCommand } from './closure.repository';
 import { ClosureRuleError } from '../domain/closure-management';
+import {
+  isPaymentWrite,
+  PaymentRepository,
+  type PaymentWriteCommand,
+} from './payment.repository';
+import { PaymentRuleError } from '../domain/payment-management';
 
 export type FundWrite = {
   operationId: string;
@@ -90,6 +96,7 @@ export type FundWrite = {
   | FinancialNoteWriteCommand
   | RefundWriteCommand
   | ClosureWriteCommand
+  | PaymentWriteCommand
   | ManagementWrite
   | { scope: 'CREATE_CONTRIBUTION_REQUEST'; fundId: string; body: CreateContributionRequestCommand }
   | { scope: 'ENABLE_FUND'; body: EnableFundCommand }
@@ -120,7 +127,10 @@ export type StoredResult = {
   financialNote?: FinanceV1.FinancialNoteView;
   refund?: FinanceV1.RefundView;
   closure?: FinanceV1.ClosureView;
+  paymentAttempt?: FinanceV1.PaymentAttemptView;
+  paymentException?: FinanceV1.PaymentExceptionView;
   closureEffect?: CommonV1.ClosureEffect;
+  lifecycleTarget?: { membershipId: string; userId: string };
 };
 export type FundReceipt = {
   operation_id: string;
@@ -161,6 +171,9 @@ export const fundCommandScope = (value: string) =>
     'CONFIRM_CLOSURE',
     'CANCEL_CLOSURE',
     'REMIND_CLOSURE',
+    'CREATE_PAYMENT_ATTEMPT',
+    'RECONCILE_PAYMENT_ATTEMPT',
+    'RESOLVE_PAYMENT_EXCEPTION',
     'UPDATE_CONTRIBUTION_REQUEST',
     'UPDATE_CONTRIBUTION_AMOUNT',
     'WAIVE_CONTRIBUTION',
@@ -172,6 +185,10 @@ export const fundCommandScope = (value: string) =>
     'CREATE_PAYMENT_DESTINATION',
     'UPDATE_PAYMENT_DESTINATION',
   ].includes(value);
+export const lifecycleCommandScope = (value: string) =>
+  value === 'LEAVE_MEMBER' || value === 'REMOVE_MEMBER';
+export const financeReceiptScope = (value: string) =>
+  fundCommandScope(value) || lifecycleCommandScope(value);
 /** Hash normalized inputs, never JSON key order or transport defaults. */
 export function fundCommandHash(value: unknown): string {
   const canonical = (input: unknown): unknown => {
@@ -192,7 +209,7 @@ export function fundCommandHash(value: unknown): string {
     .digest('hex');
 }
 export function receiptView(row: FundReceipt): CommonV1.Receipt {
-  if (!fundCommandScope(row.command_scope) || row.response?.version !== 1 || !row.completed_at)
+  if (!financeReceiptScope(row.command_scope) || row.response?.version !== 1 || !row.completed_at)
     throw new Error('Invalid stored receipt');
   const ms = row.completed_at.getTime();
   return {
@@ -206,13 +223,16 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
           ? undefined
           : row.response.error === 'VERSION_CONFLICT'
             ? 'VERSION_CONFLICT'
-            : 'STATE_CONFLICT',
+            : row.response.error === 'FINANCE_OBLIGATION_BLOCKED'
+              ? 'FINANCE_OBLIGATION_BLOCKED'
+              : 'STATE_CONFLICT',
       closure_effect: row.response.closureEffect,
     },
     completed_at: { seconds: String(Math.floor(ms / 1000)), nanos: (ms % 1000) * 1000000 },
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
+  if (error instanceof PaymentRuleError) return new FinanceReadError(error.code);
   if (error instanceof ClosureRuleError) return new FinanceReadError(error.code);
   const refund = mapRefundRuleError(error);
   if (refund) return refund;
@@ -456,6 +476,13 @@ export class FundCommandRepository {
           );
         } else if (isClosureWrite(input)) {
           response = await new ClosureRepository(client).execute(
+            client,
+            input,
+            authority,
+            correlation,
+          );
+        } else if (isPaymentWrite(input)) {
+          response = await new PaymentRepository(this.db).execute(
             client,
             input,
             authority,

@@ -734,5 +734,53 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.1 API125; finance closure 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CreatePaymentAttempt",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API090; MoMo Sandbox payment 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetPaymentAttempt",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API091; MoMo Sandbox payment 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ReconcilePaymentAttempt",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API092; MoMo Sandbox reconciliation 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ReceiveMomoWebhook",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API093; MoMo verified IPN 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ListPaymentExceptions",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API094; payment exceptions 2026-10-22"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ResolvePaymentException",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API095; payment exception resolution 2026-10-22"
   }
 ]
