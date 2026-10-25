@@ -5,9 +5,9 @@
 
 Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm nhỏ. Sản phẩm hướng tới việc cùng xây dựng lịch trình, lưu địa điểm, quản lý quỹ, nhận nhắc việc và xuất kế hoạch.
 
-Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core**, **Notification Self Management I1** và **Price Watch H1–H3**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision. Notification I1 quản lý preference/device/inbox Self; Price Watch quản lý watch/lịch sử, worker mock, alert bền vững và lifecycle Trip/membership.
+Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core**, **Finance API070–125**, **Notification Self Management I1** và **Price Watch H1–H3**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision. Notification I1 quản lý preference/device/inbox Self; Price Watch quản lý watch/lịch sử, worker mock, alert bền vững và lifecycle Trip/membership.
 
-> Identity đợt 1, Trip core, Plan access, Invitations, Notification I1 và Price Watch H1–H3 đã có runtime qua Gateway/worker. Travel/Finance, provider giá thật, push/FCM sender, Reminder, phần lớn nghiệp vụ Automation, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. `MOCK_FLIGHT` chỉ là dữ liệu thử; Notification I1 hiện đọc notification `AVAILABLE` nhưng chưa tạo push delivery. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001, Trip V002 và Automation V002–V005. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
+> Đã có runtime Identity, Trip/Plan/Invitations, Finance API070–125 và nghĩa vụ membership, Notification I1, Price Watch H1–H3. Nhánh tích hợp đang được kiểm chứng; không suy ra nghiệm thu toàn bộ MVP. `MOCK_FLIGHT` chỉ là dữ liệu thử, MoMo chỉ cấu hình Sandbox; provider giá thật, push/FCM, Reminder API132, export và Finance notification delivery còn thiếu. Membership lifecycle vẫn mặc định tắt cho production. Baseline chính thức là SRS v2.3/ERD v1.2/DDL API Event v1.1; schema gồm năm V001, Trip/Finance V002 và Automation V002–V005.
 
 ## Kiến trúc
 
@@ -74,7 +74,7 @@ Năm service nghiệp vụ và Gateway bổ sung:
 GET /health/ready
 ```
 
-Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip và `V002`–`V005` cho Automation); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
+Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip/Finance và `V002`–`V005` cho Automation); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
 
 ## Lệnh phát triển
 
@@ -93,6 +93,10 @@ corepack pnpm trip:test
 corepack pnpm trip:invitations:test
 corepack pnpm price-watch:test
 corepack pnpm notification:test
+corepack pnpm finance:test
+corepack pnpm finance:payments:test
+corepack pnpm finance:closures:test
+corepack pnpm finance:lifecycle:test
 
 # Contract
 corepack pnpm contracts:lint
@@ -136,6 +140,10 @@ corepack pnpm test
 - [Price Watch Core, Worker và Alert H1–H3](docs/architecture/price-watch-core.md)
 - [OpenAPI Price Watch](docs/api/price-watch.openapi.yaml)
 - [Kết quả kiểm tra Price Watch H1–H3](docs/architecture/price-watch-validation.md)
+- [Finance Fund và recovery](docs/architecture/finance-fund-setup.md)
+- [Finance MoMo Sandbox](docs/architecture/finance-payments.md)
+- [Finance Closure](docs/architecture/finance-closures.md)
+- [Finance membership obligations](docs/architecture/finance-member-lifecycle.md)
 - [Notification Self Management I1](docs/architecture/notification-management.md)
 - [OpenAPI Notification](docs/api/notification.openapi.yaml)
 - [Kết quả kiểm tra Notification I1](docs/architecture/notification-management-validation.md)

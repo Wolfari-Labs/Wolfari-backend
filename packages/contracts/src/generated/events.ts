@@ -226,7 +226,7 @@ export interface ContributionUpdated {
   fund_id: Uuid;
   trip_id: Uuid;
   contribution_id: Uuid;
-  status: 'PENDING' | 'TRANSFER_REPORTED' | 'CONFIRMED' | 'WAIVED' | 'CANCELLED';
+  status: 'PENDING' | 'TRANSFER_REPORTED' | 'CONFIRMED' | 'WAIVED' | 'CANCELLED' | 'REVERSED';
   finance_version: PositiveInt;
 }
 export interface ClosureRequested {

@@ -1,5 +1,46 @@
 # Membership lifecycle validation
 
+## Finance runtime follow-up — 2026-10-22
+
+The original report below is retained as evidence for the Trip-side slice. Its
+`Real Finance lifecycle E2E: NOT RUN` row is superseded by this follow-up.
+
+Finance now implements durable Execute/Get/Cancel for both lifecycle commands and
+checks Holder, closure, contribution, payment and Refund obligations. Eligible
+unpaid contributions are waived with `MEMBER_LEFT` in the same transaction as
+audit, `ContributionUpdated` outbox rows and the terminal receipt.
+
+Observed local gates for the current increment:
+
+| Gate                                   | Result | Evidence / boundary                                                             |
+| -------------------------------------- | ------ | ------------------------------------------------------------------------------- |
+| Workspace build                        | PASS   | Also run by each integration command                                            |
+| Full unit test                         | PASS   | 89 files, 1363 tests                                                            |
+| Repository lint                        | PASS   | ESLint over the workspace                                                       |
+| Contract lint/check/test/breaking HEAD | PASS   | 11 contract files, 55 tests; generated sources reproducible; no contract change |
+| `corepack pnpm finance:lifecycle:test` | PASS   | 29 groups total, including real Gateway/Trip/Finance lifecycle scenarios        |
+| `corepack pnpm finance:test`           | PASS   | 98 Finance regression groups                                                    |
+| `corepack pnpm trip:members:test`      | PASS   | 19 Trip protocol/concurrency/recovery groups using its dedicated fixture        |
+
+The real Finance suite covers no Fund, multiple atomic waivers, all-or-nothing
+rejection, unresolved and resolved Payment, pending and cancelled Refund, Holder
+before/after `CLOSED`, Expense/Note history, `CLOSING`, private blocker responses
+and Trip recovery after Finance committed. The recovery case injects a Trip T2
+audit failure, verifies the Finance waiver is durable while membership remains
+active, restarts Trip and observes one final membership effect without repeating
+the Finance event.
+
+All successful Docker harnesses removed their containers, volumes and network.
+The first focused attempt could not access the Docker pipe inside the restricted
+sandbox; the permitted run then found a PostgreSQL parameter-type error in test
+fixture SQL. The fixture was cast explicitly and both final focused and full runs
+passed. No development database, baseline migration, source DOCX or checksum was
+changed.
+
+The default feature flag remains false. Automation membership consumers, Export
+download authorization and production release review remain prerequisites; these
+results do not claim those downstream effects or a production rollout.
+
 Date: 2026-10-02. Branch: `feat/trip-member-lifecycle`, stacked directly on
 `feat/trip-invitations` at `64e32b91a1b4a6b1ae13c5d083b84df63a772b86`.
 Results below describe the local, uncommitted implementation diff, not a published

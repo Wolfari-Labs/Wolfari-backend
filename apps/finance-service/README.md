@@ -1,30 +1,54 @@
 # Finance Service
 
+## Financial Notes API107–110
+
+Financial Notes lưu hoạt động chung ngoài sổ quỹ. Amount/payer là thông tin tham
+khảo; mọi create/update/delete đều không tạo ledger, không đổi balance và không giữ
+chỗ Refund. Member hiện tại được tạo, Creator hoặc Owner được sửa/xóa khi Fund OPEN;
+GET vẫn đọc được lịch sử khi Trip archived hoặc Fund CLOSED. Xem
+[thiết kế](../../docs/architecture/finance-notes.md) và
+[OpenAPI107–110](../../docs/api/finance-notes.openapi.json).
+
 Finance dùng `DatabaseModule.forService('finance')` và `DatabaseProvider` từ
 `@wolfari/database`, dựa trên `pg`. Module này đã được nối trong `AppModule`.
 Code hiện có domain tiền/số dư/ledger/đóng góp, parser và bước chuẩn bị request;
 các reader Fund, Ledger, Contribution và PaymentDestination đã đăng ký trong
-`AppModule`. Chưa có API nghiệp vụ Finance, transaction ghi tiền hoặc kết nối
-nhà cung cấp thanh toán.
+`AppModule`. Đã có [API070–076 Fund setup](../../docs/architecture/finance-fund-setup.md)
+và [API078–084 tạo/đọc/quản lý đợt thu](../../docs/architecture/finance-contribution-requests.md),
+gồm transaction, quyền Trip và recovery; đã bổ sung
+[API105/106 chứng từ private](../../docs/architecture/finance-receipts.md).
+API087–089 bổ sung báo chuyển, xác nhận thu và từ chối thủ công; chưa ghi chi hoặc
+kết nối provider. Xem [luồng thu thủ công](../../docs/architecture/finance-manual-contributions.md)
+và [OpenAPI](../../docs/api/finance-contributions.openapi.json). API085 bổ sung
+[đảo khoản thu đã xác nhận](../../docs/architecture/finance-contribution-reversal.md)
+bằng một ledger OUT đối ứng; đây không phải hoàn tiền thật. Xác nhận do Holder
+đối chiếu bên ngoài; ứng dụng không tự xác minh ngân hàng.
 
 README này mô tả code hiện tại và cách kiểm thử module. Baseline thiết kế hiện hành
 là SRS 2.3 / ERD 1.2 / DDL API Event 1.1 tại [danh mục tài liệu](../../docs/README.md)
 và [design baseline](../../docs/architecture/design-baseline.md). Không dùng mô tả
 helper bên dưới để tự chốt schema/contract hoặc coi nghiệp vụ đã chạy end-to-end.
 
-## Tích hợp Trip còn chờ
+## Tích hợp Trip member lifecycle
 
 Theo [handoff lifecycle](../../docs/architecture/trip-member-lifecycle-handoff.md),
-Trip đã có luồng rời/xóa thành viên, nhưng generic `BeginFinanceOperation` và
-`CompleteOperation` còn chưa triển khai. `GetAccessContext` là snapshot quyền tại
-thời điểm đọc, không thay guard cho writer Finance. Chưa bật lifecycle với người
-dùng thật khi Finance Execute/Get/Cancel và shared guard chưa đầy đủ.
+Trip có BeginFinanceOperation/CompleteOperation, polling và recovery cho các writer
+Finance API070–125, gồm setup, thu, chi, note, refund, closure và payment. GetAccessContext
+không thay guard cho writer.
 
 Contract Finance Execute/Cancel có `membership_target` gồm membership_id/user_id/
 reason cho LEAVE_MEMBER/REMOVE_MEMBER; actor và người bị tác động có thể khác nhau.
-Finance chưa có handler cho các RPC này. Khi triển khai phải kiểm target, lưu
-receipt cùng tác động local nguyên tử và xử lý execute/cancel race theo protocol
-được thống nhất; không dùng reader hoặc transition helper làm thay thế.
+Finance kiểm đầy đủ Holder chưa đóng quỹ, closure, contribution báo chuyển, payment chưa rõ
+và Refund đang xử lý. Contribution PENDING đủ điều kiện được đổi nguyên tử sang
+WAIVED/MEMBER_LEFT; Expense và Financial Note chỉ giữ lịch sử. Handler lưu effect, audit,
+outbox và receipt cùng transaction, đồng thời tuần tự hóa execute/cancel. Xem
+[thiết kế Finance member lifecycle](../../docs/architecture/finance-member-lifecycle.md).
+Flag lifecycle vẫn mặc định false cho production cho tới khi downstream Automation/Export
+và release review hoàn tất.
+
+Chạy focused real-service integration bằng `corepack pnpm finance:lifecycle:test`.
+Bộ test dùng Gateway, Trip, Finance và PostgreSQL cô lập; nó không bật cờ mặc định
+trong cấu hình phát hành.
 
 ## Cấu hình và chạy riêng Finance
 
@@ -158,7 +182,7 @@ thẳng thành API response. Caller phải kiểm UUID/quyền/phạm vi Trip. R
 giữ lock, không tạo context an toàn cho ghi tiền; luồng tạo request vẫn phải đọc
 lại cấu hình dưới lock và lưu snapshot/version cùng contributions trong transaction.
 Khoản đã phát hành phải dùng `destination_snapshot` đã lưu, không đọc cấu hình
-hiện tại này để thay hướng dẫn thanh toán cũ. Chưa có API quản lý đích hoặc tạo QR.
+hiện tại này để thay hướng dẫn thanh toán cũ. API quản lý đích đã có; tạo QR chưa có.
 
 Unit test và DB integration kiểm scope Fund/IDs, selected subset/ID trùng,
 nullable và hai loại đích, inactive/chưa xác nhận, thay cấu hình/version,
@@ -192,7 +216,7 @@ audit/outbox trong cùng transaction. Helper không ghi DB và không bảo vệ
 `title`, `contributions`, `due_at`, `note`, `expected_finance_version`; mỗi allocation
 chỉ nhận `member_user_id`, `amount`, `destination_id`. Field ngoài allowlist bị từ chối,
 kể cả actor, trạng thái, số dư hoặc snapshot do client khai. Lỗi input là
-`ContributionRequestInputError`, chưa được ánh xạ thành HTTP response.
+`ContributionRequestInputError`, được API078 ánh xạ thành HTTP400.
 
 Parser hiện cho phép bỏ qua `due_at`/`note` nhưng không
 nhận JSON `null`; chỉ khi thiếu field mới đổi thành `null` nội bộ. UUID được kiểm
@@ -210,7 +234,7 @@ hoặc để JavaScript tự chuyển ngày không tồn tại sang tháng kế 
 Parser không truy cập DB và không xác minh quyền. Adapter tương lai vẫn phải kiểm
 Fund ID từ path, identity/header idempotency, rồi gọi domain bằng context tin cậy.
 Unit test có kiểm ghép parser → domain: JSON hợp lệ vẫn bị từ chối nếu sai Owner,
-mất membership hoặc đích nhận không hợp lệ. Chưa có route API078 hoặc transaction tạo request.
+mất membership hoặc đích nhận không hợp lệ. API078 đã nối parser này vào transaction tạo request.
 
 ## Chuẩn bị dữ liệu tạo request
 
@@ -225,11 +249,11 @@ sao chép từng cấu hình và Date để thay đổi input hoặc một alloc
 allocation khác. Dữ liệu vẫn là đối tượng nội bộ có thông tin thanh toán riêng,
 không log/serialize thành response và không coi TypeScript readonly là khóa runtime.
 
-Đây chưa phải schema JSON cho `destination_snapshot`. Cấu trúc field/version lưu
-bền vững cần đối chiếu với baseline hiện hành và thống nhất trước khi thêm writer;
-không suy cấu trúc persistence từ kết quả helper này. Hàm không sinh ID, không ghi DB,
-không lấy Trip guard hoặc xử lý replay; luồng ghi tương lai phải truyền dữ liệu vừa
-đọc dưới lock và lưu request/contributions/snapshot/receipt/outbox nguyên tử.
+Kết quả helper này không phải schema JSON cho `destination_snapshot`. Writer API078
+chiếu sang [snapshot phiên bản 1](../../docs/architecture/finance-contribution-requests.md)
+với whitelist riêng; không serialize toàn bộ object chuẩn bị. Hàm vẫn không sinh ID,
+ghi DB, lấy guard hoặc xử lý replay. Writer truyền dữ liệu vừa đọc dưới lock và lưu
+request/contributions/snapshot/receipt/outbox nguyên tử.
 
 ## Quy tắc đóng góp thủ công
 
@@ -277,6 +301,14 @@ parser với domain kiểm sai actor, quỹ đóng, version cũ, trạng thái �
 số tiền thu từ dữ liệu đã lưu. Chưa có route API087–089 hoặc transaction ghi tiền;
 parser hợp lệ không thay Trip guard, khóa dòng hay chống ghi trùng ở database.
 
+## Đảo khoản thu đã xác nhận
+
+API085 chỉ cho current Holder active đổi CONFIRMED thành REVERSED. Writer tìm đúng
+một ledger IN CONTRIBUTION cùng Fund/amount, giữ ledger và chứng từ gốc, rồi append
+một OUT REVERSAL liên kết bằng `reversal_of_id`. Số dư khả dụng phải đủ sau khi giữ
+chỗ Refund PENDING/HOLDER_REPORTED. Contribution, balance, audit, receipt và event
+commit cùng transaction. Xem [thiết kế API085](../../docs/architecture/finance-contribution-reversal.md).
+
 ## Đọc đợt đóng góp và khoản đóng góp
 
 `ContributionRepository` dùng DB chung và được đăng ký trong AppModule:
@@ -294,7 +326,16 @@ Không có bản ghi hoặc sai phạm vi đều trả `null`; lỗi DB/mapping 
 Caller phải kiểm tra UUID, resolve ownership và quyền Trip trước khi trả dữ liệu.
 Đây là các snapshot nội bộ riêng lẻ, không tự tạo `financeVersion`, không giữ lock
 và không đủ làm context cho lệnh ghi hoặc snapshot export. Không serialize bigint
-trực tiếp ra JSON. Chưa có API hay luồng ghi đóng góp end-to-end.
+trực tiếp ra JSON. API078 tạo nghĩa vụ và API079/080 đọc danh sách đã có; API xác nhận nhận tiền chưa có.
+
+API079/080 dùng `ContributionListRepository` và `ContributionQueryService`, kiểm
+TRIP_VIEW mỗi trang, keyset created_at/id giữ microsecond, limit20 mặc định/max100.
+Request list trả đầy đủ contributions[] cùng finance_version của snapshot SQL.
+Contribution list có filter status/member_user_id, sáu status gồm REVERSED; không
+trả snapshot/evidence/rejected_reason. GET không ghi dữ liệu. Response078 mới lưu
+allocations/version tại commit vào receipt; replay cũ giữ shape metadata cũ, không
+đọc dữ liệu live để bổ sung. Chi tiết và giới hạn transport ở architecture liên kết
+trên; [OpenAPI Finance](../../docs/api/finance-contributions.openapi.json) mô tả078–084.
 
 Unit test và DB integration bao phủ phạm vi Fund/Request, tiền lớn, null, trạng thái
 lịch sử, timestamp và việc không trả thông tin thanh toán riêng. Fixture được rollback.
@@ -334,3 +375,85 @@ API, thanh toán từng phần, tiền thừa hoặc transaction ghi quỹ.
 
 Unit test và fixture DB hiện có kiểm đủ trạng thái, empty/missing, cách ly Fund/đợt,
 tiền lớn hơn int8, thay trạng thái không đổi tổng phân bổ và đọc dữ liệu đã kết thúc.
+
+## Chứng từ private API105/106
+
+Nhánh receipts bổ sung upload JPEG/PNG/PDF tối đa **10MiB** và tải chứng từ đã gắn
+với nghiệp vụ. File mới upload chỉ là staging; chưa ghi thu, không thay đổi số dư
+hay finance_version. Bằng chứng đóng góp chỉ Self/Holder hiện tại được tải; Owner
+không có quyền vượt qua quy tắc này. Chứng từ chi cho thành viên hiện tại, có kiểm
+liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn được dọn sau24h.
+
+- [OpenAPI105/106](../../docs/api/finance-receipts.openapi.json)
+- [Thiết kế, quyền, giới hạn và phục hồi](../../docs/architecture/finance-receipts.md)
+- Migration mới `migrations/V002.sql`; Finance readiness yêu cầu V001+V002.
+- `corepack pnpm env:init` bổ sung cấu hình MinIO; người dùng tự chạy
+  `corepack pnpm db:migrate --service finance` để nâng database phát triển.
+- `corepack pnpm finance:test` kiểm tra toàn bộ Finance hiện có trong database/MinIO cô lập.
+
+## API086 TEST payment instruction
+
+GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable reference. No money/state writes or bank verification. External QuickLink SVG is TEST-only and discloses transfer details to Casso when loaded. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).
+
+## Payment Sandbox API090–095
+
+Self có thể tạo một `MOMO_SANDBOX` attempt cho contribution PENDING từ 1.000 đến
+50.000.000 VND. Finance lưu attempt và định danh provider trước khi worker gọi MoMo;
+redirect chỉ dùng để quay lại giao diện và không xác nhận tiền. IPN được kiểm HMAC, đối
+chiếu partner/order/request/amount và lưu receipt trước khi trả 204. Chỉ `resultCode=0`
+có thể xác nhận contribution và append một ledger IN; kết quả pending/authorized, timeout
+hoặc response không chắc chắn đi qua query/reconcile.
+
+Self hoặc Holder đọc attempt; Holder yêu cầu reconcile và xử lý ngoại lệ; Owner/Holder
+xem danh sách ngoại lệ theo Fund. API không trả provider payload, chữ ký, secret hoặc
+destination snapshot. CI dùng provider mock deterministic chỉ trong `NODE_ENV=test`;
+remote mode chỉ nhận endpoint MoMo Sandbox cố định và secret từ environment. Chạy focused
+bằng `corepack pnpm finance:payments:test`. Xem [thiết kế](../../docs/architecture/finance-payments.md)
+và [OpenAPI090–095](../../docs/api/finance-payments.openapi.json).
+
+## Expense API096–104
+
+Thành viên hiện tại có thể tạo DRAFT cho khoản chi hoạt động chung. Creator hoặc
+Owner sửa, xóa mềm và submit draft; chỉ Creator rút SUBMITTED về DRAFT. Các thao
+tác dùng optimistic version, UUID Idempotency-Key, Trip durable guard, audit và
+command receipt. PATCH no-op không tăng version.
+
+DRAFT/SUBMITTED chưa trừ quỹ và không tạo ledger. Current Holder xác nhận SUBMITTED
+thành CONFIRMED bằng `paid_at`/`payment_method`; writer kiểm số dư khả dụng sau khi giữ
+chỗ Refund PENDING/HOLDER_REPORTED, tạo đúng một EXPENSE OUT và giảm số dư. Holder có
+thể reject SUBMITTED mà không chạm ledger, hoặc reverse CONFIRMED bằng đúng một
+REVERSAL IN liên kết OUT gốc. Owner không có quyền các thao tác Holder nếu không đồng
+thời là Holder hiện tại.
+
+Response chỉ cho biết có receipt, không trả object key private. Confirm/reject/reverse
+dùng cùng Trip durable guard, command receipt, optimistic version, audit và phục hồi như
+các mutation Expense khác. Xem [thiết kế](../../docs/architecture/finance-expenses.md)
+và [OpenAPI096–104](../../docs/api/finance-expenses.openapi.json).
+
+## Refund API111–119
+
+Owner tạo khoản hoàn cho thành viên khi số dư khả dụng còn đủ. Refund `PENDING` và
+`HOLDER_REPORTED` giữ chỗ số dư nhưng chưa tạo ledger. Holder báo đã trả; chỉ khi chính
+người nhận xác nhận đã nhận thì Finance tạo một `REFUND OUT` và giảm số dư. Người nhận
+có thể báo chưa nhận để Owner hủy và giải phóng giữ chỗ.
+
+Hoàn tác khoản đã xác nhận cần Holder yêu cầu, người nhận đồng ý và Holder thực hiện với
+đúng lý do đã được đồng ý. Finance tạo một `REVERSAL IN` liên kết OUT gốc, không sửa
+ledger cũ. Toàn bộ mutation dùng Trip guard/recovery, command receipt, optimistic version
+và audit; không gọi ngân hàng hoặc provider. Xem [thiết kế](../../docs/architecture/finance-refunds.md)
+và [OpenAPI111–119](../../docs/api/finance-refunds.openapi.json).
+
+## Finance Closure API120–125
+
+Owner có thể bắt đầu đóng quỹ khi Fund `OPEN`, số dư và tổng ledger đều bằng 0, Holder còn
+active và không còn contribution, payment exception, expense hoặc refund dang dở. Finance
+tạo snapshot canonical schema 1, SHA-256 và danh sách mọi thành viên active; Fund chuyển
+sang `CLOSING`. Mỗi user trong snapshot chỉ xác nhận chính mình bằng đúng hash. Xác nhận
+cuối chuyển Fund sang `CLOSED`; Owner có thể hủy phiên pending để Fund về `OPEN`.
+
+Trip giữ `closure_lock_id` trong toàn bộ phiên. Command receipt mang effect set/release để
+worker phục hồi lock nếu Finance đã commit nhưng Complete bị mất. Reminder chỉ ghi tín hiệu
+`ClosureRequested` bền vững và trả accepted; Automation chưa giao email/push trong mốc này.
+Snapshot công khai không chứa payment destination, tài khoản, object key hoặc provider payload.
+Xem [thiết kế và protocol](../../docs/architecture/finance-closures.md) và
+[OpenAPI120–125](../../docs/api/finance-closures.openapi.json).

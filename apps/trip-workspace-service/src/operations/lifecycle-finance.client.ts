@@ -92,4 +92,34 @@ export class LifecycleFinanceClient implements OnApplicationShutdown {
   onApplicationShutdown() {
     this.client?.close();
   }
+  async recoverOperation(
+    id: string,
+    hash: string,
+    scope: string,
+    context: CommonV1.AuthorizationContext,
+    correlation: string,
+    deadline: number,
+  ): Promise<CommonV1.Receipt> {
+    const result = await this.call<FinanceV1.GetOperationResultResponse>(
+      'GetOperationResult',
+      { operation_id: id },
+      correlation,
+      deadline,
+    );
+    if (result.receipt) return result.receipt;
+    if (!result.not_found) throw new Error('Invalid Finance result');
+    const cancelled = await this.call<FinanceV1.CancelOperationIfNotCommittedResponse>(
+      'CancelOperationIfNotCommitted',
+      {
+        operation_id: id,
+        request_hash: hash,
+        command_scope: scope,
+        authorization_context: context,
+      },
+      correlation,
+      deadline,
+    );
+    if (!cancelled.receipt) throw new Error('Missing Finance cancellation receipt');
+    return cancelled.receipt;
+  }
 }

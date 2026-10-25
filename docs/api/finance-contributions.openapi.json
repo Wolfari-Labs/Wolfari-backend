@@ -1,0 +1,2450 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Finance Contributions",
+    "version": "1.3.0",
+    "description": "Implemented API078-084 and API087-089 for shared group activity funds. Manual confirmation records the full issued amount after the current Holder checks their bank externally. No automatic bank verification, provider callback, partial payment, reversal or refund writer. Local service-secret transport rejects production mode. API086 provides Self-only TEST VietQR QuickLink instructions from the issued destination snapshot. The external image request discloses recipient/amount/reference to Casso; no automatic payment verification."
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/funds/{fund_id}/contribution-requests": {
+      "post": {
+        "operationId": "createContributionRequest",
+        "summary": "API078 Create a contribution request",
+        "description": "Owner only, active Trip and OPEN Fund, durable Trip guard. Allocations, finance version increment, audit, receipt and ContributionRequested outbox entry commit atomically. Balance/ledger unchanged. Repeat with the same Idempotency-Key and identical normalized payload. Current membership is rechecked on replay. 202 means poll GET /api/v1/operations/{operation_id}, then retry the original POST with the original key; do not issue a new key after an uncertain result.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInput"
+              },
+              "example": {
+                "title": "Shared meals",
+                "contributions": [
+                  {
+                    "member_user_id": "10000000-0000-4000-8000-000000000001",
+                    "amount": "300000",
+                    "destination_id": "20000000-0000-4000-8000-000000000001"
+                  }
+                ],
+                "expected_finance_version": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created snapshot, or recognized legacy receipt replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/CreatedRequest"
+                        },
+                        {
+                          "$ref": "#/components/schemas/LegacyCreatedRequest"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                },
+                "example": {
+                  "data": {
+                    "id": "30000000-0000-4000-8000-000000000001",
+                    "fund_id": "10000000-0000-4000-8000-000000000001",
+                    "title": "Shared meals",
+                    "due_at": null,
+                    "note": null,
+                    "status": "OPEN",
+                    "version": 1,
+                    "created_by_user_id": "50000000-0000-4000-8000-000000000001",
+                    "created_at": "2026-10-15T03:00:00.000Z",
+                    "amount_per_member": null,
+                    "closed_at": null,
+                    "contributions": [
+                      {
+                        "id": "40000000-0000-4000-8000-000000000001",
+                        "request_id": "30000000-0000-4000-8000-000000000001",
+                        "fund_id": "10000000-0000-4000-8000-000000000001",
+                        "member_user_id": "20000000-0000-4000-8000-000000000001",
+                        "amount": "300000",
+                        "status": "PENDING",
+                        "self_contribution": false,
+                        "member_reported_at": null,
+                        "confirmed_at": null,
+                        "confirmed_by_user_id": null,
+                        "waived_reason": null,
+                        "cancelled_reason": null,
+                        "version": 1,
+                        "finance_version": 3
+                      }
+                    ],
+                    "finance_version": 3
+                  },
+                  "meta": {
+                    "correlation_id": "60000000-0000-4000-8000-000000000001"
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: active viewer is not Owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listContributionRequests",
+        "summary": "API079 List contribution requests",
+        "description": "Current active Member/Owner/Holder only; TRIP_VIEW checked on every page. Archived Trips and CLOSING/CLOSED Funds remain readable. Fixed created_at DESC, id DESC, microsecond keyset. Newer inserts are excluded from continuation. Mutable statuses mean this is not a snapshot export; refresh for latest state. Unknown or duplicate query keys and GET bodies are rejected. No operation, ledger, receipt, event or version is written. Complete nested allocations are never truncated; transport limits can return 503; reducing the outer limit cannot split a single oversized request.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 1024,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "description": "Opaque canonical cursor bound to endpoint/Fund/filters. Preserve filters on continuation; limit may change. Not authorization."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing Fund; empty data is a successful empty page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["items", "next_cursor"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ContributionRequest"
+                          },
+                          "maxItems": 100
+                        },
+                        "next_cursor": {
+                          "type": "string",
+                          "nullable": true,
+                          "maxLength": 1024
+                        }
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                },
+                "examples": {
+                  "empty": {
+                    "value": {
+                      "data": {
+                        "items": [],
+                        "next_cursor": null
+                      },
+                      "meta": {
+                        "correlation_id": "10000000-0000-4000-8000-000000000001"
+                      }
+                    }
+                  },
+                  "populated": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "30000000-0000-4000-8000-000000000001",
+                            "fund_id": "10000000-0000-4000-8000-000000000001",
+                            "title": "Shared meals",
+                            "due_at": null,
+                            "note": null,
+                            "status": "OPEN",
+                            "version": 1,
+                            "created_by_user_id": "50000000-0000-4000-8000-000000000001",
+                            "created_at": "2026-10-15T03:00:00.000Z",
+                            "amount_per_member": null,
+                            "closed_at": null,
+                            "contributions": [
+                              {
+                                "id": "40000000-0000-4000-8000-000000000001",
+                                "request_id": "30000000-0000-4000-8000-000000000001",
+                                "fund_id": "10000000-0000-4000-8000-000000000001",
+                                "member_user_id": "20000000-0000-4000-8000-000000000001",
+                                "amount": "300000",
+                                "status": "PENDING",
+                                "self_contribution": false,
+                                "member_reported_at": null,
+                                "confirmed_at": null,
+                                "confirmed_by_user_id": null,
+                                "waived_reason": null,
+                                "cancelled_reason": null,
+                                "version": 1,
+                                "finance_version": 3
+                              }
+                            ],
+                            "finance_version": 3
+                          }
+                        ],
+                        "next_cursor": null
+                      },
+                      "meta": {
+                        "correlation_id": "60000000-0000-4000-8000-000000000001"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/contributions": {
+      "get": {
+        "operationId": "listContributions",
+        "summary": "API080 List contributions",
+        "description": "Current active Member/Owner/Holder only; TRIP_VIEW checked on every page. Archived Trips and CLOSING/CLOSED Funds remain readable. Fixed created_at DESC, id DESC, microsecond keyset. Newer inserts are excluded from continuation. Mutable statuses mean this is not a snapshot export; refresh for latest state. Unknown or duplicate query keys and GET bodies are rejected. No operation, ledger, receipt, event or version is written. Complete nested allocations are never truncated; transport limits can return 503; reducing the outer limit cannot split a single oversized request.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 1024,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "description": "Opaque canonical cursor bound to endpoint/Fund/filters. Preserve filters on continuation; limit may change. Not authorization."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "TRANSFER_REPORTED",
+                "CONFIRMED",
+                "WAIVED",
+                "CANCELLED",
+                "REVERSED"
+              ]
+            }
+          },
+          {
+            "name": "member_user_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Historical member filter. Departed target remains visible to an authorized viewer; unknown valid UUID returns an empty page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing Fund; empty data is a successful empty page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["items", "next_cursor"],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Contribution"
+                          },
+                          "maxItems": 100
+                        },
+                        "next_cursor": {
+                          "type": "string",
+                          "nullable": true,
+                          "maxLength": 1024
+                        }
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                },
+                "examples": {
+                  "empty": {
+                    "value": {
+                      "data": {
+                        "items": [],
+                        "next_cursor": null
+                      },
+                      "meta": {
+                        "correlation_id": "10000000-0000-4000-8000-000000000001"
+                      }
+                    }
+                  },
+                  "populated": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "40000000-0000-4000-8000-000000000001",
+                            "request_id": "30000000-0000-4000-8000-000000000001",
+                            "fund_id": "10000000-0000-4000-8000-000000000001",
+                            "member_user_id": "20000000-0000-4000-8000-000000000001",
+                            "amount": "300000",
+                            "status": "PENDING",
+                            "self_contribution": false,
+                            "member_reported_at": null,
+                            "confirmed_at": null,
+                            "confirmed_by_user_id": null,
+                            "waived_reason": null,
+                            "cancelled_reason": null,
+                            "version": 1,
+                            "finance_version": 3
+                          }
+                        ],
+                        "next_cursor": null
+                      },
+                      "meta": {
+                        "correlation_id": "60000000-0000-4000-8000-000000000001"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/contribution-requests/{id}": {
+      "patch": {
+        "operationId": "updateContributionRequest",
+        "summary": "API081 updateContributionRequest",
+        "description": "OPEN request. Title/note may change with mixed child states. A changed due_at requires every child PENDING, no original receipt and no unresolved/succeeded attempt. Omitted fields retain old values; explicit null rejected; clearing due_at is not supported. Actual changes increment request and finance versions; child versions unchanged. Emit ContributionUpdated per PENDING/TRANSFER_REPORTED child, unique IDs with the same aggregate version. Active Owner only, OPEN Fund and active Trip without closure lock. Server resolves Fund/Trip from contribution ID. Idempotency key, entity version and finance version required. No balance or ledger mutation. A normalized no-op still checks permission, state and versions and saves a receipt, without audit/event/version changes. For 202, poll GET /api/v1/operations/{operation_id} then retry the original method/body/key. Replay returns the saved snapshot after current read permission is checked.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: active viewer is not Owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ContributionRequest"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{id}": {
+      "patch": {
+        "operationId": "updateContributionAmount",
+        "summary": "API082 updateContributionAmount",
+        "description": "Positive int64 VND amount; no partial receipt. Only PENDING contribution of an active member in an OPEN request, without original ledger receipt or CREATED/PENDING/SUCCEEDED/reconciliation attempt. Destination snapshot, report/evidence history and parent request version remain unchanged. Active Owner only, OPEN Fund and active Trip without closure lock. Server resolves Fund/Trip from contribution ID. Idempotency key, entity version and finance version required. No balance or ledger mutation. A normalized no-op still checks permission, state and versions and saves a receipt, without audit/event/version changes. For 202, poll GET /api/v1/operations/{operation_id} then retry the original method/body/key. Replay returns the saved snapshot after current read permission is checked.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAmountInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: active viewer is not Owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{id}/waive": {
+      "post": {
+        "operationId": "waiveContribution",
+        "summary": "API083 waiveContribution",
+        "description": "Same PENDING/active-member/OPEN-request/payment restrictions as API082. Set WAIVED with reason and timestamp. Preserve history. No refund, deletion or automatic parent closure. Active Owner only, OPEN Fund and active Trip without closure lock. Server resolves Fund/Trip from contribution ID. Idempotency key, entity version and finance version required. No balance or ledger mutation. A normalized no-op still checks permission, state and versions and saves a receipt, without audit/event/version changes. For 202, poll GET /api/v1/operations/{operation_id} then retry the original method/body/key. Replay returns the saved snapshot after current read permission is checked.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContributionReasonInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: active viewer is not Owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{id}/cancel": {
+      "post": {
+        "operationId": "cancelContribution",
+        "summary": "API084 cancelContribution",
+        "description": "Same PENDING/active-member/OPEN-request/payment restrictions as API082. Set CANCELLED with reason and timestamp. Preserve history. No refund, deletion or automatic parent closure. Active Owner only, OPEN Fund and active Trip without closure lock. Server resolves Fund/Trip from contribution ID. Idempotency key, entity version and finance version required. No balance or ledger mutation. A normalized no-op still checks permission, state and versions and saves a receipt, without audit/event/version changes. For 202, poll GET /api/v1/operations/{operation_id} then retry the original method/body/key. Replay returns the saved snapshot after current read permission is checked.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContributionReasonInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: active viewer is not Owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{id}/reverse": {
+      "post": {
+        "operationId": "reverseContribution",
+        "summary": "API085 reverseContribution",
+        "description": "Current active Holder only: CONFIRMED to REVERSED. Append one exact opposite OUT REVERSAL linked to the original CONTRIBUTION ledger entry, then reduce Fund balance. This is an accounting correction, not a bank refund. The original ledger, confirmation and evidence remain immutable. Fund/request must be OPEN and Trip active without closure lock. Reserved PENDING/HOLDER_REPORTED refunds remain unavailable, so reversal fails when available balance is insufficient. Expected contribution and Finance versions plus UUID Idempotency-Key are required. Replay rechecks the current Holder; a contribution can be reversed once only.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ContributionReasonInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved public REVERSED contribution snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/Contribution" },
+                    "meta": { "$ref": "#/components/schemas/Meta" }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/Operation" },
+                    "meta": { "$ref": "#/components/schemas/Meta" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: malformed reason, version or request.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: actor is not the current active Holder.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: scoped Finance record or current membership is absent.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT, including insufficient available balance or an existing reversal.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency failure or malformed persisted ledger invariant.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{id}/report-transfer": {
+      "post": {
+        "operationId": "reportContributionTransfer",
+        "summary": "API087 reportContributionTransfer",
+        "description": "Self only: PENDING to TRANSFER_REPORTED; no balance/ledger change. Optional evidence must be a READY file uploaded by Self in this Fund and unbound, or exactly the currently attached file. Verify storage before the write. Omitted evidence preserves the previous key; null/blank cannot clear it. Replaced evidence remains bound for history. Active member; OPEN Fund/request, active Trip without closure lock. Owner has no override. Expected entity and Finance versions plus UUID Idempotency-Key required. Block unresolved/succeeded provider attempts and an existing original ledger entry. Every transition increments contribution and Finance versions, not request version. Persist state, audit, outbox, command receipt and any ledger/file binding atomically. Retry the identical body/key after 202 and poll the operation. Replay returns the saved snapshot after current Self/Holder permission checks. Public data excludes evidence keys and bank details.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportContributionTransferInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: current actor is not Self/Holder for this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{id}/confirm-received": {
+      "post": {
+        "operationId": "confirmContributionReceived",
+        "summary": "API088 confirmContributionReceived",
+        "description": "Current Holder only: TRANSFER_REPORTED to CONFIRMED, append exactly one IN ledger entry and add the full stored amount to balance. No amount field accepted. Short/excess transfers must be reconciled externally before confirmation. Holder self-payment still needs report then confirmation. Target may have left the Trip; Holder must remain active. Active member; OPEN Fund/request, active Trip without closure lock. Owner has no override. Expected entity and Finance versions plus UUID Idempotency-Key required. Block unresolved/succeeded provider attempts and an existing original ledger entry. Every transition increments contribution and Finance versions, not request version. Persist state, audit, outbox, command receipt and any ledger/file binding atomically. Retry the identical body/key after 202 and poll the operation. Replay returns the saved snapshot after current Self/Holder permission checks. Public data excludes evidence keys and bank details.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmContributionReceivedInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: current actor is not Self/Holder for this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{id}/reject-transfer": {
+      "post": {
+        "operationId": "rejectContributionTransfer",
+        "summary": "API089 rejectContributionTransfer",
+        "description": "Current Holder only: TRANSFER_REPORTED to PENDING, required nonblank reason retained in audit and stored row. Preserve report/evidence history. No balance or ledger change. Self may report again. Active member; OPEN Fund/request, active Trip without closure lock. Owner has no override. Expected entity and Finance versions plus UUID Idempotency-Key required. Block unresolved/succeeded provider attempts and an existing original ledger entry. Every transition increments contribution and Finance versions, not request version. Persist state, audit, outbox, command receipt and any ledger/file binding atomically. Retry the identical body/key after 202 and poll the operation. Replay returns the saved snapshot after current Self/Holder permission checks. Public data excludes evidence keys and bank details.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectContributionTransferInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Operation is still being finalized or recovered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: invalid body/query/cursor or duplicate/unknown parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or invalid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED: current actor is not Self/Holder for this action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: Fund/Trip absent, deleted or actor has no current membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT; refresh or use the correct original request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: dependency, SQL, transport size/deadline or malformed downstream response. No empty success is fabricated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contributions/{contribution_id}/vietqr": {
+      "get": {
+        "operationId": "getPaymentInstruction",
+        "summary": "API086 Self TEST VietQR instruction",
+        "description": "Only PENDING, OPEN Fund/request, active Trip/membership and explicit unlocked closure context. Owner/Holder have no Self override. No writes. Existing downloaded QR cannot be revoked. MoMo is unsupported here. UI must show TEST/warning and load images with no-referrer. TEST is not a bank sandbox: never use real accounts for demonstrations.",
+        "parameters": [
+          {
+            "name": "contribution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "VALIDATION_FAILED: invalid ID or unexpected query.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND: missing contribution, non-Self or inactive membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "STATE_CONFLICT: lifecycle, in-flight payment, unsupported destination/account/amount or changed Holder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: malformed snapshot, missing closure context or dependency failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Private TEST instruction; showing a QR does not prove payment.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-referrer"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PaymentInstruction"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Money": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,18}$",
+        "description": "Positive integer VND, at most 9223372036854775807. Always a string; never convert to JavaScript Number.",
+        "example": "9007199254740993"
+      },
+      "Contribution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "request_id",
+          "fund_id",
+          "member_user_id",
+          "amount",
+          "status",
+          "self_contribution",
+          "member_reported_at",
+          "confirmed_at",
+          "confirmed_by_user_id",
+          "waived_reason",
+          "cancelled_reason",
+          "version",
+          "finance_version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "TRANSFER_REPORTED", "CONFIRMED", "WAIVED", "CANCELLED", "REVERSED"]
+          },
+          "self_contribution": {
+            "type": "boolean"
+          },
+          "member_reported_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "confirmed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "confirmed_by_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "waived_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelled_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["correlation_id"],
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error", "meta"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "details", "retryable"],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "nullable": true,
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "correlation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      },
+      "Operation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation_id", "trip_id", "state"],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trip_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["PROCESSING", "PENDING_RECOVERY", "NEEDS_REVIEW"]
+          },
+          "outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["COMMITTED", "REJECTED", "CANCELLED"]
+              },
+              "error_code": {
+                "type": "string",
+                "enum": ["FINANCE_OBLIGATION_BLOCKED", "STATE_CONFLICT", "VERSION_CONFLICT"]
+              }
+            }
+          },
+          "error_code": {
+            "type": "string",
+            "enum": ["FINANCE_OBLIGATION_BLOCKED", "STATE_CONFLICT", "VERSION_CONFLICT"]
+          },
+          "next_retry_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LegacyCreatedRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "title",
+          "due_at",
+          "note",
+          "status",
+          "version",
+          "created_by_user_id",
+          "created_at",
+          "amount_per_member",
+          "closed_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": ["OPEN"]
+          },
+          "version": {
+            "type": "integer",
+            "enum": [1]
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amount_per_member": {
+            "type": "string",
+            "nullable": true,
+            "enum": [null]
+          },
+          "closed_at": {
+            "type": "string",
+            "nullable": true,
+            "enum": [null]
+          }
+        },
+        "description": "Only for replay of receipts issued before the full response increment. Does not contain contributions or finance_version. No live rows are used to reconstruct historical data."
+      },
+      "ContributionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "title",
+          "due_at",
+          "note",
+          "status",
+          "version",
+          "created_by_user_id",
+          "created_at",
+          "amount_per_member",
+          "closed_at",
+          "contributions",
+          "finance_version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": ["OPEN", "CLOSED", "CANCELLED"]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amount_per_member": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "contributions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Contribution"
+            }
+          },
+          "finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "description": "GET includes every allocation of the request; finance_version is captured with the page in one SQL snapshot. created_by_user_id, created_at, amount_per_member and closed_at are compatibility metadata extensions."
+      },
+      "CreatedRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "title",
+          "due_at",
+          "note",
+          "status",
+          "version",
+          "created_by_user_id",
+          "created_at",
+          "amount_per_member",
+          "closed_at",
+          "contributions",
+          "finance_version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": ["OPEN"]
+          },
+          "version": {
+            "type": "integer",
+            "enum": [1]
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amount_per_member": {
+            "type": "string",
+            "nullable": true,
+            "enum": [null]
+          },
+          "closed_at": {
+            "type": "string",
+            "nullable": true,
+            "enum": [null]
+          },
+          "contributions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Contribution"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["PENDING"]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "enum": [1]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "description": "Saved creation snapshot: OPEN/version 1, allocations PENDING/version 1, finance_version at commit. Retrying returns the saved snapshot even after later changes. Nullable allocation timestamps, confirmer and reasons are null at creation."
+      },
+      "CreateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "contributions", "expected_finance_version"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Nonblank; no NUL. Counted in Unicode code points."
+          },
+          "contributions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["member_user_id", "amount", "destination_id"],
+              "properties": {
+                "member_user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "Positive int64 VND; leading zeroes accepted and normalized."
+                },
+                "destination_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "description": "Unique active members; each destination belongs to this Fund, is active and confirmed by Holder."
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Explicit offset and seconds, up to 9 fractional digits accepted, stored at millisecond precision. Metadata only; no automatic debit or cancellation."
+          },
+          "note": {
+            "type": "string",
+            "description": "May be empty, may not contain NUL. Omit to represent no note; explicit null rejected."
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "UpdateRequestInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "anyOf": [
+          {
+            "required": ["title"]
+          },
+          {
+            "required": ["due_at"]
+          },
+          {
+            "required": ["note"]
+          }
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Nonblank; no NUL. Counted in Unicode code points."
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Explicit offset and seconds, up to 9 fractional digits accepted, stored at millisecond precision. Metadata only; no automatic debit or cancellation."
+          },
+          "note": {
+            "type": "string",
+            "description": "Omit to retain existing note; empty string accepted, null/NUL rejected."
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "UpdateAmountInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["amount", "expected_version", "expected_finance_version"],
+        "properties": {
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Positive int64 VND; leading zeroes accepted and normalized."
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "ContributionReasonInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason", "expected_version", "expected_finance_version"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "\\S",
+            "description": "Nonblank reason, no NUL, at most 1024 characters. Retained with waiver, cancellation or reversal history."
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "ReportContributionTransferInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "evidence_object_key": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ConfirmContributionReceivedInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "RejectContributionTransferInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version", "reason"],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "PaymentInstruction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contribution_id",
+          "amount",
+          "currency",
+          "reference",
+          "recipient_name",
+          "bank_code",
+          "bank_bin",
+          "account_number",
+          "qr_url",
+          "environment",
+          "warning"
+        ],
+        "properties": {
+          "contribution_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,12}$"
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["VND"]
+          },
+          "reference": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{25}$"
+          },
+          "recipient_name": {
+            "type": "string"
+          },
+          "bank_code": {
+            "type": "string"
+          },
+          "bank_bin": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "account_number": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9]{1,19}$"
+          },
+          "qr_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "environment": {
+            "type": "string",
+            "enum": ["TEST"]
+          },
+          "warning": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

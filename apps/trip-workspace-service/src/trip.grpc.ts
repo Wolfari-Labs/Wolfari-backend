@@ -1,5 +1,6 @@
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { LifecycleService } from './operations/lifecycle.service';
+import { FinanceOperationService } from './operations/finance-operation.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { status } from '@grpc/grpc-js';
@@ -132,6 +133,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly config: ConfigService,
     private readonly invitations: TripInvitationsService,
     private readonly lifecycle: LifecycleService,
+    private readonly financeOperations: FinanceOperationService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -254,15 +256,17 @@ export class TripGrpcController implements TripV1.TripServiceController {
     metadata?: Metadata,
   ): Promise<TripV1.GetAccessContextResponse> {
     this.authorize('GetAccessContext', metadata);
-    return this.execute(async () => ({
-      context: protobufAccessContext(
-        await this.access.getContext({
-          tripId: request.trip_id,
-          userId: request.user_id,
-          action: request.action,
-        }),
-      ),
-    }));
+    return this.execute(async () => {
+      const context = await this.access.getContext({
+        tripId: request.trip_id,
+        userId: request.user_id,
+        action: request.action,
+      });
+      return {
+        context: protobufAccessContext(context),
+        finance_closure_locked: context.finance_closure_locked,
+      };
+    });
   }
 
   updatePlanPolicy(
@@ -285,12 +289,22 @@ export class TripGrpcController implements TripV1.TripServiceController {
     }));
   }
 
-  beginFinanceOperation(): TripV1.BeginFinanceOperationResponse {
-    return this.unimplemented();
+  beginFinanceOperation(
+    request: TripV1.BeginFinanceOperationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.BeginFinanceOperationResponse> {
+    const correlation = this.authorize('BeginFinanceOperation', metadata);
+    return this.execute(() => this.financeOperations.begin(request, correlation));
   }
 
-  completeOperation(): TripV1.CompleteOperationResponse {
-    return this.unimplemented();
+  completeOperation(
+    request: TripV1.CompleteOperationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.CompleteOperationResponse> {
+    this.authorize('CompleteOperation', metadata);
+    return this.execute(async () => ({
+      operation: await this.financeOperations.complete(request),
+    }));
   }
 
   getOperationResult(
@@ -299,7 +313,9 @@ export class TripGrpcController implements TripV1.TripServiceController {
   ): Promise<TripV1.GetOperationResultResponse> {
     this.authorize('GetOperationResult', metadata);
     return this.execute(async () => ({
-      operation: await this.lifecycle.getOperation(request.operation_id, request.actor_user_id),
+      operation:
+        (await this.financeOperations.getOperation(request.operation_id, request.actor_user_id)) ??
+        (await this.lifecycle.getOperation(request.operation_id, request.actor_user_id)),
     }));
   }
 

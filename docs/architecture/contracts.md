@@ -2,15 +2,63 @@
 
 ## Baseline và phạm vi
 
-Contract mã nguồn được đối chiếu với [DDL/API/Event Specification v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx), năm V001 và Trip V002. Bộ tài liệu đã chốt ngày 02/10/2026; catalog mô tả cả hợp đồng mục tiêu, không đồng nghĩa mọi handler đã triển khai.
+Contract mã nguồn được đối chiếu với [DDL/API/Event Specification v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx), năm V001, Trip/Finance V002 và Automation V002–V005. Bộ tài liệu đã chốt ngày 02/10/2026; catalog mô tả cả hợp đồng mục tiêu, không đồng nghĩa mọi handler đã triển khai.
 
 Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, Trip core, Plan access và [Trip invitations](trip-invitations.md) đã có handler tương ứng; phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
+
+Đợt Finance đọc ngày 14/10 thêm `GetFund` và `ListPaymentDestinations` cho API071/073,
+đưa catalog từ 42 lên 44 RPC. Chỉ ApiGateway gọi hai RPC này; Finance kiểm quyền
+hiện tại qua Trip trước khi trả dữ liệu. `FundView` giữ nullable budget/closed_at,
+`PaymentDestinationView` chỉ có thông tin tài khoản với Owner/Holder. Message
+`Fund` cũ của export và năm RPC Finance cũ giữ nguyên field. Xem [Finance API đọc](finance-fund-setup.md).
+
+Đợt ghi tiếp theo thêm `EnableFund`/`ConfirmPaymentDestination`, đưa catalog lên
+46 RPC. Hai response riêng dùng oneof resource/Operation, actor chỉ từ Gateway.
+Trip Begin response thêm `owner_user_id` ở field mới; Begin/Complete có runtime
+cho hai command Fund setup. Finance GetOperationResult/Cancel có runtime cho cùng
+phạm vi; ExecuteTripOperation và các command khác vẫn chưa được mở bởi đợt này.
+
+Đợt cấu hình thêm `UpdateFundBudget`, `CreatePaymentDestination` và
+`UpdatePaymentDestination`, đưa catalog lên 49 RPC. Ba command đều cần Owner;
+Trip guard/recovery và Finance receipt/cancel hỗ trợ đồng thời cả năm command setup.
+`BudgetChange` dùng oneof value/clear, `DestinationPatch` giữ optional presence;
+response riêng dùng oneof resource/Operation. Không đổi field export hoặc event catalog.
+
+Trên nhánh đóng góp trước khi tích hợp API077, API078 thêm
+`CreateContributionRequest`, đưa catalog lên 50 RPC.
+Chỉ ApiGateway được gọi; input allocations giữ Money dạng chuỗi, due_at/note có
+optional presence. Response riêng dùng oneof ContributionRequestView/Operation,
+không có snapshot tài khoản. Trip guard/worker và Finance receipt/cancel nhận thêm
+CREATE_CONTRIBUTION_REQUEST. Outbox dùng event ContributionRequested hiện có,
+không đổi event schema hoặc migration. Xem [API078](finance-contribution-requests.md).
+
+API079/080 thêm `ListContributionRequests`/`ListContributions` chỉ ApiGateway,
+đưa catalog lên52. ContributionRequestView thêm repeated contributions và optional
+finance_version ở field12/13, giữ các field cũ. ContributionView riêng giữ Money
+string và status string whitelist sáu giá trị, gồm REVERSED; không sửa enum export
+ContributionStatus cũ còn thiếu REVERSED. GET có quyền hiện tại mỗi trang và cursor
+gắn Fund/filter. Receipt078 mới lưu snapshot đầy đủ; legacy receipt không có hai
+field mới vẫn giữ metadata shape cũ. Xem [OpenAPI078–084](../api/finance-contributions.openapi.json).
+
+API081–084 thêm UpdateContributionRequest, UpdateContributionAmount, WaiveContribution
+và CancelContribution, chỉ ApiGateway; catalog lên56. PATCH metadata giữ optional
+presence, amount giữ string int64; response dùng public resource/Operation oneof.
+Trip guard/worker và Finance receipt/cancel nhận bốn command tương ứng. Event
+ContributionUpdated giữ schema hiện có; metadata fanout có event_id riêng và cùng
+aggregate_version. Không đổi export enum, event REVERSED hoặc migration tại mốc này.
+
+API077 bổ sung `ListFundTransactions` cho ApiGateway từ nhánh sổ quỹ. Sau khi
+kết hợp API070–084 và hai RPC chứng từ API105/106, catalog có 59 RPC. Request có
+actor_user_id/fund_id và optional limit/cursor; response items/next_cursor.
+`LedgerEntryView` có fund_id và giữ sequence int64 dạng chuỗi qua loader/JSON,
+nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi trang;
+`LedgerEntry` của export giữ nguyên. Xem phần API077 trong [Finance](finance-fund-setup.md).
 
 ## Quyết định biểu diễn
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 55 RPC                               | `packages/contracts/proto/wolfari/<service>/v1`  | Baseline cùng Notification API126–131 và Price Watch API133–139         |
+| 111 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125, Notification API126–131 và Price Watch API133–139   |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -24,7 +72,13 @@ Package contract chứa contract, type, validator, fixture, metadata topology v�
 
 ## gRPC
 
-Phân bổ là Identity 4, Trip 29, Finance 5, Travel 4 và Automation 13 RPC. Automation vừa là caller của Trip/Identity vừa cung cấp `AutomationService` cho Gateway ở Notification I1 và Price Watch H1; worker H2 và alert H3 dùng lại API139. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+Catalog tích hợp có 111 RPC: Identity 4, Trip 29, Finance 61, Travel 4 và Automation 13. Automation vừa là caller của Trip/Identity vừa cung cấp `AutomationService` cho Gateway ở Notification I1 và Price Watch H1; worker H2 và alert H3 dùng lại API139. Catalog tại `catalog/rpc-v1.json` ghi caller, deadline và nguồn cho từng RPC. Invitations thêm 7 RPC Gateway, Identity resolver chỉ cho Trip và ACK delivery chỉ cho Automation; `GetInvitationDelivery` giữ request/response tương thích, bổ sung expected version và recipient user ID optional.
+
+API087–089 thêm `ReportContributionTransfer`, `ConfirmContributionReceived`,
+`RejectContributionTransfer`, chỉ ApiGateway, response Contribution/Operation.
+Trip guard/recovery và Finance receipt/cancel mở đúng ba command thủ công;
+Finance kiểm Self/Holder. Event ContributionUpdated giữ schema hiện có.
+Xem [thu thủ công](finance-manual-contributions.md).
 
 Bốn RPC Trip core dùng projection `Trip` có kiểu cụ thể. `CreateTrip`, `UpdateTrip` và `UpdatePlanPolicy` mang `operation_id` cùng `actor_user_id`; Gateway ánh xạ khóa chống lặp HTTP sang `operation_id`. PATCH giữ riêng ba trạng thái không truyền, gán chuỗi và xóa bằng `StringPatch` có `oneof`.
 
@@ -40,7 +94,11 @@ Metadata bắt buộc theo quy ước runtime cho mọi RPC đã bật:
 - `x-caller-service`: tên caller khai báo, phải được lớp vận chuyển xác thực;
 - deadline mặc định 2 giây; `GetRoute` và `GetWeather` tối đa 10 giây; không vượt ngân sách còn lại của request.
 
-Timeout sau khi command đã được nhận không chứng minh command thất bại. Protocol liên Finance dự kiến có operation result và HTTP `202`, nhưng handler tương ứng chưa triển khai. Các mutation Trip hiện có trả `503 SERVICE_UNAVAILABLE` khi mất dependency/deadline; client retry cùng key và payload để nhận receipt đã commit, không gọi endpoint polling chưa có runtime.
+Timeout sau khi command đã được nhận không chứng minh command thất bại. Fund setup
+và API078 có HTTP202/operation polling, receipt và worker recovery. Client giữ nguyên
+key/payload để retry; polling dùng GET /api/v1/operations/{operation_id}. Nếu chưa
+biết Begin đã được nhận, có thể trả503; không suy ra chưa có mutation. Các handler
+chưa triển khai không được suy là có runtime chỉ vì catalog đã khai báo.
 
 ## Event và topology
 
@@ -58,4 +116,86 @@ Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result 
 
 Buf kiểm tra breaking Protobuf ở mức `FILE`. Event v1 chỉ cho phép thêm field payload optional; xóa field/event, thêm required, đổi kiểu/required hoặc thu hẹp enum đều thất bại. Mã sinh được commit và `contracts:check` xác minh tái lập trong thư mục tạm.
 
-Identity đợt 1 đã hiện thực xác thực caller bằng service secret local, deadline 2 giây, publisher confirm/mandatory, inbox/outbox, retry và DLQ cho `AccountEmailRequested`. Trip đã hiện thực 15 RPC: bốn core, `GetAccessContext`, `UpdatePlanPolicy`, bảy invitation commands/queries, `GetInvitationDelivery` và `AcknowledgeInvitationDelivery`. Năm RPC Trip chưa triển khai là `BeginFinanceOperation`, `CompleteOperation`, `GetOperationResult`, `GetAutomationContext`, `GetExportWorkerContext`; năm Finance và bốn Travel RPC cũng mới có contract. Identity có bốn handler; Automation xử lý ba event AccountEmailRequested, MemberInvited và MemberJoined. Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog. Các event/RPC còn lại, transport TLS/mTLS production, service identity mạnh hơn và observability đầy đủ thuộc đợt runtime tiếp theo. Không giữ transaction database mở trong lúc gọi RPC hoặc publish message. Xem [phạm vi Identity](identity-phase1.md), [Trip core](trip-core.md) và [Trip Plan access](trip-plan-access-control.md).
+Identity đợt 1 có service secret local, deadline, publisher confirm/mandatory,
+inbox/outbox, retry và DLQ cho AccountEmailRequested. Trip có core, Plan,
+invitations và lifecycle; Finance Begin/Complete/polling và receipt/cancel hiện
+hỗ trợ các lệnh Finance API070–125. Finance ExecuteTripOperation đã có phần nghĩa vụ membership;
+export/automation context và các nghiệp vụ chưa nêu vẫn cần triển khai riêng.
+Automation đã xử lý AccountEmailRequested, MemberInvited và MemberJoined; ghi
+outbox ContributionRequested chưa đồng nghĩa notification/reminder đã chạy.
+Trip dùng secret riêng cho Gateway, Finance, Travel và Automation theo catalog.
+TLS/mTLS production, service identity và observability đầy đủ còn ngoài phạm vi.
+Không giữ transaction database mở trong lúc gọi RPC hoặc publish message.
+
+API105/106 add UploadFinanceReceipt and DownloadFinanceReceipt (ApiGateway only), 30s deadline, bounded bytes payload and dedicated 12MiB file-client limits. Existing business client limits remain unchanged. See finance-receipts.md.
+
+## Payment instruction API086
+
+API086 adds Finance `GetPaymentInstruction` (Gateway only, 2000ms) and optional `finance_closure_locked` on Trip GetAccessContextResponse. Missing closure observation fails closed for this new reader; existing readers retain their semantics. At that milestone the catalog had 63 RPC. No event or migration change. See [payment instructions](finance-payment-instructions.md).
+
+## Contribution reversal API085
+
+API085 adds Finance `ReverseContribution` for ApiGateway, taking operation/actor/
+contribution IDs, reason and the expected contribution/Finance versions. Response
+is the existing ContributionView/Operation oneof. Trip guard/recovery and Finance
+receipt/cancel add `REVERSE_CONTRIBUTION`. Expense API096–101 adds six Gateway-only
+Finance RPCs and five durable command scopes. Catalog now has 70 RPC: Identity 4,
+Trip 29, Finance 33 and Travel 4 at that milestone. `ContributionUpdated` schema v1 widens its status
+enum with REVERSED; no new event type, schema version or database migration is
+introduced. See [contribution reversal](finance-contribution-reversal.md).
+
+## Expense settlement API102–104
+
+API102–104 add Finance `ConfirmExpense`, `RejectExpense` and `ReverseExpense` for
+ApiGateway. Confirm takes authoritative paid time/method and creates one EXPENSE OUT;
+reject takes a reason and creates no ledger entry; reverse takes a reason and creates
+one REVERSAL IN linked to the original OUT. Trip guard/recovery and Finance
+receipt/cancel add the three matching durable command scopes. Catalog now has 73 RPC:
+Identity 4, Trip 29, Finance 36 and Travel 4. The existing `ExpenseView`/Operation
+oneof is reused. No event type, schema version or database migration is added. See
+[expenses](finance-expenses.md).
+
+## Financial Notes API107–110
+
+Financial Notes add four Gateway-only Finance RPCs: list, create, update and delete.
+The catalog now has 77 RPC: Identity 4, Trip 29, Finance 40 and Travel 4. Note writes
+use the shared durable operation protocol and do not publish an event. See
+[Financial Notes](finance-notes.md).
+
+## Refund API111–119
+
+Refund thêm chín Finance RPC chỉ dành cho ApiGateway: list, create, Holder report-paid,
+người nhận confirm-received/confirm-nonreceipt, Owner cancel và chuỗi request/consent/reverse.
+Tám writer dùng durable Trip operation scopes và response `RefundView`/Operation oneof.
+Confirm-received tạo một `REFUND OUT`; reverse tạo một `REVERSAL IN` liên kết ledger gốc.
+Không thêm event, schema version hoặc migration. Xem [Refunds](finance-refunds.md).
+
+## Finance Closure API120–125
+
+Closure thêm sáu Finance RPC chỉ dành cho ApiGateway: create, list, get, self-confirm,
+Owner cancel và Owner remind. Bốn writer dùng durable Trip operation với closure effect
+được lưu trong receipt: create đặt `closure_lock_id`, confirm cuối hoặc cancel gỡ đúng lock;
+recovery hoàn tất effect nếu response Complete bị mất. `ClosureView` mang snapshot JSON
+canonical, SHA-256 và confirmation projection; Gateway parse snapshot thành object an toàn.
+
+Contract dùng bảng/cột V001 và ba event v1 `ClosureRequested`, `ClosureCancelled`,
+`FinanceClosed`, không thêm migration hay event type. Reminder tạo durable outbox signal,
+chưa phải xác nhận notification đã giao. Xem [Finance Closure](finance-closures.md) và
+[OpenAPI120–125](../api/finance-closures.openapi.json).
+
+## Payment Sandbox API090–095
+
+Payment Sandbox thêm sáu Finance RPC chỉ dành cho ApiGateway: tạo và đọc payment attempt,
+yêu cầu đối soát, nhận MoMo IPN, liệt kê ngoại lệ theo Fund và xử lý ngoại lệ. Ba writer
+do người dùng khởi tạo dùng durable Trip operation; IPN là server-to-server và chỉ được ACK
+sau khi receipt đã lưu bền vững. `PaymentAttemptView` và `PaymentExceptionView` là projection
+an toàn, không chứa destination snapshot, provider payload, chữ ký hoặc secret.
+
+Contract dùng các bảng V001 hiện có và không thêm event type hay migration. Thành công từ
+IPN/query hội tụ vào một transaction xác nhận contribution và append đúng một ledger IN;
+trạng thái chưa chắc chắn được giữ để đối soát. Xem [Payment Sandbox](finance-payments.md)
+và [OpenAPI090–095](../api/finance-payments.openapi.json).
+
+## Integration checkpoint: 25 October 2026
+
+The Finance and Price Watch/Notification branches are combined locally. The 111-RPC catalog describes contracts; it does not prove that every declared handler, event consumer or production provider is implemented. Finance AutomationContext/ExportSnapshot and durable outbox delivery still require separate work. Integration verification is recorded separately from historical per-branch results.

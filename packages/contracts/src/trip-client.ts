@@ -23,6 +23,7 @@ export class TripAccessClient {
   getAccessContext(
     request: TripV1.GetAccessContextRequest,
     correlationId: string = randomUUID(),
+    deadline: number = Date.now() + 2000,
   ): Promise<TripV1.GetAccessContextResponse> {
     const method = trip.GetAccessContext as MethodDefinition<
       TripV1.GetAccessContextRequest,
@@ -39,7 +40,7 @@ export class TripAccessClient {
         method.responseDeserialize,
         request,
         metadata,
-        { deadline: Date.now() + 2000 },
+        { deadline: Math.min(Date.now() + 2000, deadline) },
         (error: ServiceError | null, response?: TripV1.GetAccessContextResponse) =>
           error ? reject(error) : resolve(response!),
       ),

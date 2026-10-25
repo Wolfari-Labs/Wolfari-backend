@@ -28,9 +28,11 @@ type AccessRow = QueryResultRow & {
   membership_joined_at: Date | string;
   membership_left_at: Date | string | null;
   selected_editor: boolean;
+  finance_closure_locked: boolean;
 };
 
 export interface AccessContextView {
+  finance_closure_locked?: boolean;
   trip_id: string;
   membership: MembershipView;
   policy: PlanEditPolicy;
@@ -54,6 +56,7 @@ export interface GetAccessContextInput {
 }
 
 const SELECT_ACCESS = `SELECT
+  (t.closure_lock_id IS NOT NULL) AS finance_closure_locked,
   t.id AS trip_id,t.plan_edit_policy,t.plan_version,t.membership_revision,t.export_revision,t.archived_at,
   m.id AS membership_id,m.user_id AS membership_user_id,m.role AS membership_role,
   m.joined_at AS membership_joined_at,m.left_at AS membership_left_at,
@@ -84,6 +87,7 @@ function projectAccess(row: AccessRow, action: AccessAction): AccessContextView 
   ];
 
   return {
+    finance_closure_locked: row.finance_closure_locked,
     trip_id: row.trip_id,
     membership: {
       id: row.membership_id,

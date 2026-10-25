@@ -8,10 +8,12 @@ this flag. Configure FINANCE_GRPC_TARGET and independent TRIP_FINANCE_SECRET via
 env:init before enabling in an isolated test environment. Transport retains the
 repository's loopback development restriction; this is not production TLS work.
 
-Do not enable against real users before Finance Execute/Get/Cancel and the shared
-BeginFinanceOperation/CompleteOperation protocol exist and all relevant Finance
-writers obey the same guard. This branch intentionally leaves those generic Trip
-RPCs unimplemented. Missing dependency is not a reason to bypass Finance.
+Finance Execute/Get/Cancel and the shared BeginFinanceOperation/CompleteOperation
+protocol now cover API070–125 writers and member lifecycle. Finance checks Holder,
+closure, contribution, payment and Refund obligations and atomically waives eligible
+PENDING contributions. See [Finance member lifecycle](finance-member-lifecycle.md).
+Keep the default lifecycle flag disabled for production until Automation/Export
+downstream effects, release configuration and operational review are complete.
 
 ## API and protocol
 
@@ -89,12 +91,12 @@ of the unresolved global retention policy.
 | Area                                | Current branch status                                      | Remaining                                                     |
 | ----------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
 | Trip core, Plan access, Invitations | Existing runtime preserved; Invitations base is stacked    | Rebase/merge main after PR #9                                 |
-| Membership lifecycle                | Trip-side implementation with isolated validation          | Finance/shared protocol integration before enable             |
+| Membership lifecycle                | Trip plus real Finance obligation runtime and recovery     | Production enable/release review                              |
 | Planning timeline                   | Runtime exists; not the old "no Planning runtime" status   | Tân's Location/Packing workflows                              |
 | Membership events                   | Producer/outbox implemented                                | Automation watch/reminder/current-recipient effect            |
 | Architecture contracts              | 42 RPC declarations; 29 business handlers after this slice | 13 target stubs, including generic guard/runtime dependencies |
 | Identity/Gateway                    | Existing authentication plus lifecycle transport           | Identity and Admin product backlog unchanged                  |
-| FR-TR05 overall                     | PARTIAL, not E2E complete                                  | Finance rules, shared guard, downstream consumers and export  |
+| FR-TR05 overall                     | Core Trip/Finance flow validated end to end                | Downstream Automation consumers and Export authorization      |
 
 Historical reports and the official DOCX status tables describe their original
 snapshot; this handoff supersedes their runtime counts, not their business rules.

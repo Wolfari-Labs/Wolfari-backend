@@ -1,3 +1,6 @@
+import { runFinanceReadTests } from './finance-read-integration.mjs';
+import { runFinanceWriteTests } from './finance-write-integration.mjs';
+import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
 import { runMembershipTests } from './trip-members-integration.mjs';
@@ -18,6 +21,27 @@ import { runInvitationTests } from './trip-invitations-integration.mjs';
 import { runPriceWatchTests } from './price-watch-integration.mjs';
 import { runNotificationManagementTests } from './notification-management-integration.mjs';
 
+const receiptsOnly = process.argv.includes('--finance-receipts');
+const instructionsOnly = process.argv.includes('--finance-instructions');
+const expensesOnly = process.argv.includes('--finance-expenses');
+const notesOnly = process.argv.includes('--finance-notes');
+const refundsOnly = process.argv.includes('--finance-refunds');
+const closuresOnly = process.argv.includes('--finance-closures');
+const paymentsOnly = process.argv.includes('--finance-payments');
+const lifecycleOnly = process.argv.includes('--finance-lifecycle');
+const allFinance = process.argv.includes('--finance');
+const paymentTestMode = paymentsOnly || allFinance;
+const lifecycleTestMode = lifecycleOnly || allFinance;
+const financeReadMode =
+  receiptsOnly ||
+  instructionsOnly ||
+  expensesOnly ||
+  notesOnly ||
+  refundsOnly ||
+  closuresOnly ||
+  paymentsOnly ||
+  lifecycleOnly ||
+  allFinance;
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 const priceWatchMode = process.argv.includes('--price-watch');
@@ -184,6 +208,7 @@ const secrets = {
   GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
   GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
+  GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
   FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
   TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -273,6 +298,7 @@ async function main() {
     '--wait-timeout',
     '180',
     'postgres',
+    ...(financeReadMode ? ['minio'] : []),
     ...(invitationMode
       ? ['rabbitmq', 'mailpit']
       : membershipMode || priceWatchMode || notificationMode
@@ -285,7 +311,7 @@ async function main() {
     ...(invitationMode ? ['automation'] : []),
     ...(priceWatchMode ? ['automation'] : []),
     ...(notificationMode ? ['automation'] : []),
-    ...(membershipMode ? ['finance'] : []),
+    ...(membershipMode || financeReadMode ? ['finance'] : []),
   ]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
   }
@@ -325,6 +351,9 @@ async function main() {
     EXPORT_IDENTITY_SECRET: secrets.EXPORT_IDENTITY_SECRET,
   });
   const tripValues = {
+    ...(financeReadMode
+      ? { FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`, TRIP_FINANCE_SECRET: financeSecret }
+      : {}),
     ...(membershipMode
       ? {
           FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`,
@@ -332,6 +361,7 @@ async function main() {
           TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'true',
         }
       : {}),
+    ...(lifecycleTestMode ? { TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'true' } : {}),
     TZ: 'America/Los_Angeles',
     TRIP_PORT: String(ports.trip),
     TRIP_GRPC_PORT: String(ports.tripGrpc),
@@ -370,6 +400,28 @@ async function main() {
       SMTP_PORT: '9',
     });
   }
+  if (financeReadMode)
+    await start('finance-service', {
+      FINANCE_PORT: String(await port()),
+      MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
+      MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
+      MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
+      FINANCE_GRPC_PORT: String(financePort),
+      DATABASE_URL: databaseUrl(infra, 'finance'),
+      TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
+      FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET,
+      GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
+      TRIP_FINANCE_SECRET: financeSecret,
+      ...(paymentTestMode
+        ? {
+            NODE_ENV: 'test',
+            MOMO_SANDBOX_MODE: 'mock',
+            MOMO_PARTNER_CODE: 'MOMO_TEST',
+            MOMO_ACCESS_KEY: 'access',
+            MOMO_SECRET_KEY: 'secret',
+          }
+        : {}),
+    });
   await start('api-gateway', {
     GATEWAY_PORT: String(ports.gateway),
     IDENTITY_HTTP_URL: `http://127.0.0.1:${ports.identity}`,
@@ -381,6 +433,8 @@ async function main() {
     AUTOMATION_GRPC_TARGET: `127.0.0.1:${ports.automationGrpc}`,
     GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
     GATEWAY_CSRF_KEY: secrets.GATEWAY_CSRF_KEY,
+    FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`,
+    GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
     WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
@@ -401,6 +455,100 @@ async function main() {
   if (notificationMode) {
     await runNotificationManagementTests({ request, query, account, bearer, tripBody, pass });
     console.log(`PASS notification:test completed ${checks} groups.`);
+    return;
+  }
+  if (financeReadMode) {
+    const result = await runFinanceReadTests({
+      request,
+      query,
+      account,
+      bearer,
+      tripBody,
+      pass,
+      financeTarget: `127.0.0.1:${financePort}`,
+      financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+      whileTripStopped: async (work) => {
+        await stop(tripProcess);
+        try {
+          return await work();
+        } finally {
+          tripProcess = await start('trip-workspace-service', tripValues);
+        }
+      },
+    });
+    const writes = await runFinanceWriteTests({
+      receiptsOnly,
+      instructionsOnly,
+      expensesOnly,
+      notesOnly,
+      refundsOnly,
+      closuresOnly,
+      paymentsOnly,
+      lifecycleOnly,
+      gatewayUrl: `http://127.0.0.1:${ports.gateway}`,
+      storageConfig: {
+        MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
+        MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
+        MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
+      },
+      request,
+      query,
+      transaction,
+      actors: result.actors,
+      bearer,
+      tripBody,
+      pass,
+      waitFor,
+      financeTarget: `127.0.0.1:${financePort}`,
+      tripTarget: `127.0.0.1:${ports.tripGrpc}`,
+      gatewaySecret: secrets.GATEWAY_FINANCE_SECRET,
+      tripSecret: secrets.FINANCE_TRIP_SECRET,
+      financeSecret,
+      restartTrip: async () => {
+        await stop(tripProcess);
+        tripProcess = await start('trip-workspace-service', tripValues);
+      },
+      whileTripStopped: async (work) => {
+        await stop(tripProcess);
+        try {
+          return await work();
+        } finally {
+          tripProcess = await start('trip-workspace-service', tripValues);
+        }
+      },
+    });
+    result.forbidden.push(...writes.forbidden);
+    const ledger = await runFinanceLedgerTests({
+      request,
+      query,
+      transaction,
+      bearer,
+      tripBody,
+      pass,
+      waitFor,
+      actors: result.actors,
+      financeTarget: `127.0.0.1:${financePort}`,
+      financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+      whileTripStopped: async (work) => {
+        await stop(tripProcess);
+        try {
+          return await work();
+        } finally {
+          tripProcess = await start('trip-workspace-service', tripValues);
+        }
+      },
+    });
+    result.forbidden.push(...ledger.forbidden);
+    for (const child of children)
+      for (const value of [
+        ...result.forbidden,
+        ...Object.values(secrets),
+        infra.POSTGRES_PASSWORD,
+      ]) {
+        assert(!child.output.includes(value), `${child.appName} logged private data`);
+      }
+    pass('Finance read application logs contain no tokens, service secrets or account details');
+    console.log(`PASS finance:test completed ${checks} groups.`);
     return;
   }
   if (membershipMode) {

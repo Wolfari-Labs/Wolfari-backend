@@ -149,7 +149,11 @@ export interface GetAccessContextRequest {
 }
 
 export interface GetAccessContextResponse {
-  context?: AccessContext | undefined;
+  context?:
+    | AccessContext
+    | undefined;
+  /** Read-time observation only; not a write guard. Missing means unknown. */
+  finance_closure_locked?: boolean | undefined;
 }
 
 export interface PlanPolicySettings {
@@ -183,7 +187,11 @@ export interface BeginFinanceOperationRequest {
 export interface BeginFinanceOperationResponse {
   context?: AuthorizationContext | undefined;
   active_user_ids?: string[] | undefined;
-  closure_lock_id?: string | undefined;
+  closure_lock_id?:
+    | string
+    | undefined;
+  /** Current Owner at guard acquisition, not supplied by the HTTP caller. */
+  owner_user_id?: string | undefined;
 }
 
 export interface CompleteOperationRequest {

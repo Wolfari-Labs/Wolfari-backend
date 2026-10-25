@@ -9,18 +9,58 @@ import { root, apps, initEnvironment, appEnvironment } from './config.mjs';
 import { migrationFiles } from './migrations.mjs';
 
 describe('development configuration', () => {
+  it('forwards private storage configuration only to Identity and Finance', () => {
+    const values = {
+      MINIO_ENDPOINT: '127.0.0.1:9000',
+      MINIO_ACCESS_KEY: 'test',
+      MINIO_SECRET_KEY: 'test-secret',
+    };
+    for (const app of apps) {
+      const result = appEnvironment(app, values, {});
+      for (const key of Object.keys(values))
+        expect(result[key]).toBe(
+          ['identity-service', 'finance-service'].includes(app.name)
+            ? values[key as keyof typeof values]
+            : undefined,
+        );
+    }
+  });
+  it('isolates Gateway-Finance credentials and forwards only the required transport settings', () => {
+    const values = {
+      GATEWAY_FINANCE_SECRET: 'f'.repeat(64),
+      FINANCE_GRPC_PORT: '3204',
+      FINANCE_GRPC_TARGET: '127.0.0.1:3204',
+    };
+    for (const app of apps) {
+      const result = appEnvironment(app, values, {});
+      expect(result.GATEWAY_FINANCE_SECRET).toBe(
+        ['api-gateway', 'finance-service'].includes(app.name)
+          ? values.GATEWAY_FINANCE_SECRET
+          : undefined,
+      );
+      expect(result.FINANCE_GRPC_PORT).toBe(app.name === 'finance-service' ? '3204' : undefined);
+      expect(result.FINANCE_GRPC_TARGET).toBe(
+        ['api-gateway', 'trip-workspace-service'].includes(app.name)
+          ? values.FINANCE_GRPC_TARGET
+          : undefined,
+      );
+    }
+  });
   it('generates unique secrets, preserves files, and detects conflicting app credentials', async () => {
     const base = await mkdtemp(resolve(tmpdir(), 'wolfari-env-test-'));
     try {
       await writeFile(resolve(base, '.env.example'), await readFile(resolve(root, '.env.example')));
       for (const app of apps) {
         await mkdir(resolve(base, 'apps', app.name), { recursive: true });
-        await writeFile(resolve(base, 'apps', app.name, '.env.example'), await readFile(resolve(root, 'apps', app.name, '.env.example')));
+        await writeFile(
+          resolve(base, 'apps', app.name, '.env.example'),
+          await readFile(resolve(root, 'apps', app.name, '.env.example')),
+        );
       }
       await initEnvironment(base);
       const first = await readFile(resolve(base, '.env'), 'utf8');
       expect(first).not.toContain('change-me-');
-      const secrets = [...first.matchAll(/(?:PASSWORD|PASS)=(\w+)/g)].map(match => match[1]);
+      const secrets = [...first.matchAll(/(?:PASSWORD|PASS)=(\w+)/g)].map((match) => match[1]);
       expect(new Set(secrets).size).toBe(secrets.length);
       await initEnvironment(base);
       expect(await readFile(resolve(base, '.env'), 'utf8')).toBe(first);
@@ -28,46 +68,106 @@ describe('development configuration', () => {
       await writeFile(appPath, 'DATABASE_URL=postgresql://wrong@localhost/identity_db');
       await expect(initEnvironment(base)).rejects.toThrow('khác root');
       expect(await readFile(appPath, 'utf8')).toContain('wrong');
-    } finally { await rm(base, { recursive: true, force: true }); }
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
   it('strips foreign and inherited credentials from app processes', () => {
-    const inherited = { PATH: 'tools', IDENTITY_DB_PASSWORD: 'secret', FINANCE_DATABASE_URL: 'secret', PGHOST: 'secret', DATABASE_URL: 'secret', MINIO_ROOT_PASSWORD: 'secret', NODE_OPTIONS: '--require evil' };
-    expect(appEnvironment(apps[0], { DATABASE_URL: 'ignored', GATEWAY_PORT: '3000' }, inherited)).toEqual({ PATH: 'tools', GATEWAY_PORT: '3000' });
-    expect(appEnvironment(apps[1], { DATABASE_URL: 'own' }, inherited)).toEqual({ PATH: 'tools', DATABASE_URL: 'own' });
+    const inherited = {
+      PATH: 'tools',
+      IDENTITY_DB_PASSWORD: 'secret',
+      FINANCE_DATABASE_URL: 'secret',
+      PGHOST: 'secret',
+      DATABASE_URL: 'secret',
+      MINIO_ROOT_PASSWORD: 'secret',
+      NODE_OPTIONS: '--require evil',
+    };
+    expect(
+      appEnvironment(apps[0], { DATABASE_URL: 'ignored', GATEWAY_PORT: '3000' }, inherited),
+    ).toEqual({ PATH: 'tools', GATEWAY_PORT: '3000' });
+    expect(appEnvironment(apps[1], { DATABASE_URL: 'own' }, inherited)).toEqual({
+      PATH: 'tools',
+      DATABASE_URL: 'own',
+    });
   });
   it('distributes each Trip caller secret only to its server and owning caller', () => {
     const values = {
-      TRIP_GRPC_PORT: '3202', TRIP_GRPC_TARGET: '127.0.0.1:3202',
-      GATEWAY_TRIP_SECRET: 'g'.repeat(64), FINANCE_TRIP_SECRET: 'f'.repeat(64),
-      TRAVEL_TRIP_SECRET: 't'.repeat(64), AUTOMATION_TRIP_SECRET: 'a'.repeat(64),
+      TRIP_GRPC_PORT: '3202',
+      TRIP_GRPC_TARGET: '127.0.0.1:3202',
+      GATEWAY_TRIP_SECRET: 'g'.repeat(64),
+      FINANCE_TRIP_SECRET: 'f'.repeat(64),
+      TRAVEL_TRIP_SECRET: 't'.repeat(64),
+      AUTOMATION_TRIP_SECRET: 'a'.repeat(64),
     };
-    const environment = (name: string) => appEnvironment(apps.find(app => app.name === name)!, values, {});
+    const environment = (name: string) =>
+      appEnvironment(
+        apps.find((app) => app.name === name)!,
+        values,
+        {},
+      );
     expect(environment('trip-workspace-service')).toMatchObject({
-      TRIP_GRPC_PORT: values.TRIP_GRPC_PORT, GATEWAY_TRIP_SECRET: values.GATEWAY_TRIP_SECRET,
-      FINANCE_TRIP_SECRET: values.FINANCE_TRIP_SECRET, TRAVEL_TRIP_SECRET: values.TRAVEL_TRIP_SECRET,
+      TRIP_GRPC_PORT: values.TRIP_GRPC_PORT,
+      GATEWAY_TRIP_SECRET: values.GATEWAY_TRIP_SECRET,
+      FINANCE_TRIP_SECRET: values.FINANCE_TRIP_SECRET,
+      TRAVEL_TRIP_SECRET: values.TRAVEL_TRIP_SECRET,
       AUTOMATION_TRIP_SECRET: values.AUTOMATION_TRIP_SECRET,
     });
     for (const [name, owned] of [
-      ['api-gateway', 'GATEWAY_TRIP_SECRET'], ['finance-service', 'FINANCE_TRIP_SECRET'],
-      ['travel-intelligence-service', 'TRAVEL_TRIP_SECRET'], ['automation-service', 'AUTOMATION_TRIP_SECRET'],
+      ['api-gateway', 'GATEWAY_TRIP_SECRET'],
+      ['finance-service', 'FINANCE_TRIP_SECRET'],
+      ['travel-intelligence-service', 'TRAVEL_TRIP_SECRET'],
+      ['automation-service', 'AUTOMATION_TRIP_SECRET'],
     ] as const) {
       const caller = environment(name);
-      expect(caller).toMatchObject({ TRIP_GRPC_TARGET: values.TRIP_GRPC_TARGET, [owned]: values[owned] });
-      for (const secret of ['GATEWAY_TRIP_SECRET', 'FINANCE_TRIP_SECRET', 'TRAVEL_TRIP_SECRET', 'AUTOMATION_TRIP_SECRET'] as const) {
+      expect(caller).toMatchObject({
+        TRIP_GRPC_TARGET: values.TRIP_GRPC_TARGET,
+        [owned]: values[owned],
+      });
+      for (const secret of [
+        'GATEWAY_TRIP_SECRET',
+        'FINANCE_TRIP_SECRET',
+        'TRAVEL_TRIP_SECRET',
+        'AUTOMATION_TRIP_SECRET',
+      ] as const) {
         if (secret !== owned) expect(caller).not.toHaveProperty(secret);
       }
     }
   });
   it('distributes the Gateway-Automation secret only to both endpoints', () => {
-    const values = { AUTOMATION_GRPC_PORT: '3205', AUTOMATION_GRPC_TARGET: '127.0.0.1:3205', GATEWAY_AUTOMATION_SECRET: 'g'.repeat(64), AUTOMATION_CURSOR_SECRET: 'c'.repeat(64) };
-    const environment = (name: string) => appEnvironment(apps.find(app => app.name === name)!, values, {});
-    expect(environment('api-gateway')).toMatchObject({ AUTOMATION_GRPC_TARGET: values.AUTOMATION_GRPC_TARGET, GATEWAY_AUTOMATION_SECRET: values.GATEWAY_AUTOMATION_SECRET });
-    expect(environment('automation-service')).toMatchObject({ AUTOMATION_GRPC_PORT: values.AUTOMATION_GRPC_PORT, GATEWAY_AUTOMATION_SECRET: values.GATEWAY_AUTOMATION_SECRET, AUTOMATION_CURSOR_SECRET: values.AUTOMATION_CURSOR_SECRET });
+    const values = {
+      AUTOMATION_GRPC_PORT: '3205',
+      AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',
+      GATEWAY_AUTOMATION_SECRET: 'g'.repeat(64),
+      AUTOMATION_CURSOR_SECRET: 'c'.repeat(64),
+    };
+    const environment = (name: string) =>
+      appEnvironment(
+        apps.find((app) => app.name === name)!,
+        values,
+        {},
+      );
+    expect(environment('api-gateway')).toMatchObject({
+      AUTOMATION_GRPC_TARGET: values.AUTOMATION_GRPC_TARGET,
+      GATEWAY_AUTOMATION_SECRET: values.GATEWAY_AUTOMATION_SECRET,
+    });
+    expect(environment('automation-service')).toMatchObject({
+      AUTOMATION_GRPC_PORT: values.AUTOMATION_GRPC_PORT,
+      GATEWAY_AUTOMATION_SECRET: values.GATEWAY_AUTOMATION_SECRET,
+      AUTOMATION_CURSOR_SECRET: values.AUTOMATION_CURSOR_SECRET,
+    });
     expect(environment('trip-workspace-service')).not.toHaveProperty('GATEWAY_AUTOMATION_SECRET');
   });
   it('verifies every baseline SQL checksum against the committed manifest', async () => {
     for (const service of ['identity', 'trip', 'travel', 'finance', 'automation']) {
-      expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(service === 'automation' ? ['V001', 'V002', 'V003', 'V004', 'V005'] : service === 'trip' ? ['V001', 'V002'] : ['V001']);
+      expect(
+        (await migrationFiles(service)).map((file: { version: string }) => file.version),
+      ).toEqual(
+        service === 'automation'
+          ? ['V001', 'V002', 'V003', 'V004', 'V005']
+          : ['trip', 'finance'].includes(service)
+            ? ['V001', 'V002']
+            : ['V001'],
+      );
     }
   });
   it('refuses modified SQL before connecting to PostgreSQL', async () => {
@@ -75,27 +175,43 @@ describe('development configuration', () => {
     try {
       await mkdir(resolve(base, 'docs/database'), { recursive: true });
       await mkdir(resolve(base, 'apps/identity-service/migrations'), { recursive: true });
-      await writeFile(resolve(base, 'docs/database/SHA256SUMS.txt'), await readFile(resolve(root, 'docs/database/SHA256SUMS.txt')));
-      await writeFile(resolve(base, 'apps/identity-service/migrations/V001.sql'), 'BEGIN; SELECT 1; COMMIT;');
+      await writeFile(
+        resolve(base, 'docs/database/SHA256SUMS.txt'),
+        await readFile(resolve(root, 'docs/database/SHA256SUMS.txt')),
+      );
+      await writeFile(
+        resolve(base, 'apps/identity-service/migrations/V001.sql'),
+        'BEGIN; SELECT 1; COMMIT;',
+      );
       await expect(migrationFiles('identity', base)).rejects.toThrow('CHECKSUM_MISMATCH');
-    } finally { await rm(base, { recursive: true, force: true }); }
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
   it('rejects forward manifest overrides, duplicates and modified V002 bytes', async () => {
-    const base=await mkdtemp(resolve(tmpdir(),'wolfari-forward-test-'));
+    const base = await mkdtemp(resolve(tmpdir(), 'wolfari-forward-test-'));
     try {
-      await mkdir(resolve(base,'docs/database'),{recursive:true});
-      await mkdir(resolve(base,'apps/trip-workspace-service/migrations'),{recursive:true});
-      const baseline=await readFile(resolve(root,'docs/database/SHA256SUMS.txt'),'utf8');
-      const forward=await readFile(resolve(root,'docs/database/SHA256SUMS.forward.txt'),'utf8');
-      await writeFile(resolve(base,'docs/database/SHA256SUMS.txt'),baseline);
-      await writeFile(resolve(base,'docs/database/SHA256SUMS.forward.txt'),forward+forward);
-      await expect(migrationFiles('trip',base)).rejects.toThrow('DUPLICATE_MANIFEST_PATH');
-      await writeFile(resolve(base,'docs/database/SHA256SUMS.forward.txt'),baseline.split(/\r?\n/).find(line=>line.includes('/V001.sql'))!);
-      await expect(migrationFiles('trip',base)).rejects.toThrow('INVALID_FORWARD_MANIFEST');
-      await writeFile(resolve(base,'docs/database/SHA256SUMS.forward.txt'),forward);
-      await writeFile(resolve(base,'apps/trip-workspace-service/migrations/V001.sql'),await readFile(resolve(root,'apps/trip-workspace-service/migrations/V001.sql')));
-      await writeFile(resolve(base,'apps/trip-workspace-service/migrations/V002.sql'),'tampered');
-      await expect(migrationFiles('trip',base)).rejects.toThrow('CHECKSUM_MISMATCH');
-    } finally {await rm(base,{recursive:true,force:true});}
+      await mkdir(resolve(base, 'docs/database'), { recursive: true });
+      await mkdir(resolve(base, 'apps/trip-workspace-service/migrations'), { recursive: true });
+      const baseline = await readFile(resolve(root, 'docs/database/SHA256SUMS.txt'), 'utf8');
+      const forward = await readFile(resolve(root, 'docs/database/SHA256SUMS.forward.txt'), 'utf8');
+      await writeFile(resolve(base, 'docs/database/SHA256SUMS.txt'), baseline);
+      await writeFile(resolve(base, 'docs/database/SHA256SUMS.forward.txt'), forward + forward);
+      await expect(migrationFiles('trip', base)).rejects.toThrow('DUPLICATE_MANIFEST_PATH');
+      await writeFile(
+        resolve(base, 'docs/database/SHA256SUMS.forward.txt'),
+        baseline.split(/\r?\n/).find((line) => line.includes('/V001.sql'))!,
+      );
+      await expect(migrationFiles('trip', base)).rejects.toThrow('INVALID_FORWARD_MANIFEST');
+      await writeFile(resolve(base, 'docs/database/SHA256SUMS.forward.txt'), forward);
+      await writeFile(
+        resolve(base, 'apps/trip-workspace-service/migrations/V001.sql'),
+        await readFile(resolve(root, 'apps/trip-workspace-service/migrations/V001.sql')),
+      );
+      await writeFile(resolve(base, 'apps/trip-workspace-service/migrations/V002.sql'), 'tampered');
+      await expect(migrationFiles('trip', base)).rejects.toThrow('CHECKSUM_MISMATCH');
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 });
