@@ -1,10 +1,11 @@
+import { runPaymentCompletionRegressions } from './finance-concurrency-integration.mjs';
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
 
 export async function runPaymentTests(h, helpers) {
   const { request, query, bearer, waitFor, pass } = h;
   const { owner, holder, outsider, member } = h.actors;
-  const { newTrip, write, rpc } = helpers;
+  const { newTrip, write, rpc, financeDb } = helpers;
   const post = (path, body, user, key = randomUUID()) =>
     request(path, 'POST', body, { ...bearer(user), 'idempotency-key': key });
   const mutate = async (path, body, user, key = randomUUID()) => {
@@ -170,6 +171,13 @@ export async function runPaymentTests(h, helpers) {
     '50000',
   );
   pass('API093 deduplicates ten valid IPNs and settles exactly one ledger IN');
+  await runPaymentCompletionRegressions(h, {
+    financeDb,
+    attempt,
+    fundId,
+    transactionId: String(valid.transId),
+    mutate,
+  });
 
   const reviewAttempt = await createAttempt(await contribution(60_000));
   await waitFor(

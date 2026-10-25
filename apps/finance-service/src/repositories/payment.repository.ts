@@ -197,7 +197,27 @@ export class PaymentRepository {
     };
   }
 
-  private async lockedAttempt(client: Client, id: string) {
+  private async lockFund(client: Client, fundId: string) {
+    await client.query('SELECT id FROM funds WHERE id=$1 FOR UPDATE', [fundId]);
+  }
+
+  private async lockAttemptFund(client: Client, id: string, expectedFundId?: string) {
+    // The attempt's contribution/Fund identity is immutable. Lock the Fund before
+    // any child row; the joined attempt read below then observes current state.
+    const scope = (
+      await client.query<{ fund_id: string }>(
+        `SELECT c.fund_id FROM payment_attempts p
+         JOIN contributions c ON c.id=p.contribution_id WHERE p.id=$1`,
+        [id],
+      )
+    ).rows[0];
+    if (!scope || (expectedFundId !== undefined && scope.fund_id !== expectedFundId)) return false;
+    await this.lockFund(client, scope.fund_id);
+    return true;
+  }
+
+  private async lockedAttempt(client: Client, id: string, expectedFundId?: string) {
+    if (!(await this.lockAttemptFund(client, id, expectedFundId))) return undefined;
     return (
       await client.query<AttemptScope>(
         `SELECT ${attemptColumns},c.fund_id,f.trip_id,c.request_id,c.member_user_id,
@@ -254,6 +274,7 @@ export class PaymentRepository {
     authority: FundSetupContext,
     correlation: string,
   ): Promise<StoredResult> {
+    await this.lockFund(client, input.fundId);
     const row = (
       await client.query<{
         fund_id: string;
@@ -351,7 +372,7 @@ export class PaymentRepository {
     authority: FundSetupContext,
     correlation: string,
   ): Promise<StoredResult> {
-    const row = await this.lockedAttempt(client, input.paymentAttemptId);
+    const row = await this.lockedAttempt(client, input.paymentAttemptId, input.fundId);
     if (!row || row.fund_id !== input.fundId || row.trip_id !== input.tripId)
       throw new FinanceReadError('RESOURCE_NOT_FOUND');
     assertHolderPaymentAction(
@@ -469,13 +490,15 @@ export class PaymentRepository {
       );
     } else {
       const attemptId = input.body.linkedAttemptId!;
-      const attempt = await this.lockedAttempt(client, attemptId);
+      const attempt = await this.lockedAttempt(client, attemptId, input.fundId);
       if (!attempt || attempt.fund_id !== input.fundId || attempt.provider !== 'MOMO_SANDBOX')
         throw new FinanceReadError('RESOURCE_NOT_FOUND');
       if (
         String(payload.partner_code) !== attempt.merchant_id ||
         String(payload.amount) !== attempt.amount
       )
+        throw new FinanceReadError('STATE_CONFLICT');
+      if (attempt.status === 'SUCCEEDED' && classifyMomoResult(resultCode) !== 'SUCCEEDED')
         throw new FinanceReadError('STATE_CONFLICT');
       await client.query('UPDATE payment_webhook_receipts SET payment_attempt_id=$2 WHERE id=$1', [
         exception.id,
@@ -547,44 +570,50 @@ export class PaymentRepository {
   }
 
   async receiveWebhook(input: MomoWebhookInput, signatureValid: boolean, expectedPartner: string) {
-    const attempt = (
-      await this.db.query<{
-        id: string;
-        merchant_id: string;
-        client_request_id: string;
-        contribution_id: string;
-        amount: string;
-      }>(
-        `SELECT id,merchant_id,client_request_id,contribution_id,amount::text FROM payment_attempts
-         WHERE provider='MOMO_SANDBOX' AND environment='SANDBOX' AND provider_order_id=$1`,
-        [input.orderId],
-      )
-    ).rows[0];
-    let status: 'RECEIVED' | 'IGNORED' | 'NEEDS_REVIEW' = 'RECEIVED';
-    let reason: string | null = null;
-    if (!signatureValid) {
-      status = 'IGNORED';
-      reason = 'INVALID_SIGNATURE';
-    } else if (!attempt) {
-      status = 'NEEDS_REVIEW';
-      reason = 'ATTEMPT_NOT_FOUND';
-    } else if (input.partnerCode !== expectedPartner || input.partnerCode !== attempt.merchant_id) {
-      status = 'NEEDS_REVIEW';
-      reason = 'MERCHANT_MISMATCH';
-    } else if (input.requestId !== attempt.client_request_id) {
-      status = 'NEEDS_REVIEW';
-      reason = 'REQUEST_MISMATCH';
-    } else if (input.amount.toString() !== attempt.amount) {
-      status = 'NEEDS_REVIEW';
-      reason = 'AMOUNT_MISMATCH';
-    } else if (input.orderInfo !== `Wolfari contribution ${attempt.contribution_id}`) {
-      status = 'NEEDS_REVIEW';
-      reason = 'ORDER_INFO_MISMATCH';
-    } else if (classifyMomoResult(input.resultCode) === 'PENDING') {
-      status = 'NEEDS_REVIEW';
-      reason = 'AUTHORIZED_OR_PENDING';
-    }
     return this.db.withTransaction(async (client) => {
+      const attempt = (
+        await client.query<{
+          id: string;
+          merchant_id: string;
+          client_request_id: string;
+          contribution_id: string;
+          amount: string;
+        }>(
+          `SELECT id,merchant_id,client_request_id,contribution_id,amount::text FROM payment_attempts
+           WHERE provider='MOMO_SANDBOX' AND environment='SANDBOX' AND provider_order_id=$1`,
+          [input.orderId],
+        )
+      ).rows[0];
+      // Matched valid evidence must serialize with closure/lifecycle before its
+      // receipt becomes visible. Invalid signatures never introduce blockers.
+      if (attempt && signatureValid) await this.lockAttemptFund(client, attempt.id);
+      let status: 'RECEIVED' | 'IGNORED' | 'NEEDS_REVIEW' = 'RECEIVED';
+      let reason: string | null = null;
+      if (!signatureValid) {
+        status = 'IGNORED';
+        reason = 'INVALID_SIGNATURE';
+      } else if (!attempt) {
+        status = 'NEEDS_REVIEW';
+        reason = 'ATTEMPT_NOT_FOUND';
+      } else if (
+        input.partnerCode !== expectedPartner ||
+        input.partnerCode !== attempt.merchant_id
+      ) {
+        status = 'NEEDS_REVIEW';
+        reason = 'MERCHANT_MISMATCH';
+      } else if (input.requestId !== attempt.client_request_id) {
+        status = 'NEEDS_REVIEW';
+        reason = 'REQUEST_MISMATCH';
+      } else if (input.amount.toString() !== attempt.amount) {
+        status = 'NEEDS_REVIEW';
+        reason = 'AMOUNT_MISMATCH';
+      } else if (input.orderInfo !== `Wolfari contribution ${attempt.contribution_id}`) {
+        status = 'NEEDS_REVIEW';
+        reason = 'ORDER_INFO_MISMATCH';
+      } else if (classifyMomoResult(input.resultCode) === 'PENDING') {
+        status = 'NEEDS_REVIEW';
+        reason = 'AUTHORIZED_OR_PENDING';
+      }
       const row = (
         await client.query<PaymentExceptionRow & { signature_valid: boolean }>(
           `INSERT INTO payment_webhook_receipts(provider,environment,dedupe_key,payment_attempt_id,
@@ -603,7 +632,12 @@ export class PaymentRepository {
           ],
         )
       ).rows[0]!;
-      if (attempt && signatureValid && status === 'NEEDS_REVIEW')
+      if (
+        attempt &&
+        signatureValid &&
+        row.processing_status === 'NEEDS_REVIEW' &&
+        row.payment_attempt_id === attempt.id
+      )
         await client.query(
           'UPDATE payment_attempts SET needs_reconciliation=true,updated_at=clock_timestamp() WHERE id=$1',
           [attempt.id],
@@ -713,59 +747,62 @@ export class PaymentRepository {
       : undefined;
   }
   async completeQuery(id: string, result: MomoQueryResult) {
-    const row = await this.attemptScope(id);
-    if (!row) return;
-    if (
-      result.orderId !== row.provider_order_id ||
-      (result.amount !== undefined && result.amount !== BigInt(row.amount))
-    ) {
-      await this.queryException(row, result, 'QUERY_MISMATCH');
-      return;
-    }
-    const state = classifyMomoResult(result.resultCode);
-    if (state === 'SUCCEEDED') {
-      if (!result.transactionId) {
-        await this.queryException(row, result, 'QUERY_TRANSACTION_MISSING');
+    await this.db.withTransaction(async (client) => {
+      const row = await this.lockedAttempt(client, id);
+      if (!row) return;
+      if (
+        result.orderId !== row.provider_order_id ||
+        (result.amount !== undefined && result.amount !== BigInt(row.amount))
+      ) {
+        await this.insertQueryException(client, row, result, 'QUERY_MISMATCH');
         return;
       }
-      await this.db.withTransaction(async (client) => {
+      const state = classifyMomoResult(result.resultCode);
+      if (state === 'SUCCEEDED') {
+        if (!result.transactionId) {
+          await this.insertQueryException(client, row, result, 'QUERY_TRANSACTION_MISSING');
+          return;
+        }
         const settled = await this.settleSuccess(client, row.id, {
-          transactionId: result.transactionId!,
+          transactionId: result.transactionId,
           correlation: randomUUID(),
           actor: null,
           system: 'MOMO_RECONCILIATION',
         });
         if (!settled)
           await this.insertQueryException(client, row, result, 'QUERY_SUCCESS_CONFLICT');
-      });
-      return;
-    }
-    await this.db.query(
-      `UPDATE payment_attempts SET status=$2,needs_reconciliation=$3,reconciled_at=clock_timestamp(),
-       error_code=$4,provider_payload=provider_payload||$5::jsonb,updated_at=clock_timestamp() WHERE id=$1`,
-      [
-        id,
-        state,
-        state === 'PENDING',
-        `MOMO_${result.resultCode}`,
-        JSON.stringify({
-          query_result_code: result.resultCode,
-          query_response_time: result.responseTime,
-        }),
-      ],
-    );
+        return;
+      }
+      // A query started before an IPN may return afterward. A matching stale
+      // non-success result cannot revoke an already posted provider payment.
+      if (row.status === 'SUCCEEDED') return;
+      await client.query(
+        `UPDATE payment_attempts SET status=$2::varchar,needs_reconciliation=$3,reconciled_at=clock_timestamp(),
+         error_code=$4,provider_payload=provider_payload||$5::jsonb,updated_at=clock_timestamp()
+         WHERE id=$1 AND status<>'SUCCEEDED'`,
+        [
+          id,
+          state,
+          state === 'PENDING',
+          `MOMO_${result.resultCode}`,
+          JSON.stringify({
+            query_result_code: result.resultCode,
+            query_response_time: result.responseTime,
+          }),
+        ],
+      );
+    });
   }
   async failQuery(id: string) {
-    await this.db.query(
-      `UPDATE payment_attempts SET needs_reconciliation=true,error_code='MOMO_QUERY_UNAVAILABLE',
-       updated_at=clock_timestamp() WHERE id=$1 AND status<>'SUCCEEDED'`,
-      [id],
-    );
-  }
-  private async queryException(row: AttemptScope, result: MomoQueryResult, reason: string) {
-    await this.db.withTransaction((client) =>
-      this.insertQueryException(client, row, result, reason),
-    );
+    await this.db.withTransaction(async (client) => {
+      const row = await this.lockedAttempt(client, id);
+      if (!row || row.status === 'SUCCEEDED') return;
+      await client.query(
+        `UPDATE payment_attempts SET needs_reconciliation=true,error_code='MOMO_QUERY_UNAVAILABLE',
+         updated_at=clock_timestamp() WHERE id=$1 AND status<>'SUCCEEDED'`,
+        [id],
+      );
+    });
   }
   private async insertQueryException(
     client: Client,
@@ -773,6 +810,7 @@ export class PaymentRepository {
     result: MomoQueryResult,
     reason: string,
   ) {
+    await this.lockFund(client, row.fund_id);
     const payload = {
       source: 'QUERY',
       partner_code: row.merchant_id,
@@ -808,6 +846,18 @@ export class PaymentRepository {
   }
   async processWebhook(id: string) {
     return this.db.withTransaction(async (client) => {
+      const scope = (
+        await client.query<{ payment_attempt_id: string | null }>(
+          `SELECT payment_attempt_id FROM payment_webhook_receipts
+           WHERE id=$1 AND processing_status='RECEIVED' AND signature_valid`,
+          [id],
+        )
+      ).rows[0];
+      if (
+        !scope?.payment_attempt_id ||
+        !(await this.lockAttemptFund(client, scope.payment_attempt_id))
+      )
+        return;
       const receipt = (
         await client.query<PaymentExceptionRow & { payload: unknown; signature_valid: boolean }>(
           `SELECT id,payment_attempt_id,processing_status,review_reason,received_at,reviewed_at,
@@ -815,7 +865,12 @@ export class PaymentRepository {
           [id],
         )
       ).rows[0];
-      if (!receipt || receipt.processing_status !== 'RECEIVED' || !receipt.payment_attempt_id)
+      if (
+        !receipt ||
+        !receipt.signature_valid ||
+        receipt.processing_status !== 'RECEIVED' ||
+        receipt.payment_attempt_id !== scope.payment_attempt_id
+      )
         return;
       const payload = payloadRecord(receipt.payload);
       const code = Number(payload.result_code);
@@ -877,16 +932,52 @@ export class PaymentRepository {
     const duplicate = (
       await client.query<{ id: string }>(
         `SELECT id FROM payment_attempts WHERE provider=$1 AND environment=$2
-         AND provider_transaction_id=$3 AND id<>$4 FOR UPDATE`,
+         AND provider_transaction_id=$3 AND id<>$4`,
         [row.provider, row.environment, source.transactionId, row.id],
       )
     ).rows[0];
-    const original = await client.query(
-      "SELECT id FROM fund_transactions WHERE contribution_id=$1 AND transaction_type='CONTRIBUTION'",
+    // The provider transaction unique index arbitrates concurrent cross-Fund
+    // claims. Locking a peer attempt here would invert its own Fund lock order.
+    const original = await client.query<{
+      id: string;
+      fund_id: string;
+      direction: string;
+      amount: string;
+    }>(
+      "SELECT id,fund_id,direction,amount::text FROM fund_transactions WHERE contribution_id=$1 AND transaction_type='CONTRIBUTION'",
       [row.contribution_id],
     );
+    const posted = original.rows[0];
+    if (
+      !duplicate &&
+      row.status === 'SUCCEEDED' &&
+      row.provider_transaction_id === source.transactionId &&
+      original.rowCount === 1 &&
+      posted?.fund_id === row.fund_id &&
+      posted.direction.trimEnd() === 'IN' &&
+      posted.amount === row.amount
+    ) {
+      const reversals = await client.query<{ fund_id: string; direction: string; amount: string }>(
+        `SELECT fund_id,direction,amount::text FROM fund_transactions
+         WHERE reversal_of_id=$1 AND transaction_type='REVERSAL'`,
+        [posted.id],
+      );
+      const reversed = reversals.rows[0];
+      const consistent =
+        (row.contribution_status === 'CONFIRMED' && reversals.rowCount === 0) ||
+        (row.contribution_status === 'REVERSED' &&
+          reversals.rowCount === 1 &&
+          reversed?.fund_id === row.fund_id &&
+          reversed.direction.trimEnd() === 'OUT' &&
+          reversed.amount === row.amount);
+      if (consistent) {
+        if (source.receiptId) await this.completeWebhookReceipt(client, source.receiptId);
+        return true;
+      }
+    }
     if (
       duplicate ||
+      row.status === 'SUCCEEDED' ||
       row.finance_version >= MAX_INT32 ||
       row.contribution_version >= MAX_INT32 ||
       row.request_status !== 'OPEN' ||
@@ -944,13 +1035,7 @@ export class PaymentRepository {
        updated_at=clock_timestamp() WHERE id=$1`,
       [row.fund_id, balance.toString()],
     );
-    if (source.receiptId)
-      await client.query(
-        `UPDATE payment_webhook_receipts SET processing_status='PROCESSED',processed_at=clock_timestamp(),
-         reviewed_at=CASE WHEN review_reason IS NULL THEN reviewed_at ELSE clock_timestamp() END
-         WHERE id=$1`,
-        [source.receiptId],
-      );
+    if (source.receiptId) await this.completeWebhookReceipt(client, source.receiptId);
     const financeVersion = row.finance_version + 1;
     await this.audit(client, {
       fundId: row.fund_id,
@@ -986,6 +1071,15 @@ export class PaymentRepository {
       ],
     );
     return true;
+  }
+
+  private async completeWebhookReceipt(client: Client, id: string) {
+    await client.query(
+      `UPDATE payment_webhook_receipts SET processing_status='PROCESSED',processed_at=clock_timestamp(),
+       reviewed_at=CASE WHEN review_reason IS NULL THEN reviewed_at ELSE clock_timestamp() END
+       WHERE id=$1`,
+      [id],
+    );
   }
 
   private async audit(

@@ -106,6 +106,14 @@ Resolve được tuần tự hóa bằng Fund lock, optimistic finance version v
 Replay cùng key/cùng payload trả kết quả cũ sau khi kiểm quyền hiện tại; key cũ khác payload
 trả idempotency conflict.
 
+## Concurrent provider results
+
+Every query completion reads the current attempt in a local transaction after explicitly locking its Fund. A matching FAILED/PENDING result arriving after a settled SUCCEEDED attempt is ignored; a transport failure cannot revoke that settlement. Mismatched order/amount and a different successful provider transaction remain reconciliation exceptions. The same successful transaction is a no-op only when the original IN and the contribution state agree, including a correctly linked reversal when already REVERSED. It never appends another IN or changes balances, versions, audit or events.
+
+Matched valid webhook ingress, receipt processing, query exceptions and new reconciliation blockers acquire the Fund before child locks. This serializes their visibility with closure confirmation and membership lifecycle. Invalid signatures are retained as IGNORED and introduce no blocker. Peer attempts in another Fund are not row-locked during duplicate provider transaction checks; the existing unique constraint arbitrates conflicting transaction identities. Provider HTTP remains outside every SQL transaction. A Holder cannot LINK a non-success exception onto an already SUCCEEDED attempt; the command rejects before business mutation. A linked attempt from another Fund is rejected before locking that Fund. NO_FINANCIAL_EFFECT remains available for eligible non-success evidence.
+
+This implementation follows PostgreSQL17 [row locking and deadlock guidance](https://www.postgresql.org/docs/17/explicit-locking.html) and its [Read Committed statement visibility](https://www.postgresql.org/docs/17/transaction-iso.html). The Fund-level protocol is a project design choice derived from these guarantees.
+
 ## Lifecycle, Closure và quyền riêng tư
 
 Finance `ExecuteTripOperation` kiểm nghĩa vụ Payment khi member rời hoặc bị xóa.

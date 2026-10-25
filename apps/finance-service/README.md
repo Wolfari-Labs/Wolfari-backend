@@ -81,7 +81,7 @@ Invoke-RestMethod http://127.0.0.1:3104/health/ready
 ```
 
 - `/health/live`: tiến trình đang chạy, không chứng minh DB sẵn sàng.
-- `/health/ready`: kiểm tra đúng DB/role và đã có V001. Nếu DB kết nối được nhưng
+- `/health/ready`: kiểm tra đúng DB/role và đã có V001+V002. Nếu DB kết nối được nhưng
   chưa migrate, endpoint trả HTTP 503 với `database: up`, `migrations: missing`.
 - Startup không tự chạy migration. Xem [quy trình SQL của nhóm](../../docs/database/README.md)
   trước khi áp dụng `apps/finance-service/migrations/V001.sql`; không sửa V001
@@ -97,9 +97,9 @@ pnpm.cmd db:migrate --service finance
 pnpm.cmd db:status --service finance
 ```
 
-Runner kiểm tra checksum/lịch sử và bỏ qua phiên bản đã áp dụng. Khi V001 đã chạy,
-Finance có 16 bảng nghiệp vụ cùng `schema_migrations`; readiness phải trả 200
-khi database kết nối được. Không bỏ `--service finance` nếu chỉ chuẩn bị Finance,
+Runner kiểm tra checksum/lịch sử và bỏ qua phiên bản đã áp dụng. Khi V001 và V002 đã chạy,
+Finance có 17 bảng nghiệp vụ cùng `schema_migrations`; readiness phải trả 200
+khi database kết nối được và đủ cả hai migration. Không bỏ `--service finance` nếu chỉ chuẩn bị Finance,
 vì runner mặc định xử lý cả năm database. Không chạy lại bootstrap trên volume cũ.
 
 ## Dùng DB trong nghiệp vụ tiếp theo

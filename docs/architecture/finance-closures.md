@@ -84,6 +84,12 @@ các mutation Finance khác bị chặn; membership/lifecycle cũng phải tôn 
 Không giữ transaction database trong lúc gọi RPC. Trip lấy authorization snapshot trước,
 Finance commit local, rồi Trip Complete local theo protocol hiện hành.
 
+## Late payment evidence during confirmation
+
+Before recording each new confirmation, Finance rechecks the original blocker rules, Fund balance and ledger total while holding the Fund lock. This includes intermediate confirmations and the last confirmation that would close the Fund. Valid webhook receipts and query exceptions use the same lock before becoming visible. If they commit first, confirmation returns STATE_CONFLICT without changing the snapshot, hash, confirmations, Fund version or outbox. The Owner can cancel the closure and reconcile while OPEN.
+
+An already-recorded confirmation remains an idempotent no-op, and invalid-signature receipts remain nonblocking. If the final confirmation commits before genuinely later evidence, the evidence is stored for review without reopening the CLOSED Fund or changing its ledger. This is the SRS2.3 FR-FN04 late-payment rule; it does not promise that future provider messages cannot arrive.
+
 ## Event và reminder
 
 Create ghi `ClosureRequested`; cancel ghi `ClosureCancelled`; xác nhận cuối ghi

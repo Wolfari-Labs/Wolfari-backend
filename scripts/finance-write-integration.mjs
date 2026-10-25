@@ -124,7 +124,7 @@ export async function runFinanceWriteTests(h) {
   }
   if (h.paymentsOnly) {
     try {
-      await runPaymentTests(h, { newTrip, write, rpc });
+      await runPaymentTests(h, { newTrip, write, rpc, financeDb });
       return { forbidden: [owner.access, holder.access, outsider.access] };
     } finally {
       tripClient.onApplicationShutdown();
@@ -192,6 +192,7 @@ export async function runFinanceWriteTests(h) {
         repo,
         tripClient,
         fundCommandHash,
+        financeDb,
       });
       return { forbidden: [owner.access, holder.access, outsider.access] };
     } finally {
@@ -723,8 +724,9 @@ export async function runFinanceWriteTests(h) {
       repo,
       tripClient,
       fundCommandHash,
+      financeDb,
     });
-    await runPaymentTests(h, { newTrip, write, rpc });
+    await runPaymentTests(h, { newTrip, write, rpc, financeDb });
     await runFinanceLifecycleTests(h, { newTrip, write, enableBody, rpc });
     const instructionKeys = await runPaymentInstructionTests(h, { newTrip, write, enableBody });
     return {

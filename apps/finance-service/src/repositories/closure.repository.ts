@@ -311,6 +311,15 @@ export class ClosureRepository {
           const mine = confirmations.rows.find((item) => item.user_id === input.actor)!;
           if (mine.confirmed_at !== null) changed = false;
           else {
+            // Provider evidence can arrive after the snapshot was created.
+            // Its writers take this same Fund lock before introducing blockers.
+            const check = await this.blockers(client, fund.id);
+            if (
+              BigInt(fund.current_balance) !== 0n ||
+              BigInt(check.ledger_total) !== 0n ||
+              Number(check.blockers) > 0
+            )
+              throw new FinanceReadError('STATE_CONFLICT');
             await client.query(
               'UPDATE closure_confirmations SET confirmed_at=clock_timestamp() WHERE closure_id=$1 AND user_id=$2',
               [row.id, input.actor],

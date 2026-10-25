@@ -1,3 +1,4 @@
+import { runClosureConcurrencyTests } from './finance-concurrency-integration.mjs';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 
@@ -484,4 +485,10 @@ export async function runClosureTests(h, helpers) {
   pass(
     'Closure lock set/release effects recover from committed Finance receipts without replaying money',
   );
+  await runClosureConcurrencyTests(h, {
+    financeDb: helpers.financeDb,
+    createFund,
+    createClosure,
+    action,
+  });
 }
