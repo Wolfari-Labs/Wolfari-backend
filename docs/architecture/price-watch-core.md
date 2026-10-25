@@ -82,3 +82,13 @@ Event lifecycle giảm cửa sổ xử lý nền nhưng không thay thế kiểm
 - Notification I1 đã tiếp quản phần preference/device/inbox/read cho bản ghi `AVAILABLE`; push/email delivery và receipt runtime vẫn thuộc I2.
 - Provider thật chỉ thêm sau khi chốt điều khoản, rate limit, dữ liệu giá và cách đánh dấu nguồn; không dùng mock để tuyên bố giá thực.
 - Cần bổ sung quan sát vận hành cho backlog/DLQ và kiểm thử production transport; H3 hiện chỉ chứng minh local với provider mock.
+
+## Dispatch eligibility and database contention
+
+Claim and reclaim require at least one ACTIVE watch in the same query group whose expiry is still in the future. The predicate runs before ordering and limiting candidates, so an ineligible older group cannot hide a later eligible one. Pausing, stopping or expiring the last active watch before the claim statement prevents another provider dispatch. Ineligible attempts stay dormant without consuming a generation or changing their owner/lease; resuming a watch can make the saved attempt eligible again. A request already claimed before pause is in flight and cannot be retroactively cancelled by this predicate. Alert finalization still rechecks watch version/status/membership.
+
+Price Watch repository transactions retry once only after a definite PostgreSQL deadlock (40P01) rollback. The bound is two total transaction attempts, scoped to the watch, worker, alert and lifecycle repositories. Every attempt rereads the relevant versions, statuses and lease owner/generation. Provider fetch, Trip access and other external I/O stay outside the callback: completing a fetched quote can retry its SQL work without fetching again or consuming another provider attempt. Constraint/domain errors, timeouts, connection errors and ambiguous commit outcomes are not retried.
+
+This is bounded deadlock recovery, not proof that all deadlocks are eliminated. The existing two-second Automation RPC deadline is unchanged; a transaction may finish after the caller times out. Retry does not make cross-service access checks atomic. PostgreSQL documents consistent lock ordering and retry after a deadlock in its [locking guidance](https://www.postgresql.org/docs/17/explicit-locking.html); the narrow retry policy above is this project's implementation choice.
+
+All current observations come from MOCK_FLIGHT. Price alert notifications explicitly identify simulated data in Vietnamese. An unsupported observation provider is rejected before notification creation, preventing an unknown provider from being labelled as the approved mock. This checkpoint does not integrate a real price provider or send push/email.

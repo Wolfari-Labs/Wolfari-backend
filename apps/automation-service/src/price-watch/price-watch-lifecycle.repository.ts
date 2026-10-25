@@ -1,3 +1,4 @@
+import { withPriceWatchTransaction } from './price-watch-transaction';
 import { Injectable } from '@nestjs/common';
 import type { parseEventForConsume } from '@wolfari/contracts/events';
 import { DatabaseProvider } from '@wolfari/database';
@@ -53,7 +54,7 @@ export class PriceWatchLifecycleRepository {
 
   async apply(event: WolfariEventV1): Promise<'APPLIED' | 'DUPLICATE' | 'STALE'> {
     const type = eventType(event);
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const inbox = await client.query(
         `INSERT INTO inbox_events(
            consumer_name,event_id,event_type,aggregate_id,aggregate_version

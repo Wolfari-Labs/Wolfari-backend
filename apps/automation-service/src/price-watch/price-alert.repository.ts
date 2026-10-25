@@ -1,3 +1,4 @@
+import { withPriceWatchTransaction } from './price-watch-transaction';
 import { Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
 import {
@@ -47,6 +48,7 @@ interface CandidateDetailRow extends ClaimedPriceAlert {
   last_alert_at: Date | string | null;
   alert_armed: boolean;
   observation_query_group_id: string;
+  observation_provider: string;
   price: string;
   observed_at: Date | string;
 }
@@ -200,7 +202,7 @@ export class PriceAlertRepository {
     candidate: ClaimedPriceAlert,
     reason: 'TRIP_ARCHIVED' | 'ACCESS_REVOKED',
   ): Promise<'SUPPRESSED' | 'STALE'> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const row = (
         await client.query<{ query_group_id: string; status: string; version: number }>(
           `SELECT w.query_group_id,w.status,w.version FROM price_alert_candidates c
@@ -245,7 +247,7 @@ export class PriceAlertRepository {
     candidate: ClaimedPriceAlert,
     membershipId: string,
   ): Promise<AlertCompletion> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const row = (
         await client.query<CandidateDetailRow>(
           `SELECT c.id,c.watch_id,c.observation_id,c.watch_version,c.attempt_count,
@@ -253,7 +255,7 @@ export class PriceAlertRepository {
              w.query_group_id,w.status AS watch_status,w.version,
              w.threshold_price::text,w.expires_at,w.last_alert_price::text,
              w.last_alert_at,w.alert_armed,o.query_group_id AS observation_query_group_id,
-             o.price::text,o.observed_at
+             o.provider AS observation_provider,o.price::text,o.observed_at
            FROM price_alert_candidates c
            JOIN price_watches w ON w.id=c.watch_id
            JOIN price_observations o ON o.id=c.observation_id
@@ -292,6 +294,8 @@ export class PriceAlertRepository {
         row.query_group_id !== row.observation_query_group_id
       )
         return finish('SUPPRESSED', 'WATCH_CHANGED');
+      if (row.observation_provider !== 'MOCK_FLIGHT')
+        return finish('FAILED', 'PROVIDER_NOT_SUPPORTED');
       if (row.version >= 2_147_483_647) return finish('FAILED', 'WATCH_VERSION_EXHAUSTED');
 
       const latest = (
@@ -325,12 +329,12 @@ export class PriceAlertRepository {
       await client.query(
         `INSERT INTO notifications(
            user_id,trip_id,type,title,body,source_id,status,dedupe_key
-         ) VALUES($1,$2,'PRICE_ALERT','Giá vé đã giảm',$3,$4,'AVAILABLE',$5)
+         ) VALUES($1,$2,'PRICE_ALERT','Mô phỏng: giá vé đã giảm',$3,$4,'AVAILABLE',$5)
          ON CONFLICT(dedupe_key) DO NOTHING`,
         [
           row.user_id,
           row.trip_id,
-          `Giá tham khảo ${String(row.price)} VND đang thấp hơn ngưỡng bạn đặt.`,
+          `Dữ liệu mô phỏng MOCK_FLIGHT: ${String(row.price)} VND thấp hơn ngưỡng bạn đặt; không phải giá vé thực tế.`,
           row.watch_id,
           dedupeKey,
         ],

@@ -154,6 +154,12 @@ export async function checkPriceAlertRepository(client) {
     const first = await alerts.claimNext('alert-a', 30_000);
     assert.equal(first.watch_id, watchA.id);
     assert.equal(await alerts.completeNotification('alert-a', first, membershipA), 'NOTIFIED');
+    const notification = (
+      await client.query('SELECT title,body FROM notifications WHERE source_id=$1', [watchA.id])
+    ).rows[0];
+    assert.match(notification.title, /Mô phỏng/);
+    assert.match(notification.body, /MOCK_FLIGHT/);
+    assert.match(notification.body, /không phải giá vé thực tế/);
     assert.equal(
       (await client.query("SELECT count(*)::int AS n FROM notifications WHERE type='PRICE_ALERT'"))
         .rows[0].n,
@@ -287,6 +293,34 @@ export async function checkPriceAlertRepository(client) {
       (await client.query('SELECT active FROM price_query_groups WHERE id=$1', [group.id])).rows[0]
         .active,
       true,
+    );
+    stage = 'UNSUPPORTED_PROVIDER_FAILS_CLOSED';
+    await client.query(
+      "UPDATE price_watches SET last_alert_at=clock_timestamp()-interval '25 hours' WHERE id=$1",
+      [watchA.id],
+    );
+    const unsupportedObservation = await observation('1800000');
+    await client.query("UPDATE price_observations SET provider='UNSUPPORTED_FIXTURE' WHERE id=$1", [
+      unsupportedObservation,
+    ]);
+    const unsupportedCandidate = await alerts.claimNext('alert-unsupported', 30_000);
+    assert.equal(unsupportedCandidate.watch_id, watchA.id);
+    const notificationCount = (
+      await client.query('SELECT count(*)::int AS n FROM notifications WHERE source_id=$1', [
+        watchA.id,
+      ])
+    ).rows[0].n;
+    assert.equal(
+      await alerts.completeNotification('alert-unsupported', unsupportedCandidate, membershipA),
+      'FAILED',
+    );
+    assert.equal(
+      (
+        await client.query('SELECT count(*)::int AS n FROM notifications WHERE source_id=$1', [
+          watchA.id,
+        ])
+      ).rows[0].n,
+      notificationCount,
     );
   } catch (error) {
     throw new Error(`PRICE_ALERT_DB_${stage}`, { cause: error });

@@ -19,6 +19,7 @@ import { checkPriceWatchRepository } from '../apps/automation-service/tests/data
 import { checkPriceWatchWorkerRepository } from '../apps/automation-service/tests/database/price-watch-worker-repository.integration.mjs';
 import { checkPriceAlertRepository } from '../apps/automation-service/tests/database/price-alert-repository.integration.mjs';
 import { checkNotificationRepository } from '../apps/automation-service/tests/database/notification-repository.integration.mjs';
+import { checkPriceWatchConcurrency } from './price-watch-concurrency.integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -249,6 +250,10 @@ async function main() {
   pass('Automation PriceWatchRepository: idempotency, shared query, version, transition and observations');
   await db('automation', client => checkPriceWatchWorkerRepository(client, databaseUrl(env, 'automation')));
   pass('Automation PriceWatchWorkerRepository: slot, lease, retry, terminal result and expiry');
+  stage = 'price-watch-concurrency';
+  await checkPriceWatchConcurrency(databaseUrl(env, 'automation'));
+  pass('Automation Price Watch: real deadlock recovery, one provider fetch and dispatch eligibility');
+  stage = 'price-alert-repository';
   await db('automation', checkPriceAlertRepository);
   pass('Automation PriceAlertRepository: rule, cooldown, lease, notification and lifecycle');
   await db('automation', checkNotificationRepository);

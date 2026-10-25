@@ -1,5 +1,15 @@
 # Kết quả kiểm tra Price Watch H1–H3
 
+## Integrated hardening, 25 October 2026
+
+On feature/finance-automation-integration after merge `28e453a`, the final working source passes workspace build, lint, contract reproducibility and 106 files/1442 unit tests. The complete isolated database suite passes 28 groups and all 13 new Price Watch cases: pending/reclaimed attempts after pause/stop/elapsed expiry/EXPIRED, resume, shared active watch, skip-ineligible head, in-flight stop and real native PostgreSQL40P01 recovery. The last case proves one provider fetch, one observation, one pause version increment and no notification after the stale candidate is finalized.
+
+The old build failed ten eligibility cases and the real deadlock case. The first red attempt stopped earlier at the new simulated-price label assertion; it is not counted as deadlock evidence. Final Price Watch API regression passes 12 groups; Notification regression passes 7. Explicit simulated-price labels and unsupported-provider rejection are checked in the database alert fixture. Dedicated Price Watch/Notification CI jobs were added; remote CI has not run. Test containers, volumes and networks were cleaned.
+
+The retry helper has 9 passing unit tests: two total SQL transaction attempts, only `40P01`, rollback before retry and propagation of other/ambiguous errors. The two-second RPC deadline is unchanged; bounded recovery does not guarantee a response within that deadline. Provider HTTP and Trip access remain outside retried transactions. Real provider, I2 delivery and other prior limitations remain unchanged.
+
+The sections below preserve historical H1-H3 evidence; their older counts are not the current integrated schema or test totals.
+
 Ngày chạy local: **22/10/2026**. Phần H1 là bằng chứng của commit `d1c52c8`, H2 của commit `1bf6039`; H3 là working tree `feature/price-watch-alerts`. CI remote và PR H3 chưa chạy.
 
 ## Trạng thái H3 hiện tại

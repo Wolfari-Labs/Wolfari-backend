@@ -1,3 +1,4 @@
+import { withPriceWatchTransaction } from './price-watch-transaction';
 import { Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
 import type { PoolClient, QueryResultRow } from 'pg';
@@ -178,7 +179,7 @@ export class PriceWatchRepository {
     clientRequestId: string;
     value: NormalizedWatchWrite;
   }): Promise<PriceWatchRecord> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
         `${input.userId}:${input.clientRequestId}`,
       ]);
@@ -252,7 +253,7 @@ export class PriceWatchRepository {
     value: NormalizedWatchWrite,
     authorize: (locked: PriceWatchRecord) => void,
   ): Promise<PriceWatchRecord> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const row = (
         await client.query<WatchRow>(`${WATCH_SELECT} WHERE w.id=$1 FOR UPDATE OF w`, [id])
       ).rows[0];
@@ -308,7 +309,7 @@ export class PriceWatchRepository {
     reason: string | null,
     authorize: (locked: PriceWatchRecord) => void,
   ): Promise<PriceWatchRecord> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const row = (
         await client.query<WatchRow>(`${WATCH_SELECT} WHERE w.id=$1 FOR UPDATE OF w`, [id])
       ).rows[0];

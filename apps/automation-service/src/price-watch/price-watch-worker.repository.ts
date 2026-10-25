@@ -1,3 +1,4 @@
+import { withPriceWatchTransaction } from './price-watch-transaction';
 import { Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
 import { recordPriceAlertCandidates } from './price-alert.repository';
@@ -77,7 +78,7 @@ export class PriceWatchWorkerRepository {
   async scheduleDue(at: Date, batchSize: number): Promise<ScheduleResult> {
     const slot = priceWatchSlot(at);
     const nextSlot = nextPriceWatchSlot(slot);
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const expired = await client.query<{ query_group_id: string }>(
         `UPDATE price_watches SET status='EXPIRED',status_reason='DEPARTED',
            alert_armed=false,version=version+1,updated_at=clock_timestamp()
@@ -127,7 +128,7 @@ export class PriceWatchWorkerRepository {
   }
 
   async failExhaustedLeases(batchSize: number): Promise<number> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const rows = await client.query<{
         id: string;
         query_group_id: string;
@@ -161,7 +162,11 @@ export class PriceWatchWorkerRepository {
     const result = await this.database.query<AttemptRow>(
       `WITH candidate AS (
          SELECT a.id FROM price_query_attempts a
-         WHERE a.attempt_count<$3 AND (
+         WHERE a.attempt_count<$3 AND EXISTS(
+           SELECT 1 FROM price_watches w
+           WHERE w.query_group_id=a.query_group_id AND w.status='ACTIVE'
+             AND w.expires_at>clock_timestamp()
+         ) AND (
            (a.status='PENDING' AND a.next_attempt_at<=clock_timestamp()) OR
            (a.status='RUNNING' AND a.claim_until<=clock_timestamp())
          )
@@ -186,7 +191,7 @@ export class PriceWatchWorkerRepository {
     attempt: ClaimedPriceAttempt,
     observation: ValidPriceObservation,
   ): Promise<boolean> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const updated = await client.query(
         `UPDATE price_query_attempts SET status='SUCCEEDED',completed_at=clock_timestamp(),
            error_code=NULL,claim_owner=NULL,claim_until=NULL,next_attempt_at=clock_timestamp()
@@ -200,18 +205,18 @@ export class PriceWatchWorkerRepository {
       ]);
       const saved = (
         await client.query<{ id: string; observed_at: Date }>(
-        `INSERT INTO price_observations(
+          `INSERT INTO price_observations(
            query_group_id,query_attempt_id,price,currency,provider,fare_metadata,observed_at,fetched_at
          ) VALUES($1,$2,$3,$4,$5,$6::jsonb,clock_timestamp(),clock_timestamp())
          RETURNING id,observed_at`,
-        [
-          attempt.query_group_id,
-          attempt.id,
-          observation.price,
-          observation.currency,
-          observation.provider,
-          JSON.stringify(observation.fare_metadata),
-        ],
+          [
+            attempt.query_group_id,
+            attempt.id,
+            observation.price,
+            observation.currency,
+            observation.provider,
+            JSON.stringify(observation.fare_metadata),
+          ],
         )
       ).rows[0]!;
       await recordPriceAlertCandidates(client, {
@@ -230,7 +235,7 @@ export class PriceWatchWorkerRepository {
   }
 
   async completeNoResult(owner: string, attempt: ClaimedPriceAttempt): Promise<boolean> {
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const updated = await client.query(
         `UPDATE price_query_attempts SET status='NO_RESULT',completed_at=clock_timestamp(),
            error_code=NULL,claim_owner=NULL,claim_until=NULL,next_attempt_at=clock_timestamp()
@@ -256,7 +261,7 @@ export class PriceWatchWorkerRepository {
   ): Promise<FailureResult> {
     const delay = transient ? retryDelay(attempt.attempt_count) : undefined;
     const retry = delay !== undefined && attempt.attempt_count < PRICE_WATCH_MAX_PROVIDER_CALLS;
-    return this.database.withTransaction(async (client) => {
+    return withPriceWatchTransaction(this.database, async (client) => {
       const updated = await client.query(
         `UPDATE price_query_attempts SET status=$4::varchar,
            completed_at=CASE WHEN $4::varchar='FAILED' THEN clock_timestamp() ELSE NULL END,
