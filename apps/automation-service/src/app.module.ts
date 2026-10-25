@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
+import { NotificationRepository } from './notification/notification.repository';
+import { NotificationService } from './notification/notification.service';
 import { AccountEmailDependenciesController, AccountEmailService } from './account-email.service';
 import {
   InvitationDeliveryService,
@@ -31,6 +33,8 @@ import { PriceWatchLifecycleRepository } from './price-watch/price-watch-lifecyc
   providers: [
     AccountEmailService,
     InvitationDeliveryService,
+    NotificationRepository,
+    NotificationService,
     PriceWatchAccessService,
     PriceAlertRepository,
     PriceAlertService,

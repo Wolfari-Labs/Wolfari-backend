@@ -32,7 +32,7 @@ Observation được đọc từ query group hiện tại của watch. Response 
 
 Automation V002 thêm `owner_membership_id uuid NOT NULL` và index `(trip_id, owner_membership_id, status)`. Migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED` nếu đã có watch legacy; không đoán membership từ `user_id`.
 
-Automation V003 thêm `price_query_attempts.next_attempt_at` và index claim cho attempt `PENDING/RUNNING`. `next_attempt_at` là thời điểm đủ điều kiện retry; `claim_until` chỉ là hạn lease. V004 thêm `price_alert_candidates` và `price_watch_trip_lifecycle`. Readiness Automation yêu cầu V001–V004. Các migration/checksum cũ không bị sửa.
+Automation V003 thêm `price_query_attempts.next_attempt_at` và index claim cho attempt `PENDING/RUNNING`. `next_attempt_at` là thời điểm đủ điều kiện retry; `claim_until` chỉ là hạn lease. V004 thêm `price_alert_candidates` và `price_watch_trip_lifecycle`. Price Watch dùng schema đến V004; runtime Automation hiện yêu cầu thêm Notification V005. Các migration/checksum cũ không bị sửa.
 
 Gateway và Automation dùng `GATEWAY_AUTOMATION_SECRET`; cursor dùng `AUTOMATION_CURSOR_SECRET`. Cả hai secret tối thiểu 32 byte và được `env:init` phân phối đúng endpoint. gRPC chỉ bind loopback ở local/test; production hiện fail closed cho đến khi có TLS.
 
@@ -79,6 +79,6 @@ Event lifecycle giảm cửa sổ xử lý nền nhưng không thay thế kiểm
 
 ## Các mốc sau
 
-- Module Notification tiếp quản bản ghi `AVAILABLE` để gửi push/email, quản lý preference và delivery receipt.
+- Notification I1 đã tiếp quản phần preference/device/inbox/read cho bản ghi `AVAILABLE`; push/email delivery và receipt runtime vẫn thuộc I2.
 - Provider thật chỉ thêm sau khi chốt điều khoản, rate limit, dữ liệu giá và cách đánh dấu nguồn; không dùng mock để tuyên bố giá thực.
 - Cần bổ sung quan sát vận hành cho backlog/DLQ và kiểm thử production transport; H3 hiện chỉ chứng minh local với provider mock.

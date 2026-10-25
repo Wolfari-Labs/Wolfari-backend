@@ -1,0 +1,253 @@
+openapi: 3.1.0
+info:
+  title: Wolfari Notification Self Management API
+  version: 1.0.0
+  description: API126–131 for Self preferences, devices and the in-app notification inbox.
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+security:
+  - bearer: []
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    DeviceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    NotificationId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string, maxLength: 1000 }
+    Unread:
+      name: unread
+      in: query
+      description: true returns unread only; false returns read only; omitted returns both.
+      schema: { type: boolean }
+  schemas:
+    ChannelOverride:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        push: { type: boolean }
+        email: { type: boolean }
+    PreferenceGroups:
+      type: object
+      additionalProperties: false
+      properties:
+        INVITATION: { $ref: '#/components/schemas/ChannelOverride' }
+        PLAN: { $ref: '#/components/schemas/ChannelOverride' }
+        PACKING: { $ref: '#/components/schemas/ChannelOverride' }
+        CONTRIBUTION: { $ref: '#/components/schemas/ChannelOverride' }
+        CLOSURE: { $ref: '#/components/schemas/ChannelOverride' }
+        PRICE: { $ref: '#/components/schemas/ChannelOverride' }
+    NotificationPreference:
+      type: object
+      additionalProperties: false
+      required: [push_enabled, email_enabled, group_overrides, version]
+      properties:
+        push_enabled:
+          type: boolean
+          description: Global push kill switch; a group override cannot bypass false.
+        email_enabled:
+          type: boolean
+          description: Global email kill switch; a group override cannot bypass false.
+        group_overrides: { $ref: '#/components/schemas/PreferenceGroups' }
+        version: { type: integer, minimum: 1 }
+    PreferenceWrite:
+      type: object
+      additionalProperties: false
+      required: [push_enabled, email_enabled, group_overrides, expected_version]
+      properties:
+        push_enabled: { type: boolean }
+        email_enabled: { type: boolean }
+        group_overrides: { $ref: '#/components/schemas/PreferenceGroups' }
+        expected_version: { type: integer, minimum: 1, maximum: 2147483647 }
+    DeviceWrite:
+      type: object
+      additionalProperties: false
+      required: [platform, token]
+      properties:
+        platform: { type: string, enum: [IOS, ANDROID, WEB] }
+        token: { type: string, minLength: 16, maxLength: 4096 }
+    Device:
+      type: object
+      additionalProperties: false
+      required: [id, platform, active, last_seen_at]
+      properties:
+        id: { type: string, format: uuid }
+        platform: { type: string, enum: [IOS, ANDROID, WEB] }
+        active: { type: boolean }
+        last_seen_at: { type: string, format: date-time }
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, type, title, body, trip_id, source_id, status, created_at, read_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, minLength: 1, maxLength: 60 }
+        title: { type: string, minLength: 1, maxLength: 255 }
+        body: { type: string }
+        trip_id: { type: [string, 'null'], format: uuid }
+        source_id: { type: [string, 'null'], maxLength: 100 }
+        status: { type: string, enum: [AVAILABLE] }
+        created_at: { type: string, format: date-time }
+        read_at: { type: [string, 'null'], format: date-time }
+    Meta:
+      type: object
+      additionalProperties: false
+      required: [correlation_id]
+      properties:
+        correlation_id: { type: string, format: uuid }
+    PageMeta:
+      type: object
+      additionalProperties: false
+      required: [correlation_id, next_cursor]
+      properties:
+        correlation_id: { type: string, format: uuid }
+        next_cursor: { type: [string, 'null'] }
+    PreferenceResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/NotificationPreference' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    DeviceResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Device' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    NotificationResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Notification' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    NotificationPageResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Notification' }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details, retryable]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: [object, 'null']
+              properties:
+                current_version: { type: integer, minimum: 1 }
+            retryable: { type: boolean }
+        meta: { $ref: '#/components/schemas/Meta' }
+  responses:
+    BadRequest:
+      description: Invalid input or cursor
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Missing or invalid session
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Self-scoped resource does not exist
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Stale preference version or token already belongs to another user
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+paths:
+  /me/notification-preferences:
+    get:
+      operationId: getNotificationPreferences
+      responses:
+        '200':
+          description: Current preference or virtual defaults at version 1
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/PreferenceResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      operationId: updateNotificationPreferences
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PreferenceWrite' } } }
+      responses:
+        '200':
+          description: Replaced preference with the version after commit
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/PreferenceResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /me/devices:
+    post:
+      operationId: registerDevice
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DeviceWrite' } } }
+      responses:
+        '200':
+          description: Registered or reactivated device; token is never returned
+          content: { application/json: { schema: { $ref: '#/components/schemas/DeviceResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /me/devices/{id}:
+    parameters: [{ $ref: '#/components/parameters/DeviceId' }]
+    delete:
+      operationId: deleteDevice
+      responses:
+        '204': { description: Device is no longer bound to Self }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /me/notifications:
+    get:
+      operationId: listNotifications
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Unread' }
+      responses:
+        '200':
+          description: Self AVAILABLE notifications; inaccessible Trip content is masked
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/NotificationPageResponse' } },
+            }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /me/notifications/{id}/read:
+    parameters: [{ $ref: '#/components/parameters/NotificationId' }]
+    patch:
+      operationId: markNotificationRead
+      responses:
+        '200':
+          description: Idempotently marked read with the first read_at timestamp
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/NotificationResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }

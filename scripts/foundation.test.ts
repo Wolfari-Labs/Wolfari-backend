@@ -67,7 +67,7 @@ describe('development configuration', () => {
   });
   it('verifies every baseline SQL checksum against the committed manifest', async () => {
     for (const service of ['identity', 'trip', 'travel', 'finance', 'automation']) {
-      expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(service === 'automation' ? ['V001', 'V002', 'V003', 'V004'] : service === 'trip' ? ['V001', 'V002'] : ['V001']);
+      expect((await migrationFiles(service)).map((file: { version: string }) => file.version)).toEqual(service === 'automation' ? ['V001', 'V002', 'V003', 'V004', 'V005'] : service === 'trip' ? ['V001', 'V002'] : ['V001']);
     }
   });
   it('refuses modified SQL before connecting to PostgreSQL', async () => {

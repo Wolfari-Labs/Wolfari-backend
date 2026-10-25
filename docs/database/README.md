@@ -22,9 +22,9 @@ Status/migrate/inspect hỗ trợ `--service identity|trip|travel|finance|automa
 | trip_db       | trip_app       |                              18 |
 | travel_db     | travel_app     |                               4 |
 | finance_db    | finance_app    |                              17 |
-| automation_db | automation_app |                              12 |
+| automation_db | automation_app |                              14 |
 
-Có 54 bảng mô hình, 5 bảng lịch sử và 47 FK cùng database sau Trip V002 và Automation V003 (baseline V001 có 46 FK). Automation V002/V003 chỉ thêm cột và index, không đổi số bảng/FK. Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
+Có 56 bảng mô hình, 5 bảng lịch sử và 49 FK cùng database sau Trip V002 và Automation V005 (baseline V001 có 46 FK). Automation V002/V003/V005 chỉ thêm cột hoặc index; V004 thêm hai bảng và hai FK cho alert/lifecycle. Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
 
 ## Hợp đồng runner
 
@@ -39,7 +39,7 @@ Có 54 bảng mô hình, 5 bảng lịch sử và 47 FK cùng database sau Trip 
 
 Trip V002 thêm liên kết acceptance cùng Trip, unique EMAIL/PENDING chuẩn hóa và index expiry. Readiness Trip yêu cầu cả V001/V002. Runner đọc thêm [manifest forward](SHA256SUMS.forward.txt), từ chối ghi đè baseline hoặc trùng đường dẫn. Không đổi byte/checksum SQL baseline hoặc V001 đã áp dụng. ACCEPTED legacy thiếu liên kết và duplicate pending phải xử lý có chủ đích trước khi migrate; runner dừng, không tự backfill/xóa dữ liệu. Xem [invitations](../architecture/trip-invitations.md).
 
-Automation V002 thêm `price_watches.owner_membership_id` và index phục vụ quyền theo đúng vòng đời membership. Nếu đã có watch legacy, migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED`; operator phải xác định membership đúng thay vì suy từ `user_id`. Automation V003 thêm `price_query_attempts.next_attempt_at` cùng partial index để tách lịch retry khỏi hạn lease. V004 thêm alert candidate có lease/dedupe và bảng revision lifecycle Trip. Readiness Automation yêu cầu V001–V004. Xem [Price Watch Core](../architecture/price-watch-core.md).
+Automation V002 thêm `price_watches.owner_membership_id` và index phục vụ quyền theo đúng vòng đời membership. Nếu đã có watch legacy, migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED`; operator phải xác định membership đúng thay vì suy từ `user_id`. Automation V003 thêm `price_query_attempts.next_attempt_at` cùng partial index để tách lịch retry khỏi hạn lease. V004 thêm alert candidate có lease/dedupe và bảng revision lifecycle Trip. V005 thêm partial index inbox AVAILABLE/unread theo Self mà không đổi bảng hoặc FK. Readiness Automation yêu cầu V001–V005. Xem [Price Watch Core](../architecture/price-watch-core.md) và [Notification Self Management](../architecture/notification-management.md).
 
 Giữ V001 bất biến; thêm V002.sql, V003.sql ở service sở hữu. Mỗi file kiểm tra đúng DB, có BEGIN/COMMIT và INSERT schema_migrations cùng transaction. Thêm SHA-256 theo đường dẫn root vào manifest trong cùng thay đổi có review. .gitattributes giữ byte SQL khi checkout Windows/Linux. Lệnh cần chạy ngoài transaction phải dùng quy trình DBA riêng.
 
@@ -49,7 +49,7 @@ Script `infrastructure/postgres/bootstrap-databases.sql` dành cho DBA cài th�
 
 ## Nguồn và giới hạn
 
-Review ngày 01-10-2026 khi đó chưa tạo V003/V004; H2 ngày 22-10-2026 bổ sung V003 vì worker cần lịch retry riêng với lease, H3 bổ sung V004 cho alert/lifecycle. Chưa xác minh nơi các forward migration đã được áp dụng ngoài môi trường thử; không viết lại migration hoặc reset dữ liệu. Bộ Word chính thức được chốt ngày 02-10-2026 gồm [SRS v2.3](../Wolfari_SRS_v2.3_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx) và [DDL/API/Event v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx). [Hồ sơ đồng bộ](../history/documentation-update-2026-10-02.md) ghi từng thay đổi, constraints/index, sơ đồ acceptance và kết quả kiểm tra tại thời điểm review.
+Review ngày 01-10-2026 khi đó chưa tạo V003–V005; H2 ngày 22-10-2026 bổ sung V003 vì worker cần lịch retry riêng với lease, H3 bổ sung V004 cho alert/lifecycle và Notification I1 bổ sung V005 cho inbox Self. Chưa xác minh nơi các forward migration đã được áp dụng ngoài môi trường thử; không viết lại migration hoặc reset dữ liệu. Bộ Word chính thức được chốt ngày 02-10-2026 gồm [SRS v2.3](../Wolfari_SRS_v2.3_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx) và [DDL/API/Event v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx). [Hồ sơ đồng bộ](../history/documentation-update-2026-10-02.md) ghi từng thay đổi, constraints/index, sơ đồ acceptance và kết quả kiểm tra tại thời điểm review.
 
 [Manifest bundle nguồn](../history/SHA256SUMS.source-bundle.txt) và [manifest trước khi tách tài liệu](../history/SHA256SUMS.pre-approval.txt) chỉ dùng truy vết lịch sử, không chạy như danh mục file hiện hành. Manifest SQL đang dùng giữ nguyên toàn bộ 10 đường dẫn/checksum SQL; đã bỏ 3 DOCX cũ và 5 Mermaid khỏi manifest này để không trộn tài liệu có thể thay đổi với migration bất biến. Mermaid hiện hành ở `docs/erd/`; checksum ba DOCX chính thức nằm tại `docs/SHA256SUMS.txt`. Xem [hồ sơ chốt](../releases/2026-10-02-documentation-baseline.md), [validation](validation.md) và [baseline](../architecture/design-baseline.md).
 

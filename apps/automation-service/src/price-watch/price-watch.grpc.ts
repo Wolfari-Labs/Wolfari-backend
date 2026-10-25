@@ -4,6 +4,14 @@ import { status, type Metadata } from '@grpc/grpc-js';
 import { RpcException } from '@nestjs/microservices';
 import { AutomationV1, RPC_CATALOG } from '@wolfari/contracts/grpc';
 import { timingSafeEqual } from 'node:crypto';
+import { notificationGroups, type NotificationGroup } from '../notification/notification.domain';
+import { NotificationError } from '../notification/notification.errors';
+import type {
+  DeviceRecord,
+  NotificationPreferenceRecord,
+  NotificationRecord,
+} from '../notification/notification.repository';
+import { NotificationService } from '../notification/notification.service';
 import { PriceWatchError } from './price-watch.errors';
 import type { NormalizedPriceQuery, WatchStatus } from './price-watch.domain';
 import type { ObservationRecord, PriceWatchRecord } from './price-watch.repository';
@@ -92,7 +100,59 @@ function observation(value: ObservationRecord): AutomationV1.PriceObservationVie
   };
 }
 
-function grpcStatus(error: PriceWatchError): status {
+const notificationGroupProto: Record<NotificationGroup, AutomationV1.NotificationGroup> = {
+  INVITATION: AutomationV1.NotificationGroup.NOTIFICATION_GROUP_INVITATION,
+  PLAN: AutomationV1.NotificationGroup.NOTIFICATION_GROUP_PLAN,
+  PACKING: AutomationV1.NotificationGroup.NOTIFICATION_GROUP_PACKING,
+  CONTRIBUTION: AutomationV1.NotificationGroup.NOTIFICATION_GROUP_CONTRIBUTION,
+  CLOSURE: AutomationV1.NotificationGroup.NOTIFICATION_GROUP_CLOSURE,
+  PRICE: AutomationV1.NotificationGroup.NOTIFICATION_GROUP_PRICE,
+};
+
+const devicePlatformProto = {
+  IOS: AutomationV1.DevicePlatform.DEVICE_PLATFORM_IOS,
+  ANDROID: AutomationV1.DevicePlatform.DEVICE_PLATFORM_ANDROID,
+  WEB: AutomationV1.DevicePlatform.DEVICE_PLATFORM_WEB,
+} as const;
+
+function preference(value: NotificationPreferenceRecord): AutomationV1.NotificationPreferenceView {
+  return {
+    push_enabled: value.push_enabled,
+    email_enabled: value.email_enabled,
+    group_overrides: notificationGroups.flatMap((group) => {
+      const override = value.group_overrides[group];
+      return override
+        ? [{ group: notificationGroupProto[group], push: override.push, email: override.email }]
+        : [];
+    }),
+    version: value.version,
+  };
+}
+
+function device(value: DeviceRecord): AutomationV1.DeviceView {
+  return {
+    id: value.id,
+    platform: devicePlatformProto[value.platform],
+    active: value.active,
+    last_seen_at: timestamp(value.last_seen_at),
+  };
+}
+
+function notification(value: NotificationRecord): AutomationV1.NotificationView {
+  return {
+    id: value.id,
+    type: value.type,
+    title: value.title,
+    body: value.body,
+    trip_id: value.trip_id ?? undefined,
+    source_id: value.source_id ?? undefined,
+    status: AutomationV1.NotificationStatus.NOTIFICATION_STATUS_AVAILABLE,
+    created_at: timestamp(value.created_at),
+    read_at: value.read_at ? timestamp(value.read_at) : undefined,
+  };
+}
+
+function grpcStatus(error: PriceWatchError | NotificationError): status {
   switch (error.code) {
     case 'VALIDATION_FAILED':
       return status.INVALID_ARGUMENT;
@@ -116,6 +176,7 @@ function grpcStatus(error: PriceWatchError): status {
 export class PriceWatchGrpcController implements AutomationV1.AutomationServiceController {
   constructor(
     private readonly service: PriceWatchService,
+    private readonly notifications: NotificationService,
     private readonly config: ConfigService,
   ) {}
 
@@ -151,7 +212,7 @@ export class PriceWatchGrpcController implements AutomationV1.AutomationServiceC
     try {
       return await work();
     } catch (error) {
-      if (error instanceof PriceWatchError) {
+      if (error instanceof PriceWatchError || error instanceof NotificationError) {
         throw new RpcException({
           code: grpcStatus(error),
           message: JSON.stringify({ code: error.code, details: error.details }),
@@ -162,6 +223,59 @@ export class PriceWatchGrpcController implements AutomationV1.AutomationServiceC
         message: JSON.stringify({ code: 'SERVICE_UNAVAILABLE', details: null }),
       });
     }
+  }
+
+  getNotificationPreferences(
+    request: AutomationV1.GetNotificationPreferencesRequest,
+    metadata?: Metadata,
+  ) {
+    this.authorize('GetNotificationPreferences', metadata);
+    return this.execute(async () => ({
+      preference: preference(await this.notifications.getPreference(request)),
+    }));
+  }
+
+  updateNotificationPreferences(
+    request: AutomationV1.UpdateNotificationPreferencesRequest,
+    metadata?: Metadata,
+  ) {
+    this.authorize('UpdateNotificationPreferences', metadata);
+    return this.execute(async () => ({
+      preference: preference(await this.notifications.updatePreference(request)),
+    }));
+  }
+
+  registerDevice(request: AutomationV1.RegisterDeviceRequest, metadata?: Metadata) {
+    this.authorize('RegisterDevice', metadata);
+    return this.execute(async () => ({
+      device: device(await this.notifications.registerDevice(request)),
+    }));
+  }
+
+  deleteDevice(request: AutomationV1.DeleteDeviceRequest, metadata?: Metadata) {
+    this.authorize('DeleteDevice', metadata);
+    return this.execute(async () => {
+      await this.notifications.deleteDevice(request);
+      return {};
+    });
+  }
+
+  listNotifications(request: AutomationV1.ListNotificationsRequest, metadata?: Metadata) {
+    const correlation = this.authorize('ListNotifications', metadata);
+    return this.execute(async () => {
+      const result = await this.notifications.listNotifications(request, correlation);
+      return {
+        items: result.items.map(notification),
+        next_cursor: result.next_cursor ?? undefined,
+      };
+    });
+  }
+
+  markNotificationRead(request: AutomationV1.MarkNotificationReadRequest, metadata?: Metadata) {
+    const correlation = this.authorize('MarkNotificationRead', metadata);
+    return this.execute(async () => ({
+      notification: notification(await this.notifications.markRead(request, correlation)),
+    }));
   }
 
   createPriceWatch(request: AutomationV1.CreatePriceWatchRequest, metadata?: Metadata) {

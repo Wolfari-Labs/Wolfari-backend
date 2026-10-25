@@ -12,6 +12,33 @@ import { Timestamp } from "../../../google/protobuf/timestamp";
 
 export const protobufPackage = "wolfari.automation.v1";
 
+export enum NotificationGroup {
+  NOTIFICATION_GROUP_UNSPECIFIED = 0,
+  NOTIFICATION_GROUP_INVITATION = 1,
+  NOTIFICATION_GROUP_PLAN = 2,
+  NOTIFICATION_GROUP_PACKING = 3,
+  NOTIFICATION_GROUP_CONTRIBUTION = 4,
+  NOTIFICATION_GROUP_CLOSURE = 5,
+  NOTIFICATION_GROUP_PRICE = 6,
+  UNRECOGNIZED = -1,
+}
+
+export enum DevicePlatform {
+  DEVICE_PLATFORM_UNSPECIFIED = 0,
+  DEVICE_PLATFORM_IOS = 1,
+  DEVICE_PLATFORM_ANDROID = 2,
+  DEVICE_PLATFORM_WEB = 3,
+  UNRECOGNIZED = -1,
+}
+
+export enum NotificationStatus {
+  NOTIFICATION_STATUS_UNSPECIFIED = 0,
+  NOTIFICATION_STATUS_CREATED = 1,
+  NOTIFICATION_STATUS_AVAILABLE = 2,
+  NOTIFICATION_STATUS_CANCELLED = 3,
+  UNRECOGNIZED = -1,
+}
+
 export enum JourneyType {
   JOURNEY_TYPE_UNSPECIFIED = 0,
   JOURNEY_TYPE_ONE_WAY = 1,
@@ -26,6 +53,97 @@ export enum PriceWatchStatus {
   PRICE_WATCH_STATUS_EXPIRED = 3,
   PRICE_WATCH_STATUS_STOPPED = 4,
   UNRECOGNIZED = -1,
+}
+
+export interface NotificationGroupOverride {
+  group?: NotificationGroup | undefined;
+  push?: boolean | undefined;
+  email?: boolean | undefined;
+}
+
+export interface NotificationPreferenceView {
+  push_enabled?: boolean | undefined;
+  email_enabled?: boolean | undefined;
+  group_overrides?: NotificationGroupOverride[] | undefined;
+  version?: number | undefined;
+}
+
+export interface DeviceView {
+  id?: string | undefined;
+  platform?: DevicePlatform | undefined;
+  active?: boolean | undefined;
+  last_seen_at?: Timestamp | undefined;
+}
+
+export interface NotificationView {
+  id?: string | undefined;
+  type?: string | undefined;
+  title?: string | undefined;
+  body?: string | undefined;
+  trip_id?: string | undefined;
+  source_id?: string | undefined;
+  status?: NotificationStatus | undefined;
+  created_at?: Timestamp | undefined;
+  read_at?: Timestamp | undefined;
+}
+
+export interface GetNotificationPreferencesRequest {
+  actor_user_id?: string | undefined;
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  actor_user_id?: string | undefined;
+  push_enabled?: boolean | undefined;
+  email_enabled?: boolean | undefined;
+  group_overrides?: NotificationGroupOverride[] | undefined;
+  expected_version?: number | undefined;
+}
+
+export interface RegisterDeviceRequest {
+  actor_user_id?: string | undefined;
+  platform?: DevicePlatform | undefined;
+  token?: string | undefined;
+}
+
+export interface DeleteDeviceRequest {
+  actor_user_id?: string | undefined;
+  device_id?: string | undefined;
+}
+
+export interface ListNotificationsRequest {
+  actor_user_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  unread?: boolean | undefined;
+}
+
+export interface MarkNotificationReadRequest {
+  actor_user_id?: string | undefined;
+  notification_id?: string | undefined;
+}
+
+export interface GetNotificationPreferencesResponse {
+  preference?: NotificationPreferenceView | undefined;
+}
+
+export interface UpdateNotificationPreferencesResponse {
+  preference?: NotificationPreferenceView | undefined;
+}
+
+export interface RegisterDeviceResponse {
+  device?: DeviceView | undefined;
+}
+
+export interface DeleteDeviceResponse {
+}
+
+export interface ListNotificationsResponse {
+  items?: NotificationView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface MarkNotificationReadResponse {
+  notification?: NotificationView | undefined;
 }
 
 export interface PassengerMix {
@@ -188,6 +306,27 @@ export interface ListPriceObservationsResponse {
 export const WOLFARI_AUTOMATION_V1_PACKAGE_NAME = "wolfari.automation.v1";
 
 export interface AutomationServiceClient {
+  getNotificationPreferences(
+    request: GetNotificationPreferencesRequest,
+    metadata?: Metadata,
+  ): Observable<GetNotificationPreferencesResponse>;
+
+  updateNotificationPreferences(
+    request: UpdateNotificationPreferencesRequest,
+    metadata?: Metadata,
+  ): Observable<UpdateNotificationPreferencesResponse>;
+
+  registerDevice(request: RegisterDeviceRequest, metadata?: Metadata): Observable<RegisterDeviceResponse>;
+
+  deleteDevice(request: DeleteDeviceRequest, metadata?: Metadata): Observable<DeleteDeviceResponse>;
+
+  listNotifications(request: ListNotificationsRequest, metadata?: Metadata): Observable<ListNotificationsResponse>;
+
+  markNotificationRead(
+    request: MarkNotificationReadRequest,
+    metadata?: Metadata,
+  ): Observable<MarkNotificationReadResponse>;
+
   createPriceWatch(request: CreatePriceWatchRequest, metadata?: Metadata): Observable<CreatePriceWatchResponse>;
 
   listPriceWatches(request: ListPriceWatchesRequest, metadata?: Metadata): Observable<ListPriceWatchesResponse>;
@@ -207,6 +346,42 @@ export interface AutomationServiceClient {
 }
 
 export interface AutomationServiceController {
+  getNotificationPreferences(
+    request: GetNotificationPreferencesRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetNotificationPreferencesResponse>
+    | Observable<GetNotificationPreferencesResponse>
+    | GetNotificationPreferencesResponse;
+
+  updateNotificationPreferences(
+    request: UpdateNotificationPreferencesRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<UpdateNotificationPreferencesResponse>
+    | Observable<UpdateNotificationPreferencesResponse>
+    | UpdateNotificationPreferencesResponse;
+
+  registerDevice(
+    request: RegisterDeviceRequest,
+    metadata?: Metadata,
+  ): Promise<RegisterDeviceResponse> | Observable<RegisterDeviceResponse> | RegisterDeviceResponse;
+
+  deleteDevice(
+    request: DeleteDeviceRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteDeviceResponse> | Observable<DeleteDeviceResponse> | DeleteDeviceResponse;
+
+  listNotifications(
+    request: ListNotificationsRequest,
+    metadata?: Metadata,
+  ): Promise<ListNotificationsResponse> | Observable<ListNotificationsResponse> | ListNotificationsResponse;
+
+  markNotificationRead(
+    request: MarkNotificationReadRequest,
+    metadata?: Metadata,
+  ): Promise<MarkNotificationReadResponse> | Observable<MarkNotificationReadResponse> | MarkNotificationReadResponse;
+
   createPriceWatch(
     request: CreatePriceWatchRequest,
     metadata?: Metadata,
@@ -246,6 +421,12 @@ export interface AutomationServiceController {
 export function AutomationServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "getNotificationPreferences",
+      "updateNotificationPreferences",
+      "registerDevice",
+      "deleteDevice",
+      "listNotifications",
+      "markNotificationRead",
       "createPriceWatch",
       "listPriceWatches",
       "updatePriceWatch",

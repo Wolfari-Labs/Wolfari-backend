@@ -18,6 +18,7 @@ import { checkPaymentDestinationRepository } from '../apps/finance-service/tests
 import { checkPriceWatchRepository } from '../apps/automation-service/tests/database/price-watch-repository.integration.mjs';
 import { checkPriceWatchWorkerRepository } from '../apps/automation-service/tests/database/price-watch-worker-repository.integration.mjs';
 import { checkPriceAlertRepository } from '../apps/automation-service/tests/database/price-alert-repository.integration.mjs';
+import { checkNotificationRepository } from '../apps/automation-service/tests/database/notification-repository.integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -237,7 +238,7 @@ async function main() {
   for (const [index, service] of services.entries()) await db(service, async client => {
     assert.equal((await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'")).rows[0].n, counts[index]);
     fks += (await client.query("SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace")).rows[0].n;
-    assert.deepEqual(await history(client, files[service]), service === 'automation' ? ['V001', 'V002', 'V003', 'V004'] : service === 'trip' ? ['V001', 'V002'] : ['V001']);
+    assert.deepEqual(await history(client, files[service]), service === 'automation' ? ['V001', 'V002', 'V003', 'V004', 'V005'] : service === 'trip' ? ['V001', 'V002'] : ['V001']);
   });
   assert.equal(fks, 49); pass('56 bảng mô hình + 5 lịch sử, 49 FK');
   await db('trip', async client => {
@@ -250,6 +251,8 @@ async function main() {
   pass('Automation PriceWatchWorkerRepository: slot, lease, retry, terminal result and expiry');
   await db('automation', checkPriceAlertRepository);
   pass('Automation PriceAlertRepository: rule, cooldown, lease, notification and lifecycle');
+  await db('automation', checkNotificationRepository);
+  pass('Automation NotificationRepository: preference, device isolation, inbox and read state');
   for (const service of ['identity', 'trip', 'finance']) await db(service, async client => {
     await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
     if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
@@ -320,12 +323,12 @@ async function main() {
   pass('Trip requires V002, not merely V001, for readiness');
   const automationApp = apps.find(a => a.service === 'automation');
   await db('automation',async client=>{
-    await client.query("DELETE FROM schema_migrations WHERE version='V003'");
+    await client.query("DELETE FROM schema_migrations WHERE version='V005'");
     try {assert.equal((await health(automationApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");}
+    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V005')");}
   });
   await health(automationApp,'ready');
-  pass('Automation requires V004 for readiness');
+  pass('Automation requires V005 for readiness');
   const travel = apps.find(a => a.service === 'travel');
   await db('travel', async client => {
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');

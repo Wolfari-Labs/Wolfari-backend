@@ -338,6 +338,54 @@
   {
     "package": "wolfari.automation.v1",
     "service": "AutomationService",
+    "method": "GetNotificationPreferences",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API126"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "UpdateNotificationPreferences",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API127"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "RegisterDevice",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API128"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "DeleteDevice",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API129"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "ListNotifications",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API130"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "MarkNotificationRead",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API131"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
     "method": "CreatePriceWatch",
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,

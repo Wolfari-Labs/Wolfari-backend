@@ -20,7 +20,8 @@ Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026**
 - [Database/migration](database/README.md), [Mermaid ERD](erd/), [Protobuf và event](architecture/contracts.md).
 - [Identity](architecture/identity-phase1.md), [Trip core](architecture/trip-core.md), [Plan access](architecture/trip-plan-access-control.md), [Invitations](architecture/trip-invitations.md).
 - [Price Watch Core, Worker và Alert H1–H3](architecture/price-watch-core.md) quản lý API133–139, slot/lease/retry, observation mock, rule alert và lifecycle; provider thật thuộc mốc sau.
-- OpenAPI runtime: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Invitations](api/trip-invitations.openapi.json), [Price Watch](api/price-watch.openapi.yaml).
+- [Notification Self Management I1](architecture/notification-management.md) quản lý API126–131 cho preference, device và inbox Self; push sender và Reminder thuộc mốc sau.
+- OpenAPI runtime: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Invitations](api/trip-invitations.openapi.json), [Notification](api/notification.openapi.yaml), [Price Watch](api/price-watch.openapi.yaml).
 - Bàn giao: [Plan access cho Planning](architecture/trip-plan-access-control-handoff.md), [Invitations](architecture/trip-invitations-handoff.md).
 - Contract thực thi ở [packages/contracts](../packages/contracts/README.md); migration ở `apps/<service>/migrations`. Không dùng hình ERD hoặc DOCX thay migration.
 
@@ -28,6 +29,7 @@ Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026**
 
 - [Database](database/validation.md), [Identity](architecture/identity-validation.md), [Trip core](architecture/trip-core-validation.md), [Plan access](architecture/trip-plan-access-control-validation.md), [Invitations](architecture/trip-invitations-validation.md) giữ bằng chứng theo ngày/SHA; không coi số liệu cũ là kết quả HEAD mới.
 - [Price Watch H1–H3](architecture/price-watch-validation.md) ghi bằng chứng unit, contract, PostgreSQL, RabbitMQ, E2E và các giới hạn kiểm thử ngày 22/10/2026.
+- [Notification I1](architecture/notification-management.md) và [validation](architecture/notification-management-validation.md) ghi thiết kế, bằng chứng API126–131 và giới hạn ngày 22/10/2026.
 - [Hồ sơ đồng bộ 80 mục và 15 chỉnh sửa](history/documentation-update-2026-10-02.md) là lịch sử trước khi chốt, không phải hướng dẫn sửa lại bản chính thức.
 - [Nguồn cũ và cách khôi phục](history/README.md). Tài liệu lịch sử và manifest bundle không phải đầu vào runtime.
 

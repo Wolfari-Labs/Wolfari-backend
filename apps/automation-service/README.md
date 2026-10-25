@@ -1,6 +1,8 @@
 # Automation service
 
-Service xử lý email/invitation delivery hiện có và cung cấp Price Watch qua gRPC nội bộ.
+Service xử lý email/invitation delivery, Notification Self Management và Price Watch qua gRPC nội bộ.
+
+Notification I1 cung cấp API126–131 qua Gateway: preference version hóa, đăng ký/xóa device token Self, hộp notification `AVAILABLE` có cursor và đánh dấu đã đọc idempotent. Token không được trả về; inbox kiểm tra lại quyền Trip và che nội dung khi không xác minh được current access. I1 chưa gửi push/FCM và chưa triển khai Reminder API132.
 
 Price Watch H1 hỗ trợ tạo, list, cập nhật, pause, resume, stop và đọc observation. Gateway là caller duy nhất của bảy RPC công khai; Automation gọi Trip Access cho mọi request.
 
@@ -20,6 +22,6 @@ Các biến runtime do `pnpm env:init` tạo:
 - `PRICE_WATCH_WORKER_POLL_MS`, `PRICE_WATCH_WORKER_BATCH_SIZE` — nhịp poll và batch có giới hạn;
 - `PRICE_WATCH_ATTEMPT_LEASE_MS`, `PRICE_WATCH_PROVIDER_TIMEOUT_MS` — timeout provider phải ngắn hơn lease.
 
-Database phải có V001–V004. Không backfill `owner_membership_id` bằng phỏng đoán; nếu có dữ liệu legacy, V002 dừng để nhóm lập kế hoạch migration riêng. V003 thêm lịch retry bền vững `next_attempt_at` và index claim; V004 thêm alert candidate cùng trạng thái lifecycle Trip có revision. Không dùng `claim_until` kiêm thời điểm backoff.
+Database phải có V001–V005. Không backfill `owner_membership_id` bằng phỏng đoán; nếu có dữ liệu legacy, V002 dừng để nhóm lập kế hoạch migration riêng. V003 thêm lịch retry bền vững `next_attempt_at` và index claim; V004 thêm alert candidate cùng trạng thái lifecycle Trip có revision; V005 thêm partial index hộp thông báo Self. Không dùng `claim_until` kiêm thời điểm backoff.
 
-Xem [thiết kế Price Watch Core](../../docs/architecture/price-watch-core.md) và [OpenAPI](../../docs/api/price-watch.openapi.yaml).
+Xem [Notification Self Management](../../docs/architecture/notification-management.md), [OpenAPI Notification](../../docs/api/notification.openapi.yaml), [thiết kế Price Watch Core](../../docs/architecture/price-watch-core.md) và [OpenAPI Price Watch](../../docs/api/price-watch.openapi.yaml).

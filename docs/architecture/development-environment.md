@@ -36,7 +36,7 @@ Cổng hạ tầng: PostgreSQL 5432, AMQP 5672, RabbitMQ UI 15672, MinIO API 900
 
 `dev` build common/database/contracts rồi chạy app từ `dist`. Sửa `src` của app/package hoặc proto/schema contract sẽ đóng app, build lại và tải lại. Ctrl+C đóng qua IPC/Nest shutdown hook, kết thúc pool; app quá 6 giây bị dừng. Sửa `.env` cần chạy lại `dev`.
 
-Readiness service trả 200 với `status=ok`, `service`, `checks.database=up`, `checks.migrations=up` và `correlation_id`; lỗi DB hoặc thiếu migration bắt buộc trả 503 (Trip cần V001/V002, Automation cần V001–V004, service khác cần V001). Gateway readiness kiểm tra Identity/Trip; Worker chưa có readiness cho dependency chưa tích hợp. Không trả connection string hoặc SQL lỗi thô. Probe DB tối đa 3 giây; liveness độc lập DB. Identity/Trip/Automation có `/health/dependencies`; Automation bổ sung `/health/invitations` cho backlog và ACK lời mời.
+Readiness service trả 200 với `status=ok`, `service`, `checks.database=up`, `checks.migrations=up` và `correlation_id`; lỗi DB hoặc thiếu migration bắt buộc trả 503 (Trip cần V001/V002, Automation cần V001–V005, service khác cần V001). Gateway readiness kiểm tra Identity/Trip; Worker chưa có readiness cho dependency chưa tích hợp. Không trả connection string hoặc SQL lỗi thô. Probe DB tối đa 3 giây; liveness độc lập DB. Identity/Trip/Automation có `/health/dependencies`; Automation bổ sung `/health/invitations` cho backlog và ACK lời mời.
 
 ## Provider cho module
 
@@ -55,6 +55,7 @@ corepack pnpm identity:test
 corepack pnpm trip:test
 corepack pnpm trip:invitations:test
 corepack pnpm price-watch:test
+corepack pnpm notification:test
 corepack pnpm infra:down
 ```
 
@@ -68,6 +69,8 @@ Build trước unit tests để có output của các workspace package được
 `trip:test` và `trip:invitations:test` cũng dùng project/cổng/volume thử riêng; lệnh invitations bổ sung broker và SMTP để kiểm tra luồng lời mời/email. Xem [Trip core](trip-core.md) và [Trip invitations](trip-invitations.md).
 
 `price-watch:test` dùng project riêng với PostgreSQL và RabbitMQ, chạy Gateway/Identity/Trip/Automation, worker mock, alert in-app và archive/reopen lifecycle. Test không gọi provider giá thật và không gửi push/email.
+
+`notification:test` dùng project riêng với PostgreSQL và RabbitMQ, chạy Gateway/Identity/Trip/Automation để kiểm API126–131, preference concurrency, device ownership, inbox/cursor, source masking và read idempotency. Test không gọi FCM hoặc gửi push.
 
 ## Xử lý lỗi
 

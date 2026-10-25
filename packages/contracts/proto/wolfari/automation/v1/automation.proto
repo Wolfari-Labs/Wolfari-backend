@@ -4,6 +4,12 @@ package wolfari.automation.v1;
 import "google/protobuf/timestamp.proto";
 
 service AutomationService {
+  rpc GetNotificationPreferences(GetNotificationPreferencesRequest) returns (GetNotificationPreferencesResponse);
+  rpc UpdateNotificationPreferences(UpdateNotificationPreferencesRequest) returns (UpdateNotificationPreferencesResponse);
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+  rpc DeleteDevice(DeleteDeviceRequest) returns (DeleteDeviceResponse);
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc MarkNotificationRead(MarkNotificationReadRequest) returns (MarkNotificationReadResponse);
   rpc CreatePriceWatch(CreatePriceWatchRequest) returns (CreatePriceWatchResponse);
   rpc ListPriceWatches(ListPriceWatchesRequest) returns (ListPriceWatchesResponse);
   rpc UpdatePriceWatch(UpdatePriceWatchRequest) returns (UpdatePriceWatchResponse);
@@ -12,6 +18,105 @@ service AutomationService {
   rpc StopPriceWatch(StopPriceWatchRequest) returns (StopPriceWatchResponse);
   rpc ListPriceObservations(ListPriceObservationsRequest) returns (ListPriceObservationsResponse);
 }
+
+enum NotificationGroup {
+  NOTIFICATION_GROUP_UNSPECIFIED = 0;
+  NOTIFICATION_GROUP_INVITATION = 1;
+  NOTIFICATION_GROUP_PLAN = 2;
+  NOTIFICATION_GROUP_PACKING = 3;
+  NOTIFICATION_GROUP_CONTRIBUTION = 4;
+  NOTIFICATION_GROUP_CLOSURE = 5;
+  NOTIFICATION_GROUP_PRICE = 6;
+}
+
+enum DevicePlatform {
+  DEVICE_PLATFORM_UNSPECIFIED = 0;
+  DEVICE_PLATFORM_IOS = 1;
+  DEVICE_PLATFORM_ANDROID = 2;
+  DEVICE_PLATFORM_WEB = 3;
+}
+
+enum NotificationStatus {
+  NOTIFICATION_STATUS_UNSPECIFIED = 0;
+  NOTIFICATION_STATUS_CREATED = 1;
+  NOTIFICATION_STATUS_AVAILABLE = 2;
+  NOTIFICATION_STATUS_CANCELLED = 3;
+}
+
+message NotificationGroupOverride {
+  NotificationGroup group = 1;
+  optional bool push = 2;
+  optional bool email = 3;
+}
+
+message NotificationPreferenceView {
+  bool push_enabled = 1;
+  bool email_enabled = 2;
+  repeated NotificationGroupOverride group_overrides = 3;
+  int32 version = 4;
+}
+
+message DeviceView {
+  string id = 1;
+  DevicePlatform platform = 2;
+  bool active = 3;
+  google.protobuf.Timestamp last_seen_at = 4;
+}
+
+message NotificationView {
+  string id = 1;
+  string type = 2;
+  string title = 3;
+  string body = 4;
+  optional string trip_id = 5;
+  optional string source_id = 6;
+  NotificationStatus status = 7;
+  google.protobuf.Timestamp created_at = 8;
+  optional google.protobuf.Timestamp read_at = 9;
+}
+
+message GetNotificationPreferencesRequest { string actor_user_id = 1; }
+
+message UpdateNotificationPreferencesRequest {
+  string actor_user_id = 1;
+  optional bool push_enabled = 2;
+  optional bool email_enabled = 3;
+  repeated NotificationGroupOverride group_overrides = 4;
+  int32 expected_version = 5;
+}
+
+message RegisterDeviceRequest {
+  string actor_user_id = 1;
+  DevicePlatform platform = 2;
+  string token = 3;
+}
+
+message DeleteDeviceRequest {
+  string actor_user_id = 1;
+  string device_id = 2;
+}
+
+message ListNotificationsRequest {
+  string actor_user_id = 1;
+  int32 limit = 2;
+  optional string cursor = 3;
+  optional bool unread = 4;
+}
+
+message MarkNotificationReadRequest {
+  string actor_user_id = 1;
+  string notification_id = 2;
+}
+
+message GetNotificationPreferencesResponse { NotificationPreferenceView preference = 1; }
+message UpdateNotificationPreferencesResponse { NotificationPreferenceView preference = 1; }
+message RegisterDeviceResponse { DeviceView device = 1; }
+message DeleteDeviceResponse {}
+message ListNotificationsResponse {
+  repeated NotificationView items = 1;
+  optional string next_cursor = 2;
+}
+message MarkNotificationReadResponse { NotificationView notification = 1; }
 
 enum JourneyType {
   JOURNEY_TYPE_UNSPECIFIED = 0;

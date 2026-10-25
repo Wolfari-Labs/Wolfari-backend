@@ -78,7 +78,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 49 RPCs declared by the catalog', () => {
+  it('loads exactly the 55 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -117,7 +117,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(49);
+    expect(RPC_CATALOG).toHaveLength(55);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)
@@ -156,6 +156,40 @@ describe('gRPC contracts', () => {
     expect(changed.patch.threshold_price).toBe('9223372036854775807');
     expect(changed.patch.return_date).toEqual({ clear: true, change: 'clear' });
     expect(changed.patch.cabin_class).toEqual({ value: '', change: 'value' });
+  });
+
+  it('round-trips notification preference presence and excludes device tokens from responses', () => {
+    const service = methods(PROTO_PATHS.automation, GRPC_PACKAGES.automation, 'AutomationService');
+    const update = service.UpdateNotificationPreferences as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const request = update.requestDeserialize(
+      update.requestSerialize({
+        actor_user_id: '00000000-0000-4000-8000-000000000001',
+        push_enabled: false,
+        email_enabled: true,
+        group_overrides: [{ group: 6, push: false }],
+        expected_version: 1,
+      }),
+    ) as Record<string, unknown>;
+    expect(request).toMatchObject({ push_enabled: false, email_enabled: true });
+    expect(Object.hasOwn(request, 'push_enabled')).toBe(true);
+    const list = service.ListNotifications as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const filtered = list.requestDeserialize(
+      list.requestSerialize({ actor_user_id: 'user', unread: false }),
+    );
+    expect(Object.hasOwn(filtered, 'unread')).toBe(true);
+    const register = service.RegisterDevice as MethodDefinition<object, object>;
+    const response = register.responseDeserialize(
+      register.responseSerialize({
+        device: { id: 'device', platform: 3, active: true, token: 'must-not-leak' },
+      }),
+    );
+    expect(JSON.stringify(response)).not.toContain('must-not-leak');
   });
 
   it('round-trips Trip PATCH absent, empty-string and clear states', () => {

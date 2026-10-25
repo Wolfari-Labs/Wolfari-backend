@@ -16,10 +16,12 @@ import { startTestService } from './test-container.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 import { runPriceWatchTests } from './price-watch-integration.mjs';
+import { runNotificationManagementTests } from './notification-management-integration.mjs';
 
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 const priceWatchMode = process.argv.includes('--price-watch');
+const notificationMode = process.argv.includes('--notifications');
 let financeFixture;
 function brokerUrl() {
   const value = new URL(`amqp://127.0.0.1:${infra.RABBITMQ_PORT}`);
@@ -273,7 +275,7 @@ async function main() {
     'postgres',
     ...(invitationMode
       ? ['rabbitmq', 'mailpit']
-      : membershipMode || priceWatchMode
+      : membershipMode || priceWatchMode || notificationMode
         ? ['rabbitmq']
         : []),
   ]);
@@ -282,6 +284,7 @@ async function main() {
     'trip',
     ...(invitationMode ? ['automation'] : []),
     ...(priceWatchMode ? ['automation'] : []),
+    ...(notificationMode ? ['automation'] : []),
     ...(membershipMode ? ['finance'] : []),
   ]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
@@ -345,7 +348,7 @@ async function main() {
     AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
   };
   let tripProcess = await start('trip-workspace-service', tripValues);
-  if (priceWatchMode) {
+  if (priceWatchMode || notificationMode) {
     const automationPort = await port();
     await start('automation-service', {
       AUTOMATION_PORT: String(automationPort),
@@ -353,7 +356,7 @@ async function main() {
       DATABASE_URL: databaseUrl(infra, 'automation'),
       GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
       AUTOMATION_CURSOR_SECRET: secrets.AUTOMATION_CURSOR_SECRET,
-      PRICE_WATCH_WORKER_ENABLED: 'true',
+      PRICE_WATCH_WORKER_ENABLED: priceWatchMode ? 'true' : 'false',
       PRICE_WATCH_WORKER_POLL_MS: '1000',
       PRICE_WATCH_WORKER_BATCH_SIZE: '10',
       PRICE_WATCH_ATTEMPT_LEASE_MS: '2000',
@@ -393,6 +396,11 @@ async function main() {
       brokerUrl: brokerUrl(),
     });
     console.log(`PASS price-watch:test completed ${checks} groups.`);
+    return;
+  }
+  if (notificationMode) {
+    await runNotificationManagementTests({ request, query, account, bearer, tripBody, pass });
+    console.log(`PASS notification:test completed ${checks} groups.`);
     return;
   }
   if (membershipMode) {

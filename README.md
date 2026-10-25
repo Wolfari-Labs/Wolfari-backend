@@ -5,9 +5,9 @@
 
 Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm nhỏ. Sản phẩm hướng tới việc cùng xây dựng lịch trình, lưu địa điểm, quản lý quỹ, nhận nhắc việc và xuất kế hoạch.
 
-Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core** và **Price Watch H1–H3**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision. Price Watch quản lý watch/lịch sử qua Gateway, chạy worker slot sáu giờ bằng adapter `MOCK_FLIGHT`, đánh giá alert bền vững và áp dụng lifecycle Trip/membership.
+Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core**, **Notification Self Management I1** và **Price Watch H1–H3**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision. Notification I1 quản lý preference/device/inbox Self; Price Watch quản lý watch/lịch sử, worker mock, alert bền vững và lifecycle Trip/membership.
 
-> Identity đợt 1, Trip core, Plan access, Invitations và Price Watch H1–H3 đã có runtime qua Gateway/worker. Travel/Finance, provider giá thật, kênh gửi push/email cho Price Watch, phần lớn nghiệp vụ Automation, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. `MOCK_FLIGHT` chỉ là dữ liệu thử; notification `AVAILABLE` của H3 là điểm bàn giao nội bộ. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001, Trip V002 và Automation V002–V004. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
+> Identity đợt 1, Trip core, Plan access, Invitations, Notification I1 và Price Watch H1–H3 đã có runtime qua Gateway/worker. Travel/Finance, provider giá thật, push/FCM sender, Reminder, phần lớn nghiệp vụ Automation, giao diện sản phẩm và seed nghiệp vụ chưa được triển khai. `MOCK_FLIGHT` chỉ là dữ liệu thử; Notification I1 hiện đọc notification `AVAILABLE` nhưng chưa tạo push delivery. Bộ SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 đã được chốt ngày 02/10/2026; schema hiện có gồm năm V001, Trip V002 và Automation V002–V005. Phê duyệt tài liệu không chứng minh toàn bộ MVP đã hoàn thành.
 
 ## Kiến trúc
 
@@ -74,7 +74,7 @@ Năm service nghiệp vụ và Gateway bổ sung:
 GET /health/ready
 ```
 
-Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip và `V002`–`V004` cho Automation); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
+Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip và `V002`–`V005` cho Automation); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
 
 ## Lệnh phát triển
 
@@ -92,6 +92,7 @@ corepack pnpm identity:test
 corepack pnpm trip:test
 corepack pnpm trip:invitations:test
 corepack pnpm price-watch:test
+corepack pnpm notification:test
 
 # Contract
 corepack pnpm contracts:lint
@@ -109,7 +110,8 @@ corepack pnpm test
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
 `trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.
 `trip:invitations:test` bổ sung RabbitMQ/Mailpit riêng để kiểm thử vòng đời lời mời, rejoin, rollback, race, email, retry và ACK. Trip cần migration V002; baseline V001 được giữ nguyên.
-`price-watch:test` chạy Gateway, Identity, Trip, Automation, PostgreSQL và RabbitMQ riêng để kiểm thử API133–139, quyền Trip, chống lặp, version, query group dùng chung, observation H2, alert H3 và archive/reopen lifecycle. Automation cần V001–V004; adapter mock không gọi mạng và test chỉ kiểm tra notification in-app `AVAILABLE`, không gửi push/email.
+`price-watch:test` chạy Gateway, Identity, Trip, Automation, PostgreSQL và RabbitMQ riêng để kiểm thử API133–139, quyền Trip, chống lặp, version, query group dùng chung, observation H2, alert H3 và archive/reopen lifecycle. Price Watch dùng schema đến V004; Automation hiện yêu cầu thêm V005 của Notification. Adapter mock không gọi mạng và test chỉ kiểm tra notification in-app `AVAILABLE`, không gửi push/email.
+`notification:test` chạy API126–131 qua Gateway/Identity/Trip/Automation và PostgreSQL: preference version hóa, cách ly device token, inbox/cursor, che quyền Trip và read idempotent. Test không gọi FCM hoặc gửi push.
 
 ## Tài liệu
 
@@ -134,6 +136,9 @@ corepack pnpm test
 - [Price Watch Core, Worker và Alert H1–H3](docs/architecture/price-watch-core.md)
 - [OpenAPI Price Watch](docs/api/price-watch.openapi.yaml)
 - [Kết quả kiểm tra Price Watch H1–H3](docs/architecture/price-watch-validation.md)
+- [Notification Self Management I1](docs/architecture/notification-management.md)
+- [OpenAPI Notification](docs/api/notification.openapi.yaml)
+- [Kết quả kiểm tra Notification I1](docs/architecture/notification-management-validation.md)
 - [Database và migration](docs/database/README.md)
 - [Kết quả kiểm tra database](docs/database/validation.md)
 - [SRS v2.3 chính thức](docs/Wolfari_SRS_v2.3_ChinhThuc.docx)

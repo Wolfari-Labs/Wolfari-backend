@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseProvider } from '@wolfari/database';
+import { channelEnabled, parseStoredGroups } from './notification/notification.domain';
 import { EVENT_TOPOLOGY, parseEventForConsume } from '@wolfari/contracts/events';
 import { TripAccessClient, TripInvitationClient } from '@wolfari/contracts/trip-client';
 import { connect, type ChannelModel, type ConfirmChannel, type ConsumeMessage } from 'amqplib';
@@ -148,14 +149,27 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
   ): Promise<boolean> {
     if (!userId) return true;
     const row = (
-      await client.query<{
-        email_enabled: boolean;
-        group_overrides: Record<string, { email_enabled?: boolean }>;
-      }>('SELECT email_enabled,group_overrides FROM notification_preferences WHERE user_id=$1', [
-        userId,
-      ])
+      await client.query<{ email_enabled: boolean; group_overrides: unknown }>(
+        'SELECT email_enabled,group_overrides FROM notification_preferences WHERE user_id=$1',
+        [userId],
+      )
     ).rows[0];
-    return row?.group_overrides?.[tripId]?.email_enabled ?? row?.email_enabled ?? true;
+    if (!row) return true;
+    const canonical = parseStoredGroups(row.group_overrides);
+    const legacy =
+      row.group_overrides && typeof row.group_overrides === 'object'
+        ? (row.group_overrides as Record<string, { email_enabled?: unknown }>)[tripId]
+        : undefined;
+    const invitationOverride = canonical.INVITATION?.email;
+    const enabled =
+      invitationOverride ??
+      (typeof legacy?.email_enabled === 'boolean' ? legacy.email_enabled : undefined);
+    return channelEnabled(
+      row.email_enabled,
+      enabled === undefined ? canonical : { ...canonical, INVITATION: { email: enabled } },
+      'INVITATION',
+      'email',
+    );
   }
   private async consume(channel: ConfirmChannel, message: ConsumeMessage) {
     let event;
