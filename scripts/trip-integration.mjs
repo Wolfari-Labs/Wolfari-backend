@@ -1,4 +1,5 @@
 import { runFinanceReadTests } from './finance-read-integration.mjs';
+import { runFinanceAutomationContextTests } from './finance-automation-context-integration.mjs';
 import { runFinanceWriteTests } from './finance-write-integration.mjs';
 import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
@@ -9,18 +10,19 @@ import { fork } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import pg from 'pg';
 import { appEnvironment, apps, databaseUrl, root } from './config.mjs';
 import { compose } from './infrastructure.mjs';
 import { startTestService } from './test-container.mjs';
+import { createTestPortAllocator } from './test-ports.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 import { runPriceWatchTests } from './price-watch-integration.mjs';
 import { runNotificationManagementTests } from './notification-management-integration.mjs';
 
+const automationContextOnly = process.argv.includes('--finance-automation-context');
 const receiptsOnly = process.argv.includes('--finance-receipts');
 const instructionsOnly = process.argv.includes('--finance-instructions');
 const expensesOnly = process.argv.includes('--finance-expenses');
@@ -33,6 +35,7 @@ const allFinance = process.argv.includes('--finance');
 const paymentTestMode = paymentsOnly || allFinance;
 const lifecycleTestMode = lifecycleOnly || allFinance;
 const financeReadMode =
+  automationContextOnly ||
   receiptsOnly ||
   instructionsOnly ||
   expensesOnly ||
@@ -73,16 +76,7 @@ const pass = (message) => {
   console.log(`PASS ${message}`);
 };
 
-async function port() {
-  const server = createServer();
-  await new Promise((resolvePromise, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolvePromise);
-  });
-  const value = server.address().port;
-  await new Promise((resolvePromise) => server.close(resolvePromise));
-  return value;
-}
+const port = createTestPortAllocator();
 
 async function waitFor(work, timeout = 20_000) {
   const deadline = Date.now() + timeout;
@@ -209,6 +203,7 @@ const secrets = {
   GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
   GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
+  AUTOMATION_FINANCE_SECRET: randomBytes(32).toString('hex'),
   FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
   TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -411,6 +406,7 @@ async function main() {
       TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
       FINANCE_TRIP_SECRET: secrets.FINANCE_TRIP_SECRET,
       GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
+      AUTOMATION_FINANCE_SECRET: secrets.AUTOMATION_FINANCE_SECRET,
       TRIP_FINANCE_SECRET: financeSecret,
       ...(paymentTestMode
         ? {
@@ -476,6 +472,44 @@ async function main() {
         }
       },
     });
+    if (automationContextOnly || allFinance) {
+      const context = await runFinanceAutomationContextTests({
+        request,
+        query,
+        bearer,
+        tripBody,
+        pass,
+        waitFor,
+        actors: result.actors,
+        financeTarget: `127.0.0.1:${financePort}`,
+        automationSecret: secrets.AUTOMATION_FINANCE_SECRET,
+        gatewaySecret: secrets.GATEWAY_FINANCE_SECRET,
+        tripFinanceSecret: financeSecret,
+        whileTripStopped: async (work) => {
+          await stop(tripProcess);
+          try {
+            return await work();
+          } finally {
+            tripProcess = await start('trip-workspace-service', tripValues);
+          }
+        },
+      });
+      result.forbidden.push(...context.forbidden);
+      if (automationContextOnly) {
+        for (const child of children)
+          for (const value of [
+            ...result.forbidden,
+            ...Object.values(secrets),
+            infra.POSTGRES_PASSWORD,
+          ])
+            assert(!child.output.includes(value), `${child.appName} logged private data`);
+        pass(
+          'Automation context application logs contain no tokens, credentials or private source details',
+        );
+        console.log(`PASS finance:automation-context:test completed ${checks} groups.`);
+        return;
+      }
+    }
     const writes = await runFinanceWriteTests({
       receiptsOnly,
       instructionsOnly,

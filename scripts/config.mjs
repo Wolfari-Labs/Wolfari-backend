@@ -128,6 +128,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'WEB_ORIGIN',
   ];
   const automationKeys = [
+    'AUTOMATION_FINANCE_SECRET',
+    'FINANCE_GRPC_TARGET',
     'AUTOMATION_GRPC_PORT',
     'GATEWAY_AUTOMATION_SECRET',
     'AUTOMATION_CURSOR_SECRET',
@@ -145,6 +147,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'SMTP_PORT',
   ];
   const financeKeys = [
+    'AUTOMATION_FINANCE_SECRET',
     'MINIO_ENDPOINT',
     'MINIO_ACCESS_KEY',
     'MINIO_SECRET_KEY',
@@ -215,6 +218,7 @@ export async function initEnvironment(base = root) {
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
+    AUTOMATION_FINANCE_SECRET: randomBytes(32).toString('hex'),
     FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
     TRIP_FINANCE_SECRET: randomBytes(32).toString('hex'),
     TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -302,6 +306,8 @@ export async function initEnvironment(base = root) {
             : app.name === 'automation-service'
               ? {
                   AUTOMATION_GRPC_PORT: '3205',
+                  FINANCE_GRPC_TARGET: '127.0.0.1:3204',
+                  AUTOMATION_FINANCE_SECRET: shared.AUTOMATION_FINANCE_SECRET,
                   GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
                   AUTOMATION_CURSOR_SECRET: shared.AUTOMATION_CURSOR_SECRET,
                   PRICE_WATCH_WORKER_ENABLED: 'false',
@@ -326,6 +332,7 @@ export async function initEnvironment(base = root) {
                     MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
                     MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,
                     GATEWAY_FINANCE_SECRET: shared.GATEWAY_FINANCE_SECRET,
+                    AUTOMATION_FINANCE_SECRET: shared.AUTOMATION_FINANCE_SECRET,
                     TRIP_FINANCE_SECRET: shared.TRIP_FINANCE_SECRET,
                   }
                 : app.name === 'travel-intelligence-service'

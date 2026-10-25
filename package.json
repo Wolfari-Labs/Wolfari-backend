@@ -38,6 +38,7 @@
     "contracts:breaking": "node scripts/contracts.mjs breaking",
     "dev:test": "node scripts/launcher-test.mjs",
     "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance",
+    "finance:automation-context:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-automation-context",
     "finance:expenses:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-expenses",
     "finance:notes:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notes",
     "finance:refunds:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-refunds",
