@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { fork, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
-import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { randomBytes, generateKeyPairSync } from 'node:crypto';
 import { parseEnv } from 'node:util';
@@ -10,6 +9,7 @@ import pg from 'pg';
 import { root, services, apps, appEnvironment, databaseUrl } from './config.mjs';
 import { compose } from './infrastructure.mjs';
 import { startTestService } from './test-container.mjs';
+import { createTestPortAllocator } from './test-ports.mjs';
 import { migrate, migrationFiles, connectDatabase, history, safeError } from './migrations.mjs';
 import { checkFundRepository } from '../apps/finance-service/tests/database/fund-repository.integration.mjs';
 import { checkLedgerRepository } from '../apps/finance-service/tests/database/ledger-repository.integration.mjs';
@@ -32,13 +32,7 @@ let directory;
 let env;
 let stage = 'setup';
 const pass = message => { checks++; console.log(`PASS ${message}`); };
-async function port() {
-  const server = createServer();
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  const value = server.address().port;
-  await new Promise(resolve => server.close(resolve));
-  return value;
-}
+const port = createTestPortAllocator();
 async function db(service, work) {
   const client = await connectDatabase(service, databaseUrl(env, service));
   try { return await work(client); } finally { await client.end(); }
@@ -122,6 +116,14 @@ async function launchApps() {
   const tripGrpcPort = await port();
   const automationGrpcPort = await port();
   const financeGrpcPort = await port();
+  const bindings = {
+    ...Object.fromEntries(['POSTGRES_PORT', 'RABBITMQ_PORT', 'RABBITMQ_MANAGEMENT_PORT', 'MINIO_API_PORT', 'MINIO_CONSOLE_PORT'].map(key => [key, Number(env[key])])),
+    ...Object.fromEntries(apps.map(app => [app.portKey, app.testPort])),
+    IDENTITY_GRPC_PORT: grpcPort, TRIP_GRPC_PORT: tripGrpcPort,
+    AUTOMATION_GRPC_PORT: automationGrpcPort, FINANCE_GRPC_PORT: financeGrpcPort,
+  };
+  assert.equal(new Set(Object.values(bindings)).size, Object.keys(bindings).length, 'TEST_PORT_ASSIGNMENT_COLLISION');
+  console.log(`db:test port assignments: ${JSON.stringify(bindings)}`);
   const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const secrets = Object.fromEntries(['GATEWAY', 'AUTOMATION', 'TRIP', 'FINANCE', 'TRAVEL', 'EXPORT'].map(caller => [`${caller}_IDENTITY_SECRET`, randomBytes(32).toString('hex')]));
   const gatewayTripSecret = randomBytes(32).toString('hex');
