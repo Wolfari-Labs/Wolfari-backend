@@ -3,13 +3,14 @@ import { fork, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import pg from 'pg';
 import { root, apps, appEnvironment, databaseUrl } from './config.mjs';
 import { compose } from './infrastructure.mjs';
 import { migrate, migrationFiles } from './migrations.mjs';
+import { createTestPortAllocator } from './test-ports.mjs';
+import { runIdentityNotificationEligibilityTests } from './identity-notification-eligibility-integration.mjs';
 
 const require = createRequire(import.meta.url);
 const amqp = require('amqplib');
@@ -24,13 +25,7 @@ let created = false;
 let checkCount = 0;
 const pass = text => { checkCount++; console.log(`PASS ${text}`); };
 
-async function port() {
-  const server = createServer();
-  await new Promise((resolvePromise, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolvePromise); });
-  const value = server.address().port;
-  await new Promise(resolvePromise => server.close(resolvePromise));
-  return value;
-}
+const port = createTestPortAllocator();
 
 async function waitFor(work, timeout = 20000) {
   const until = Date.now() + timeout;
@@ -142,6 +137,7 @@ async function main() {
     IDENTITY_LINK_BASE_URL: `http://127.0.0.1:${ports.gateway}`, ...secrets,
   };
   await start('identity-service', identityBase);
+  await runIdentityNotificationEligibilityTests({ query, target: `127.0.0.1:${ports.grpc}`, secrets, pass });
   await start('trip-workspace-service', {
     TRIP_PORT: String(ports.trip), TRIP_GRPC_PORT: String(ports.tripGrpc), DATABASE_URL: databaseUrl(infra, 'trip'),
     TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),

@@ -58,7 +58,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 111 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125, Notification API126–131 và Price Watch API133–139   |
+| 112 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125, Notification API126–131 và Price Watch API133–139   |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -198,4 +198,8 @@ và [OpenAPI090–095](../api/finance-payments.openapi.json).
 
 ## Integration checkpoint: 25 October 2026
 
-The Finance and Price Watch/Notification branches are combined locally. The 111-RPC catalog describes contracts; it does not prove that every declared handler, event consumer or production provider is implemented. Finance.GetAutomationContext now has an Automation-only read handler with a documented [source-purpose convention](finance-automation-context.md). Finance has a default-disabled [outbox relay](finance-outbox.md) for its five existing events. ExportSnapshot and downstream notification delivery still require separate work. Integration verification is recorded separately from historical per-branch results.
+The Finance and Price Watch/Notification branches are combined locally. The 112-RPC catalog describes contracts; it does not prove that every declared handler, event consumer or production provider is implemented. Finance.GetAutomationContext now has an Automation-only read handler with a documented [source-purpose convention](finance-automation-context.md). Finance has a default-disabled [outbox relay](finance-outbox.md) for its five existing events. ExportSnapshot and downstream notification delivery still require separate work. Integration verification is recorded separately from historical per-branch results.
+
+## Notification account eligibility prerequisite
+
+Identity.GetNotificationEligibility adds one Automation-only read, bringing the catalog to 112 RPCs. It returns only normalized requested user IDs and current eligibility booleans; the existing GetProfiles and GetInvitationIdentity caller lists remain unchanged. The new method is an additive implementation convention for FR-AU01 recipient validation, not a previously implemented source-specification RPC. See [rules, verification and consumer boundaries](notification-account-eligibility.md). No notification delivery, event or database schema is added.

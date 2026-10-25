@@ -8,6 +8,55 @@ function methods(path: string, packageName: string, serviceName: string): Servic
 }
 
 describe('gRPC contracts', () => {
+  it('limits notification eligibility to minimal ID/boolean responses and preserves explicit false', () => {
+    const identity = methods(PROTO_PATHS.identity, GRPC_PACKAGES.identity, 'IdentityService');
+    const method = identity.GetNotificationEligibility as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const userIds = [
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000002',
+    ];
+    expect(method.requestDeserialize(method.requestSerialize({ user_ids: userIds }))).toEqual({
+      user_ids: userIds,
+    });
+    expect(
+      method.responseDeserialize(
+        method.responseSerialize({
+          recipients: userIds.map((user_id, index) => ({
+            user_id,
+            eligible: index === 0,
+            email: 'private@example.test',
+            status: 'LOCKED',
+            display_name: 'private-name',
+            reason: 'private-reason',
+          })),
+          private_details: 'private',
+        }),
+      ),
+    ).toEqual({
+      recipients: [
+        { user_id: userIds[0], eligible: true },
+        { user_id: userIds[1], eligible: false },
+      ],
+    });
+  });
+  it('grants only Automation the new eligibility read without widening existing Identity callers', () => {
+    const entry = (method: string) =>
+      RPC_CATALOG.find(
+        (value) => value.package === GRPC_PACKAGES.identity && value.method === method,
+      );
+    expect(entry('GetNotificationEligibility')).toMatchObject({
+      service: 'IdentityService',
+      callers: ['Automation'],
+      deadline_ms: 2000,
+    });
+    expect(entry('GetInvitationIdentity')?.callers).toEqual(['Trip']);
+    expect(entry('GetProfiles')?.callers).toEqual(['Trip', 'Finance']);
+    expect(entry('GetAccountEmailDelivery')?.callers).toEqual(['Automation']);
+  });
+
   it('preserves Finance read presence, exact money and false flags on the wire', () => {
     const finance = methods(PROTO_PATHS.finance, GRPC_PACKAGES.finance, 'FinanceService');
     const get = finance.GetFund as MethodDefinition<object, { fund: Record<string, unknown> }>;
@@ -107,7 +156,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 111 RPCs declared by the catalog', () => {
+  it('loads exactly the 112 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -146,7 +195,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(111);
+    expect(RPC_CATALOG).toHaveLength(112);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)
