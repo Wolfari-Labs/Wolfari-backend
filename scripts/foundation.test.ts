@@ -61,6 +61,28 @@ describe('development configuration', () => {
       );
     }
   });
+  it('forwards the opt-in outbox flag only to Finance and strips inherited activation', () => {
+    for (const app of apps) {
+      const values = appEnvironment(
+        app,
+        { FINANCE_OUTBOX_ENABLED: 'true' },
+        { FINANCE_OUTBOX_ENABLED: 'true' },
+      );
+      expect(values.FINANCE_OUTBOX_ENABLED).toBe(
+        app.name === 'finance-service' ? 'true' : undefined,
+      );
+      expect(appEnvironment(app, {}, { FINANCE_OUTBOX_ENABLED: 'true' })).not.toHaveProperty(
+        'FINANCE_OUTBOX_ENABLED',
+      );
+    }
+    const finance = apps.find((app) => app.name === 'finance-service')!;
+    expect(
+      appEnvironment(finance, { RABBITMQ_URL: 'amqp://synthetic-fixture' }, {}).RABBITMQ_URL,
+    ).toBe('amqp://synthetic-fixture');
+    expect(
+      appEnvironment(apps[0], { RABBITMQ_URL: 'amqp://synthetic-fixture' }, {}),
+    ).not.toHaveProperty('RABBITMQ_URL');
+  });
   it('generates unique secrets, preserves files, and detects conflicting app credentials', async () => {
     const base = await mkdtemp(resolve(tmpdir(), 'wolfari-env-test-'));
     try {
@@ -81,6 +103,10 @@ describe('development configuration', () => {
       expect(shared.AUTOMATION_FINANCE_SECRET).not.toBe(shared.TRIP_FINANCE_SECRET);
       for (const app of apps) {
         const appEnv = parseEnv(await readFile(resolve(base, 'apps', app.name, '.env'), 'utf8'));
+        if (app.name === 'finance-service') {
+          expect(appEnv.FINANCE_OUTBOX_ENABLED).toBe('false');
+          expect(appEnv.RABBITMQ_URL).toMatch(/^amqp:\/\//);
+        }
         expect(appEnv.AUTOMATION_FINANCE_SECRET).toBe(
           ['automation-service', 'finance-service'].includes(app.name)
             ? shared.AUTOMATION_FINANCE_SECRET
