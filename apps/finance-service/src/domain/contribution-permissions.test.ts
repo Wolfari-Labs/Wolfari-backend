@@ -17,7 +17,7 @@ const context: ContributionPermissionContext = {
   activeMemberUserIds: new Set([member, holder, owner, otherMember]),
 };
 const selfActions = ['VIEW_PAYMENT_INSTRUCTION', 'REPORT_TRANSFER'] as const;
-const holderActions = ['CONFIRM_RECEIVED', 'REJECT_TRANSFER'] as const;
+const holderActions = ['CONFIRM_RECEIVED', 'REJECT_TRANSFER', 'REVERSE_CONTRIBUTION'] as const;
 const allActions = [...selfActions, ...holderActions];
 
 describe('contribution actor permissions', () => {

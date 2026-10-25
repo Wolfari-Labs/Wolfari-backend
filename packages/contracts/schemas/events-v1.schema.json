@@ -35,12 +35,7 @@
       "$ref": "#/definitions/instant"
     },
     "producer": {
-      "enum": [
-        "Identity",
-        "Trip",
-        "Finance",
-        "ExportWorker"
-      ]
+      "enum": ["Identity", "Trip", "Finance", "ExportWorker"]
     },
     "aggregate_type": {
       "type": "string",
@@ -472,22 +467,13 @@
     "accountStatusChanged": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "user_id",
-        "status",
-        "user_version"
-      ],
+      "required": ["user_id", "status", "user_version"],
       "properties": {
         "user_id": {
           "$ref": "#/definitions/uuid"
         },
         "status": {
-          "enum": [
-            "ACTIVE",
-            "LOCKED",
-            "DELETION_PENDING",
-            "ANONYMIZED"
-          ]
+          "enum": ["ACTIVE", "LOCKED", "DELETION_PENDING", "ANONYMIZED"]
         },
         "user_version": {
           "$ref": "#/definitions/positiveInt"
@@ -497,11 +483,7 @@
     "memberInvited": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "invitation_id",
-        "trip_id",
-        "invitation_version"
-      ],
+      "required": ["invitation_id", "trip_id", "invitation_version"],
       "properties": {
         "invitation_id": {
           "$ref": "#/definitions/uuid"
@@ -517,11 +499,7 @@
     "changedEntity": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "id",
-        "action"
-      ],
+      "required": ["type", "id", "action"],
       "properties": {
         "type": {
           "type": "string",
@@ -532,21 +510,14 @@
           "$ref": "#/definitions/uuid"
         },
         "action": {
-          "enum": [
-            "UPSERT",
-            "DELETE"
-          ]
+          "enum": ["UPSERT", "DELETE"]
         }
       }
     },
     "tombstone": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "id",
-        "source_version"
-      ],
+      "required": ["type", "id", "source_version"],
       "properties": {
         "type": {
           "type": "string",
@@ -564,13 +535,7 @@
     "planUpdated": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "trip_id",
-        "plan_version",
-        "changed_entities",
-        "source_version",
-        "tombstones"
-      ],
+      "required": ["trip_id", "plan_version", "changed_entities", "source_version", "tombstones"],
       "properties": {
         "trip_id": {
           "$ref": "#/definitions/uuid"
@@ -598,11 +563,7 @@
     "membershipChanged": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "trip_id",
-        "user_id",
-        "membership_revision"
-      ],
+      "required": ["trip_id", "user_id", "membership_revision"],
       "properties": {
         "trip_id": {
           "$ref": "#/definitions/uuid"
@@ -618,10 +579,7 @@
     "tripRevision": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "trip_id",
-        "export_revision"
-      ],
+      "required": ["trip_id", "export_revision"],
       "properties": {
         "trip_id": {
           "$ref": "#/definitions/uuid"
@@ -634,11 +592,7 @@
     "tripDeleted": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "trip_id",
-        "export_revision",
-        "deleted_at"
-      ],
+      "required": ["trip_id", "export_revision", "deleted_at"],
       "properties": {
         "trip_id": {
           "$ref": "#/definitions/uuid"
@@ -654,13 +608,7 @@
     "contributionRequested": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "fund_id",
-        "trip_id",
-        "request_id",
-        "contribution_ids",
-        "finance_version"
-      ],
+      "required": ["fund_id", "trip_id", "request_id", "contribution_ids", "finance_version"],
       "properties": {
         "fund_id": {
           "$ref": "#/definitions/uuid"
@@ -687,13 +635,7 @@
     "contributionUpdated": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "fund_id",
-        "trip_id",
-        "contribution_id",
-        "status",
-        "finance_version"
-      ],
+      "required": ["fund_id", "trip_id", "contribution_id", "status", "finance_version"],
       "properties": {
         "fund_id": {
           "$ref": "#/definitions/uuid"
@@ -705,13 +647,7 @@
           "$ref": "#/definitions/uuid"
         },
         "status": {
-          "enum": [
-            "PENDING",
-            "TRANSFER_REPORTED",
-            "CONFIRMED",
-            "WAIVED",
-            "CANCELLED"
-          ]
+          "enum": ["PENDING", "TRANSFER_REPORTED", "CONFIRMED", "WAIVED", "CANCELLED", "REVERSED"]
         },
         "finance_version": {
           "$ref": "#/definitions/positiveInt"
@@ -721,13 +657,7 @@
     "closureRequested": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "fund_id",
-        "trip_id",
-        "closure_id",
-        "snapshot_hash",
-        "finance_version"
-      ],
+      "required": ["fund_id", "trip_id", "closure_id", "snapshot_hash", "finance_version"],
       "properties": {
         "fund_id": {
           "$ref": "#/definitions/uuid"
@@ -749,12 +679,7 @@
     "closureState": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "fund_id",
-        "trip_id",
-        "closure_id",
-        "finance_version"
-      ],
+      "required": ["fund_id", "trip_id", "closure_id", "finance_version"],
       "properties": {
         "fund_id": {
           "$ref": "#/definitions/uuid"
@@ -806,11 +731,7 @@
           "$ref": "#/definitions/positiveInt"
         },
         "format": {
-          "enum": [
-            "XLSX",
-            "PDF",
-            "PNG"
-          ]
+          "enum": ["XLSX", "PDF", "PNG"]
         },
         "preset_version": {
           "$ref": "#/definitions/positiveInt"
@@ -825,10 +746,7 @@
     "exportStarted": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "job_id",
-        "attempt_id"
-      ],
+      "required": ["job_id", "attempt_id"],
       "properties": {
         "job_id": {
           "$ref": "#/definitions/uuid"
@@ -881,12 +799,7 @@
     "exportFailed": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "job_id",
-        "attempt_id",
-        "error_code",
-        "retryable"
-      ],
+      "required": ["job_id", "attempt_id", "error_code", "retryable"],
       "properties": {
         "job_id": {
           "$ref": "#/definitions/uuid"
@@ -907,11 +820,7 @@
     "accountEmailRequested": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "user_id",
-        "token_id",
-        "purpose"
-      ],
+      "required": ["user_id", "token_id", "purpose"],
       "properties": {
         "user_id": {
           "$ref": "#/definitions/uuid"
@@ -920,10 +829,7 @@
           "$ref": "#/definitions/uuid"
         },
         "purpose": {
-          "enum": [
-            "VERIFY_EMAIL",
-            "RESET_PASSWORD"
-          ]
+          "enum": ["VERIFY_EMAIL", "RESET_PASSWORD"]
         }
       }
     }

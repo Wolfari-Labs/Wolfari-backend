@@ -1,0 +1,3 @@
+import { describe,expect,it } from 'vitest';
+import { financialNoteResponse } from './financial-note-response';
+describe('financial note response',()=>{it('keeps optional fields absent and exact amounts as strings',()=>{const base={id:'1',fund_id:'2',description:'x',created_by_user_id:'3',version:1,created_at:'2026-10-22T00:00:00.000Z',updated_at:'2026-10-22T00:00:00.000Z'};expect(financialNoteResponse({...base,amount:null,payer_user_id:null},7)).toMatchObject({amount:undefined,payer_user_id:undefined,finance_version:7});expect(financialNoteResponse({...base,amount:'9223372036854775807',payer_user_id:'4'},7).amount).toBe('9223372036854775807');});});

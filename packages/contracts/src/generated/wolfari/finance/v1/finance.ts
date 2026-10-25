@@ -9,9 +9,16 @@ import type { Metadata } from "@grpc/grpc-js";
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 import { Timestamp } from "../../../google/protobuf/timestamp";
-import { AuthorizationContext, ExportScope, NotFound, Receipt, Recipient } from "../../common/v1/types";
+import { AuthorizationContext, ExportScope, NotFound, Operation, Receipt, Recipient } from "../../common/v1/types";
 
 export const protobufPackage = "wolfari.finance.v1";
+
+export enum PaymentDestinationType {
+  PAYMENT_DESTINATION_TYPE_UNSPECIFIED = 0,
+  PAYMENT_DESTINATION_TYPE_VIETQR = 1,
+  PAYMENT_DESTINATION_TYPE_MOMO_SANDBOX = 2,
+  UNRECOGNIZED = -1,
+}
 
 export enum FundStatus {
   FUND_STATUS_UNSPECIFIED = 0,
@@ -36,6 +43,831 @@ export enum LedgerDirection {
   LEDGER_DIRECTION_IN = 1,
   LEDGER_DIRECTION_OUT = 2,
   UNRECOGNIZED = -1,
+}
+
+export interface PaymentAttemptView {
+  id?: string | undefined;
+  contribution_id?: string | undefined;
+  provider?: string | undefined;
+  environment?: string | undefined;
+  amount?: string | undefined;
+  currency?: string | undefined;
+  status?: string | undefined;
+  needs_reconciliation?: boolean | undefined;
+  payment_url?: string | undefined;
+  expires_at?: Timestamp | undefined;
+  error_code?: string | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+}
+
+export interface PaymentExceptionView {
+  id?: string | undefined;
+  payment_attempt_id?: string | undefined;
+  processing_status?: string | undefined;
+  review_reason?: string | undefined;
+  received_at?: Timestamp | undefined;
+  reviewed_at?: Timestamp | undefined;
+}
+
+export interface CreatePaymentAttemptRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  provider?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreatePaymentAttemptResponse {
+  payment_attempt?: PaymentAttemptView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface GetPaymentAttemptRequest {
+  actor_user_id?: string | undefined;
+  payment_attempt_id?: string | undefined;
+}
+
+export interface GetPaymentAttemptResponse {
+  payment_attempt?: PaymentAttemptView | undefined;
+}
+
+export interface ReconcilePaymentAttemptRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  payment_attempt_id?: string | undefined;
+  reason?: string | undefined;
+}
+
+export interface ReconcilePaymentAttemptResponse {
+  operation?: Operation | undefined;
+}
+
+export interface ReceiveMomoWebhookRequest {
+  partner_code?: string | undefined;
+  order_id?: string | undefined;
+  request_id?: string | undefined;
+  amount?: string | undefined;
+  order_info?: string | undefined;
+  order_type?: string | undefined;
+  transaction_id?: string | undefined;
+  result_code?: number | undefined;
+  message?: string | undefined;
+  pay_type?: string | undefined;
+  response_time?: string | undefined;
+  extra_data?: string | undefined;
+  signature?: string | undefined;
+}
+
+export interface ReceiveMomoWebhookResponse {
+}
+
+export interface ListPaymentExceptionsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListPaymentExceptionsResponse {
+  items?: PaymentExceptionView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface ResolvePaymentExceptionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  payment_exception_id?: string | undefined;
+  resolution?: string | undefined;
+  linked_attempt_id?: string | undefined;
+  reason?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ResolvePaymentExceptionResponse {
+  payment_exception?: PaymentExceptionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ClosureConfirmationView {
+  user_id?: string | undefined;
+  confirmed_at?: Timestamp | undefined;
+}
+
+export interface ClosureView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  requested_by_user_id?: string | undefined;
+  status?: string | undefined;
+  snapshot_finance_version?: number | undefined;
+  snapshot_schema_version?: number | undefined;
+  snapshot_json?: string | undefined;
+  snapshot_hash?: string | undefined;
+  requested_at?: Timestamp | undefined;
+  cancelled_at?: Timestamp | undefined;
+  cancelled_reason?: string | undefined;
+  closed_at?: Timestamp | undefined;
+  confirmations?: ClosureConfirmationView[] | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListClosuresRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListClosuresResponse {
+  items?: ClosureView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface GetClosureRequest {
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+}
+
+export interface GetClosureResponse {
+  closure?: ClosureView | undefined;
+}
+
+export interface CreateClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+  snapshot_hash?: string | undefined;
+}
+
+export interface CancelClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+  reason?: string | undefined;
+}
+
+export interface RemindClosureRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  closure_id?: string | undefined;
+}
+
+export interface CreateClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CancelClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RemindClosureResponse {
+  closure?: ClosureView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RefundView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  status?: string | undefined;
+  reason?: string | undefined;
+  holder_reported_at?: Timestamp | undefined;
+  confirmed_at?: Timestamp | undefined;
+  nonreceipt_confirmed_at?: Timestamp | undefined;
+  reversal_requested_at?: Timestamp | undefined;
+  reversal_consented_at?: Timestamp | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListRefundsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  status?: string | undefined;
+}
+
+export interface ListRefundsResponse {
+  items?: RefundView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateRefundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  reason?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ReportRefundPaidRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmRefundReceivedRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmRefundNonreceiptRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CancelRefundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface RequestRefundReversalRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConsentRefundReversalRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ReverseRefundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreateRefundResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ReportRefundPaidResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmRefundReceivedResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmRefundNonreceiptResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CancelRefundResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RequestRefundReversalResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConsentRefundReversalResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ReverseRefundResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface FinancialNoteView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  payer_user_id?: string | undefined;
+  created_by_user_id?: string | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListFinancialNotesRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListFinancialNotesResponse {
+  items?: FinancialNoteView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateFinancialNoteRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  payer_user_id?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreateFinancialNoteResponse {
+  financial_note?: FinancialNoteView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdateFinancialNoteRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  note_id?: string | undefined;
+  description?: string | undefined;
+  amount?: NullableStringChange | undefined;
+  payer_user_id?: NullableStringChange | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateFinancialNoteResponse {
+  financial_note?: FinancialNoteView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface DeleteFinancialNoteRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  note_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface DeleteFinancialNoteResponse {
+  operation?: Operation | undefined;
+}
+
+export interface NullableStringChange {
+  value?: string | undefined;
+  clear?: boolean | undefined;
+}
+
+export interface ExpenseView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  category?: string | undefined;
+  status?: string | undefined;
+  created_by_user_id?: string | undefined;
+  receipt_available?: boolean | undefined;
+  submitted_at?: Timestamp | undefined;
+  paid_at?: Timestamp | undefined;
+  payment_method?: string | undefined;
+  paid_by_user_id?: string | undefined;
+  confirmed_at?: Timestamp | undefined;
+  confirmed_by_user_id?: string | undefined;
+  rejected_reason?: string | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListExpensesRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  status?: string | undefined;
+}
+
+export interface ListExpensesResponse {
+  items?: ExpenseView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  description?: string | undefined;
+  amount?: string | undefined;
+  category?: string | undefined;
+  receipt_object_key?: string | undefined;
+  paid_at?: string | undefined;
+  payment_method?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreateExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdateExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  title?: string | undefined;
+  description?: NullableStringChange | undefined;
+  amount?: string | undefined;
+  category?: NullableStringChange | undefined;
+  receipt_object_key?: NullableStringChange | undefined;
+  paid_at?: NullableStringChange | undefined;
+  payment_method?: NullableStringChange | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface DeleteExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface SubmitExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface WithdrawExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  paid_at?: string | undefined;
+  payment_method?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface RejectExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ReverseExpenseRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  expense_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface DeleteExpenseResponse {
+  operation?: Operation | undefined;
+}
+
+export interface SubmitExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface WithdrawExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RejectExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ReverseExpenseResponse {
+  expense?: ExpenseView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ContributionAllocationInput {
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  destination_id?: string | undefined;
+}
+
+export interface CreateContributionRequestRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  contributions?: ContributionAllocationInput[] | undefined;
+  due_at?: string | undefined;
+  note?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ContributionRequestView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  title?: string | undefined;
+  status?: string | undefined;
+  version?: number | undefined;
+  created_by_user_id?: string | undefined;
+  created_at?: Timestamp | undefined;
+  due_at?: Timestamp | undefined;
+  note?: string | undefined;
+  amount_per_member?: string | undefined;
+  closed_at?: Timestamp | undefined;
+  contributions?:
+    | ContributionView[]
+    | undefined;
+  /** Absent only in legacy create receipts. */
+  finance_version?: number | undefined;
+}
+
+export interface ContributionView {
+  id?: string | undefined;
+  request_id?: string | undefined;
+  fund_id?: string | undefined;
+  member_user_id?: string | undefined;
+  amount?: string | undefined;
+  status?: string | undefined;
+  self_contribution?: boolean | undefined;
+  member_reported_at?: Timestamp | undefined;
+  confirmed_at?: Timestamp | undefined;
+  confirmed_by_user_id?: string | undefined;
+  waived_reason?: string | undefined;
+  cancelled_reason?: string | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+}
+
+export interface ListContributionRequestsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListContributionsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+  status?: string | undefined;
+  member_user_id?: string | undefined;
+}
+
+export interface ListContributionRequestsResponse {
+  items?: ContributionRequestView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface ListContributionsResponse {
+  items?: ContributionView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+export interface CreateContributionRequestResponse {
+  contribution_request?: ContributionRequestView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ListFundTransactionsRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListFundTransactionsResponse {
+  items?: LedgerEntryView[] | undefined;
+  next_cursor?: string | undefined;
+}
+
+/** API077 projection; the export LedgerEntry message keeps its existing semantics. */
+export interface LedgerEntryView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  sequence?: string | undefined;
+  direction?: LedgerDirection | undefined;
+  transaction_type?: string | undefined;
+  amount?: string | undefined;
+  balance_after?: string | undefined;
+  contribution_id?: string | undefined;
+  expense_id?: string | undefined;
+  refund_id?: string | undefined;
+  reversal_of_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  reason?: string | undefined;
+  created_at?: Timestamp | undefined;
+}
+
+/** Configuration only; confirmation is always a separate Holder command. */
+export interface DestinationWrite {
+  destination_type?: string | undefined;
+  is_default?: boolean | undefined;
+  active?: boolean | undefined;
+  bank_code?: string | undefined;
+  account_number?: string | undefined;
+  account_name?: string | undefined;
+  momo_phone?: string | undefined;
+}
+
+export interface BudgetChange {
+  value?: string | undefined;
+  clear?: boolean | undefined;
+}
+
+export interface DestinationPatch {
+  destination_type?: string | undefined;
+  is_default?: boolean | undefined;
+  active?: boolean | undefined;
+  bank_code?: string | undefined;
+  account_number?: string | undefined;
+  account_name?: string | undefined;
+  momo_phone?: string | undefined;
+}
+
+export interface UpdateFundBudgetRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  budget?: BudgetChange | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CreatePaymentDestinationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  destination?: DestinationWrite | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdatePaymentDestinationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  destination_id?: string | undefined;
+  patch?: DestinationPatch | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateFundBudgetResponse {
+  fund?: FundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CreatePaymentDestinationResponse {
+  destination?: PaymentDestinationView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdatePaymentDestinationResponse {
+  destination?: PaymentDestinationView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface EnableFundRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  holder_user_id?: string | undefined;
+  currency?: string | undefined;
+  budget_amount?: string | undefined;
+  destination?: DestinationWrite | undefined;
+}
+
+export interface ConfirmPaymentDestinationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  destination_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface EnableFundResponse {
+  fund?: FundView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmPaymentDestinationResponse {
+  destination?: PaymentDestinationView | undefined;
+  operation?: Operation | undefined;
+}
+
+/** API071/073 read projections. Existing export Fund wire semantics stay unchanged. */
+export interface GetFundRequest {
+  trip_id?: string | undefined;
+  actor_user_id?: string | undefined;
+}
+
+export interface GetFundResponse {
+  fund?: FundView | undefined;
+}
+
+export interface FundView {
+  id?: string | undefined;
+  trip_id?: string | undefined;
+  holder_user_id?: string | undefined;
+  currency?: string | undefined;
+  budget_amount?: string | undefined;
+  current_balance?: string | undefined;
+  reserved_refund?: string | undefined;
+  available_balance?: string | undefined;
+  status?: FundStatus | undefined;
+  finance_version?: number | undefined;
+  closed_at?: Timestamp | undefined;
+}
+
+export interface ListPaymentDestinationsRequest {
+  fund_id?: string | undefined;
+  actor_user_id?: string | undefined;
+}
+
+export interface ListPaymentDestinationsResponse {
+  destinations?: PaymentDestinationView[] | undefined;
+}
+
+export interface PaymentDestinationView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  destination_type?: PaymentDestinationType | undefined;
+  is_default?: boolean | undefined;
+  active?: boolean | undefined;
+  version?: number | undefined;
+  confirmed_by_holder_at?:
+    | Timestamp
+    | undefined;
+  /** Omitted for ordinary members; never filled from client-supplied roles. */
+  bank_code?: string | undefined;
+  account_number?: string | undefined;
+  account_name?: string | undefined;
+  momo_phone?: string | undefined;
 }
 
 export interface ExecuteTripOperationRequest {
@@ -183,9 +1015,365 @@ export interface FinanceSnapshot {
   environment?: string | undefined;
 }
 
+export interface UpdateContributionRequestRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  request_id?: string | undefined;
+  title?: string | undefined;
+  due_at?: string | undefined;
+  note?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateContributionAmountRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  amount?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface WaiveContributionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface CancelContributionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  reason?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface UpdateContributionAmountResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UpdateContributionRequestResponse {
+  contribution_request?: ContributionRequestView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface WaiveContributionResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CancelContributionResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface UploadFinanceReceiptRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  mime_type?: string | undefined;
+  content?: Uint8Array | undefined;
+}
+
+export interface UploadFinanceReceiptResponse {
+  object_key?: string | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+}
+
+export interface DownloadFinanceReceiptRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  object_key?: string | undefined;
+}
+
+export interface DownloadFinanceReceiptResponse {
+  object_key?: string | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+  content?: Uint8Array | undefined;
+}
+
+export interface ReportContributionTransferRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  evidence_object_key?: string | undefined;
+}
+
+export interface ReportContributionTransferResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmContributionReceivedRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmContributionReceivedResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RejectContributionTransferRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  reason?: string | undefined;
+}
+
+export interface RejectContributionTransferResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ReverseContributionRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  contribution_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  reason?: string | undefined;
+}
+
+export interface ReverseContributionResponse {
+  contribution?: ContributionView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface GetPaymentInstructionRequest {
+  contribution_id?: string | undefined;
+  actor_user_id?: string | undefined;
+}
+
+export interface PaymentInstruction {
+  contribution_id?: string | undefined;
+  amount?: string | undefined;
+  currency?: string | undefined;
+  reference?: string | undefined;
+  recipient_name?: string | undefined;
+  bank_code?: string | undefined;
+  bank_bin?: string | undefined;
+  account_number?: string | undefined;
+  qr_url?: string | undefined;
+  environment?: string | undefined;
+  warning?: string | undefined;
+}
+
+export interface GetPaymentInstructionResponse {
+  instruction?: PaymentInstruction | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  createPaymentAttempt(
+    request: CreatePaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Observable<CreatePaymentAttemptResponse>;
+
+  getPaymentAttempt(request: GetPaymentAttemptRequest, metadata?: Metadata): Observable<GetPaymentAttemptResponse>;
+
+  reconcilePaymentAttempt(
+    request: ReconcilePaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Observable<ReconcilePaymentAttemptResponse>;
+
+  receiveMomoWebhook(request: ReceiveMomoWebhookRequest, metadata?: Metadata): Observable<ReceiveMomoWebhookResponse>;
+
+  listPaymentExceptions(
+    request: ListPaymentExceptionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListPaymentExceptionsResponse>;
+
+  resolvePaymentException(
+    request: ResolvePaymentExceptionRequest,
+    metadata?: Metadata,
+  ): Observable<ResolvePaymentExceptionResponse>;
+
+  listClosures(request: ListClosuresRequest, metadata?: Metadata): Observable<ListClosuresResponse>;
+
+  getClosure(request: GetClosureRequest, metadata?: Metadata): Observable<GetClosureResponse>;
+
+  createClosure(request: CreateClosureRequest, metadata?: Metadata): Observable<CreateClosureResponse>;
+
+  confirmClosure(request: ConfirmClosureRequest, metadata?: Metadata): Observable<ConfirmClosureResponse>;
+
+  cancelClosure(request: CancelClosureRequest, metadata?: Metadata): Observable<CancelClosureResponse>;
+
+  remindClosure(request: RemindClosureRequest, metadata?: Metadata): Observable<RemindClosureResponse>;
+
+  listRefunds(request: ListRefundsRequest, metadata?: Metadata): Observable<ListRefundsResponse>;
+
+  createRefund(request: CreateRefundRequest, metadata?: Metadata): Observable<CreateRefundResponse>;
+
+  reportRefundPaid(request: ReportRefundPaidRequest, metadata?: Metadata): Observable<ReportRefundPaidResponse>;
+
+  confirmRefundReceived(
+    request: ConfirmRefundReceivedRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmRefundReceivedResponse>;
+
+  confirmRefundNonreceipt(
+    request: ConfirmRefundNonreceiptRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmRefundNonreceiptResponse>;
+
+  cancelRefund(request: CancelRefundRequest, metadata?: Metadata): Observable<CancelRefundResponse>;
+
+  requestRefundReversal(
+    request: RequestRefundReversalRequest,
+    metadata?: Metadata,
+  ): Observable<RequestRefundReversalResponse>;
+
+  consentRefundReversal(
+    request: ConsentRefundReversalRequest,
+    metadata?: Metadata,
+  ): Observable<ConsentRefundReversalResponse>;
+
+  reverseRefund(request: ReverseRefundRequest, metadata?: Metadata): Observable<ReverseRefundResponse>;
+
+  listFinancialNotes(request: ListFinancialNotesRequest, metadata?: Metadata): Observable<ListFinancialNotesResponse>;
+
+  createFinancialNote(
+    request: CreateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Observable<CreateFinancialNoteResponse>;
+
+  updateFinancialNote(
+    request: UpdateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Observable<UpdateFinancialNoteResponse>;
+
+  deleteFinancialNote(
+    request: DeleteFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Observable<DeleteFinancialNoteResponse>;
+
+  listExpenses(request: ListExpensesRequest, metadata?: Metadata): Observable<ListExpensesResponse>;
+
+  createExpense(request: CreateExpenseRequest, metadata?: Metadata): Observable<CreateExpenseResponse>;
+
+  updateExpense(request: UpdateExpenseRequest, metadata?: Metadata): Observable<UpdateExpenseResponse>;
+
+  deleteExpense(request: DeleteExpenseRequest, metadata?: Metadata): Observable<DeleteExpenseResponse>;
+
+  submitExpense(request: SubmitExpenseRequest, metadata?: Metadata): Observable<SubmitExpenseResponse>;
+
+  withdrawExpense(request: WithdrawExpenseRequest, metadata?: Metadata): Observable<WithdrawExpenseResponse>;
+
+  confirmExpense(request: ConfirmExpenseRequest, metadata?: Metadata): Observable<ConfirmExpenseResponse>;
+
+  rejectExpense(request: RejectExpenseRequest, metadata?: Metadata): Observable<RejectExpenseResponse>;
+
+  reverseExpense(request: ReverseExpenseRequest, metadata?: Metadata): Observable<ReverseExpenseResponse>;
+
+  getPaymentInstruction(
+    request: GetPaymentInstructionRequest,
+    metadata?: Metadata,
+  ): Observable<GetPaymentInstructionResponse>;
+
+  reportContributionTransfer(
+    request: ReportContributionTransferRequest,
+    metadata?: Metadata,
+  ): Observable<ReportContributionTransferResponse>;
+
+  confirmContributionReceived(
+    request: ConfirmContributionReceivedRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmContributionReceivedResponse>;
+
+  rejectContributionTransfer(
+    request: RejectContributionTransferRequest,
+    metadata?: Metadata,
+  ): Observable<RejectContributionTransferResponse>;
+
+  reverseContribution(
+    request: ReverseContributionRequest,
+    metadata?: Metadata,
+  ): Observable<ReverseContributionResponse>;
+
+  uploadFinanceReceipt(
+    request: UploadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ): Observable<UploadFinanceReceiptResponse>;
+
+  downloadFinanceReceipt(
+    request: DownloadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ): Observable<DownloadFinanceReceiptResponse>;
+
+  updateContributionRequest(
+    request: UpdateContributionRequestRequest,
+    metadata?: Metadata,
+  ): Observable<UpdateContributionRequestResponse>;
+
+  updateContributionAmount(
+    request: UpdateContributionAmountRequest,
+    metadata?: Metadata,
+  ): Observable<UpdateContributionAmountResponse>;
+
+  waiveContribution(request: WaiveContributionRequest, metadata?: Metadata): Observable<WaiveContributionResponse>;
+
+  cancelContribution(request: CancelContributionRequest, metadata?: Metadata): Observable<CancelContributionResponse>;
+
+  listContributionRequests(
+    request: ListContributionRequestsRequest,
+    metadata?: Metadata,
+  ): Observable<ListContributionRequestsResponse>;
+
+  listContributions(request: ListContributionsRequest, metadata?: Metadata): Observable<ListContributionsResponse>;
+
+  createContributionRequest(
+    request: CreateContributionRequestRequest,
+    metadata?: Metadata,
+  ): Observable<CreateContributionRequestResponse>;
+
+  listFundTransactions(
+    request: ListFundTransactionsRequest,
+    metadata?: Metadata,
+  ): Observable<ListFundTransactionsResponse>;
+
+  updateFundBudget(request: UpdateFundBudgetRequest, metadata?: Metadata): Observable<UpdateFundBudgetResponse>;
+
+  createPaymentDestination(
+    request: CreatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ): Observable<CreatePaymentDestinationResponse>;
+
+  updatePaymentDestination(
+    request: UpdatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ): Observable<UpdatePaymentDestinationResponse>;
+
+  enableFund(request: EnableFundRequest, metadata?: Metadata): Observable<EnableFundResponse>;
+
+  confirmPaymentDestination(
+    request: ConfirmPaymentDestinationRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmPaymentDestinationResponse>;
+
+  getFund(request: GetFundRequest, metadata?: Metadata): Observable<GetFundResponse>;
+
+  listPaymentDestinations(
+    request: ListPaymentDestinationsRequest,
+    metadata?: Metadata,
+  ): Observable<ListPaymentDestinationsResponse>;
+
   executeTripOperation(
     request: ExecuteTripOperationRequest,
     metadata?: Metadata,
@@ -207,6 +1395,331 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  createPaymentAttempt(
+    request: CreatePaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Promise<CreatePaymentAttemptResponse> | Observable<CreatePaymentAttemptResponse> | CreatePaymentAttemptResponse;
+
+  getPaymentAttempt(
+    request: GetPaymentAttemptRequest,
+    metadata?: Metadata,
+  ): Promise<GetPaymentAttemptResponse> | Observable<GetPaymentAttemptResponse> | GetPaymentAttemptResponse;
+
+  reconcilePaymentAttempt(
+    request: ReconcilePaymentAttemptRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ReconcilePaymentAttemptResponse>
+    | Observable<ReconcilePaymentAttemptResponse>
+    | ReconcilePaymentAttemptResponse;
+
+  receiveMomoWebhook(
+    request: ReceiveMomoWebhookRequest,
+    metadata?: Metadata,
+  ): Promise<ReceiveMomoWebhookResponse> | Observable<ReceiveMomoWebhookResponse> | ReceiveMomoWebhookResponse;
+
+  listPaymentExceptions(
+    request: ListPaymentExceptionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListPaymentExceptionsResponse> | Observable<ListPaymentExceptionsResponse> | ListPaymentExceptionsResponse;
+
+  resolvePaymentException(
+    request: ResolvePaymentExceptionRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ResolvePaymentExceptionResponse>
+    | Observable<ResolvePaymentExceptionResponse>
+    | ResolvePaymentExceptionResponse;
+
+  listClosures(
+    request: ListClosuresRequest,
+    metadata?: Metadata,
+  ): Promise<ListClosuresResponse> | Observable<ListClosuresResponse> | ListClosuresResponse;
+
+  getClosure(
+    request: GetClosureRequest,
+    metadata?: Metadata,
+  ): Promise<GetClosureResponse> | Observable<GetClosureResponse> | GetClosureResponse;
+
+  createClosure(
+    request: CreateClosureRequest,
+    metadata?: Metadata,
+  ): Promise<CreateClosureResponse> | Observable<CreateClosureResponse> | CreateClosureResponse;
+
+  confirmClosure(
+    request: ConfirmClosureRequest,
+    metadata?: Metadata,
+  ): Promise<ConfirmClosureResponse> | Observable<ConfirmClosureResponse> | ConfirmClosureResponse;
+
+  cancelClosure(
+    request: CancelClosureRequest,
+    metadata?: Metadata,
+  ): Promise<CancelClosureResponse> | Observable<CancelClosureResponse> | CancelClosureResponse;
+
+  remindClosure(
+    request: RemindClosureRequest,
+    metadata?: Metadata,
+  ): Promise<RemindClosureResponse> | Observable<RemindClosureResponse> | RemindClosureResponse;
+
+  listRefunds(
+    request: ListRefundsRequest,
+    metadata?: Metadata,
+  ): Promise<ListRefundsResponse> | Observable<ListRefundsResponse> | ListRefundsResponse;
+
+  createRefund(
+    request: CreateRefundRequest,
+    metadata?: Metadata,
+  ): Promise<CreateRefundResponse> | Observable<CreateRefundResponse> | CreateRefundResponse;
+
+  reportRefundPaid(
+    request: ReportRefundPaidRequest,
+    metadata?: Metadata,
+  ): Promise<ReportRefundPaidResponse> | Observable<ReportRefundPaidResponse> | ReportRefundPaidResponse;
+
+  confirmRefundReceived(
+    request: ConfirmRefundReceivedRequest,
+    metadata?: Metadata,
+  ): Promise<ConfirmRefundReceivedResponse> | Observable<ConfirmRefundReceivedResponse> | ConfirmRefundReceivedResponse;
+
+  confirmRefundNonreceipt(
+    request: ConfirmRefundNonreceiptRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ConfirmRefundNonreceiptResponse>
+    | Observable<ConfirmRefundNonreceiptResponse>
+    | ConfirmRefundNonreceiptResponse;
+
+  cancelRefund(
+    request: CancelRefundRequest,
+    metadata?: Metadata,
+  ): Promise<CancelRefundResponse> | Observable<CancelRefundResponse> | CancelRefundResponse;
+
+  requestRefundReversal(
+    request: RequestRefundReversalRequest,
+    metadata?: Metadata,
+  ): Promise<RequestRefundReversalResponse> | Observable<RequestRefundReversalResponse> | RequestRefundReversalResponse;
+
+  consentRefundReversal(
+    request: ConsentRefundReversalRequest,
+    metadata?: Metadata,
+  ): Promise<ConsentRefundReversalResponse> | Observable<ConsentRefundReversalResponse> | ConsentRefundReversalResponse;
+
+  reverseRefund(
+    request: ReverseRefundRequest,
+    metadata?: Metadata,
+  ): Promise<ReverseRefundResponse> | Observable<ReverseRefundResponse> | ReverseRefundResponse;
+
+  listFinancialNotes(
+    request: ListFinancialNotesRequest,
+    metadata?: Metadata,
+  ): Promise<ListFinancialNotesResponse> | Observable<ListFinancialNotesResponse> | ListFinancialNotesResponse;
+
+  createFinancialNote(
+    request: CreateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Promise<CreateFinancialNoteResponse> | Observable<CreateFinancialNoteResponse> | CreateFinancialNoteResponse;
+
+  updateFinancialNote(
+    request: UpdateFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateFinancialNoteResponse> | Observable<UpdateFinancialNoteResponse> | UpdateFinancialNoteResponse;
+
+  deleteFinancialNote(
+    request: DeleteFinancialNoteRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteFinancialNoteResponse> | Observable<DeleteFinancialNoteResponse> | DeleteFinancialNoteResponse;
+
+  listExpenses(
+    request: ListExpensesRequest,
+    metadata?: Metadata,
+  ): Promise<ListExpensesResponse> | Observable<ListExpensesResponse> | ListExpensesResponse;
+
+  createExpense(
+    request: CreateExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<CreateExpenseResponse> | Observable<CreateExpenseResponse> | CreateExpenseResponse;
+
+  updateExpense(
+    request: UpdateExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateExpenseResponse> | Observable<UpdateExpenseResponse> | UpdateExpenseResponse;
+
+  deleteExpense(
+    request: DeleteExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteExpenseResponse> | Observable<DeleteExpenseResponse> | DeleteExpenseResponse;
+
+  submitExpense(
+    request: SubmitExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<SubmitExpenseResponse> | Observable<SubmitExpenseResponse> | SubmitExpenseResponse;
+
+  withdrawExpense(
+    request: WithdrawExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<WithdrawExpenseResponse> | Observable<WithdrawExpenseResponse> | WithdrawExpenseResponse;
+
+  confirmExpense(
+    request: ConfirmExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<ConfirmExpenseResponse> | Observable<ConfirmExpenseResponse> | ConfirmExpenseResponse;
+
+  rejectExpense(
+    request: RejectExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<RejectExpenseResponse> | Observable<RejectExpenseResponse> | RejectExpenseResponse;
+
+  reverseExpense(
+    request: ReverseExpenseRequest,
+    metadata?: Metadata,
+  ): Promise<ReverseExpenseResponse> | Observable<ReverseExpenseResponse> | ReverseExpenseResponse;
+
+  getPaymentInstruction(
+    request: GetPaymentInstructionRequest,
+    metadata?: Metadata,
+  ): Promise<GetPaymentInstructionResponse> | Observable<GetPaymentInstructionResponse> | GetPaymentInstructionResponse;
+
+  reportContributionTransfer(
+    request: ReportContributionTransferRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ReportContributionTransferResponse>
+    | Observable<ReportContributionTransferResponse>
+    | ReportContributionTransferResponse;
+
+  confirmContributionReceived(
+    request: ConfirmContributionReceivedRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ConfirmContributionReceivedResponse>
+    | Observable<ConfirmContributionReceivedResponse>
+    | ConfirmContributionReceivedResponse;
+
+  rejectContributionTransfer(
+    request: RejectContributionTransferRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<RejectContributionTransferResponse>
+    | Observable<RejectContributionTransferResponse>
+    | RejectContributionTransferResponse;
+
+  reverseContribution(
+    request: ReverseContributionRequest,
+    metadata?: Metadata,
+  ): Promise<ReverseContributionResponse> | Observable<ReverseContributionResponse> | ReverseContributionResponse;
+
+  uploadFinanceReceipt(
+    request: UploadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ): Promise<UploadFinanceReceiptResponse> | Observable<UploadFinanceReceiptResponse> | UploadFinanceReceiptResponse;
+
+  downloadFinanceReceipt(
+    request: DownloadFinanceReceiptRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<DownloadFinanceReceiptResponse>
+    | Observable<DownloadFinanceReceiptResponse>
+    | DownloadFinanceReceiptResponse;
+
+  updateContributionRequest(
+    request: UpdateContributionRequestRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<UpdateContributionRequestResponse>
+    | Observable<UpdateContributionRequestResponse>
+    | UpdateContributionRequestResponse;
+
+  updateContributionAmount(
+    request: UpdateContributionAmountRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<UpdateContributionAmountResponse>
+    | Observable<UpdateContributionAmountResponse>
+    | UpdateContributionAmountResponse;
+
+  waiveContribution(
+    request: WaiveContributionRequest,
+    metadata?: Metadata,
+  ): Promise<WaiveContributionResponse> | Observable<WaiveContributionResponse> | WaiveContributionResponse;
+
+  cancelContribution(
+    request: CancelContributionRequest,
+    metadata?: Metadata,
+  ): Promise<CancelContributionResponse> | Observable<CancelContributionResponse> | CancelContributionResponse;
+
+  listContributionRequests(
+    request: ListContributionRequestsRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ListContributionRequestsResponse>
+    | Observable<ListContributionRequestsResponse>
+    | ListContributionRequestsResponse;
+
+  listContributions(
+    request: ListContributionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListContributionsResponse> | Observable<ListContributionsResponse> | ListContributionsResponse;
+
+  createContributionRequest(
+    request: CreateContributionRequestRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<CreateContributionRequestResponse>
+    | Observable<CreateContributionRequestResponse>
+    | CreateContributionRequestResponse;
+
+  listFundTransactions(
+    request: ListFundTransactionsRequest,
+    metadata?: Metadata,
+  ): Promise<ListFundTransactionsResponse> | Observable<ListFundTransactionsResponse> | ListFundTransactionsResponse;
+
+  updateFundBudget(
+    request: UpdateFundBudgetRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateFundBudgetResponse> | Observable<UpdateFundBudgetResponse> | UpdateFundBudgetResponse;
+
+  createPaymentDestination(
+    request: CreatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<CreatePaymentDestinationResponse>
+    | Observable<CreatePaymentDestinationResponse>
+    | CreatePaymentDestinationResponse;
+
+  updatePaymentDestination(
+    request: UpdatePaymentDestinationRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<UpdatePaymentDestinationResponse>
+    | Observable<UpdatePaymentDestinationResponse>
+    | UpdatePaymentDestinationResponse;
+
+  enableFund(
+    request: EnableFundRequest,
+    metadata?: Metadata,
+  ): Promise<EnableFundResponse> | Observable<EnableFundResponse> | EnableFundResponse;
+
+  confirmPaymentDestination(
+    request: ConfirmPaymentDestinationRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ConfirmPaymentDestinationResponse>
+    | Observable<ConfirmPaymentDestinationResponse>
+    | ConfirmPaymentDestinationResponse;
+
+  getFund(
+    request: GetFundRequest,
+    metadata?: Metadata,
+  ): Promise<GetFundResponse> | Observable<GetFundResponse> | GetFundResponse;
+
+  listPaymentDestinations(
+    request: ListPaymentDestinationsRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<ListPaymentDestinationsResponse>
+    | Observable<ListPaymentDestinationsResponse>
+    | ListPaymentDestinationsResponse;
+
   executeTripOperation(
     request: ExecuteTripOperationRequest,
     metadata?: Metadata,
@@ -239,6 +1752,62 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "createPaymentAttempt",
+      "getPaymentAttempt",
+      "reconcilePaymentAttempt",
+      "receiveMomoWebhook",
+      "listPaymentExceptions",
+      "resolvePaymentException",
+      "listClosures",
+      "getClosure",
+      "createClosure",
+      "confirmClosure",
+      "cancelClosure",
+      "remindClosure",
+      "listRefunds",
+      "createRefund",
+      "reportRefundPaid",
+      "confirmRefundReceived",
+      "confirmRefundNonreceipt",
+      "cancelRefund",
+      "requestRefundReversal",
+      "consentRefundReversal",
+      "reverseRefund",
+      "listFinancialNotes",
+      "createFinancialNote",
+      "updateFinancialNote",
+      "deleteFinancialNote",
+      "listExpenses",
+      "createExpense",
+      "updateExpense",
+      "deleteExpense",
+      "submitExpense",
+      "withdrawExpense",
+      "confirmExpense",
+      "rejectExpense",
+      "reverseExpense",
+      "getPaymentInstruction",
+      "reportContributionTransfer",
+      "confirmContributionReceived",
+      "rejectContributionTransfer",
+      "reverseContribution",
+      "uploadFinanceReceipt",
+      "downloadFinanceReceipt",
+      "updateContributionRequest",
+      "updateContributionAmount",
+      "waiveContribution",
+      "cancelContribution",
+      "listContributionRequests",
+      "listContributions",
+      "createContributionRequest",
+      "listFundTransactions",
+      "updateFundBudget",
+      "createPaymentDestination",
+      "updatePaymentDestination",
+      "enableFund",
+      "confirmPaymentDestination",
+      "getFund",
+      "listPaymentDestinations",
       "executeTripOperation",
       "getOperationResult",
       "cancelOperationIfNotCommitted",

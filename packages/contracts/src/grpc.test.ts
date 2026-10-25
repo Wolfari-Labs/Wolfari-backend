@@ -8,6 +8,35 @@ function methods(path: string, packageName: string, serviceName: string): Servic
 }
 
 describe('gRPC contracts', () => {
+  it('preserves Finance read presence, exact money and false flags on the wire', () => {
+    const finance = methods(PROTO_PATHS.finance, GRPC_PACKAGES.finance, 'FinanceService');
+    const get = finance.GetFund as MethodDefinition<object, { fund: Record<string, unknown> }>;
+    const absent = get.responseDeserialize(
+      get.responseSerialize({ fund: { current_balance: '9007199254740993' } }),
+    );
+    expect(absent.fund.current_balance).toBe('9007199254740993');
+    expect(absent.fund).not.toHaveProperty('budget_amount');
+    expect(
+      get.responseDeserialize(get.responseSerialize({ fund: { budget_amount: '0' } })).fund
+        .budget_amount,
+    ).toBe('0');
+    const list = finance.ListPaymentDestinations as MethodDefinition<
+      object,
+      { destinations: Record<string, unknown>[] }
+    >;
+    const result = list.responseDeserialize(
+      list.responseSerialize({ destinations: [{ active: false, is_default: false, version: 1 }] }),
+    );
+    expect(result.destinations[0]).toEqual({ active: false, is_default: false, version: 1 });
+    expect(result.destinations[0]).not.toHaveProperty('account_number');
+    for (const method of ['GetFund', 'ListPaymentDestinations']) {
+      expect(
+        RPC_CATALOG.find(
+          (entry) => entry.package === GRPC_PACKAGES.finance && entry.method === method,
+        )?.callers,
+      ).toEqual(['ApiGateway']);
+    }
+  });
   it('round-trips additive lifecycle targets and initiator without altering legacy request fields', () => {
     const finance = methods(PROTO_PATHS.finance, GRPC_PACKAGES.finance, 'FinanceService');
     for (const name of ['ExecuteTripOperation', 'CancelOperationIfNotCommitted']) {
@@ -78,7 +107,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 42 RPCs declared by the catalog', () => {
+  it('loads exactly the 111 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
@@ -100,6 +129,11 @@ describe('gRPC contracts', () => {
         'TravelService',
         methods(PROTO_PATHS.travel, GRPC_PACKAGES.travel, 'TravelService'),
       ],
+      [
+        GRPC_PACKAGES.automation,
+        'AutomationService',
+        methods(PROTO_PATHS.automation, GRPC_PACKAGES.automation, 'AutomationService'),
+      ],
     ];
     const loadedMethods = loaded
       .flatMap(([packageName, serviceName, service]) =>
@@ -112,12 +146,79 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(42);
+    expect(RPC_CATALOG).toHaveLength(111);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)
         .sort(),
     ).toEqual(['GetRoute', 'GetWeather']);
+  });
+
+  it('round-trips Price Watch patch presence, explicit clears and int64 strings', () => {
+    const service = methods(PROTO_PATHS.automation, GRPC_PACKAGES.automation, 'AutomationService');
+    const update = service.UpdatePriceWatch as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const absent = update.requestDeserialize(
+      update.requestSerialize({
+        actor_user_id: '00000000-0000-4000-8000-000000000001',
+        watch_id: '00000000-0000-4000-8000-000000000002',
+        expected_version: 3,
+        patch: {},
+      }),
+    ) as { patch: Record<string, unknown> };
+    expect(Object.hasOwn(absent.patch, 'threshold_price')).toBe(false);
+    expect(Object.hasOwn(absent.patch, 'return_date')).toBe(false);
+    const changed = update.requestDeserialize(
+      update.requestSerialize({
+        actor_user_id: '00000000-0000-4000-8000-000000000001',
+        watch_id: '00000000-0000-4000-8000-000000000002',
+        expected_version: 3,
+        patch: {
+          threshold_price: '9223372036854775807',
+          return_date: { clear: true },
+          cabin_class: { value: '' },
+        },
+      }),
+    ) as { patch: Record<string, unknown> };
+    expect(changed.patch.threshold_price).toBe('9223372036854775807');
+    expect(changed.patch.return_date).toEqual({ clear: true, change: 'clear' });
+    expect(changed.patch.cabin_class).toEqual({ value: '', change: 'value' });
+  });
+
+  it('round-trips notification preference presence and excludes device tokens from responses', () => {
+    const service = methods(PROTO_PATHS.automation, GRPC_PACKAGES.automation, 'AutomationService');
+    const update = service.UpdateNotificationPreferences as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const request = update.requestDeserialize(
+      update.requestSerialize({
+        actor_user_id: '00000000-0000-4000-8000-000000000001',
+        push_enabled: false,
+        email_enabled: true,
+        group_overrides: [{ group: 6, push: false }],
+        expected_version: 1,
+      }),
+    ) as Record<string, unknown>;
+    expect(request).toMatchObject({ push_enabled: false, email_enabled: true });
+    expect(Object.hasOwn(request, 'push_enabled')).toBe(true);
+    const list = service.ListNotifications as MethodDefinition<
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+    const filtered = list.requestDeserialize(
+      list.requestSerialize({ actor_user_id: 'user', unread: false }),
+    );
+    expect(Object.hasOwn(filtered, 'unread')).toBe(true);
+    const register = service.RegisterDevice as MethodDefinition<object, object>;
+    const response = register.responseDeserialize(
+      register.responseSerialize({
+        device: { id: 'device', platform: 3, active: true, token: 'must-not-leak' },
+      }),
+    );
+    expect(JSON.stringify(response)).not.toContain('must-not-leak');
   });
 
   it('round-trips Trip PATCH absent, empty-string and clear states', () => {

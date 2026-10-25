@@ -38,7 +38,7 @@ function uuid(value: unknown, field: string): string {
   return value.toLowerCase();
 }
 
-function instant(value: unknown): Date {
+export function contributionInstant(value: unknown): Date {
   if (typeof value !== 'string') return invalid('due_at');
   const match = INSTANT.exec(value);
   if (!match || match[0] !== value) return invalid('due_at');
@@ -95,7 +95,7 @@ export function parseCreateContributionRequestInput(
     if (typeof body.note !== 'string') return invalid('note');
     note = body.note;
   }
-  const dueAt = Object.hasOwn(body, 'due_at') ? instant(body.due_at) : null;
+  const dueAt = Object.hasOwn(body, 'due_at') ? contributionInstant(body.due_at) : null;
   const metadata = { title: body.title, note, dueAt };
   try {
     assertValidContributionRequestMetadata(metadata);

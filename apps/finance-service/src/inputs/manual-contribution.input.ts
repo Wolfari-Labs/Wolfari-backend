@@ -63,9 +63,9 @@ function text(value: unknown, field: string): string {
 /**
  * Parse only the JSON BODY of API087–089. The adapter selects the action from the route,
  * never from client input. No actor, amount, state, ownership, auth or idempotency checks.
- * Evidence stays outside the domain command for a future use case to authorize the file;
+ * Evidence stays outside the domain command for the application to authorize the file;
  * do not log this private key, infer its storage format, or clear old evidence if omitted.
- * A future writer still obtains the Trip guard, resolves replay, reads locked state and
+ * The writer obtains the Trip guard, resolves replay, reads locked state and
  * commits the transition/ledger/receipt/audit/outbox atomically. This result is not a row patch.
  */
 export function parseManualContributionInput(

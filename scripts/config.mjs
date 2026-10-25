@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|GATEWAY_|SMTP_|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -114,16 +114,28 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRIP_GRPC_PORT',
   ];
   const gatewayKeys = [
+    'FINANCE_GRPC_TARGET',
+    'GATEWAY_FINANCE_SECRET',
     'IDENTITY_HTTP_URL',
     'IDENTITY_GRPC_TARGET',
     'GATEWAY_IDENTITY_SECRET',
     'TRIP_HTTP_URL',
     'TRIP_GRPC_TARGET',
     'GATEWAY_TRIP_SECRET',
+    'AUTOMATION_GRPC_TARGET',
+    'GATEWAY_AUTOMATION_SECRET',
     'GATEWAY_CSRF_KEY',
     'WEB_ORIGIN',
   ];
   const automationKeys = [
+    'AUTOMATION_GRPC_PORT',
+    'GATEWAY_AUTOMATION_SECRET',
+    'AUTOMATION_CURSOR_SECRET',
+    'PRICE_WATCH_WORKER_ENABLED',
+    'PRICE_WATCH_WORKER_POLL_MS',
+    'PRICE_WATCH_WORKER_BATCH_SIZE',
+    'PRICE_WATCH_ATTEMPT_LEASE_MS',
+    'PRICE_WATCH_PROVIDER_TIMEOUT_MS',
     'IDENTITY_GRPC_TARGET',
     'AUTOMATION_IDENTITY_SECRET',
     'TRIP_GRPC_TARGET',
@@ -132,7 +144,24 @@ export function appEnvironment(app, values, inherited = process.env) {
     'SMTP_HOST',
     'SMTP_PORT',
   ];
-  const financeKeys = ['TRIP_GRPC_TARGET', 'FINANCE_TRIP_SECRET', 'TRIP_FINANCE_SECRET'];
+  const financeKeys = [
+    'MINIO_ENDPOINT',
+    'MINIO_ACCESS_KEY',
+    'MINIO_SECRET_KEY',
+    'FINANCE_GRPC_PORT',
+    'GATEWAY_FINANCE_SECRET',
+    'TRIP_GRPC_TARGET',
+    'FINANCE_TRIP_SECRET',
+    'TRIP_FINANCE_SECRET',
+    'MOMO_SANDBOX_MODE',
+    'MOMO_PARTNER_CODE',
+    'MOMO_ACCESS_KEY',
+    'MOMO_SECRET_KEY',
+    'MOMO_CREATE_URL',
+    'MOMO_QUERY_URL',
+    'MOMO_REDIRECT_URL',
+    'MOMO_IPN_URL',
+  ];
   const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET'];
   const allowed = [
     'NODE_ENV',
@@ -184,6 +213,8 @@ export async function initEnvironment(base = root) {
     MAILPIT_UI_PORT: '8025',
     GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+    GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
+    GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
     FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
     TRIP_FINANCE_SECRET: randomBytes(32).toString('hex'),
     TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -196,6 +227,7 @@ export async function initEnvironment(base = root) {
     GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
     IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
     TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
+    AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
     IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey
       .export({ type: 'pkcs8', format: 'der' })
       .toString('base64'),
@@ -260,11 +292,23 @@ export async function initEnvironment(base = root) {
                 TRIP_HTTP_URL: `http://127.0.0.1:${appPort(base, 'trip-workspace-service', 'TRIP_PORT', 3102)}`,
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
+                AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',
+                GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
                 GATEWAY_CSRF_KEY: shared.GATEWAY_CSRF_KEY,
+                FINANCE_GRPC_TARGET: '127.0.0.1:3204',
+                GATEWAY_FINANCE_SECRET: shared.GATEWAY_FINANCE_SECRET,
                 WEB_ORIGIN: 'http://127.0.0.1:3000',
               }
             : app.name === 'automation-service'
               ? {
+                  AUTOMATION_GRPC_PORT: '3205',
+                  GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
+                  AUTOMATION_CURSOR_SECRET: shared.AUTOMATION_CURSOR_SECRET,
+                  PRICE_WATCH_WORKER_ENABLED: 'false',
+                  PRICE_WATCH_WORKER_POLL_MS: '1000',
+                  PRICE_WATCH_WORKER_BATCH_SIZE: '20',
+                  PRICE_WATCH_ATTEMPT_LEASE_MS: '30000',
+                  PRICE_WATCH_PROVIDER_TIMEOUT_MS: '5000',
                   AUTOMATION_IDENTITY_SECRET: shared.AUTOMATION_IDENTITY_SECRET,
                   IDENTITY_GRPC_TARGET: '127.0.0.1:3201',
                   TRIP_GRPC_TARGET: '127.0.0.1:3202',
@@ -277,6 +321,11 @@ export async function initEnvironment(base = root) {
                 ? {
                     TRIP_GRPC_TARGET: '127.0.0.1:3202',
                     FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
+                    FINANCE_GRPC_PORT: '3204',
+                    MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
+                    MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
+                    MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,
+                    GATEWAY_FINANCE_SECRET: shared.GATEWAY_FINANCE_SECRET,
                     TRIP_FINANCE_SECRET: shared.TRIP_FINANCE_SECRET,
                   }
                 : app.name === 'travel-intelligence-service'

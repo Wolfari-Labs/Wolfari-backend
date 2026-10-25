@@ -1,0 +1,386 @@
+openapi: 3.1.0
+info:
+  title: Wolfari Price Watch API
+  version: 1.0.0
+  description: API133–139. H1 manages watches and reads observations; provider polling starts in H2.
+servers:
+  - url: http://127.0.0.1:3000/api/v1
+security:
+  - bearer: []
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    TripId:
+      name: trip_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    WatchId:
+      name: watch_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string, maxLength: 1000 }
+  schemas:
+    PassengerMix:
+      type: object
+      additionalProperties: false
+      required: [adults]
+      properties:
+        adults: { type: integer, minimum: 1, maximum: 9 }
+        children: { type: integer, minimum: 0, maximum: 9, default: 0 }
+        infants: { type: integer, minimum: 0, maximum: 9, default: 0 }
+    PriceWatchWrite:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          provider,
+          origin,
+          destination,
+          departure_date,
+          journey_type,
+          passengers,
+          currency,
+          threshold_price,
+          departure_at,
+        ]
+      properties:
+        provider: { type: string, enum: [MOCK_FLIGHT] }
+        origin: { type: string, pattern: '^[A-Za-z]{3}$' }
+        destination: { type: string, pattern: '^[A-Za-z]{3}$' }
+        departure_date: { type: string, format: date }
+        return_date: { type: [string, 'null'], format: date }
+        journey_type: { type: string, enum: [ONE_WAY, ROUND_TRIP] }
+        passengers: { $ref: '#/components/schemas/PassengerMix' }
+        cabin_class:
+          { type: [string, 'null'], enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST, null] }
+        currency: { type: string, enum: [VND] }
+        threshold_price:
+          type: string
+          pattern: '^[1-9][0-9]*$'
+          description: Positive signed int64 represented as a decimal string.
+        departure_at: { type: string, format: date-time }
+    PriceWatchPatch:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      minProperties: 2
+      properties:
+        expected_version: { type: integer, minimum: 1, maximum: 2147483647 }
+        provider: { type: string, enum: [MOCK_FLIGHT] }
+        origin: { type: string, pattern: '^[A-Za-z]{3}$' }
+        destination: { type: string, pattern: '^[A-Za-z]{3}$' }
+        departure_date: { type: string, format: date }
+        return_date: { type: [string, 'null'], format: date }
+        journey_type: { type: string, enum: [ONE_WAY, ROUND_TRIP] }
+        passengers: { $ref: '#/components/schemas/PassengerMix' }
+        cabin_class:
+          { type: [string, 'null'], enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST, null] }
+        currency: { type: string, enum: [VND] }
+        threshold_price: { type: string, pattern: '^[1-9][0-9]*$' }
+        departure_at: { type: string, format: date-time }
+    VersionCommand:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version: { type: integer, minimum: 1, maximum: 2147483647 }
+    NormalizedQuery:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          provider,
+          transport_type,
+          origin,
+          destination,
+          departure_date,
+          return_date,
+          journey_type,
+          passengers,
+          cabin_class,
+          currency,
+          departure_at,
+        ]
+      properties:
+        provider: { type: string, enum: [MOCK_FLIGHT] }
+        transport_type: { type: string, enum: [FLIGHT] }
+        origin: { type: string }
+        destination: { type: string }
+        departure_date: { type: string, format: date }
+        return_date: { type: [string, 'null'], format: date }
+        journey_type: { type: string, enum: [ONE_WAY, ROUND_TRIP] }
+        passengers: { $ref: '#/components/schemas/PassengerMix' }
+        cabin_class: { type: [string, 'null'] }
+        currency: { type: string, enum: [VND] }
+        departure_at: { type: string, format: date-time }
+    PriceWatch:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          trip_id,
+          user_id,
+          query_group_id,
+          threshold_price,
+          currency,
+          status,
+          status_reason,
+          version,
+          expires_at,
+          last_alert_price,
+          last_alert_at,
+          normalized_query,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        trip_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        query_group_id: { type: string, format: uuid }
+        threshold_price: { type: string, pattern: '^[1-9][0-9]*$' }
+        currency: { type: string, enum: [VND] }
+        status: { type: string, enum: [ACTIVE, PAUSED, EXPIRED, STOPPED] }
+        status_reason: { type: [string, 'null'] }
+        version: { type: integer, minimum: 1 }
+        expires_at: { type: string, format: date-time }
+        last_alert_price: { type: [string, 'null'] }
+        last_alert_at: { type: [string, 'null'], format: date-time }
+        normalized_query: { $ref: '#/components/schemas/NormalizedQuery' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Observation:
+      type: object
+      additionalProperties: false
+      required: [id, price, currency, provider, observed_at, fetched_at, fare_metadata]
+      properties:
+        id: { type: string, format: uuid }
+        price: { type: string, pattern: '^[1-9][0-9]*$' }
+        currency: { type: string, enum: [VND] }
+        provider: { type: string }
+        observed_at: { type: string, format: date-time }
+        fetched_at: { type: string, format: date-time }
+        fare_metadata:
+          type: object
+          additionalProperties: false
+          properties:
+            provider_fare_id: { type: [string, 'null'] }
+            carrier_code: { type: [string, 'null'] }
+            fare_class: { type: [string, 'null'] }
+            baggage_summary: { type: [string, 'null'] }
+    Meta:
+      type: object
+      additionalProperties: false
+      required: [correlation_id]
+      properties:
+        correlation_id: { type: string, format: uuid }
+    PageMeta:
+      type: object
+      additionalProperties: false
+      required: [correlation_id, next_cursor]
+      properties:
+        correlation_id: { type: string, format: uuid }
+        next_cursor: { type: [string, 'null'] }
+    PriceWatchResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/PriceWatch' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    PriceWatchPageResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PriceWatch' }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    ObservationPageResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Observation' }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+    Error:
+      type: object
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          required: [code, message, details, retryable]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: [object, 'null']
+              properties:
+                current_version: { type: integer, minimum: 1 }
+            retryable: { type: boolean }
+        meta:
+          type: object
+          required: [correlation_id]
+          properties:
+            correlation_id: { type: string, format: uuid }
+  responses:
+    WatchCreated:
+      description: Created or idempotently replayed
+      content: { application/json: { schema: { $ref: '#/components/schemas/PriceWatchResponse' } } }
+    WatchOk:
+      description: Current watch projection
+      content: { application/json: { schema: { $ref: '#/components/schemas/PriceWatchResponse' } } }
+    WatchPage:
+      description: Current Trip watch page
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/PriceWatchPageResponse' } } }
+    ObservationPage:
+      description: Observation page for the current query group
+      content:
+        { application/json: { schema: { $ref: '#/components/schemas/ObservationPageResponse' } } }
+    BadRequest:
+      {
+        description: Invalid input,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    Unauthorized:
+      {
+        description: Missing or invalid session,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    Forbidden:
+      {
+        description: Current member cannot perform this action,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    NotFound:
+      {
+        description: Watch or authorized Trip scope not found,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+    Conflict:
+      {
+        description: Idempotency,
+        version or state conflict,
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
+paths:
+  /trips/{trip_id}/price-watches:
+    parameters: [{ $ref: '#/components/parameters/TripId' }]
+    post:
+      operationId: createPriceWatch
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PriceWatchWrite' } } }
+      responses:
+        '201': { $ref: '#/components/responses/WatchCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    get:
+      operationId: listPriceWatches
+      parameters:
+        [{ $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }]
+      responses:
+        '200': { $ref: '#/components/responses/WatchPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /price-watches/{watch_id}:
+    parameters: [{ $ref: '#/components/parameters/WatchId' }]
+    patch:
+      operationId: updatePriceWatch
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PriceWatchPatch' } } }
+      responses:
+        '200': { $ref: '#/components/responses/WatchOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /price-watches/{watch_id}/pause:
+    post:
+      operationId: pausePriceWatch
+      parameters: [{ $ref: '#/components/parameters/WatchId' }]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/VersionCommand' } } },
+        }
+      responses:
+        '200': { $ref: '#/components/responses/WatchOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /price-watches/{watch_id}/resume:
+    post:
+      operationId: resumePriceWatch
+      parameters: [{ $ref: '#/components/parameters/WatchId' }]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/VersionCommand' } } },
+        }
+      responses:
+        '200': { $ref: '#/components/responses/WatchOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /price-watches/{watch_id}/stop:
+    post:
+      operationId: stopPriceWatch
+      parameters: [{ $ref: '#/components/parameters/WatchId' }]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/VersionCommand' } } },
+        }
+      responses:
+        '200': { $ref: '#/components/responses/WatchOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /price-watches/{watch_id}/observations:
+    get:
+      operationId: listPriceObservations
+      parameters:
+        - { $ref: '#/components/parameters/WatchId' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { $ref: '#/components/responses/ObservationPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }

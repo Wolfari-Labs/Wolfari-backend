@@ -22,11 +22,6 @@
       "bindings": [
         "AccountStatusChanged",
         "PlanUpdated",
-        "MemberLeft",
-        "MemberRemoved",
-        "TripArchived",
-        "TripDeleted",
-        "TripReopened",
         "ContributionRequested",
         "ContributionUpdated",
         "ClosureRequested",
@@ -34,6 +29,12 @@
         "FinanceClosed",
         "AccountEmailRequested"
       ]
+    },
+    {
+      "name": "wolfari.automation.price-watch.v1",
+      "consumer": "Automation",
+      "durable": true,
+      "bindings": ["MemberLeft", "MemberRemoved", "TripArchived", "TripDeleted", "TripReopened"]
     },
     {
       "name": "wolfari.export-worker.v1",

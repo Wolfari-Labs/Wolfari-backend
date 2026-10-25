@@ -1,0 +1,330 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Finance Refund API",
+    "version": "1.0.0",
+    "description": "API111-119 for reserving and paying shared-fund refunds. A refund changes the ledger only when the recipient confirms receipt; reversal requires a Holder request and recipient consent."
+  },
+  "paths": {
+    "/api/v1/funds/{fund_id}/refunds": {
+      "get": {
+        "summary": "API111 List refunds",
+        "parameters": [
+          { "$ref": "#/components/parameters/FundId" },
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/RefundStatus" }
+          }
+        ],
+        "responses": { "200": { "$ref": "#/components/responses/RefundPage" } }
+      },
+      "post": {
+        "summary": "API112 Create refund reservation (Owner)",
+        "parameters": [
+          { "$ref": "#/components/parameters/FundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateRefundInput" } }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
+    "/api/v1/refunds/{refund_id}/report-paid": {
+      "post": {
+        "summary": "API113 Holder reports payment",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/Action" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
+    "/api/v1/refunds/{refund_id}/confirm-received": {
+      "post": {
+        "summary": "API114 recipient confirms receipt",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/Action" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
+    "/api/v1/refunds/{refund_id}/confirm-nonreceipt": {
+      "post": {
+        "summary": "API115 recipient confirms nonreceipt",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/ReasonAction" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
+    "/api/v1/refunds/{refund_id}/cancel": {
+      "post": {
+        "summary": "API116 Owner cancels an unpaid or disputed refund",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/ReasonAction" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
+    "/api/v1/refunds/{refund_id}/request-reversal": {
+      "post": {
+        "summary": "API117 Holder requests reversal",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/ReasonAction" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
+    "/api/v1/refunds/{refund_id}/consent-reversal": {
+      "post": {
+        "summary": "API118 recipient consents to the requested reversal",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/Action" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
+    "/api/v1/refunds/{refund_id}/reverse": {
+      "post": {
+        "summary": "API119 Holder appends the consented reversal",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": { "$ref": "#/components/requestBodies/ReasonAction" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "FundId": {
+        "name": "fund_id",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "RefundId": {
+        "name": "refund_id",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      }
+    },
+    "requestBodies": {
+      "Action": {
+        "required": true,
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ActionInput" } }
+        }
+      },
+      "ReasonAction": {
+        "required": true,
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ReasonActionInput" } }
+        }
+      }
+    },
+    "responses": {
+      "Refund": {
+        "description": "Current refund snapshot",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/RefundEnvelope" } }
+        }
+      },
+      "RefundPage": {
+        "description": "Fund-scoped refund history",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/RefundPageEnvelope" } }
+        }
+      },
+      "Operation": {
+        "description": "Durable operation accepted for recovery",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/OperationEnvelope" } }
+        }
+      }
+    },
+    "schemas": {
+      "Uuid": { "type": "string", "format": "uuid" },
+      "Money": { "type": "string", "pattern": "^[1-9][0-9]*$", "maxLength": 19 },
+      "Version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+      "RefundStatus": {
+        "type": "string",
+        "enum": ["PENDING", "HOLDER_REPORTED", "CONFIRMED", "CANCELLED", "REVERSED"]
+      },
+      "ActionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "properties": {
+          "expected_version": { "$ref": "#/components/schemas/Version" },
+          "expected_finance_version": { "$ref": "#/components/schemas/Version" }
+        }
+      },
+      "ReasonActionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason", "expected_version", "expected_finance_version"],
+        "properties": {
+          "expected_version": { "$ref": "#/components/schemas/Version" },
+          "expected_finance_version": { "$ref": "#/components/schemas/Version" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      },
+      "CreateRefundInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["member_user_id", "amount", "reason", "expected_finance_version"],
+        "properties": {
+          "member_user_id": { "$ref": "#/components/schemas/Uuid" },
+          "amount": { "$ref": "#/components/schemas/Money" },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 1024 },
+          "expected_finance_version": { "$ref": "#/components/schemas/Version" }
+        }
+      },
+      "Refund": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "member_user_id",
+          "amount",
+          "status",
+          "reason",
+          "holder_reported_at",
+          "confirmed_at",
+          "nonreceipt_confirmed_at",
+          "reversal_requested_at",
+          "reversal_consented_at",
+          "created_at",
+          "updated_at",
+          "version",
+          "finance_version"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "fund_id": { "$ref": "#/components/schemas/Uuid" },
+          "member_user_id": { "$ref": "#/components/schemas/Uuid" },
+          "amount": { "$ref": "#/components/schemas/Money" },
+          "status": { "$ref": "#/components/schemas/RefundStatus" },
+          "reason": { "type": "string" },
+          "holder_reported_at": { "type": "string", "format": "date-time", "nullable": true },
+          "confirmed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "nonreceipt_confirmed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "reversal_requested_at": { "type": "string", "format": "date-time", "nullable": true },
+          "reversal_consented_at": { "type": "string", "format": "date-time", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "version": { "$ref": "#/components/schemas/Version" },
+          "finance_version": { "$ref": "#/components/schemas/Version" }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["correlation_id"],
+        "properties": { "correlation_id": { "$ref": "#/components/schemas/Uuid" } }
+      },
+      "RefundEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Refund" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "RefundPageEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "next_cursor"],
+            "properties": {
+              "items": { "type": "array", "items": { "$ref": "#/components/schemas/Refund" } },
+              "next_cursor": { "type": "string", "nullable": true }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "OperationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "type": "object" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      }
+    }
+  }
+}

@@ -83,6 +83,7 @@ describe('Trip access context', () => {
         'can_edit_plan',
         'can_read_trip',
         'can_update_trip_metadata',
+        'finance_closure_locked',
         'membership',
         'permissions',
         'policy',

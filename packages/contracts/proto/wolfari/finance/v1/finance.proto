@@ -4,11 +4,774 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc CreatePaymentAttempt(CreatePaymentAttemptRequest) returns (CreatePaymentAttemptResponse);
+  rpc GetPaymentAttempt(GetPaymentAttemptRequest) returns (GetPaymentAttemptResponse);
+  rpc ReconcilePaymentAttempt(ReconcilePaymentAttemptRequest) returns (ReconcilePaymentAttemptResponse);
+  rpc ReceiveMomoWebhook(ReceiveMomoWebhookRequest) returns (ReceiveMomoWebhookResponse);
+  rpc ListPaymentExceptions(ListPaymentExceptionsRequest) returns (ListPaymentExceptionsResponse);
+  rpc ResolvePaymentException(ResolvePaymentExceptionRequest) returns (ResolvePaymentExceptionResponse);
+  rpc ListClosures(ListClosuresRequest) returns (ListClosuresResponse);
+  rpc GetClosure(GetClosureRequest) returns (GetClosureResponse);
+  rpc CreateClosure(CreateClosureRequest) returns (CreateClosureResponse);
+  rpc ConfirmClosure(ConfirmClosureRequest) returns (ConfirmClosureResponse);
+  rpc CancelClosure(CancelClosureRequest) returns (CancelClosureResponse);
+  rpc RemindClosure(RemindClosureRequest) returns (RemindClosureResponse);
+  rpc ListRefunds(ListRefundsRequest) returns (ListRefundsResponse);
+  rpc CreateRefund(CreateRefundRequest) returns (CreateRefundResponse);
+  rpc ReportRefundPaid(ReportRefundPaidRequest) returns (ReportRefundPaidResponse);
+  rpc ConfirmRefundReceived(ConfirmRefundReceivedRequest) returns (ConfirmRefundReceivedResponse);
+  rpc ConfirmRefundNonreceipt(ConfirmRefundNonreceiptRequest) returns (ConfirmRefundNonreceiptResponse);
+  rpc CancelRefund(CancelRefundRequest) returns (CancelRefundResponse);
+  rpc RequestRefundReversal(RequestRefundReversalRequest) returns (RequestRefundReversalResponse);
+  rpc ConsentRefundReversal(ConsentRefundReversalRequest) returns (ConsentRefundReversalResponse);
+  rpc ReverseRefund(ReverseRefundRequest) returns (ReverseRefundResponse);
+  rpc ListFinancialNotes(ListFinancialNotesRequest) returns (ListFinancialNotesResponse);
+  rpc CreateFinancialNote(CreateFinancialNoteRequest) returns (CreateFinancialNoteResponse);
+  rpc UpdateFinancialNote(UpdateFinancialNoteRequest) returns (UpdateFinancialNoteResponse);
+  rpc DeleteFinancialNote(DeleteFinancialNoteRequest) returns (DeleteFinancialNoteResponse);
+  rpc ListExpenses(ListExpensesRequest) returns (ListExpensesResponse);
+  rpc CreateExpense(CreateExpenseRequest) returns (CreateExpenseResponse);
+  rpc UpdateExpense(UpdateExpenseRequest) returns (UpdateExpenseResponse);
+  rpc DeleteExpense(DeleteExpenseRequest) returns (DeleteExpenseResponse);
+  rpc SubmitExpense(SubmitExpenseRequest) returns (SubmitExpenseResponse);
+  rpc WithdrawExpense(WithdrawExpenseRequest) returns (WithdrawExpenseResponse);
+  rpc ConfirmExpense(ConfirmExpenseRequest) returns (ConfirmExpenseResponse);
+  rpc RejectExpense(RejectExpenseRequest) returns (RejectExpenseResponse);
+  rpc ReverseExpense(ReverseExpenseRequest) returns (ReverseExpenseResponse);
+  rpc GetPaymentInstruction(GetPaymentInstructionRequest) returns (GetPaymentInstructionResponse);
+  rpc ReportContributionTransfer(ReportContributionTransferRequest) returns (ReportContributionTransferResponse);
+  rpc ConfirmContributionReceived(ConfirmContributionReceivedRequest) returns (ConfirmContributionReceivedResponse);
+  rpc RejectContributionTransfer(RejectContributionTransferRequest) returns (RejectContributionTransferResponse);
+  rpc ReverseContribution(ReverseContributionRequest) returns (ReverseContributionResponse);
+  rpc UploadFinanceReceipt(UploadFinanceReceiptRequest) returns (UploadFinanceReceiptResponse);
+  rpc DownloadFinanceReceipt(DownloadFinanceReceiptRequest) returns (DownloadFinanceReceiptResponse);
+  rpc UpdateContributionRequest(UpdateContributionRequestRequest) returns (UpdateContributionRequestResponse);
+  rpc UpdateContributionAmount(UpdateContributionAmountRequest) returns (UpdateContributionAmountResponse);
+  rpc WaiveContribution(WaiveContributionRequest) returns (WaiveContributionResponse);
+  rpc CancelContribution(CancelContributionRequest) returns (CancelContributionResponse);
+  rpc ListContributionRequests(ListContributionRequestsRequest) returns (ListContributionRequestsResponse);
+  rpc ListContributions(ListContributionsRequest) returns (ListContributionsResponse);
+  rpc CreateContributionRequest(CreateContributionRequestRequest) returns (CreateContributionRequestResponse);
+  rpc ListFundTransactions(ListFundTransactionsRequest) returns (ListFundTransactionsResponse);
+  rpc UpdateFundBudget(UpdateFundBudgetRequest) returns (UpdateFundBudgetResponse);
+  rpc CreatePaymentDestination(CreatePaymentDestinationRequest) returns (CreatePaymentDestinationResponse);
+  rpc UpdatePaymentDestination(UpdatePaymentDestinationRequest) returns (UpdatePaymentDestinationResponse);
+  rpc EnableFund(EnableFundRequest) returns (EnableFundResponse);
+  rpc ConfirmPaymentDestination(ConfirmPaymentDestinationRequest) returns (ConfirmPaymentDestinationResponse);
+  rpc GetFund(GetFundRequest) returns (GetFundResponse);
+  rpc ListPaymentDestinations(ListPaymentDestinationsRequest) returns (ListPaymentDestinationsResponse);
   rpc ExecuteTripOperation(ExecuteTripOperationRequest) returns (ExecuteTripOperationResponse);
   rpc GetOperationResult(GetOperationResultRequest) returns (GetOperationResultResponse);
   rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+}
+
+message PaymentAttemptView {
+  string id = 1;
+  string contribution_id = 2;
+  string provider = 3;
+  string environment = 4;
+  string amount = 5;
+  string currency = 6;
+  string status = 7;
+  bool needs_reconciliation = 8;
+  optional string payment_url = 9;
+  optional google.protobuf.Timestamp expires_at = 10;
+  optional string error_code = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+message PaymentExceptionView {
+  string id = 1;
+  optional string payment_attempt_id = 2;
+  string processing_status = 3;
+  string review_reason = 4;
+  google.protobuf.Timestamp received_at = 5;
+  optional google.protobuf.Timestamp reviewed_at = 6;
+}
+message CreatePaymentAttemptRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string provider = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CreatePaymentAttemptResponse {
+  oneof result {
+    PaymentAttemptView payment_attempt = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message GetPaymentAttemptRequest { string actor_user_id = 1; string payment_attempt_id = 2; }
+message GetPaymentAttemptResponse { PaymentAttemptView payment_attempt = 1; }
+message ReconcilePaymentAttemptRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string payment_attempt_id = 3;
+  string reason = 4;
+}
+message ReconcilePaymentAttemptResponse { wolfari.common.v1.Operation operation = 1; }
+message ReceiveMomoWebhookRequest {
+  string partner_code = 1;
+  string order_id = 2;
+  string request_id = 3;
+  string amount = 4;
+  string order_info = 5;
+  string order_type = 6;
+  string transaction_id = 7;
+  int32 result_code = 8;
+  string message = 9;
+  string pay_type = 10;
+  string response_time = 11;
+  string extra_data = 12;
+  string signature = 13;
+}
+message ReceiveMomoWebhookResponse {}
+message ListPaymentExceptionsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListPaymentExceptionsResponse {
+  repeated PaymentExceptionView items = 1;
+  optional string next_cursor = 2;
+}
+message ResolvePaymentExceptionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string payment_exception_id = 3;
+  string resolution = 4;
+  optional string linked_attempt_id = 5;
+  string reason = 6;
+  int32 expected_finance_version = 7;
+}
+message ResolvePaymentExceptionResponse {
+  oneof result {
+    PaymentExceptionView payment_exception = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message ClosureConfirmationView {
+  string user_id = 1;
+  optional google.protobuf.Timestamp confirmed_at = 2;
+}
+message ClosureView {
+  string id = 1;
+  string fund_id = 2;
+  string requested_by_user_id = 3;
+  string status = 4;
+  int32 snapshot_finance_version = 5;
+  int32 snapshot_schema_version = 6;
+  string snapshot_json = 7;
+  string snapshot_hash = 8;
+  google.protobuf.Timestamp requested_at = 9;
+  optional google.protobuf.Timestamp cancelled_at = 10;
+  optional string cancelled_reason = 11;
+  optional google.protobuf.Timestamp closed_at = 12;
+  repeated ClosureConfirmationView confirmations = 13;
+  int32 finance_version = 14;
+}
+message ListClosuresRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListClosuresResponse {
+  repeated ClosureView items = 1;
+  optional string next_cursor = 2;
+}
+message GetClosureRequest { string actor_user_id = 1; string closure_id = 2; }
+message GetClosureResponse { ClosureView closure = 1; }
+message CreateClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  int32 expected_finance_version = 4;
+}
+message ConfirmClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string closure_id = 3;
+  string snapshot_hash = 4;
+}
+message CancelClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string closure_id = 3;
+  string reason = 4;
+}
+message RemindClosureRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string closure_id = 3;
+}
+message CreateClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConfirmClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
+message CancelClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
+message RemindClosureResponse { oneof result { ClosureView closure = 1; wolfari.common.v1.Operation operation = 2; } }
+
+message RefundView {
+  string id = 1;
+  string fund_id = 2;
+  string member_user_id = 3;
+  string amount = 4;
+  string status = 5;
+  string reason = 6;
+  google.protobuf.Timestamp holder_reported_at = 7;
+  google.protobuf.Timestamp confirmed_at = 8;
+  google.protobuf.Timestamp nonreceipt_confirmed_at = 9;
+  google.protobuf.Timestamp reversal_requested_at = 10;
+  google.protobuf.Timestamp reversal_consented_at = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  int32 version = 14;
+  int32 finance_version = 15;
+}
+message ListRefundsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+  optional string status = 5;
+}
+message ListRefundsResponse {
+  repeated RefundView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateRefundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string member_user_id = 4;
+  string amount = 5;
+  string reason = 6;
+  int32 expected_finance_version = 7;
+}
+message ReportRefundPaidRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ConfirmRefundReceivedRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ConfirmRefundNonreceiptRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CancelRefundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message RequestRefundReversalRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message ConsentRefundReversalRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ReverseRefundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CreateRefundResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ReportRefundPaidResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConfirmRefundReceivedResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConfirmRefundNonreceiptResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message CancelRefundResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message RequestRefundReversalResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConsentRefundReversalResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+message ReverseRefundResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
+
+message FinancialNoteView {
+  string id = 1;
+  string fund_id = 2;
+  string description = 3;
+  optional string amount = 4;
+  optional string payer_user_id = 5;
+  string created_by_user_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  int32 version = 9;
+  int32 finance_version = 10;
+}
+message ListFinancialNotesRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListFinancialNotesResponse {
+  repeated FinancialNoteView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateFinancialNoteRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string description = 4;
+  optional string amount = 5;
+  optional string payer_user_id = 6;
+  int32 expected_finance_version = 7;
+}
+message CreateFinancialNoteResponse {
+  oneof result {
+    FinancialNoteView financial_note = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message UpdateFinancialNoteRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string note_id = 3;
+  optional string description = 4;
+  NullableStringChange amount = 5;
+  NullableStringChange payer_user_id = 6;
+  int32 expected_version = 7;
+  int32 expected_finance_version = 8;
+}
+message UpdateFinancialNoteResponse {
+  oneof result {
+    FinancialNoteView financial_note = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message DeleteFinancialNoteRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string note_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message DeleteFinancialNoteResponse { wolfari.common.v1.Operation operation = 1; }
+
+message NullableStringChange {
+  oneof change {
+    string value = 1;
+    bool clear = 2;
+  }
+}
+message ExpenseView {
+  string id = 1;
+  string fund_id = 2;
+  string title = 3;
+  optional string description = 4;
+  string amount = 5;
+  optional string category = 6;
+  string status = 7;
+  string created_by_user_id = 8;
+  bool receipt_available = 9;
+  google.protobuf.Timestamp submitted_at = 10;
+  google.protobuf.Timestamp paid_at = 11;
+  optional string payment_method = 12;
+  optional string paid_by_user_id = 13;
+  google.protobuf.Timestamp confirmed_at = 14;
+  optional string confirmed_by_user_id = 15;
+  optional string rejected_reason = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+  int32 version = 19;
+  int32 finance_version = 20;
+}
+message ListExpensesRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+  optional string status = 5;
+}
+message ListExpensesResponse {
+  repeated ExpenseView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string title = 4;
+  optional string description = 5;
+  string amount = 6;
+  optional string category = 7;
+  optional string receipt_object_key = 8;
+  optional string paid_at = 9;
+  optional string payment_method = 10;
+  int32 expected_finance_version = 11;
+}
+message CreateExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message UpdateExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  optional string title = 4;
+  NullableStringChange description = 5;
+  optional string amount = 6;
+  NullableStringChange category = 7;
+  NullableStringChange receipt_object_key = 8;
+  NullableStringChange paid_at = 9;
+  NullableStringChange payment_method = 10;
+  int32 expected_version = 11;
+  int32 expected_finance_version = 12;
+}
+message DeleteExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message SubmitExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message WithdrawExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ConfirmExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  string paid_at = 4;
+  string payment_method = 5;
+  int32 expected_version = 6;
+  int32 expected_finance_version = 7;
+}
+message RejectExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message ReverseExpenseRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string expense_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message UpdateExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message DeleteExpenseResponse { wolfari.common.v1.Operation operation = 1; }
+message SubmitExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message WithdrawExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message ConfirmExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message RejectExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message ReverseExpenseResponse {
+  oneof result {
+    ExpenseView expense = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message ContributionAllocationInput {
+  string member_user_id = 1;
+  string amount = 2;
+  string destination_id = 3;
+}
+message CreateContributionRequestRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string title = 4;
+  repeated ContributionAllocationInput contributions = 5;
+  optional string due_at = 6;
+  optional string note = 7;
+  int32 expected_finance_version = 8;
+}
+message ContributionRequestView {
+  string id = 1;
+  string fund_id = 2;
+  string title = 3;
+  string status = 4;
+  int32 version = 5;
+  string created_by_user_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp due_at = 8;
+  optional string note = 9;
+  optional string amount_per_member = 10;
+  google.protobuf.Timestamp closed_at = 11;
+  repeated ContributionView contributions = 12;
+  optional int32 finance_version = 13; // Absent only in legacy create receipts.
+}
+message ContributionView {
+  string id = 1;
+  string request_id = 2;
+  string fund_id = 3;
+  string member_user_id = 4;
+  string amount = 5;
+  string status = 6;
+  bool self_contribution = 7;
+  google.protobuf.Timestamp member_reported_at = 8;
+  google.protobuf.Timestamp confirmed_at = 9;
+  optional string confirmed_by_user_id = 10;
+  optional string waived_reason = 11;
+  optional string cancelled_reason = 12;
+  int32 version = 13;
+  int32 finance_version = 14;
+}
+message ListContributionRequestsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListContributionsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+  optional string status = 5;
+  optional string member_user_id = 6;
+}
+message ListContributionRequestsResponse {
+  repeated ContributionRequestView items = 1;
+  optional string next_cursor = 2;
+}
+message ListContributionsResponse {
+  repeated ContributionView items = 1;
+  optional string next_cursor = 2;
+}
+message CreateContributionRequestResponse {
+  oneof result {
+    ContributionRequestView contribution_request = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message ListFundTransactionsRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListFundTransactionsResponse {
+  repeated LedgerEntryView items = 1;
+  optional string next_cursor = 2;
+}
+// API077 projection; the export LedgerEntry message keeps its existing semantics.
+message LedgerEntryView {
+  string id = 1;
+  string fund_id = 2;
+  int64 sequence = 3;
+  LedgerDirection direction = 4;
+  string transaction_type = 5;
+  string amount = 6;
+  string balance_after = 7;
+  optional string contribution_id = 8;
+  optional string expense_id = 9;
+  optional string refund_id = 10;
+  optional string reversal_of_id = 11;
+  optional string actor_user_id = 12;
+  optional string reason = 13;
+  google.protobuf.Timestamp created_at = 14;
+}
+
+// Configuration only; confirmation is always a separate Holder command.
+message DestinationWrite {
+  string destination_type = 1;
+  optional bool is_default = 2;
+  optional bool active = 3;
+  optional string bank_code = 4;
+  optional string account_number = 5;
+  optional string account_name = 6;
+  optional string momo_phone = 7;
+}
+message BudgetChange {
+  oneof change {
+    string value = 1;
+    bool clear = 2;
+  }
+}
+message DestinationPatch {
+  optional string destination_type = 1;
+  optional bool is_default = 2;
+  optional bool active = 3;
+  optional string bank_code = 4;
+  optional string account_number = 5;
+  optional string account_name = 6;
+  optional string momo_phone = 7;
+}
+message UpdateFundBudgetRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  BudgetChange budget = 4;
+  int32 expected_finance_version = 5;
+}
+message CreatePaymentDestinationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  DestinationWrite destination = 4;
+  int32 expected_finance_version = 5;
+}
+message UpdatePaymentDestinationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string destination_id = 4;
+  DestinationPatch patch = 5;
+  int32 expected_version = 6;
+  int32 expected_finance_version = 7;
+}
+message UpdateFundBudgetResponse {
+  oneof result {
+    FundView fund = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message CreatePaymentDestinationResponse {
+  oneof result {
+    PaymentDestinationView destination = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message UpdatePaymentDestinationResponse {
+  oneof result {
+    PaymentDestinationView destination = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message EnableFundRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string holder_user_id = 4;
+  string currency = 5;
+  optional string budget_amount = 6;
+  DestinationWrite destination = 7;
+}
+message ConfirmPaymentDestinationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string destination_id = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message EnableFundResponse {
+  oneof result {
+    FundView fund = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+message ConfirmPaymentDestinationResponse {
+  oneof result {
+    PaymentDestinationView destination = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+// API071/073 read projections. Existing export Fund wire semantics stay unchanged.
+message GetFundRequest {
+  string trip_id = 1;
+  string actor_user_id = 2;
+}
+message GetFundResponse { FundView fund = 1; }
+message FundView {
+  string id = 1;
+  string trip_id = 2;
+  string holder_user_id = 3;
+  string currency = 4;
+  optional string budget_amount = 5;
+  string current_balance = 6;
+  string reserved_refund = 7;
+  string available_balance = 8;
+  FundStatus status = 9;
+  int32 finance_version = 10;
+  google.protobuf.Timestamp closed_at = 11;
+}
+message ListPaymentDestinationsRequest {
+  string fund_id = 1;
+  string actor_user_id = 2;
+}
+message ListPaymentDestinationsResponse { repeated PaymentDestinationView destinations = 1; }
+enum PaymentDestinationType {
+  PAYMENT_DESTINATION_TYPE_UNSPECIFIED = 0;
+  PAYMENT_DESTINATION_TYPE_VIETQR = 1;
+  PAYMENT_DESTINATION_TYPE_MOMO_SANDBOX = 2;
+}
+message PaymentDestinationView {
+  string id = 1;
+  string fund_id = 2;
+  PaymentDestinationType destination_type = 3;
+  bool is_default = 4;
+  bool active = 5;
+  int32 version = 6;
+  google.protobuf.Timestamp confirmed_by_holder_at = 7;
+  // Omitted for ordinary members; never filled from client-supplied roles.
+  optional string bank_code = 8;
+  optional string account_number = 9;
+  optional string account_name = 10;
+  optional string momo_phone = 11;
 }
 message ExecuteTripOperationRequest {
   string operation_id = 1;
@@ -148,4 +911,170 @@ message FinanceSnapshot {
   repeated Refund refunds = 5;
   repeated LedgerEntry ledger = 6;
   string environment = 7; // TEST/SANDBOX only for this MVP.
+}
+
+message UpdateContributionRequestRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string request_id = 4;
+  optional string title = 5;
+  optional string due_at = 6;
+  optional string note = 7;
+  int32 expected_version = 8;
+  int32 expected_finance_version = 9;
+}
+message UpdateContributionAmountRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string amount = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message WaiveContributionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message CancelContributionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  string reason = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message UpdateContributionAmountResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message UpdateContributionRequestResponse {
+  oneof result {
+    ContributionRequestView contribution_request = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message WaiveContributionResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message CancelContributionResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message UploadFinanceReceiptRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  string mime_type = 3;
+  bytes content = 4;
+}
+message UploadFinanceReceiptResponse {
+  string object_key = 1;
+  string mime_type = 2;
+  int32 size_bytes = 3;
+}
+message DownloadFinanceReceiptRequest {
+  string actor_user_id = 1;
+  string fund_id = 2;
+  string object_key = 3;
+}
+message DownloadFinanceReceiptResponse {
+  string object_key = 1;
+  string mime_type = 2;
+  int32 size_bytes = 3;
+  bytes content = 4;
+}
+
+message ReportContributionTransferRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+  optional string evidence_object_key = 6;
+}
+message ReportContributionTransferResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message ConfirmContributionReceivedRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+}
+message ConfirmContributionReceivedResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message RejectContributionTransferRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+  string reason = 6;
+}
+message RejectContributionTransferResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message ReverseContributionRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string contribution_id = 3;
+  int32 expected_version = 4;
+  int32 expected_finance_version = 5;
+  string reason = 6;
+}
+message ReverseContributionResponse {
+  oneof result {
+    ContributionView contribution = 1;
+    wolfari.common.v1.Operation operation = 2;
+  }
+}
+
+message GetPaymentInstructionRequest {
+  string contribution_id = 1;
+  string actor_user_id = 2;
+}
+message PaymentInstruction {
+  string contribution_id = 1;
+  string amount = 2;
+  string currency = 3;
+  string reference = 4;
+  string recipient_name = 5;
+  string bank_code = 6;
+  string bank_bin = 7;
+  string account_number = 8;
+  string qr_url = 9;
+  string environment = 10;
+  string warning = 11;
+}
+message GetPaymentInstructionResponse {
+  PaymentInstruction instruction = 1;
 }

@@ -79,7 +79,7 @@ function tokenFromMail(text) {
   return new URL(match[0]).searchParams.get('token');
 }
 
-const ports = { gateway: 0, identity: 0, trip: 0, automation: 0, grpc: 0, tripGrpc: 0 };
+const ports = { gateway: 0, identity: 0, trip: 0, automation: 0, grpc: 0, tripGrpc: 0, automationGrpc: 0 };
 const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const secrets = {
   IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64'),
@@ -87,6 +87,8 @@ const secrets = {
   IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
   GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+  GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
+  AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
   FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
   TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
   AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
@@ -153,6 +155,8 @@ async function main() {
   });
   await start('automation-service', {
     AUTOMATION_PORT: String(ports.automation), DATABASE_URL: databaseUrl(infra, 'automation'),
+    AUTOMATION_GRPC_PORT: String(ports.automationGrpc), GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
+    AUTOMATION_CURSOR_SECRET: secrets.AUTOMATION_CURSOR_SECRET,
     IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.grpc}`, AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
     TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`, AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
     RABBITMQ_URL: brokerUrl(), SMTP_HOST: '127.0.0.1', SMTP_PORT: infra.MAILPIT_SMTP_PORT,
@@ -162,6 +166,7 @@ async function main() {
     IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.grpc}`, GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
     TRIP_HTTP_URL: `http://127.0.0.1:${ports.trip}`, TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
+    AUTOMATION_GRPC_TARGET: `127.0.0.1:${ports.automationGrpc}`, GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
     GATEWAY_CSRF_KEY: secrets.GATEWAY_CSRF_KEY, WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
   });
   pass('Gateway, Identity, Trip, Automation ready');

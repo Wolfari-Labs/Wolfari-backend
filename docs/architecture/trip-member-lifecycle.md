@@ -1,8 +1,8 @@
 # Membership lifecycle — Trip-side implementation
 
-Date: 2026-10-02. Branch: `feat/trip-member-lifecycle`, stacked on Invitations
-`64e32b91a1b4a6b1ae13c5d083b84df63a772b86` with the user's approval. Update base
-after PR #9 merges; do not assume current main already contains Invitations.
+Trip-side baseline: 2026-10-02. Finance obligation runtime follow-up: 2026-10-22.
+Historical branch/base notes remain in validation; current behavior is described
+here and in [Finance member lifecycle](finance-member-lifecycle.md).
 
 ## Scope and requirement mapping
 
@@ -10,16 +10,16 @@ SRS v2.3 FR-TR04/05, QD08/09/21/22 and section 8; ERD v1.2;
 DDL/API/Event v1.1 API030/033/034/038 are the baseline. This Markdown records the
 approved implementation clarifications without changing source DOCX or SQL baselines.
 
-| Requirement           | This branch                                                                      | Remaining dependency                                                                   |
-| --------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Member list           | Active member reads six-field membership projection; include_left optional       | Identity display-name fanout intentionally absent                                      |
-| Leave/remove          | Trip prepare, Finance adapter, finalize, replay, recovery                        | Finance Execute/Get/Cancel runtime                                                     |
-| Finance obligations   | Same protocol for leave/remove; reject fails closed                              | Real Holder/payment/refund/closure checks and PENDING to WAIVED/MEMBER_LEFT            |
-| Permission revocation | Current membership, selected editors, GetAccessContext and real Plan transaction | Other services must fresh-authorize and use shared guard for writes                    |
-| Packing               | Unassign/TODO/reset completion; before/after audit                               | Packing CRUD runtime remains separate                                                  |
-| Events                | MemberLeft/Removed plus PlanUpdated when packing changed                         | Automation reminders/watch/recipient invalidation                                      |
-| History               | Membership, activity attribution and financial references retained               | Export download authorization when Export runtime exists                               |
-| Distributed guard     | Lifecycle-initiated protocol only                                                | BeginFinanceOperation/CompleteOperation and all Finance writers using the shared guard |
+| Requirement           | This branch                                                                      | Remaining dependency                                                |
+| --------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Member list           | Active member reads six-field membership projection; include_left optional       | Identity display-name fanout intentionally absent                   |
+| Leave/remove          | Trip prepare/finalize plus real Finance Execute/Get/Cancel, replay and recovery  | Production enable/release review                                    |
+| Finance obligations   | Holder/payment/refund/closure checks and atomic PENDING → WAIVED/MEMBER_LEFT     | Automation/export downstream effects                                |
+| Permission revocation | Current membership, selected editors, GetAccessContext and real Plan transaction | Other services must fresh-authorize and use shared guard for writes |
+| Packing               | Unassign/TODO/reset completion; before/after audit                               | Packing CRUD runtime remains separate                               |
+| Events                | MemberLeft/Removed plus PlanUpdated when packing changed                         | Automation reminders/watch/recipient invalidation                   |
+| History               | Membership, activity attribution and financial references retained               | Export download authorization when Export runtime exists            |
+| Distributed guard     | Lifecycle plus API070–125 writers use durable Trip/Finance operation protocol    | Continue the protocol for later Finance writers                     |
 
 No Owner transfer, archive/delete/reopen, Finance/Planning/Location CRUD, ban list,
 Admin support API or purge. No new migration: V001/V002 already contain required
@@ -41,9 +41,9 @@ an inactive target with a fresh expected revision yields STATE_CONFLICT.
 Finance must confirm even that no Fund exists. Never interpret unavailable as
 "no obligations". Finance owns Holder-not-CLOSED, unclear payment,
 TRANSFER_REPORTED, pending refund and closure restrictions. Eligible unpaid
-PENDING contributions become WAIVED/MEMBER_LEFT; no generic debt prohibition,
-ledger deletion or fabricated refund. Fixture rejection is not proof of these
-business rules in Finance runtime.
+PENDING contributions become WAIVED/MEMBER_LEFT; there is no generic debt
+prohibition, ledger deletion or fabricated refund. These rules now run in Finance
+and are covered through real Trip/Finance/PostgreSQL transport.
 
 ## Intent, transaction and lock order
 

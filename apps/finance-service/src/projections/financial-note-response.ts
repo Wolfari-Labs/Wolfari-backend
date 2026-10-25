@@ -1,0 +1,4 @@
+import type { FinanceV1 } from '@wolfari/contracts/grpc';
+export type FinancialNoteRow = { id:string; fund_id:string; payer_user_id:string|null; amount:string|null; description:string; created_by_user_id:string; version:number; created_at:Date|string; updated_at:Date|string };
+function timestamp(value: Date|string) { const ms=new Date(value).getTime(); if(!Number.isFinite(ms)) throw new Error('Invalid note timestamp'); const seconds=Math.floor(ms/1000); return {seconds:String(seconds),nanos:(ms-seconds*1000)*1000000}; }
+export function financialNoteResponse(row: FinancialNoteRow, financeVersion:number): FinanceV1.FinancialNoteView { return { id:row.id,fund_id:row.fund_id,description:row.description,amount:row.amount??undefined,payer_user_id:row.payer_user_id??undefined,created_by_user_id:row.created_by_user_id,created_at:timestamp(row.created_at),updated_at:timestamp(row.updated_at),version:row.version,finance_version:financeVersion }; }
