@@ -2,6 +2,10 @@
 
 Các số liệu dưới đây là bằng chứng theo ngày chạy, không phải trạng thái kiểm thử của mọi HEAD mới. Bộ tài liệu chính thức hiện hành đã chốt ngày 02/10/2026 tại [danh mục tài liệu](../README.md).
 
+## Integrated Finance and Automation verification, 25 October 2026
+
+The final isolated database integration passes 28 groups on the combined Finance/Price Watch/Notification source: 57 model tables plus 5 migration-history tables and 52 same-database foreign keys. Finance/Trip readiness requires V001-V002; Automation requires V001-V005. All migrations remain byte-identical to their manifests. The thirteen new Price Watch cases include native deadlock recovery, a single provider fetch and dispatch eligibility after pause/stop/expiry. Existing repository, migration concurrency, cross-database denial, readiness and outage/recovery checks also pass. The test project was cleaned; no development database was migrated. Earlier dated results below remain historical evidence.
+
 ## Kiểm chứng Price Watch H1–H2 ngày 22-10-2026
 
 `corepack pnpm db:test` PASS 25 nhóm trên PostgreSQL Compose cô lập. Kết quả H1 gồm Automation V002 preflight, create replay/conflict, query group dùng chung, version/state và observation scope. H2 kiểm tra V003/readiness, scheduler đồng thời chỉ tạo một group/slot, claim/reclaim lease, stale completion, success/no-result, retry cùng attempt, terminal failure, lease hết lượt và expiry. Lần H2 đầu bị chặn bởi quyền Docker sandbox; hai lượt chạy thật tiếp theo phát hiện fixture dùng thời gian tương lai so với clock DB và PostgreSQL suy tham số trạng thái `text/varchar` khác nhau. Fixture đã dùng clock DB đúng, câu SQL thêm cast tường minh; lượt đầy đủ cuối PASS và dọn container/network/volume.
