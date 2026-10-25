@@ -2,9 +2,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const document = readFileSync(resolve(process.cwd(), 'docs/api/price-watch.openapi.yaml'), 'utf8');
+const source = readFileSync(resolve(process.cwd(), 'docs/api/price-watch.openapi.yaml'), 'utf8');
 
-describe('Price Watch OpenAPI', () => {
+describe.each([
+  ['LF', '\n'],
+  ['CRLF', '\r\n'],
+])('Price Watch OpenAPI (%s)', (_style, newline) => {
+  const document = source.replace(/\r?\n/g, newline);
   it('documents API133–139 exactly once and keeps internal fields private', () => {
     for (const operation of [
       'createPriceWatch',
@@ -28,7 +32,7 @@ describe('Price Watch OpenAPI', () => {
   });
 
   it('requires bearer auth, create idempotency and optimistic versions', () => {
-    expect(document).toContain('security:\n  - bearer: []');
+    expect(document).toMatch(/^security:\r?\n {2}- bearer: \[\](?:\r?\n|$)/m);
     expect(document).toContain('name: Idempotency-Key');
     expect(document).toContain('required: [expected_version]');
     expect(document).toContain('current_version');

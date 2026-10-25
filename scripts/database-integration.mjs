@@ -105,11 +105,23 @@ async function health(app, endpoint, status = 200) {
   if (endpoint === 'ready') { assert.equal(body.correlation_id, 'ab814514-965c-443b-ae80-257a6776d89d'); assert(Date.now() - started < 3000); }
   return body;
 }
+function reportAppDiagnostics() {
+  for (const child of children.filter(item => !item.live || item.exitCode !== null || item.signalCode !== null)) {
+    let output = child.output;
+    for (const [key, value] of Object.entries(child.testEnvironment)) {
+      if (/(?:PASSWORD|PASS|SECRET|TOKEN|KEY|DATABASE_URL)/.test(key) && value)
+        output = output.replaceAll(String(value), '[REDACTED]');
+    }
+    output = output.replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s/@]+:[^\s/@]+@/gi, '$1[REDACTED]@');
+    console.error(`db:test app ${child.appName} (exit ${child.exitCode ?? 'running'}, signal ${child.signalCode ?? 'none'}):\n${output.slice(-8000) || '(no output)'}`);
+  }
+}
 async function launchApps() {
   for (const app of apps) app.testPort = await port();
   const grpcPort = await port();
   const tripGrpcPort = await port();
   const automationGrpcPort = await port();
+  const financeGrpcPort = await port();
   const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const secrets = Object.fromEntries(['GATEWAY', 'AUTOMATION', 'TRIP', 'FINANCE', 'TRAVEL', 'EXPORT'].map(caller => [`${caller}_IDENTITY_SECRET`, randomBytes(32).toString('hex')]));
   const gatewayTripSecret = randomBytes(32).toString('hex');
@@ -117,6 +129,8 @@ async function launchApps() {
   const travelTripSecret = randomBytes(32).toString('hex');
   const automationTripSecret = randomBytes(32).toString('hex');
   const gatewayAutomationSecret = randomBytes(32).toString('hex');
+  const gatewayFinanceSecret = randomBytes(32).toString('hex');
+  const tripFinanceSecret = randomBytes(32).toString('hex');
   const gatewayPort = apps.find(app => app.name === 'api-gateway').testPort;
   const identityPort = apps.find(app => app.name === 'identity-service').testPort;
   const tripPort = apps.find(app => app.name === 'trip-workspace-service').testPort;
@@ -133,6 +147,16 @@ async function launchApps() {
         MINIO_ACCESS_KEY: 'test', MINIO_SECRET_KEY: 'test',
         IDENTITY_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
       } : {}),
+      ...(app.name === 'finance-service' ? {
+        FINANCE_GRPC_PORT: String(financeGrpcPort),
+        GATEWAY_FINANCE_SECRET: gatewayFinanceSecret,
+        FINANCE_TRIP_SECRET: financeTripSecret, TRIP_FINANCE_SECRET: tripFinanceSecret,
+        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
+        MOMO_SANDBOX_MODE: 'disabled',
+      } : {}),
+      ...(app.name === 'travel-intelligence-service' ? {
+        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`, TRAVEL_TRIP_SECRET: travelTripSecret,
+      } : {}),
       ...(app.name === 'automation-service' ? {
         AUTOMATION_GRPC_PORT: String(automationGrpcPort), GATEWAY_AUTOMATION_SECRET: gatewayAutomationSecret,
         AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
@@ -145,7 +169,8 @@ async function launchApps() {
         TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
         TRIP_INVITATION_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
         IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`, TRIP_IDENTITY_SECRET: secrets.TRIP_IDENTITY_SECRET,
-        TRIP_OUTBOX_ENABLED: 'false',
+        TRIP_OUTBOX_ENABLED: 'false', TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'false',
+        FINANCE_GRPC_TARGET: `127.0.0.1:${financeGrpcPort}`, TRIP_FINANCE_SECRET: tripFinanceSecret,
         TRIP_GRPC_PORT: String(tripGrpcPort), GATEWAY_TRIP_SECRET: gatewayTripSecret,
         FINANCE_TRIP_SECRET: financeTripSecret, TRAVEL_TRIP_SECRET: travelTripSecret,
         AUTOMATION_TRIP_SECRET: automationTripSecret,
@@ -153,6 +178,7 @@ async function launchApps() {
       ...(app.name === 'api-gateway' ? {
         GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
         GATEWAY_TRIP_SECRET: gatewayTripSecret,
+        FINANCE_GRPC_TARGET: `127.0.0.1:${financeGrpcPort}`, GATEWAY_FINANCE_SECRET: gatewayFinanceSecret,
         GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
         IDENTITY_HTTP_URL: `http://127.0.0.1:${identityPort}`,
         IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`,
@@ -162,15 +188,35 @@ async function launchApps() {
         WEB_ORIGIN: `http://127.0.0.1:${gatewayPort}`,
       } : {}),
     };
-    const child = fork(resolve(root, 'apps', app.name, 'dist/main.js'), [], { env: appEnvironment(app, values), stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
-    child.stderr.on('data', () => {});
+    const testEnvironment = appEnvironment(app, values);
+    const child = fork(resolve(root, 'apps', app.name, 'dist/main.js'), [], { env: testEnvironment, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true });
+    child.appName = app.name;
+    child.testEnvironment = testEnvironment;
+    child.output = '';
+    child.live = false;
+    const append = chunk => {
+      child.output += chunk.toString();
+      if (child.output.length > 64000) {
+        child.output = child.output.slice(-64000);
+        child.output = child.output.slice(child.output.indexOf('\n') + 1);
+      }
+    };
+    child.stdout.on('data', append);
+    child.stderr.on('data', append);
+    child.once('error', () => { child.startFailed = true; });
     children.push(child);
   }
   const deadline = Date.now() + 20000;
   for (const app of apps) {
+    const child = children.find(item => item.appName === app.name);
     while (true) {
-      try { await health(app, 'live'); break; }
-      catch (error) { if (Date.now() > deadline) throw error; await new Promise(resolve => setTimeout(resolve, 200)); }
+      if (child.startFailed || child.exitCode !== null || child.signalCode !== null)
+        throw new Error('APP_START_FAILED');
+      try { await health(app, 'live'); child.live = true; break; }
+      catch (error) {
+        if (Date.now() > deadline) throw new Error('APP_START_TIMEOUT', { cause: error });
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
     }
   }
 }
@@ -369,13 +415,14 @@ async function main() {
 try { await main(); }
 catch (error) {
   console.error(`FAIL db:test [${stage}]:`, safeError(error), error instanceof assert.AssertionError ? error.message : '');
+  reportAppDiagnostics();
   await reportDockerDiagnostics();
   process.exitCode = 1;
 }
 finally {
   await Promise.all(children.map(child => new Promise(resolve => {
-    if (child.exitCode !== null) { resolve(); return; }
-    const timer = setTimeout(() => child.kill(), 5000);
+    if (child.exitCode !== null || child.signalCode !== null) { resolve(); return; }
+    const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
     child.once('exit', () => { clearTimeout(timer); resolve(); });
     if (child.connected) child.send('shutdown'); else child.kill();
   })));

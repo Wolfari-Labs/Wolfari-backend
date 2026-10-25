@@ -110,6 +110,8 @@ corepack pnpm lint
 corepack pnpm test
 ```
 
+With `NODE_ENV=test`, applications ignore local `.env` files and use only the isolated test harness configuration. `db:test` generates its own service secrets and gRPC ports; it does not require `env:init`. Development startup still reads each app's `.env`.
+
 `db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
 `identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
 `trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.

@@ -2,9 +2,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const document = readFileSync(resolve(process.cwd(), 'docs/api/notification.openapi.yaml'), 'utf8');
+const source = readFileSync(resolve(process.cwd(), 'docs/api/notification.openapi.yaml'), 'utf8');
 
-describe('Notification OpenAPI', () => {
+describe.each([
+  ['LF', '\n'],
+  ['CRLF', '\r\n'],
+])('Notification OpenAPI (%s)', (_style, newline) => {
+  const document = source.replace(/\r?\n/g, newline);
   it('documents API126–131 exactly once without claiming the Reminder API', () => {
     for (const operation of [
       'getNotificationPreferences',
@@ -20,10 +24,10 @@ describe('Notification OpenAPI', () => {
   });
 
   it('keeps device tokens write-only and documents version/filter rules', () => {
-    const deviceProjection = document.slice(
-      document.indexOf('    Device:\n'),
-      document.indexOf('    Notification:\n'),
-    );
+    const deviceProjection = document.match(
+      /^ {4}Device:\r?\n([\s\S]*?)^ {4}Notification:\r?$/m,
+    )?.[1];
+    expect(deviceProjection).toContain('required: [id, platform, active, last_seen_at]');
     expect(deviceProjection).not.toContain('token:');
     expect(document).toContain(
       'required: [push_enabled, email_enabled, group_overrides, expected_version]',
