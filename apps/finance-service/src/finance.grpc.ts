@@ -1,3 +1,4 @@
+import { FinanceAutomationContextService } from './application/automation-context.service';
 import { PaymentInstructionService } from './application/payment-instruction.service';
 import { ReceiptService } from './receipts/receipt.service';
 import { ManualContributionService } from './application/manual-contribution.service';
@@ -53,7 +54,20 @@ export class FinanceGrpcController {
     private readonly closures?: ClosureService,
     private readonly payments?: PaymentService,
     private readonly lifecycle?: LifecycleFinanceRepository,
+    private readonly automationContext?: FinanceAutomationContextService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'GetAutomationContext')
+  getAutomationContext(
+    request: FinanceV1.GetAutomationContextRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<FinanceV1.GetAutomationContextResponse> {
+    return this.execute('GetAutomationContext', metadata, call, (correlation, deadline) => {
+      if (!this.automationContext) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.automationContext.get(request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ExecuteTripOperation')
   executeTripOperation(
@@ -512,7 +526,11 @@ export class FinanceGrpcController {
     const provided = Buffer.from(single('x-service-secret'));
     const expected = Buffer.from(
       this.config.get<string>(
-        caller === 'Trip' ? 'TRIP_FINANCE_SECRET' : 'GATEWAY_FINANCE_SECRET',
+        caller === 'Trip'
+          ? 'TRIP_FINANCE_SECRET'
+          : caller === 'Automation'
+            ? 'AUTOMATION_FINANCE_SECRET'
+            : 'GATEWAY_FINANCE_SECRET',
       ) ?? '',
     );
     const correlation = single('x-correlation-id');
@@ -523,7 +541,7 @@ export class FinanceGrpcController {
         rpc.method === method,
     );
     if (
-      !['ApiGateway', 'Trip'].includes(caller) ||
+      !['ApiGateway', 'Trip', 'Automation'].includes(caller) ||
       !entry?.callers.includes(caller) ||
       expected.length < 32 ||
       provided.length !== expected.length ||

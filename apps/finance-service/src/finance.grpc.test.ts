@@ -1,3 +1,4 @@
+import type { FinanceAutomationContextService } from './application/automation-context.service';
 import type { ManualContributionService } from './application/manual-contribution.service';
 import type { ReceiptService } from './receipts/receipt.service';
 import 'reflect-metadata';
@@ -15,7 +16,10 @@ import type { ContributionReversalService } from './application/contribution-rev
 
 const id = '10000000-0000-4000-8000-000000000001';
 const secret = 'a'.repeat(64);
-function setup() {
+function setup(automationSecret: string | undefined = 'c'.repeat(64)) {
+  const automation = {
+    get: vi.fn().mockResolvedValue({ finance_version: 4, status: 1, authorized_recipients: [] }),
+  };
   const queries = {
     getFund: vi.fn().mockResolvedValue({ fund: {} }),
     listPaymentDestinations: vi.fn().mockResolvedValue({ destinations: [] }),
@@ -38,13 +42,18 @@ function setup() {
   metadata.set('x-correlation-id', id);
   return {
     queries,
+    automation,
     files,
     commands,
     receipts,
     metadata,
     controller: new FinanceGrpcController(
       queries as unknown as FundQueryService,
-      new ConfigService({ GATEWAY_FINANCE_SECRET: secret, TRIP_FINANCE_SECRET: 'b'.repeat(64) }),
+      new ConfigService({
+        GATEWAY_FINANCE_SECRET: secret,
+        TRIP_FINANCE_SECRET: 'b'.repeat(64),
+        AUTOMATION_FINANCE_SECRET: automationSecret,
+      }),
       commands as unknown as FundCommandService,
       receipts as unknown as FundCommandRepository,
       {
@@ -61,6 +70,13 @@ function setup() {
       } as unknown as ManualContributionService,
       undefined,
       reversals as unknown as ContributionReversalService,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      automation as unknown as FinanceAutomationContextService,
     ),
     reversals,
   };
@@ -250,6 +266,100 @@ describe('Finance gRPC boundary', () => {
       s.controller.getFund({ trip_id: id, actor_user_id: id }, s.metadata),
     ).rejects.toMatchObject({
       error: { code: status.UNAVAILABLE, message: '{"code":"SERVICE_UNAVAILABLE","details":null}' },
+    });
+  });
+});
+
+describe('Finance Automation context authentication', () => {
+  const request = { fund_id: id, source_type: 'CONTRIBUTION_DUE', source_id: id };
+  function authorized(secret: string = 'c'.repeat(64)) {
+    const s = setup(secret);
+    s.metadata.set('x-caller-service', 'Automation');
+    s.metadata.set('x-service-secret', 'c'.repeat(64));
+    return s;
+  }
+  it('passes only authenticated reads with one bounded caller deadline', async () => {
+    const s = authorized();
+    const callerDeadline = Date.now() + 1500;
+    expect(
+      await s.controller.getAutomationContext(request, s.metadata, {
+        getDeadline: () => callerDeadline,
+      }),
+    ).toEqual({ finance_version: 4, status: 1, authorized_recipients: [] });
+    expect(s.automation.get).toHaveBeenCalledWith(request, id, callerDeadline - 100);
+    expect(s.commands.enable).not.toHaveBeenCalled();
+    expect(s.receipts.find).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['ApiGateway', secret],
+    ['Trip', 'b'.repeat(64)],
+    ['ExportWorker', 'c'.repeat(64)],
+    ['Automation', secret],
+    ['Automation', 'b'.repeat(64)],
+    ['Automation', 'wrong'],
+  ])(
+    'rejects %s with unrelated or invalid credentials before reading data',
+    async (caller, credential) => {
+      const s = setup();
+      s.metadata.set('x-caller-service', caller!);
+      s.metadata.set('x-service-secret', credential!);
+      await expect(s.controller.getAutomationContext(request, s.metadata)).rejects.toMatchObject({
+        error: { code: status.PERMISSION_DENIED },
+      });
+      expect(s.automation.get).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['', 'short'])(
+    'fails closed when its own credential is absent or short: %s',
+    async (value) => {
+      const s = authorized(value);
+      await expect(s.controller.getAutomationContext(request, s.metadata)).rejects.toMatchObject({
+        error: { code: status.PERMISSION_DENIED },
+      });
+      expect(s.automation.get).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['x-caller-service', 'x-service-secret', 'x-correlation-id'])(
+    'rejects duplicate metadata %s',
+    async (key) => {
+      const s = authorized();
+      s.metadata.add(key, String(s.metadata.get(key)[0]));
+      await expect(s.controller.getAutomationContext(request, s.metadata)).rejects.toMatchObject({
+        error: { code: status.PERMISSION_DENIED },
+      });
+      expect(s.automation.get).not.toHaveBeenCalled();
+    },
+  );
+  it('rejects missing credentials and invalid correlation IDs', async () => {
+    const s = authorized();
+    await expect(s.controller.getAutomationContext(request)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+    s.metadata.set('x-correlation-id', 'invalid');
+    await expect(s.controller.getAutomationContext(request, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+    expect(s.automation.get).not.toHaveBeenCalled();
+  });
+  it('does not grant Automation access to existing Gateway or Trip operations', async () => {
+    const s = authorized();
+    await expect(s.controller.getFund({ fund_id: id }, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+    await expect(s.controller.executeTripOperation({}, s.metadata)).rejects.toMatchObject({
+      error: { code: status.PERMISSION_DENIED },
+    });
+    expect(s.queries.getFund).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['VALIDATION_FAILED', status.INVALID_ARGUMENT],
+    ['RESOURCE_NOT_FOUND', status.NOT_FOUND],
+    ['SERVICE_UNAVAILABLE', status.UNAVAILABLE],
+  ] as const)('maps %s without source or recipient disclosure', async (code, transport) => {
+    const s = authorized();
+    s.automation.get.mockRejectedValue(new FinanceReadError(code));
+    await expect(s.controller.getAutomationContext(request, s.metadata)).rejects.toMatchObject({
+      error: { code: transport, message: JSON.stringify({ code, details: null }) },
     });
   });
 });

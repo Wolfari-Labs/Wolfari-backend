@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 // JavaScript CLI modules are exercised directly, without a second implementation.
 // @ts-expect-error CLI is native ESM JavaScript.
 import { root, apps, initEnvironment, appEnvironment } from './config.mjs';
@@ -40,9 +41,23 @@ describe('development configuration', () => {
       );
       expect(result.FINANCE_GRPC_PORT).toBe(app.name === 'finance-service' ? '3204' : undefined);
       expect(result.FINANCE_GRPC_TARGET).toBe(
-        ['api-gateway', 'trip-workspace-service'].includes(app.name)
+        ['api-gateway', 'trip-workspace-service', 'automation-service'].includes(app.name)
           ? values.FINANCE_GRPC_TARGET
           : undefined,
+      );
+    }
+  });
+  it('isolates the Automation-Finance credential from every other app and inherited secrets', () => {
+    const values = { AUTOMATION_FINANCE_SECRET: 'a'.repeat(64) };
+    for (const app of apps) {
+      const result = appEnvironment(app, values, { AUTOMATION_FINANCE_SECRET: 'foreign' });
+      expect(result.AUTOMATION_FINANCE_SECRET).toBe(
+        ['automation-service', 'finance-service'].includes(app.name)
+          ? values.AUTOMATION_FINANCE_SECRET
+          : undefined,
+      );
+      expect(appEnvironment(app, {}, { AUTOMATION_FINANCE_SECRET: 'foreign' })).not.toHaveProperty(
+        'AUTOMATION_FINANCE_SECRET',
       );
     }
   });
@@ -60,6 +75,18 @@ describe('development configuration', () => {
       await initEnvironment(base);
       const first = await readFile(resolve(base, '.env'), 'utf8');
       expect(first).not.toContain('change-me-');
+      const shared = parseEnv(first);
+      expect(shared.AUTOMATION_FINANCE_SECRET).toMatch(/^[a-f0-9]{64}$/);
+      expect(shared.AUTOMATION_FINANCE_SECRET).not.toBe(shared.GATEWAY_FINANCE_SECRET);
+      expect(shared.AUTOMATION_FINANCE_SECRET).not.toBe(shared.TRIP_FINANCE_SECRET);
+      for (const app of apps) {
+        const appEnv = parseEnv(await readFile(resolve(base, 'apps', app.name, '.env'), 'utf8'));
+        expect(appEnv.AUTOMATION_FINANCE_SECRET).toBe(
+          ['automation-service', 'finance-service'].includes(app.name)
+            ? shared.AUTOMATION_FINANCE_SECRET
+            : undefined,
+        );
+      }
       const secrets = [...first.matchAll(/(?:PASSWORD|PASS)=(\w+)/g)].map((match) => match[1]);
       expect(new Set(secrets).size).toBe(secrets.length);
       await initEnvironment(base);

@@ -1,3 +1,5 @@
+import { FinanceAutomationContextService } from './application/automation-context.service';
+import { FinanceAutomationContextRepository } from './repositories/automation-context.repository';
 import { PaymentInstructionService } from './application/payment-instruction.service';
 import { ReceiptService } from './receipts/receipt.service';
 import { ManualContributionService } from './application/manual-contribution.service';
@@ -38,6 +40,8 @@ import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.rep
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
   controllers: [FinanceGrpcController],
   providers: [
+    FinanceAutomationContextService,
+    FinanceAutomationContextRepository,
     PaymentInstructionService,
     ContributionReversalService,
     PaymentInstructionRepository,

@@ -457,3 +457,7 @@ worker phục hồi lock nếu Finance đã commit nhưng Complete bị mất. R
 Snapshot công khai không chứa payment destination, tài khoản, object key hoặc provider payload.
 Xem [thiết kế và protocol](../../docs/architecture/finance-closures.md) và
 [OpenAPI120–125](../../docs/api/finance-closures.openapi.json).
+
+## Automation context reads
+
+Finance.GetAutomationContext resolves current contribution debtors, transfer-review Holders and unconfirmed closure members for Automation. It uses a dedicated service credential, current Trip membership and a repeated Finance source snapshot. The response contains only version/status, authorized user IDs and an optional deadline; it makes no business writes or notification deliveries. See the [source-purpose mapping, authorization and limits](../../docs/architecture/finance-automation-context.md). Run corepack pnpm finance:automation-context:test for the isolated focused suite.
