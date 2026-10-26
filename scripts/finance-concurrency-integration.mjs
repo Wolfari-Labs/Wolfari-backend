@@ -743,7 +743,7 @@ async function runClosureLockRegressions(h, c) {
       c.users[2].id,
     ])
   )[0];
-  const workerStarted = signal();
+  const workerReachedFund = signal();
   let lifecycleOutcome, workerOutcome;
   const receiptId = randomUUID();
   try {
@@ -782,11 +782,24 @@ async function runClosureLockRegressions(h, c) {
       ],
     );
     workerOutcome = captureOutcome(
-      new PaymentRepository(observedDatabase(h, { started: workerStarted })).processWebhook(
-        receiptId,
-      ),
+      new PaymentRepository(
+        observedDatabase(h, {
+          before: ({ sql, pid }) => {
+            if (isFundLock(sql)) workerReachedFund.resolve(pid);
+          },
+        }),
+      ).processWebhook(receiptId),
     );
-    const workerPid = await bounded(workerStarted.promise, 'webhook worker transaction');
+    const workerPid = await bounded(
+      Promise.race([
+        workerReachedFund.promise,
+        workerOutcome.then((outcome) => {
+          valueOf(outcome);
+          assert.fail('Webhook worker returned before attempting the Fund lock');
+        }),
+      ]),
+      'webhook worker Fund lock',
+    );
     await assertBlockedBy(h, workerPid, lifecyclePid, 'Webhook worker waits for lifecycle Fund');
     await h.transaction('finance', (client) =>
       client.query('SELECT id FROM payment_webhook_receipts WHERE id=$1 FOR UPDATE NOWAIT', [
