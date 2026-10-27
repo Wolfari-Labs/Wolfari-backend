@@ -54,6 +54,9 @@ export function notificationPageLimit(value: unknown): number {
 export function normalizePreferenceGroups(
   values: AutomationV1.NotificationGroupOverride[] | undefined,
 ): PreferenceGroups {
+  // Protobuf omits empty repeated fields with defaults:false. REST still requires
+  // group_overrides; an empty object intentionally clears all overrides.
+  if (values === undefined) return {};
   if (!Array.isArray(values)) return notificationFail('VALIDATION_FAILED');
   const result: PreferenceGroups = {};
   for (const item of values) {

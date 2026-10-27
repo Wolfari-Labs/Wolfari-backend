@@ -15,9 +15,9 @@ export function run(command, args, options = {}) {
   });
 }
 
-export function compose(env, args, { project = 'wolfari', envFile = resolve(root, '.env') } = {}) {
+export function compose(env, args, { project = 'wolfari', envFile = resolve(root, '.env'), overrides = [] } = {}) {
   validateInfra(env);
-  return run('docker', ['compose', '--project-name', project, '--env-file', envFile, '-f', resolve(root, 'infrastructure/docker-compose.yml'), ...args], {
+  return run('docker', ['compose', '--project-name', project, '--env-file', envFile, '-f', resolve(root, 'infrastructure/docker-compose.yml'), ...overrides.flatMap(path => ['-f', path]), ...args], {
     env: { ...process.env, ...env }, timeout: 300000,
   });
 }

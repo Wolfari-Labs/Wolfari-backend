@@ -45,6 +45,7 @@ services:
       retries: 10
 
   minio:
+    image: wolfari-minio:local
     build:
       context: ./minio
     command: server /data --console-address ":9001"

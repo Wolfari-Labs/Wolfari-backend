@@ -25,7 +25,7 @@ export class InfrastructureModule {
         ConfigModule.forRoot({
           isGlobal: true,
           // Integration tests must receive their configuration from the isolated harness.
-          ignoreEnvFile: process.env.NODE_ENV === 'test',
+          ignoreEnvFile: process.env.NODE_ENV === 'test' || process.env.WOLFARI_ISOLATED_ENV === '1',
           envFilePath: resolve(__dirname, '../../../apps', appName, '.env'),
           validate: (values) => validateAppEnvironment(values, appName),
         }),
