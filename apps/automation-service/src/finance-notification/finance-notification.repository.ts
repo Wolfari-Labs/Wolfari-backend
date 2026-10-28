@@ -5,7 +5,7 @@ import {
   FINANCE_NOTIFICATION_CONSUMER,
   InvalidFinanceNotificationEvent,
   recipientUuid,
-  type ContributionNotificationEvent,
+  type FinanceNotificationEvent,
 } from './finance-notification.event';
 
 type Query = <R extends QueryResultRow = QueryResultRow>(
@@ -41,7 +41,7 @@ export class FinanceNotificationRepository {
     }
   }
 
-  private async existing(query: Query, event: ContributionNotificationEvent): Promise<boolean> {
+  private async existing(query: Query, event: FinanceNotificationEvent): Promise<boolean> {
     const result = await query<{ result: InboxResult }>(
       'SELECT result FROM inbox_events WHERE consumer_name=$1 AND event_id=$2',
       [FINANCE_NOTIFICATION_CONSUMER, event.eventId],
@@ -52,36 +52,33 @@ export class FinanceNotificationRepository {
     return true;
   }
 
-  isProcessed(event: ContributionNotificationEvent): Promise<boolean> {
+  isProcessed(event: FinanceNotificationEvent): Promise<boolean> {
     return this.withClient((query) => this.existing(query, event));
   }
 
-  complete(
-    event: ContributionNotificationEvent,
-    users: string[],
-  ): Promise<'APPLIED' | 'DUPLICATE'> {
-    const recipients = users.map(recipientUuid);
+  complete(event: FinanceNotificationEvent, users: string[]): Promise<'APPLIED' | 'DUPLICATE'> {
+    const recipients = users.map(recipientUuid).sort();
+    const closure = 'closureId' in event;
+    const sourceId = closure ? event.closureId : event.requestId;
     if (
       new Set(recipients).size !== recipients.length ||
-      recipients.length > event.contributionCount
+      (!closure && recipients.length > event.contributionCount)
     )
       throw new Error('FINANCE_NOTIFICATION_RECIPIENTS_INVALID');
     return this.withClient(async (query) => {
-      await query('BEGIN');
+      await query('BEGIN ISOLATION LEVEL READ COMMITTED');
       const claimed = await query(
         `INSERT INTO inbox_events(consumer_name,event_id,event_type,aggregate_id,aggregate_version,result)
-         VALUES($1,$2,'ContributionRequested',$3,$4,$5::jsonb)
+         VALUES($1,$2,$3,$4,$5,$6::jsonb)
          ON CONFLICT(consumer_name,event_id) DO NOTHING RETURNING event_id`,
         [
           FINANCE_NOTIFICATION_CONSUMER,
           event.eventId,
+          closure ? 'ClosureRequested' : 'ContributionRequested',
           event.fundId,
           event.version,
           JSON.stringify({
             event_hash: event.fingerprint,
-            request_id: event.requestId,
-            outcome: recipients.length ? 'CREATED' : 'SUPPRESSED',
-            count: recipients.length,
           }),
         ],
       );
@@ -91,21 +88,56 @@ export class FinanceNotificationRepository {
         await query('COMMIT');
         return 'DUPLICATE';
       }
-      if (recipients.length)
-        await query(
-          `INSERT INTO notifications(user_id,trip_id,type,title,body,source_id,event_id,status,dedupe_key)
-         SELECT recipient,$2,'CONTRIBUTION_REQUESTED',$3,$4,$5,$6::uuid,'AVAILABLE',
-           'finance-request:' || $6::uuid::text || ':' || recipient::text
-         FROM unnest($1::uuid[]) AS recipient`,
-          [
-            recipients,
-            event.tripId,
-            'Yêu cầu đóng góp',
-            'Một yêu cầu đóng góp đã được tạo. Mở chuyến đi để xem thông tin hiện tại.',
-            event.requestId,
-            event.eventId,
-          ],
-        );
+      if (closure) {
+        // Serialize distinct events for each source/user, in deterministic order.
+        // READ COMMITTED then observes the preceding worker's committed notification.
+        for (const user of recipients)
+          await query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+            `finance-closure-notice:${sourceId}:${user}`,
+          ]);
+      }
+      const inserted = recipients.length
+        ? await query(
+            `INSERT INTO notifications(user_id,trip_id,type,title,body,source_id,event_id,status,dedupe_key,created_at)
+         SELECT recipient,$2::uuid,$7::varchar,$3::varchar,$4::text,$5::varchar,$6::uuid,'AVAILABLE',
+           $8::text || $6::uuid::text || ':' || recipient::text,statement_timestamp()
+         FROM unnest($1::uuid[]) AS recipient
+         WHERE NOT $9::boolean OR NOT EXISTS (
+           SELECT 1 FROM notifications n WHERE n.user_id=recipient
+             AND n.type='CLOSURE_REQUESTED' AND n.source_id=$5::varchar
+             AND n.created_at > statement_timestamp()-interval '24 hours'
+         ) RETURNING id`,
+            [
+              recipients,
+              event.tripId,
+              closure ? 'Yêu cầu xác nhận đóng quỹ' : 'Yêu cầu đóng góp',
+              closure
+                ? 'Có yêu cầu xác nhận đóng quỹ. Mở chuyến đi để xem thông tin hiện tại.'
+                : 'Một yêu cầu đóng góp đã được tạo. Mở chuyến đi để xem thông tin hiện tại.',
+              sourceId,
+              event.eventId,
+              closure ? 'CLOSURE_REQUESTED' : 'CONTRIBUTION_REQUESTED',
+              closure ? 'finance-closure:' : 'finance-request:',
+              closure,
+            ],
+          )
+        : undefined;
+      const count = inserted?.rowCount ?? 0;
+      await query(
+        'UPDATE inbox_events SET result=$3::jsonb WHERE consumer_name=$1 AND event_id=$2',
+        [
+          FINANCE_NOTIFICATION_CONSUMER,
+          event.eventId,
+          JSON.stringify({
+            event_hash: event.fingerprint,
+            ...(closure
+              ? { closure_id: sourceId, cooldown_suppressed: recipients.length - count }
+              : { request_id: sourceId }),
+            outcome: count ? 'CREATED' : 'SUPPRESSED',
+            count,
+          }),
+        ],
+      );
       await query('COMMIT');
       return 'APPLIED';
     });

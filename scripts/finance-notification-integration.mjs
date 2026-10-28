@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import amqp from 'amqplib';
 import pg from 'pg';
 import { appEnvironment, apps } from './config.mjs';
+import { runClosureInboxTests } from './finance-closure-inbox-integration.mjs';
 
 const require = createRequire(import.meta.url);
 const appRequire = createRequire(
@@ -174,6 +175,8 @@ export async function runFinanceNotificationTests(h) {
         'contribution_requests',
         'fund_transactions',
         'finance_audit_logs',
+        'finance_closures',
+        'closure_confirmations',
       ],
       identity: ['users', 'credentials', 'refresh_sessions'],
       trip: ['trips', 'trip_members'],
@@ -418,32 +421,38 @@ export async function runFinanceNotificationTests(h) {
       'exhausted consumer work stays in DLQ and explicit same-ID replay recovers exactly one set of notifications',
     );
 
-    const crashEvent = copied(original);
-    await h.whileServiceStopped('automation-service', async () => {
-      const child = fork(fileURLToPath(import.meta.url), ['--finance-notification-crash-worker'], {
-        env: appEnvironment(
-          apps.find((app) => app.name === 'automation-service'),
-          { NODE_ENV: 'test', ...h.automationValues },
-        ),
-        stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-        windowsHide: true,
+    const crashConsumer = async (crashEvent, expected) => {
+      await h.whileServiceStopped('automation-service', async () => {
+        const child = fork(
+          fileURLToPath(import.meta.url),
+          ['--finance-notification-crash-worker'],
+          {
+            env: appEnvironment(
+              apps.find((app) => app.name === 'automation-service'),
+              { NODE_ENV: 'test', ...h.automationValues },
+            ),
+            stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+            windowsHide: true,
+          },
+        );
+        let committed = false;
+        child.on('message', (value) => {
+          if (value === 'COMMITTED_BEFORE_ACK') committed = true;
+        });
+        try {
+          await waitFor(async () => (await (await broker()).checkQueue(queue)).consumerCount > 0);
+          await publish(crashEvent);
+          await waitFor(() => child.exitCode !== null || child.signalCode !== null);
+          assert(committed, 'crash child must have committed before terminating');
+          assert.equal((await notifications(crashEvent)).length, expected);
+        } finally {
+          if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        }
       });
-      let committed = false;
-      child.on('message', (value) => {
-        if (value === 'COMMITTED_BEFORE_ACK') committed = true;
-      });
-      try {
-        await waitFor(async () => (await (await broker()).checkQueue(queue)).consumerCount > 0);
-        await publish(crashEvent);
-        await waitFor(() => child.exitCode !== null || child.signalCode !== null);
-        assert(committed, 'crash child must have committed before terminating');
-        assert.equal((await notifications(crashEvent)).length, 2);
-      } finally {
-        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
-      }
-    });
-    await waitFor(async () => (await (await broker()).checkQueue(queue)).messageCount === 0);
-    assert.equal((await notifications(crashEvent)).length, 2);
+      await waitFor(async () => (await (await broker()).checkQueue(queue)).messageCount === 0);
+      assert.equal((await notifications(crashEvent)).length, expected);
+    };
+    await crashConsumer(copied(original), 2);
     pass(
       'actual consumer process death after DB commit before ACK redelivers without duplicating in-app notifications',
     );
@@ -462,6 +471,27 @@ export async function runFinanceNotificationTests(h) {
     pass(
       'confirmed queued notification survives broker restart and resumes with original event identity',
     );
+    await runClosureInboxTests(h, {
+      owner,
+      holder,
+      member,
+      extra,
+      setupFund,
+      r,
+      repository,
+      pool,
+      inbox,
+      notifications,
+      processed,
+      copied,
+      publish,
+      awaitDlq,
+      broker,
+      crashConsumer,
+      sourceFingerprint,
+      storedEvent: require('../apps/finance-service/dist/outbox/finance-outbox.event.js')
+        .storedFinanceEvent,
+    });
   } finally {
     await channel?.close().catch(() => {});
     await connection?.close().catch(() => {});

@@ -9,10 +9,7 @@ import {
   type IdentityV1,
 } from '@wolfari/contracts/grpc';
 import { IdentityClient } from '@wolfari/contracts/identity-client';
-import {
-  notificationEnabled,
-  type ContributionNotificationEvent,
-} from './finance-notification.event';
+import { notificationEnabled, type FinanceNotificationEvent } from './finance-notification.event';
 
 const definition = loadSync(PROTO_PATHS.finance, GRPC_LOADER_OPTIONS)[
   'wolfari.finance.v1.FinanceService'
@@ -52,7 +49,7 @@ export class FinanceNotificationClient implements OnApplicationShutdown {
   }
 
   getContext(
-    event: ContributionNotificationEvent,
+    event: FinanceNotificationEvent,
     deadline: number,
   ): Promise<FinanceV1.GetAutomationContextResponse> {
     const client = this.finance;
@@ -67,7 +64,12 @@ export class FinanceNotificationClient implements OnApplicationShutdown {
         method.path,
         method.requestSerialize,
         method.responseDeserialize,
-        { fund_id: event.fundId, source_type: 'CONTRIBUTION_REQUEST', source_id: event.requestId },
+        {
+          fund_id: event.fundId,
+          ...('closureId' in event
+            ? { source_type: 'CLOSURE', source_id: event.closureId }
+            : { source_type: 'CONTRIBUTION_REQUEST', source_id: event.requestId }),
+        },
         metadata,
         { deadline: Math.min(deadline, Date.now() + 2000) },
         (error: ServiceError | null, response?: FinanceV1.GetAutomationContextResponse) =>

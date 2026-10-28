@@ -33,6 +33,52 @@ export interface ContributionNotificationEvent {
   fingerprint: string;
 }
 
+export interface ClosureNotificationEvent extends Omit<
+  ContributionNotificationEvent,
+  'requestId' | 'contributionCount'
+> {
+  closureId: string;
+  snapshotHash: string;
+}
+export type FinanceNotificationEvent = ContributionNotificationEvent | ClosureNotificationEvent;
+
+/** Preserve the original contribution projection/hash so processed events survive upgrades. */
+export function financeNotificationEvent(value: unknown): FinanceNotificationEvent {
+  try {
+    const event = parseEventForConsume(value);
+    if (event.event_type !== 'ClosureRequested') return contributionNotificationEvent(value);
+    if (event.producer !== 'Finance' || event.aggregate_type !== 'Fund')
+      throw new InvalidFinanceNotificationEvent();
+    const result = {
+      eventId: recipientUuid(event.event_id),
+      fundId: recipientUuid(event.aggregate_id),
+      tripId: recipientUuid(event.trip_id),
+      closureId: recipientUuid(event.payload.closure_id),
+      snapshotHash: event.payload.snapshot_hash as string,
+      version: event.aggregate_version!,
+      correlationId: recipientUuid(event.correlation_id),
+    };
+    return {
+      ...result,
+      fingerprint: createHash('sha256')
+        .update(
+          JSON.stringify([
+            'ClosureRequested',
+            result,
+            event.occurred_at,
+            event.operation_id ?? null,
+            event.causation_id ?? null,
+            event.actor_user_id ?? null,
+            event.system_actor ?? null,
+          ]),
+        )
+        .digest('hex'),
+    };
+  } catch {
+    throw new InvalidFinanceNotificationEvent();
+  }
+}
+
 /** Project known fields only; compatible additive event fields never become notification content. */
 export function contributionNotificationEvent(value: unknown): ContributionNotificationEvent {
   try {

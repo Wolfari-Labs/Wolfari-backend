@@ -23,7 +23,7 @@ Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026**
 - [Identity](architecture/identity-phase1.md), [Trip core](architecture/trip-core.md), [Plan access](architecture/trip-plan-access-control.md), [Invitations](architecture/trip-invitations.md).
 - [Price Watch Core, Worker và Alert H1–H3](architecture/price-watch-core.md) quản lý API133–139, slot/lease/retry, observation mock, rule alert và lifecycle; provider thật thuộc mốc sau.
 - [Notification Self Management I1](architecture/notification-management.md) quản lý API126–131 cho preference, device và inbox Self; push sender và Reminder thuộc mốc sau.
-- [Finance contribution inbox](architecture/finance-notification-inbox.md): `ContributionRequested` → inbox sau kiểm tra Finance/Identity, giao dịch chống trùng và retry/DLQ; mặc định tắt, chưa bao gồm các sự kiện Finance khác hoặc push/email.
+- [Finance inbox](architecture/finance-notification-inbox.md): `ContributionRequested`/`ClosureRequested` → inbox sau kiểm tra Finance/Identity, giao dịch chống trùng và retry/DLQ. Closure có giới hạn 24 giờ/người/phiên; mặc định tắt, chưa bao gồm các sự kiện Finance khác hoặc push/email.
 - OpenAPI runtime: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Invitations](api/trip-invitations.openapi.json), [Notification](api/notification.openapi.yaml), [Price Watch](api/price-watch.openapi.yaml).
 - Bàn giao: [Plan access cho Planning](architecture/trip-plan-access-control-handoff.md), [Invitations](architecture/trip-invitations-handoff.md).
 - Contract thực thi ở [packages/contracts](../packages/contracts/README.md); migration ở `apps/<service>/migrations`. Không dùng hình ERD hoặc DOCX thay migration.

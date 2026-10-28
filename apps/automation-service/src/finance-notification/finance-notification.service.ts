@@ -3,7 +3,7 @@ import { status } from '@grpc/grpc-js';
 import { FinanceV1, type IdentityV1 } from '@wolfari/contracts/grpc';
 import { FinanceNotificationClient } from './finance-notification.client';
 import { FinanceNotificationRepository } from './finance-notification.repository';
-import { recipientUuid, type ContributionNotificationEvent } from './finance-notification.event';
+import { recipientUuid, type FinanceNotificationEvent } from './finance-notification.event';
 
 const unavailable = (): never => {
   throw new Error('FINANCE_NOTIFICATION_CONTEXT_UNAVAILABLE');
@@ -27,10 +27,7 @@ function trustedMissing(error: unknown): boolean {
     return false;
   }
 }
-function context(
-  value: FinanceV1.GetAutomationContextResponse,
-  event: ContributionNotificationEvent,
-) {
+function context(value: FinanceV1.GetAutomationContextResponse, event: FinanceNotificationEvent) {
   if (
     !value ||
     !Number.isInteger(value.finance_version) ||
@@ -39,12 +36,15 @@ function context(
     ![1, 2, 3].includes(value.status!)
   )
     return unavailable();
-  const raw = value.authorized_recipients ?? [];
-  if (!Array.isArray(raw) || raw.length > event.contributionCount) return unavailable();
+  const closure = 'closureId' in event;
+  const raw = value.authorized_recipients === undefined ? [] : value.authorized_recipients;
+  if (!Array.isArray(raw) || (!closure && raw.length > event.contributionCount))
+    return unavailable();
   const users = raw.map((item) => recipientUuid(item?.user_id)).sort();
-  if (new Set(users).size !== users.length || (value.status !== 1 && users.length))
+  if (new Set(users).size !== users.length || (value.status !== (closure ? 2 : 1) && users.length))
     return unavailable();
   const due = value.due_at;
+  if (closure && due !== undefined) return unavailable();
   if (
     due !== undefined &&
     (typeof due.seconds !== 'string' ||
@@ -96,7 +96,7 @@ export class FinanceNotificationService {
     private readonly repository: Pick<FinanceNotificationRepository, 'isProcessed' | 'complete'>,
   ) {}
 
-  async process(event: ContributionNotificationEvent, signal?: AbortSignal): Promise<void> {
+  async process(event: FinanceNotificationEvent, signal?: AbortSignal): Promise<void> {
     const deadline = Date.now() + 10_000;
     const check = () => {
       currentTime(deadline);

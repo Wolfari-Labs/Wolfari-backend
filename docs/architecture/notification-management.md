@@ -49,4 +49,4 @@ Gateway và Automation dùng transport/secret Automation hiện có, deadline 2 
 
 I2 cần thêm push delivery worker/provider adapter, retry/lease, invalid-token deactivation, recheck tài khoản/quyền ngay trước dispatch và nội dung màn hình khóa tối thiểu. API132 cùng scheduler Reminder thuộc FR-AU02 riêng.
 
-Mốc [Finance contribution inbox](finance-notification-inbox.md) bổ sung nguồn tạo notification `AVAILABLE` từ `ContributionRequested`, kiểm tra Finance/Identity hiện tại và chống trùng theo event/user. Worker mặc định tắt; preference push/email false vẫn giữ inbox. Các sự kiện Finance khác, push/email và Reminder vẫn thuộc mốc sau.
+Mốc [Finance inbox](finance-notification-inbox.md) bổ sung nguồn tạo notification `AVAILABLE` từ `ContributionRequested` và `ClosureRequested`, kiểm tra Finance/Identity hiện tại và chống trùng theo event/user. Closure chỉ gửi cho người chưa xác nhận, với giới hạn 24 giờ/người/phiên kể cả nhắc lại từ API125. Worker mặc định tắt; preference push/email false vẫn giữ inbox. Các sự kiện Finance khác, push/email và scheduler Reminder vẫn thuộc mốc sau.

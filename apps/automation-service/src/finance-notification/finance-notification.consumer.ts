@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { EVENT_TOPOLOGY } from '@wolfari/contracts/events';
 import { FinanceNotificationService } from './finance-notification.service';
 import {
-  contributionNotificationEvent,
+  financeNotificationEvent,
   FINANCE_NOTIFICATION_QUEUE as queue,
   FINANCE_NOTIFICATION_ATTEMPT as attemptHeader,
   notificationEnabled,
@@ -112,6 +112,7 @@ export class FinanceNotificationConsumer implements OnApplicationBootstrap, OnAp
       await channel.assertQueue(queue, durable);
       await channel.assertQueue(`${queue}.dlq`, durable);
       await channel.bindQueue(queue, EVENT_TOPOLOGY.exchange.name, 'ContributionRequested');
+      await channel.bindQueue(queue, EVENT_TOPOLOGY.exchange.name, 'ClosureRequested');
       for (const [index, delay] of EVENT_TOPOLOGY.retry_delays_ms.entries()) {
         await channel.assertQueue(`${queue}.retry.${index}`, {
           durable: true,
@@ -171,7 +172,7 @@ export class FinanceNotificationConsumer implements OnApplicationBootstrap, OnAp
     let attempt: number;
     try {
       if (message.content.length > 1024 * 1024) throw new InvalidFinanceNotificationEvent();
-      event = contributionNotificationEvent(JSON.parse(message.content.toString('utf8')));
+      event = financeNotificationEvent(JSON.parse(message.content.toString('utf8')));
       const headers = message.properties.headers;
       const raw = headers && Object.hasOwn(headers, attemptHeader) ? headers[attemptHeader] : 0;
       if (
