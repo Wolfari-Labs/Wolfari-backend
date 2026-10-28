@@ -84,6 +84,12 @@ export async function runNotificationManagementTests({
     INVITATION: { email: false },
     PRICE: { push: true, email: false },
   });
+  const cleared = await request('/api/v1/me/notification-preferences', 'PUT', {
+    push_enabled: true, email_enabled: true, group_overrides: {}, expected_version: 3,
+  }, bearer(first));
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.data.version, 4);
+  assert.deepEqual(cleared.body.data.group_overrides, {});
   assert.equal(
     (
       await request(

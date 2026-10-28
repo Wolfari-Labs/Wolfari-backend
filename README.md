@@ -38,7 +38,13 @@ Mỗi service nghiệp vụ chỉ truy cập database của mình. Không dùng 
 - Corepack;
 - pnpm `10.34.5` được pin trong `package.json`.
 
-## Khởi động nhanh
+## Demo Web với backend thật
+
+Môi trường riêng `wolfari-demo` giữ nguyên cấu hình và dữ liệu development. Tại Backend chạy `corepack pnpm demo:init`, sau đó `corepack pnpm demo:start`. Terminal Backend khác chạy `corepack pnpm demo:check` và `corepack pnpm demo:seed`. Tại repository Web cạnh bên chạy `corepack pnpm demo:dev`, mở http://localhost:5273/login?returnTo=%2Ftrips.
+
+Tài khoản và mật khẩu sinh riêng nằm trong `.local/demo/seed.json`; không commit file này. `demo:stop` dừng demo và giữ dữ liệu. [Runbook đầy đủ](docs/architecture/local-demo.md) mô tả bản build/preview, reset có kiểm tra ownership, cổng và các API chưa có Web. [Nghiệm thu](docs/architecture/local-demo-acceptance.md) phân biệt backend thật, fixture và provider mô phỏng.
+
+## Khởi động development hiện có
 
 Từ thư mục gốc repository:
 

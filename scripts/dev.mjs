@@ -6,6 +6,8 @@ import { run } from './infrastructure.mjs';
 import { safeError } from './migrations.mjs';
 
 const children = new Map();
+const demo = process.argv.includes('--demo');
+const configRoot = demo ? resolve(root, '.local/demo') : root;
 const watchers = [];
 let stopping = false;
 let reload = Promise.resolve();
@@ -40,7 +42,7 @@ async function buildShared() {
 }
 async function start(app) {
   if (stopping) return;
-  const env = appEnvironment(app, await readEnv(resolve(root, 'apps', app.name, '.env')));
+  const env = appEnvironment(app, await readEnv(resolve(configRoot, 'apps', app.name, '.env')));
   const child = fork(resolve(root, 'apps', app.name, 'dist/main.js'), [], { cwd: root, env, stdio: ['inherit', 'inherit', 'inherit', 'ipc'], windowsHide: true });
   children.set(app.name, child);
   child.on('error', () => { process.exitCode = 1; void stop(); });
@@ -59,8 +61,13 @@ async function restartAll() {
 }
 async function main() {
   // Validate all config files before starting any app.
-  for (const app of apps) await readEnv(resolve(root, 'apps', app.name, '.env'));
+  for (const app of apps) await readEnv(resolve(configRoot, 'apps', app.name, '.env'));
   await restartAll();
+  if (stopping) return;
+  if (demo) {
+    console.log('Wolfari demo đang chạy (không hot reload). Restart demo để áp dụng thay đổi source; Ctrl+C để đóng app và pool.');
+    return;
+  }
   for (const directory of [...apps.map(app => `apps/${app.name}/src`), 'packages/common/src', 'packages/database/src', 'packages/contracts/src', 'packages/contracts/proto', 'packages/contracts/schemas']) {
     watchers.push(watch(resolve(root, directory), { recursive: true }, () => {
       clearTimeout(timer);

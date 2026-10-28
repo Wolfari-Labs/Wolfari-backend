@@ -73,12 +73,17 @@ export class IdentityProxy {
   private readonly secret: string;
   private readonly csrfKey: string;
   private readonly origin: string;
+  private readonly limitMultiplier: number;
 
   constructor() {
     this.target = process.env.IDENTITY_HTTP_URL ?? '';
     this.secret = process.env.GATEWAY_IDENTITY_SECRET ?? '';
     this.csrfKey = process.env.GATEWAY_CSRF_KEY ?? '';
     this.origin = process.env.WEB_ORIGIN ?? '';
+    const multiplier = process.env.GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER ?? '1';
+    if (!/^(?:[1-9]|1[0-9]|20)$/.test(multiplier) || (process.env.NODE_ENV === 'production' && multiplier !== '1'))
+      throw new Error('Invalid local rate limit multiplier');
+    this.limitMultiplier = Number(multiplier);
     const grpcTarget = process.env.IDENTITY_GRPC_TARGET ?? '127.0.0.1:3201';
     if (
       !/^http:\/\/127\.0\.0\.1:\d+$/.test(this.target) ||
@@ -191,7 +196,7 @@ export class IdentityProxy {
           : path.includes('refresh')
             ? [60, 60_000]
             : [120, 60_000];
-    if (!this.limiter.check(`${ip}:${path}`, limit[0]!, limit[1]!))
+    if (!this.limiter.check(`${ip}:${path}`, limit[0]! * this.limitMultiplier, limit[1]!))
       return error(response, 429, 'RESOURCE_EXHAUSTED');
     const protectedPath =
       path.startsWith('/api/v1/me') ||

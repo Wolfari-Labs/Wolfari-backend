@@ -34,6 +34,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export class IdentityService {
   readonly crypto: IdentityCrypto;
   private readonly linkBase: string;
+  private readonly linkPaths: Record<string, string>;
   constructor(private readonly db: DatabaseProvider, config: ConfigService) {
     this.crypto = new IdentityCrypto({
       IDENTITY_ACCESS_PRIVATE_KEY: config.get('IDENTITY_ACCESS_PRIVATE_KEY'),
@@ -41,6 +42,12 @@ export class IdentityService {
       IDENTITY_TOKEN_KEY: config.get('IDENTITY_TOKEN_KEY'),
     });
     this.linkBase = config.getOrThrow<string>('IDENTITY_LINK_BASE_URL').replace(/\/$/, '');
+    this.linkPaths = {
+      verify: config.get<string>('IDENTITY_VERIFY_LINK_PATH') ?? '/api/v1/auth/local/verify',
+      reset: config.get<string>('IDENTITY_RESET_LINK_PATH') ?? '/api/v1/auth/local/reset',
+    };
+    if (Object.values(this.linkPaths).some(path => !/^\/[a-zA-Z0-9/_-]+$/.test(path) || path.startsWith('//')))
+      throw new Error('Identity link path must be a local absolute path');
   }
 
   private projection(user: User) {
@@ -96,15 +103,16 @@ export class IdentityService {
     const user = rows[0];
     if (!user || !(await verifyPassword(user.password_hash!, input.password)) || user.status !== 'ACTIVE') return fail('UNAUTHENTICATED', 401);
     const familyId = randomUUID();
+    const sessionId = randomUUID();
     const refresh = newSecret();
     const expires = new Date(Date.now() + 30 * 24 * 3600_000);
     await this.db.withTransaction(async client => {
       const locked = await client.query<User>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [user.id]);
       const credential = await client.query<{ password_hash: string }>('SELECT password_hash FROM credentials WHERE user_id=$1', [user.id]);
       if (locked.rows[0]?.status !== 'ACTIVE' || credential.rows[0]?.password_hash !== user.password_hash) return fail('UNAUTHENTICATED', 401);
-      await client.query('INSERT INTO refresh_sessions(user_id,family_id,token_hash,expires_at) VALUES($1,$2,$3,$4)', [user.id, familyId, digest(refresh), expires]);
+      await client.query('INSERT INTO refresh_sessions(id,user_id,family_id,token_hash,expires_at) VALUES($1,$2,$3,$4,$5)', [sessionId, user.id, familyId, digest(refresh), expires]);
     });
-    return { access_token: this.crypto.access(user.id, familyId, user.system_role), refresh_token: refresh, token_type: 'Bearer', expires_in: 900, profile: this.projection(user) };
+    return { session_id: sessionId, access_token: this.crypto.access(user.id, familyId, user.system_role), refresh_token: refresh, token_type: 'Bearer', expires_in: 900, profile: this.projection(user) };
   }
 
   async refresh(raw: unknown) {
@@ -113,6 +121,7 @@ export class IdentityService {
     const prior = first.rows[0];
     if (!prior) return fail('UNAUTHENTICATED', 401);
     const fresh = newSecret();
+    const replacement = randomUUID();
     const outcome = await this.db.withTransaction(async client => {
       const user = (await client.query<User>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [prior.user_id])).rows[0];
       const current = (await client.query<Session>('SELECT * FROM refresh_sessions WHERE id=$1 FOR UPDATE', [prior.id])).rows[0];
@@ -122,13 +131,12 @@ export class IdentityService {
         return null;
       }
       if (current.revoked_at || current.expires_at <= new Date() || user.status !== 'ACTIVE') return null;
-      const replacement = randomUUID();
       await client.query('INSERT INTO refresh_sessions(id,user_id,family_id,token_hash,expires_at) VALUES($1,$2,$3,$4,$5)', [replacement, user.id, current.family_id, digest(fresh), current.expires_at]);
       await client.query('UPDATE refresh_sessions SET replaced_by_session_id=$2,revoked_at=now(),last_used_at=now() WHERE id=$1', [current.id, replacement]);
       return user;
     });
     if (!outcome) return fail('UNAUTHENTICATED', 401);
-    return { access_token: this.crypto.access(outcome.id, prior.family_id, outcome.system_role), refresh_token: fresh, token_type: 'Bearer', expires_in: 900, profile: this.projection(outcome) };
+    return { session_id: replacement, access_token: this.crypto.access(outcome.id, prior.family_id, outcome.system_role), refresh_token: fresh, token_type: 'Bearer', expires_in: 900, profile: this.projection(outcome) };
   }
 
   async validateAccess(raw: unknown): Promise<{ user: User; familyId: string; expiresAt: Date }> {
@@ -267,7 +275,7 @@ export class IdentityService {
     if (!token || token.status !== 'ACTIVE' || token.used_at || token.revoked_at || token.expires_at <= new Date() || !token.delivery_token_ciphertext) return { valid: false };
     const raw = this.crypto.decrypt(token.delivery_token_ciphertext);
     const route = token.purpose === 'VERIFY_EMAIL' ? 'verify' : 'reset';
-    return { valid: true, delivery: { user_id: token.user_id, recipient_email: token.recipient_email, purpose: token.purpose === 'VERIFY_EMAIL' ? 1 : 2, one_time_link: `${this.linkBase}/api/v1/auth/local/${route}?token=${encodeURIComponent(raw)}`, expires_at: { seconds: String(Math.floor(token.expires_at.getTime() / 1000)), nanos: 0 } } };
+    return { valid: true, delivery: { user_id: token.user_id, recipient_email: token.recipient_email, purpose: token.purpose === 'VERIFY_EMAIL' ? 1 : 2, one_time_link: `${this.linkBase}${this.linkPaths[route]}?token=${encodeURIComponent(raw)}`, expires_at: { seconds: String(Math.floor(token.expires_at.getTime() / 1000)), nanos: 0 } } };
   }
 
   async cleanupExpiredTokens() {

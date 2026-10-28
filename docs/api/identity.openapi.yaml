@@ -83,8 +83,9 @@ components:
       properties:
         data:
           type: object
-          required: [access_token, token_type, expires_in, profile]
+          required: [session_id, access_token, token_type, expires_in, profile]
           properties:
+            session_id: { type: string, format: uuid, description: Current refresh session row ID; changes on refresh. Logout revokes its family. Not the JWT sid claim. }
             access_token:
               { type: string, description: 15-minute RS256 JWT; do not persist in web storage. }
             refresh_token: { type: string, description: Mobile only; absent from web JSON. }

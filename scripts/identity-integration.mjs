@@ -190,6 +190,7 @@ async function main() {
 
   const web = await request('/api/v1/auth/login', 'POST', { email, password: originalPassword });
   assert.equal(web.status, 200);
+  assert.match(web.body.data.session_id, /^[a-f0-9-]{36}$/);
   assert(web.cookie?.includes('HttpOnly'));
   assert.equal(web.body.data.refresh_token, undefined);
   const access = web.body.data.access_token;
@@ -201,6 +202,8 @@ async function main() {
   assert.equal(csrf.status, 200);
   const rotated = await request('/api/v1/auth/refresh', 'POST', {}, { cookie, origin: `http://127.0.0.1:${ports.gateway}`, 'x-csrf-token': csrf.body.data.csrf_token });
   assert.equal(rotated.status, 200);
+  assert.match(rotated.body.data.session_id, /^[a-f0-9-]{36}$/);
+  assert.notEqual(rotated.body.data.session_id, web.body.data.session_id);
   assert(rotated.cookie && rotated.body.data.refresh_token === undefined);
   assert.equal((await request('/api/v1/auth/refresh', 'POST', {}, { cookie, origin: `http://127.0.0.1:${ports.gateway}`, 'x-csrf-token': csrf.body.data.csrf_token })).status, 401);
   assert.equal((await request('/api/v1/me', 'GET', undefined, { authorization: `Bearer ${rotated.body.data.access_token}` })).status, 401);

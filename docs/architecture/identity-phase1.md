@@ -18,6 +18,10 @@ Request/response, status, cookie, `expected_version`, allowlist và lỗi đư�
 
 ## Vận hành và kiểm thử
 
+Demo local bổ sung `session_id` vào login/refresh: ID bản ghi refresh session hiện tại, thay đổi sau rotation và khác JWT `sid` (family ID). Logout nhận ID này để thu hồi cả family; Web giữ ID trong bộ nhớ và lấy CSRF mới trước logout. Không đổi database hay semantics thu hồi phiên.
+
+`IDENTITY_VERIFY_LINK_PATH`/`IDENTITY_RESET_LINK_PATH` mặc định giữ helper local cũ; demo đặt `/verify-email` và `/reset-password`, base `http://localhost:5273`. Chỉ nhận path nội bộ, không nhận URL redirect bên ngoài. [Runbook demo](local-demo.md) ghi đầy đủ cấu hình. Gateway `GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER` mặc định 1, demo 20; chỉ nhận số nguyên 1–20 và production chỉ chấp nhận 1.
+
 ```sh
 corepack pnpm install --frozen-lockfile
 corepack pnpm env:init

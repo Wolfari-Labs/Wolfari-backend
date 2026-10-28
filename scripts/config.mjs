@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -96,6 +96,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MINIO_ACCESS_KEY',
     'MINIO_SECRET_KEY',
     'IDENTITY_LINK_BASE_URL',
+    'IDENTITY_VERIFY_LINK_PATH',
+    'IDENTITY_RESET_LINK_PATH',
   ];
   const tripKeys = [
     'TRIP_MEMBERSHIP_LIFECYCLE_ENABLED',
@@ -126,6 +128,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_AUTOMATION_SECRET',
     'GATEWAY_CSRF_KEY',
     'WEB_ORIGIN',
+    'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
   ];
   const automationKeys = [
     'AUTOMATION_FINANCE_SECRET',
@@ -170,6 +173,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET'];
   const allowed = [
     'NODE_ENV',
+    'WOLFARI_ISOLATED_ENV',
     app.portKey,
     ...(app.service
       ? [
@@ -198,11 +202,12 @@ export function appEnvironment(app, values, inherited = process.env) {
   return clean;
 }
 
-export async function initEnvironment(base = root) {
+export async function initEnvironment(base = root, { target = base, rootOverrides = {}, appOverrides = {} } = {}) {
   let template = await readFile(resolve(base, '.env.example'), 'utf8');
   template = template.replace(/change-me-[\w-]+/g, () => randomBytes(24).toString('hex'));
-  await createOnce(resolve(base, '.env'), template);
-  const rootPath = resolve(base, '.env');
+  template += '\n' + Object.entries(rootOverrides).map(([key, value]) => `${key}=${value}`).join('\n') + '\n';
+  await createOnce(resolve(target, '.env'), template);
+  const rootPath = resolve(target, '.env');
   const existingRoot = await readEnv(rootPath);
   if (
     Boolean(existingRoot.IDENTITY_ACCESS_PRIVATE_KEY) !==
@@ -253,7 +258,8 @@ export async function initEnvironment(base = root) {
     let content = await readFile(resolve(base, 'apps', app.name, '.env.example'), 'utf8');
     if (app.service)
       content = content.replace('DATABASE_URL=', `DATABASE_URL=${databaseUrl(infra, app.service)}`);
-    const path = resolve(base, 'apps', app.name, '.env');
+    content += '\n' + Object.entries(appOverrides[app.name] ?? {}).map(([key, value]) => `${key}=${value}`).join('\n') + '\n';
+    const path = resolve(target, 'apps', app.name, '.env');
     await createOnce(path, content);
     const runtime =
       app.name === 'identity-service'
@@ -292,10 +298,10 @@ export async function initEnvironment(base = root) {
             }
           : app.name === 'api-gateway'
             ? {
-                IDENTITY_HTTP_URL: `http://127.0.0.1:${appPort(base, 'identity-service', 'IDENTITY_PORT', 3101)}`,
+                IDENTITY_HTTP_URL: `http://127.0.0.1:${appPort(target, 'identity-service', 'IDENTITY_PORT', 3101)}`,
                 IDENTITY_GRPC_TARGET: '127.0.0.1:3201',
                 GATEWAY_IDENTITY_SECRET: shared.GATEWAY_IDENTITY_SECRET,
-                TRIP_HTTP_URL: `http://127.0.0.1:${appPort(base, 'trip-workspace-service', 'TRIP_PORT', 3102)}`,
+                TRIP_HTTP_URL: `http://127.0.0.1:${appPort(target, 'trip-workspace-service', 'TRIP_PORT', 3102)}`,
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
                 AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',

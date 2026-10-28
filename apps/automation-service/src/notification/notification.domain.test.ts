@@ -9,6 +9,10 @@ import {
 } from './notification.domain';
 
 describe('notification input rules', () => {
+  it('accepts an empty repeated field omitted by protobuf', () => {
+    expect(normalizePreferenceGroups(undefined)).toEqual({});
+    expect(normalizePreferenceGroups([])).toEqual({});
+  });
   it('normalizes only declared preference groups with field presence', () => {
     expect(
       normalizePreferenceGroups([
