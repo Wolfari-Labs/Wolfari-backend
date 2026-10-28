@@ -21,6 +21,7 @@ import { migrate, migrationFiles } from './migrations.mjs';
 import { runInvitationTests } from './trip-invitations-integration.mjs';
 import { runPriceWatchTests } from './price-watch-integration.mjs';
 import { runNotificationManagementTests } from './notification-management-integration.mjs';
+import { runFinanceNotificationTests } from './finance-notification-integration.mjs';
 
 const automationContextOnly = process.argv.includes('--finance-automation-context');
 const receiptsOnly = process.argv.includes('--finance-receipts');
@@ -35,6 +36,7 @@ const allFinance = process.argv.includes('--finance');
 const paymentTestMode = paymentsOnly || allFinance;
 const lifecycleTestMode = lifecycleOnly || allFinance;
 const financeReadMode =
+  process.argv.includes('--finance-notifications') ||
   automationContextOnly ||
   receiptsOnly ||
   instructionsOnly ||
@@ -49,6 +51,7 @@ const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 const priceWatchMode = process.argv.includes('--price-watch');
 const notificationMode = process.argv.includes('--notifications');
+const financeNotificationMode = process.argv.includes('--finance-notifications');
 let financeFixture;
 function brokerUrl() {
   const value = new URL(`amqp://127.0.0.1:${infra.RABBITMQ_PORT}`);
@@ -148,6 +151,7 @@ async function start(name, values) {
     windowsHide: true,
   });
   child.appName = name;
+  child.testValues = values;
   child.output = '';
   child.stdout.on('data', (data) => {
     child.output = (child.output + String(data)).slice(-100_000);
@@ -296,7 +300,7 @@ async function main() {
     ...(financeReadMode ? ['minio'] : []),
     ...(invitationMode
       ? ['rabbitmq', 'mailpit']
-      : membershipMode || priceWatchMode || notificationMode
+      : membershipMode || priceWatchMode || notificationMode || financeNotificationMode
         ? ['rabbitmq']
         : []),
   ]);
@@ -306,6 +310,7 @@ async function main() {
     ...(invitationMode ? ['automation'] : []),
     ...(priceWatchMode ? ['automation'] : []),
     ...(notificationMode ? ['automation'] : []),
+    ...(financeNotificationMode ? ['automation'] : []),
     ...(membershipMode || financeReadMode ? ['finance'] : []),
   ]) {
     await migrate(service, databaseUrl(infra, service), await migrationFiles(service));
@@ -373,7 +378,7 @@ async function main() {
     AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
   };
   let tripProcess = await start('trip-workspace-service', tripValues);
-  if (priceWatchMode || notificationMode) {
+  if (priceWatchMode || notificationMode || financeNotificationMode) {
     const automationPort = await port();
     await start('automation-service', {
       AUTOMATION_PORT: String(automationPort),
@@ -381,6 +386,9 @@ async function main() {
       DATABASE_URL: databaseUrl(infra, 'automation'),
       GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
       AUTOMATION_CURSOR_SECRET: secrets.AUTOMATION_CURSOR_SECRET,
+      AUTOMATION_FINANCE_NOTIFICATION_ENABLED: financeNotificationMode ? 'true' : 'false',
+      FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`,
+      AUTOMATION_FINANCE_SECRET: secrets.AUTOMATION_FINANCE_SECRET,
       PRICE_WATCH_WORKER_ENABLED: priceWatchMode ? 'true' : 'false',
       PRICE_WATCH_WORKER_POLL_MS: '1000',
       PRICE_WATCH_WORKER_BATCH_SIZE: '10',
@@ -408,6 +416,8 @@ async function main() {
       GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
       AUTOMATION_FINANCE_SECRET: secrets.AUTOMATION_FINANCE_SECRET,
       TRIP_FINANCE_SECRET: financeSecret,
+      FINANCE_OUTBOX_ENABLED: financeNotificationMode ? 'true' : 'false',
+      RABBITMQ_URL: brokerUrl(),
       ...(paymentTestMode
         ? {
             NODE_ENV: 'test',
@@ -435,6 +445,39 @@ async function main() {
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
+  if (financeNotificationMode) {
+    await runFinanceNotificationTests({
+      request,
+      query,
+      transaction,
+      account,
+      bearer,
+      tripBody,
+      pass,
+      waitFor,
+      brokerUrl: brokerUrl(),
+      databaseUrl: databaseUrl(infra, 'automation'),
+      automationValues: children.findLast((child) => child.appName === 'automation-service')
+        .testValues,
+      whileServiceStopped: async (name, work) => {
+        if (!['automation-service', 'identity-service', 'finance-service'].includes(name))
+          throw new Error('Invalid test service');
+        const child = children.findLast((item) => item.appName === name);
+        await stop(child);
+        try {
+          return await work();
+        } finally {
+          await start(name, child.testValues);
+        }
+      },
+      restartBroker: async () => {
+        await docker(['stop', 'rabbitmq']);
+        await startTestService(project, 'rabbitmq');
+      },
+    });
+    console.log(`PASS finance:notification:test completed ${checks} groups.`);
+    return;
+  }
   if (priceWatchMode) {
     await runPriceWatchTests({
       request,

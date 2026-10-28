@@ -10,6 +10,15 @@ import { root, apps, initEnvironment, appEnvironment } from './config.mjs';
 import { migrationFiles } from './migrations.mjs';
 
 describe('development configuration', () => {
+  it('isolates the opt-in Finance inbox flag and strips inherited activation', () => {
+    const key = 'AUTOMATION_FINANCE_NOTIFICATION_ENABLED';
+    for (const app of apps) {
+      expect(appEnvironment(app, { [key]: 'true' }, {})[key]).toBe(
+        app.name === 'automation-service' ? 'true' : undefined,
+      );
+      expect(appEnvironment(app, {}, { [key]: 'true' })).not.toHaveProperty(key);
+    }
+  });
   it('forwards private storage configuration only to Identity and Finance', () => {
     const values = {
       MINIO_ENDPOINT: '127.0.0.1:9000',

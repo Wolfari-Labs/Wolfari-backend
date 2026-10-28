@@ -19,6 +19,10 @@ import { PriceWatchWorkerRepository } from './price-watch/price-watch-worker.rep
 import { PriceWatchWorkerService } from './price-watch/price-watch-worker.service';
 import { PriceWatchLifecycleConsumer } from './price-watch/price-watch-lifecycle.consumer';
 import { PriceWatchLifecycleRepository } from './price-watch/price-watch-lifecycle.repository';
+import { FinanceNotificationClient } from './finance-notification/finance-notification.client';
+import { FinanceNotificationRepository } from './finance-notification/finance-notification.repository';
+import { FinanceNotificationService } from './finance-notification/finance-notification.service';
+import { FinanceNotificationConsumer } from './finance-notification/finance-notification.consumer';
 
 @Module({
   imports: [
@@ -31,6 +35,10 @@ import { PriceWatchLifecycleRepository } from './price-watch/price-watch-lifecyc
     PriceWatchGrpcController,
   ],
   providers: [
+    FinanceNotificationClient,
+    FinanceNotificationRepository,
+    FinanceNotificationService,
+    FinanceNotificationConsumer,
     AccountEmailService,
     InvitationDeliveryService,
     NotificationRepository,

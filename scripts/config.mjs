@@ -131,6 +131,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
   ];
   const automationKeys = [
+    'AUTOMATION_FINANCE_NOTIFICATION_ENABLED',
     'AUTOMATION_FINANCE_SECRET',
     'FINANCE_GRPC_TARGET',
     'AUTOMATION_GRPC_PORT',

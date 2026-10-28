@@ -10,7 +10,7 @@ Only ContributionRequested, ContributionUpdated, ClosureRequested, ClosureCancel
 
 FINANCE_OUTBOX_ENABLED defaults to false and requires the literal value true to start the background worker. Existing Finance integration suites retain disabled publication. The relay asserts the durable topic exchange wolfari.events.v1 only. It does not provision or change consumer queues or bindings.
 
-The general Finance notification consumer is not implemented. Its catalog bindings are not proof of deployed topology. Current AccountEmail uses a separate queue. Keep this worker disabled in shared development/release environments until the intended durable Finance bindings and compatible consumers are provisioned and accepted. The isolated test uses its own capture queue and no Automation, SMTP or push process.
+The [ContributionRequested inbox consumer](finance-notification-inbox.md) now owns a dedicated queue and checks current Finance/Identity state before in-app creation. Other Finance event consumers remain pending. Catalog bindings are not proof of deployed topology. Current AccountEmail uses a separate queue. Keep this worker disabled in shared development/release environments until all intended durable Finance bindings and compatible consumers are provisioned and accepted. The outbox-only isolated test uses its own capture queue and no Automation, SMTP or push process; the separate Finance notification test exercises the first consumer.
 
 ## Claim, publish and recovery
 

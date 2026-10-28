@@ -45,6 +45,7 @@
     "contracts:breaking": "node scripts/contracts.mjs breaking",
     "dev:test": "node scripts/launcher-test.mjs",
     "finance:outbox:test": "corepack pnpm build && node scripts/finance-outbox-integration.mjs",
+    "finance:notification:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notifications",
     "finance:replay-outbox": "node scripts/finance-replay-outbox.mjs",
     "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance",
     "finance:automation-context:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-automation-context",

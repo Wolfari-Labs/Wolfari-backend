@@ -48,3 +48,5 @@ Gateway và Automation dùng transport/secret Automation hiện có, deadline 2 
 `notification:test` chạy Gateway, Identity, Trip, Automation, PostgreSQL và RabbitMQ trong Compose cô lập. Fixture kiểm default không ghi, optimistic concurrency, token ownership, delete Self, pagination/filter cursor, AVAILABLE-only, cross-user, che quyền nguồn và read idempotent. `db:test` kiểm repository/migration/index trên PostgreSQL thật. Invitations và Price Watch được chạy regression vì dùng chung preference/schema/gRPC controller.
 
 I2 cần thêm push delivery worker/provider adapter, retry/lease, invalid-token deactivation, recheck tài khoản/quyền ngay trước dispatch và nội dung màn hình khóa tối thiểu. API132 cùng scheduler Reminder thuộc FR-AU02 riêng.
+
+Mốc [Finance contribution inbox](finance-notification-inbox.md) bổ sung nguồn tạo notification `AVAILABLE` từ `ContributionRequested`, kiểm tra Finance/Identity hiện tại và chống trùng theo event/user. Worker mặc định tắt; preference push/email false vẫn giữ inbox. Các sự kiện Finance khác, push/email và Reminder vẫn thuộc mốc sau.
