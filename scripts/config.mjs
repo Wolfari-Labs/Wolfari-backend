@@ -122,6 +122,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'IDENTITY_GRPC_TARGET',
     'GATEWAY_IDENTITY_SECRET',
     'TRIP_HTTP_URL',
+    'FINANCE_HTTP_URL',
+    'AUTOMATION_HTTP_URL',
     'TRIP_GRPC_TARGET',
     'GATEWAY_TRIP_SECRET',
     'AUTOMATION_GRPC_TARGET',
@@ -200,10 +202,18 @@ export function appEnvironment(app, values, inherited = process.env) {
   return clean;
 }
 
-export async function initEnvironment(base = root, { target = base, rootOverrides = {}, appOverrides = {} } = {}) {
+export async function initEnvironment(
+  base = root,
+  { target = base, rootOverrides = {}, appOverrides = {} } = {},
+) {
   let template = await readFile(resolve(base, '.env.example'), 'utf8');
   template = template.replace(/change-me-[\w-]+/g, () => randomBytes(24).toString('hex'));
-  template += '\n' + Object.entries(rootOverrides).map(([key, value]) => `${key}=${value}`).join('\n') + '\n';
+  template +=
+    '\n' +
+    Object.entries(rootOverrides)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n') +
+    '\n';
   await createOnce(resolve(target, '.env'), template);
   const rootPath = resolve(target, '.env');
   const existingRoot = await readEnv(rootPath);
@@ -256,7 +266,12 @@ export async function initEnvironment(base = root, { target = base, rootOverride
     let content = await readFile(resolve(base, 'apps', app.name, '.env.example'), 'utf8');
     if (app.service)
       content = content.replace('DATABASE_URL=', `DATABASE_URL=${databaseUrl(infra, app.service)}`);
-    content += '\n' + Object.entries(appOverrides[app.name] ?? {}).map(([key, value]) => `${key}=${value}`).join('\n') + '\n';
+    content +=
+      '\n' +
+      Object.entries(appOverrides[app.name] ?? {})
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n') +
+      '\n';
     const path = resolve(target, 'apps', app.name, '.env');
     await createOnce(path, content);
     const runtime =
@@ -300,6 +315,8 @@ export async function initEnvironment(base = root, { target = base, rootOverride
                 IDENTITY_GRPC_TARGET: '127.0.0.1:3201',
                 GATEWAY_IDENTITY_SECRET: shared.GATEWAY_IDENTITY_SECRET,
                 TRIP_HTTP_URL: `http://127.0.0.1:${appPort(target, 'trip-workspace-service', 'TRIP_PORT', 3102)}`,
+                FINANCE_HTTP_URL: `http://127.0.0.1:${appPort(target, 'finance-service', 'FINANCE_PORT', 3104)}`,
+                AUTOMATION_HTTP_URL: `http://127.0.0.1:${appPort(target, 'automation-service', 'AUTOMATION_PORT', 3105)}`,
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
                 AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',

@@ -7,10 +7,10 @@ import type {
   ContributionRequestReadRow,
 } from '../projections/contribution-response';
 
-// Explicit public SQL columns. Never select destination_snapshot, evidence or rejected_reason.
+// Explicit public SQL columns. Rejection feedback is readable; bank snapshots/evidence remain private.
 const contributionColumns = `c.id,c.request_id,c.fund_id,c.member_user_id,c.amount::text,c.status,
  c.self_contribution,c.member_reported_at,c.confirmed_at,c.confirmed_by_user_id,
- c.waived_reason,c.cancelled_reason,c.version`;
+ c.waived_reason,c.cancelled_reason,c.rejected_reason,c.version`;
 const instant = `to_char(p.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 @Injectable()
 export class ContributionListRepository {

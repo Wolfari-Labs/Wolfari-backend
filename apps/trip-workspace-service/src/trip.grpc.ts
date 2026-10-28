@@ -1,5 +1,6 @@
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { LifecycleService } from './operations/lifecycle.service';
+import { MemberProfilesService } from './membership/member-profiles.service';
 import { FinanceOperationService } from './operations/finance-operation.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -134,6 +135,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly invitations: TripInvitationsService,
     private readonly lifecycle: LifecycleService,
     private readonly financeOperations: FinanceOperationService,
+    private readonly memberProfiles: MemberProfilesService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -269,6 +271,18 @@ export class TripGrpcController implements TripV1.TripServiceController {
     });
   }
 
+  getPlanPolicy(
+    request: TripV1.GetPlanPolicyRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.GetPlanPolicyResponse> {
+    this.authorize('GetPlanPolicy', metadata);
+    return this.execute(async () => ({
+      plan_policy: protobufPlanPolicy(
+        await this.planAccess.getPolicy(request.actor_user_id, request.trip_id),
+      ),
+    }));
+  }
+
   updatePlanPolicy(
     request: TripV1.UpdatePlanPolicyRequest,
     metadata?: Metadata,
@@ -322,9 +336,11 @@ export class TripGrpcController implements TripV1.TripServiceController {
   listMembers(
     request: TripV1.ListMembersRequest,
     metadata?: Metadata,
+    call?: DeadlineCall,
   ): Promise<TripV1.ListMembersResponse> {
-    this.authorize('ListMembers', metadata);
-    return this.execute(() => this.lifecycle.list(request));
+    const correlation = this.authorize('ListMembers', metadata);
+    const deadline = tripRequestDeadline(call);
+    return this.execute(() => this.memberProfiles.list(request, correlation, deadline));
   }
 
   leaveTrip(

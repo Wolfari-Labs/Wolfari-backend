@@ -1,5 +1,13 @@
 # Protobuf và event contract Wolfari
 
+## Cập nhật demo1 — 28/10/2026
+
+Catalog hiện có112 RPC, thêm `GetPlanPolicy` (ApiGateway→Trip), Membership optional `display_name=7` và Plan day-only fields. Không đổi event schema. Trip yêu cầu V003. [Phụ lục v1.0](demo-1-addendum-v1.0.md) ghi field numbers/null/omission/replay và ảnh hưởng Mobile. Các đợt bên dưới là lịch sử, không phải tổng kết runtime hiện tại.
+
+REST mới: [Plan](../api/plan.openapi.json), [Fund/ledger](../api/finance-fund.openapi.json); cập nhật [policy](../api/trip-core.openapi.yaml), [members](../api/trip-member-lifecycle.openapi.json). Mỗi spec có server prefix riêng; không cộng `/api/v1` hai lần.
+
+`contracts:rest` chạy inventory gate và executable route/projection tests cho6 Plan +8 Fund operations. `contracts:check` cũng chặn inventory drift. [runtime-inventory.json](../api/runtime-inventory.json) là danh mục OpenAPI đã review kèm fingerprints routing source, không phải tự suy ra mọi dynamic route hoặc chứng minh mọi API SRS đã implemented. Health/diagnostics và HTML local token landing không thuộc catalog nghiệp vụ này. Khi source routing đổi, review API, chạy tests rồi dùng `node scripts/rest-contracts.mjs --inventory` để xem candidate và cập nhật inventory. Không chấp nhận fingerprint chỉ để qua CI. YAML extractor chỉ hỗ trợ block style hiện tại; schemas/projections JSON Plan/Fund được compile bằng Ajv trong `demo1-openapi.test.ts`.
+
 ## Baseline và phạm vi
 
 Contract mã nguồn được đối chiếu với [DDL/API/Event Specification v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx), năm V001, Trip/Finance V002 và Automation V002–V005. Bộ tài liệu đã chốt ngày 02/10/2026; catalog mô tả cả hợp đồng mục tiêu, không đồng nghĩa mọi handler đã triển khai.

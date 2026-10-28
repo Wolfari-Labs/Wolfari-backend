@@ -191,9 +191,11 @@ describe('development configuration', () => {
       ).toEqual(
         service === 'automation'
           ? ['V001', 'V002', 'V003', 'V004', 'V005']
-          : ['trip', 'finance'].includes(service)
-            ? ['V001', 'V002']
-            : ['V001'],
+          : service === 'trip'
+            ? ['V001', 'V002', 'V003']
+            : service === 'finance'
+              ? ['V001', 'V002']
+              : ['V001'],
       );
     }
   });

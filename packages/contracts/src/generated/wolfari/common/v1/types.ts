@@ -106,7 +106,11 @@ export interface Membership {
   user_id?: string | undefined;
   role?: MembershipRole | undefined;
   joined_at?: Timestamp | undefined;
-  left_at?: Timestamp | undefined;
+  left_at?:
+    | Timestamp
+    | undefined;
+  /** Authorized ListMembers enrichment, never email. */
+  display_name?: string | undefined;
 }
 
 export interface AccessContext {

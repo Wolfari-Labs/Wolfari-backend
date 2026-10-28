@@ -1,5 +1,20 @@
 # Wolfari
 
+> Backend demo1 — 28/10/2026, nhánh `feat/demo-1-backend`: Activity ngày chưa giờ (Trip V003), GET plan-policy, tên thành viên, diagnostics và account read-only. Xem [phụ lục v1.0](docs/architecture/demo-1-addendum-v1.0.md), [kiểm chứng mới](docs/architecture/demo-1-backend-validation.md) và [bàn giao 34 tác vụ cho Web](docs/architecture/demo-1-web-handoff.md). Các số liệu 25/10 bên dưới là lịch sử; Web/Mobile/production chưa nghiệm thu trong đợt Backend này.
+
+```powershell
+# Nâng cấu hình additive, giữ secrets và dữ liệu cũ
+corepack pnpm demo:init
+corepack pnpm demo:start
+# Terminal khác, sau khi Backend đã chạy
+corepack pnpm demo:check
+corepack pnpm demo:accounts
+# API thật bằng hạ tầng/dữ liệu cô lập
+corepack pnpm demo:acceptance
+```
+
+`demo:accounts` đọc email từ journal và trạng thái Identity, không in/đặt lại mật khẩu. Credentials nằm trong `.local/demo/seed.json`, không đưa vào Git/log. Nếu chưa seed, xem [local-demo](docs/architecture/local-demo.md). Docker chạy **hạ tầng**; Backend/Web vẫn native Node, chưa có image production.
+
 [![CI](https://github.com/thepiece27/Wolfari/actions/workflows/contracts.yml/badge.svg)](https://github.com/thepiece27/Wolfari/actions/workflows/contracts.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 

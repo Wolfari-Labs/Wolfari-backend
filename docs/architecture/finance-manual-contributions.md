@@ -68,6 +68,8 @@ Unit kiểm parser/domain, Gateway, gRPC, quyền ứng dụng, preflight và re
 chứng từ, concurrence, rollback và recovery. Kết quả chạy được ghi riêng khi
 kiểm chứng; sự tồn tại của test không có nghĩa đã chạy đạt trên máy/CI.
 
-Chưa có API086 hướng dẫn/QR, đảo thu085, expense/refund, closure, provider callbacks
-hoặc đối soát ngân hàng. Finance membership obligations vẫn chưa bật; không suy
-luồng rời nhóm end-to-end đã được nghiệm thu từ fixture membership của các test.
+Cập nhật28/10/2026: API085/086, expense/refund/closure, callbacks mock và Finance
+membership obligations đã có runtime; xem [validation demo1](demo-1-backend-validation.md).
+Provider/đối soát ngân hàng thật và Finance notification delivery vẫn chưa hoàn tất.
+Demo bật membership lifecycle; không suy tích hợp Finance thật từ suite membership fixture.
+Web quỹ cơ bản còn cần [tích hợp](demo-1-web-handoff.md); các màn Finance mở rộng hoãn sau demo1.

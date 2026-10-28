@@ -1,5 +1,11 @@
 # Wolfari demo local — Windows, Docker infrastructure và Node apps
 
+> Backend demo1: [phụ lục v1.0](demo-1-addendum-v1.0.md), [validation](demo-1-backend-validation.md), [handoff Web](demo-1-web-handoff.md). Nâng demo cũ: dừng demo, chạy lại `demo:init` để thêm cấu hình thiếu mà giữ secrets, rồi `demo:start` áp dụng **Trip V003**. Không reset dữ liệu. Gateway `/health/ready` chỉ kiểm core Identity/Trip; `/health/dependencies` thêm Finance/Automation. `demo:check` còn kiểm broker/SMTP với retry15 giây, không thay acceptance.
+
+`corepack pnpm demo:accounts` đọc email thực tế trong journal và trạng thái Identity bằng READ ONLY, không in mật khẩu/tạo session. Không giả định journal cũ dùng email cố định. Mật khẩu tại `.local/demo/seed.json` có thể cũ nếu đã đổi trong UI; dùng password reset qua Mailpit, không chạy seed để ép password. Account đã tồn tại nhưng không đăng nhập bằng journal được sẽ báo `DEMO_CREDENTIALS_UNUSABLE`, không reset ngầm.
+
+`corepack pnpm demo:acceptance` build và kiểm thử API5 actor bằng hạ tầng riêng, tự dọn tài nguyên test; không cần demo đang chạy. Operation202/timeout/NEEDS_REVIEW xử lý theo [runbook](demo-1-addendum-v1.0.md#6-seedaccount-và-operation-recovery); retry CLI phải dùng `--demo` để tránh chọn development.
+
 ## Phạm vi
 
 Demo dùng Compose project `wolfari-demo`, credentials, database và volumes riêng. Docker chạy PostgreSQL/RabbitMQ/MinIO/Mailpit; bảy ứng dụng NestJS và Web chạy native Node. Không sửa `.env` hoặc dữ liệu development project `wolfari`. Mobile và production chưa thuộc đợt này.
@@ -27,7 +33,7 @@ corepack pnpm demo:check
 corepack pnpm demo:seed
 ```
 
-`demo:check` đợi health tối đa 90 giây sau kiểm tra hạ tầng. Mọi service dùng V001; Trip/Finance thêm V002; Automation thêm V002–V005. Readiness không thay thế nghiệm thu liên service. Không chạy `db:migrate` thông thường để migrate demo: lệnh đó vẫn phục vụ development.
+`demo:check` đợi health tối đa90 giây sau kiểm tra hạ tầng, rồi broker/SMTP tối đa15 giây. Mọi service dùng V001; Trip thêm V002–V003, Finance thêm V002; Automation thêm V002–V005. Readiness không thay thế nghiệm thu liên service. Không chạy `db:migrate` thông thường để migrate demo: lệnh đó vẫn phục vụ development.
 
 Terminal 3 tại `Wolfari-web`:
 
@@ -47,20 +53,20 @@ Không chạy dev và preview đồng thời trên 5273. Web demo luôn dùng Ga
 
 ## Cổng và cách ly
 
-| Thành phần | Development | Demo |
-| --- | --- | --- |
-| Web | `127.0.0.1:5173` | `localhost:5273` |
-| Gateway HTTP | 3000 | 13000 |
-| Identity HTTP/gRPC | 3101/3201 | 13101/13201 |
-| Trip HTTP/gRPC | 3102/3202 | 13102/13202 |
-| Travel HTTP | 3103 | 13103 |
-| Finance HTTP/gRPC | 3104/3204 | 13104/13204 |
-| Automation HTTP/gRPC | 3105/3205 | 13105/13205 |
-| Export HTTP | 3106 | 13106 |
-| PostgreSQL | 5432 | 15432 |
-| RabbitMQ AMQP/UI | 5672/15672 | 25672/25673 |
-| MinIO API/UI | 9000/9001 | 19000/19001 |
-| Mailpit SMTP/UI | 1025/8025 | 11025/18025 |
+| Thành phần           | Development      | Demo             |
+| -------------------- | ---------------- | ---------------- |
+| Web                  | `127.0.0.1:5173` | `localhost:5273` |
+| Gateway HTTP         | 3000             | 13000            |
+| Identity HTTP/gRPC   | 3101/3201        | 13101/13201      |
+| Trip HTTP/gRPC       | 3102/3202        | 13102/13202      |
+| Travel HTTP          | 3103             | 13103            |
+| Finance HTTP/gRPC    | 3104/3204        | 13104/13204      |
+| Automation HTTP/gRPC | 3105/3205        | 13105/13205      |
+| Export HTTP          | 3106             | 13106            |
+| PostgreSQL           | 5432             | 15432            |
+| RabbitMQ AMQP/UI     | 5672/15672       | 25672/25673      |
+| MinIO API/UI         | 9000/9001        | 19000/19001      |
+| Mailpit SMTP/UI      | 1025/8025        | 11025/18025      |
 
 Các cổng đều chỉ phục vụ loopback. Trình duyệt demo dùng `localhost`, development dùng `127.0.0.1`: cookie không cách ly theo cổng nên phải giữ hai hostname khác nhau. Không đổi tùy tiện URL Web demo về `127.0.0.1`. App native dùng `127.0.0.1:<host-port>`; tên `postgres/rabbitmq/minio` chỉ dành cho container cùng Docker network trong phương án container hóa sau này.
 
@@ -138,16 +144,16 @@ Chuyển sang development: dừng demo, dùng các lệnh `env:init/infra:up/db:
 
 ## Troubleshooting và hướng container hóa sau
 
-| Hiện tượng | Xử lý |
-| --- | --- |
-| Thiếu `.local/demo` | Chạy `demo:init` ở Backend |
-| `PORT_IN_USE` | Dừng đúng phiên demo cũ; nếu app khác chiếm cổng thì dừng và xử lý thủ công, không kill tự động |
-| `DEMO_*_MISMATCH` | Kiểm tra file cấu hình/manifest được nêu; không sao chép credentials development |
-| Docker Hub DNS lỗi | Sửa DNS/mạng Docker Desktop; image MinIO đã build được dùng lại, lần build mới vẫn cần mạng |
-| Chưa ready trong lúc build/reload | Đợi terminal backend build xong rồi `demo:check`; không seed giữa một lần restart |
-| 403 Auth/refresh/logout | Kiểm tra URL `localhost:5273`, WEB_ORIGIN, cookie và CSRF; không tắt CSRF |
-| 429 | Giới hạn demo tăng có chặn 1–20, không vô hiệu limiter; xem số lần thao tác và chờ cửa sổ giới hạn |
-| Mail chưa đến | Xem Mailpit 18025, Identity/Automation `/health/dependencies`, Automation `/health/invitations` |
-| Seed/API lỗi | Xem báo cáo redacted và journal cục bộ; không đổi idempotency key để thử lại mù quáng |
+| Hiện tượng                        | Xử lý                                                                                              |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Thiếu `.local/demo`               | Chạy `demo:init` ở Backend                                                                         |
+| `PORT_IN_USE`                     | Dừng đúng phiên demo cũ; nếu app khác chiếm cổng thì dừng và xử lý thủ công, không kill tự động    |
+| `DEMO_*_MISMATCH`                 | Kiểm tra file cấu hình/manifest được nêu; không sao chép credentials development                   |
+| Docker Hub DNS lỗi                | Sửa DNS/mạng Docker Desktop; image MinIO đã build được dùng lại, lần build mới vẫn cần mạng        |
+| Chưa ready trong lúc build/reload | Đợi terminal backend build xong rồi `demo:check`; không seed giữa một lần restart                  |
+| 403 Auth/refresh/logout           | Kiểm tra URL `localhost:5273`, WEB_ORIGIN, cookie và CSRF; không tắt CSRF                          |
+| 429                               | Giới hạn demo tăng có chặn 1–20, không vô hiệu limiter; xem số lần thao tác và chờ cửa sổ giới hạn |
+| Mail chưa đến                     | Xem Mailpit 18025, Identity/Automation `/health/dependencies`, Automation `/health/invitations`    |
+| Seed/API lỗi                      | Xem báo cáo redacted và journal cục bộ; không đổi idempotency key để thử lại mù quáng              |
 
-Để container hóa sau cần Dockerfile app, service DNS thay loopback, transport TLS/mTLS, cấu hình secrets, reverse proxy/HTTPS, readiness/dependency và persistent storage phù hợp. Các guard hiện tại cố ý chặn internal plaintext production; không gỡ guard chỉ để deploy domain. Đợt này chưa thay kiến trúc, SRS, ERD hoặc migration baseline. API additive `session_id` và hai cấu hình link Identity được ghi trong tài liệu runtime.
+Để container hóa sau cần Dockerfile app, service DNS thay loopback, transport TLS/mTLS, cấu hình secrets, reverse proxy/HTTPS, readiness/dependency và persistent storage phù hợp. Các guard hiện tại cố ý chặn internal plaintext production; không gỡ guard chỉ để deploy domain. Demo1 không đổi ownership/kiến trúc; Trip V003 và contract additive được ghi ở phụ lục, không sửa migration baseline hoặc DOCX đã chốt. API additive `session_id` và hai cấu hình link Identity được ghi trong tài liệu runtime.

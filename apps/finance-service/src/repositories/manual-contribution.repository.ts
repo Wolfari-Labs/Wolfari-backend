@@ -26,7 +26,7 @@ export const isManualWrite = (input: FundWrite): input is FundWrite & ManualWrit
   ['REPORT_TRANSFER', 'CONFIRM_RECEIVED', 'REJECT_TRANSFER'].includes(input.scope);
 
 const columns =
-  'id,request_id,fund_id,member_user_id,amount::text,status,self_contribution,version,member_reported_at,confirmed_at,confirmed_by_user_id,waived_reason,cancelled_reason';
+  'id,request_id,fund_id,member_user_id,amount::text,status,self_contribution,version,member_reported_at,confirmed_at,confirmed_by_user_id,waived_reason,cancelled_reason,rejected_reason';
 type Client = Pick<DatabaseProvider, 'query'>;
 export class ManualContributionRepository {
   constructor(private readonly files: Pick<ReceiptRepository, 'bind'>) {}

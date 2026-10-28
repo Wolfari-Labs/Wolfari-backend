@@ -11,7 +11,7 @@ Các route Trip core ban đầu:
 - `GET /api/v1/trips/{trip_id}`;
 - `PATCH /api/v1/trips/{trip_id}`.
 
-Contract request, response và lỗi nằm tại [OpenAPI Trip core](../api/trip-core.openapi.yaml). Các đợt sau đã bổ sung [Trip Plan access control](trip-plan-access-control.md) và [Invitations cùng event/email](trip-invitations.md); chúng được mô tả riêng, không nằm trong bốn route core ở đây. Template, dashboard tổng hợp, sửa ngày/KEEP/SHIFT, duplicate, chuyển Owner, archive/delete, Plan CRUD và Finance vẫn chưa có runtime tương ứng.
+Contract request, response và lỗi nằm tại [OpenAPI Trip core](../api/trip-core.openapi.yaml). Các đợt sau đã bổ sung [Plan access](trip-plan-access-control.md), [Invitations](trip-invitations.md), Plan CRUD và Finance. Demo1 còn thêm GET policy, ngày chưa giờ và tên thành viên, xem [phụ lục](demo-1-addendum-v1.0.md). Template, dashboard tổng hợp, sửa ngày/KEEP/SHIFT, duplicate, chuyển Owner và lifecycle Trip đầy đủ vẫn nằm ngoài phạm vi core này.
 
 ## Transaction và chống lặp
 

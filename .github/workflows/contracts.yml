@@ -118,6 +118,18 @@ jobs:
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm price-watch:test
 
+  demo1-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm demo:acceptance
+
   notification-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 25

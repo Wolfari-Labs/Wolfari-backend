@@ -1,5 +1,12 @@
 # Tài liệu Wolfari
 
+## Phụ lục demo1 — 28/10/2026
+
+- [Backend v1.0](architecture/demo-1-addendum-v1.0.md): day-only/Trip V003, policy read, membership names và vận hành. Giữ checksum ba DOCX; hợp nhất phụ lục vào bản baseline kế tiếp.
+- [Bàn giao Web](architecture/demo-1-web-handoff.md), [kiểm chứng Backend](architecture/demo-1-backend-validation.md).
+- OpenAPI mới: [Plan API039–044](api/plan.openapi.json), [Fund API070–077](api/finance-fund.openapi.json), [inventory](api/runtime-inventory.json).
+- Ghi chú Trip-side/Finance fixture phía dưới thuộc mốc cũ. Finance và nghĩa vụ membership đã có runtime và integration thật riêng; fixture vẫn chỉ là fixture.
+
 Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026** và là baseline tài liệu hiện hành. Phê duyệt này không xác nhận toàn bộ runtime, CI, AT/NFR hay production đã đạt; những chính sách được ghi còn mở vẫn cần quyết định riêng.
 
 ## Bộ chính thức

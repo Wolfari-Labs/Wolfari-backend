@@ -46,6 +46,7 @@ function activity(value: ActivityView): TripV1.PlanActivity {
     description: value.description ?? undefined,
     public_description: value.public_description ?? undefined,
     selected_location_id: value.selected_location_id ?? undefined,
+    scheduled_date: value.scheduled_date ?? undefined,
     starts_at: optionalTime(value.starts_at),
     ends_at: optionalTime(value.ends_at),
     completed_at: optionalTime(value.completed_at),
@@ -141,7 +142,12 @@ export class PlanGrpcHandlers {
         activity_type: request.activity_type,
         position: request.position ?? 0,
       };
-      for (const key of ['description', 'public_description', 'selected_location_id'] as const)
+      for (const key of [
+        'description',
+        'public_description',
+        'selected_location_id',
+        'scheduled_date',
+      ] as const)
         if (request[key] !== undefined) fields[key] = request[key];
       for (const key of ['starts_at', 'ends_at'] as const)
         if (request[key] !== undefined) fields[key] = readTime(request[key]!);
@@ -156,7 +162,12 @@ export class PlanGrpcHandlers {
       const fields: Record<string, unknown> = {};
       for (const key of ['title', 'activity_type', 'position'] as const)
         if (request[key] !== undefined) fields[key] = request[key];
-      for (const key of ['description', 'public_description', 'selected_location_id'] as const)
+      for (const key of [
+        'description',
+        'public_description',
+        'selected_location_id',
+        'scheduled_date',
+      ] as const)
         if (request[key] !== undefined) fields[key] = patchValue(request[key]!);
       for (const key of ['starts_at', 'ends_at'] as const)
         if (request[key] !== undefined) fields[key] = timestampPatch(request[key]!);

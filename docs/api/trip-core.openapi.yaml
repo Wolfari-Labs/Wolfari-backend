@@ -331,6 +331,22 @@ paths:
         in: path
         required: true
         schema: { type: string, format: uuid }
+    get:
+      tags: [Trips]
+      operationId: getPlanPolicy
+      summary: Read policy and saved active editor assignments as the current Owner.
+      description: Read-only. Inert assignments are retained under OWNER_ONLY and ALL_MEMBERS. Members receive 403; outsiders receive 404.
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: Policy and membership revision from one consistent snapshot.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/PlanPolicyResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
     put:
       tags: [Trips]
       summary: Replace the selected Plan editors or change Plan edit policy as the active Owner.

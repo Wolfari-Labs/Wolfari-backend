@@ -3,6 +3,7 @@ import { runFinanceAutomationContextTests } from './finance-automation-context-i
 import { runFinanceWriteTests } from './finance-write-integration.mjs';
 import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
+import { runDemo1Acceptance } from './demo1-acceptance.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
 import { runMembershipTests } from './trip-members-integration.mjs';
 import assert from 'node:assert/strict';
@@ -22,6 +23,7 @@ import { runInvitationTests } from './trip-invitations-integration.mjs';
 import { runPriceWatchTests } from './price-watch-integration.mjs';
 import { runNotificationManagementTests } from './notification-management-integration.mjs';
 
+const demo1Mode = process.argv.includes('--demo1');
 const automationContextOnly = process.argv.includes('--finance-automation-context');
 const receiptsOnly = process.argv.includes('--finance-receipts');
 const instructionsOnly = process.argv.includes('--finance-instructions');
@@ -33,8 +35,9 @@ const paymentsOnly = process.argv.includes('--finance-payments');
 const lifecycleOnly = process.argv.includes('--finance-lifecycle');
 const allFinance = process.argv.includes('--finance');
 const paymentTestMode = paymentsOnly || allFinance;
-const lifecycleTestMode = lifecycleOnly || allFinance;
+const lifecycleTestMode = lifecycleOnly || allFinance || demo1Mode;
 const financeReadMode =
+  demo1Mode ||
   automationContextOnly ||
   receiptsOnly ||
   instructionsOnly ||
@@ -294,7 +297,7 @@ async function main() {
     '180',
     'postgres',
     ...(financeReadMode ? ['minio'] : []),
-    ...(invitationMode
+    ...(invitationMode || demo1Mode
       ? ['rabbitmq', 'mailpit']
       : membershipMode || priceWatchMode || notificationMode
         ? ['rabbitmq']
@@ -303,7 +306,7 @@ async function main() {
   for (const service of [
     'identity',
     'trip',
-    ...(invitationMode ? ['automation'] : []),
+    ...(invitationMode || demo1Mode ? ['automation'] : []),
     ...(priceWatchMode ? ['automation'] : []),
     ...(notificationMode ? ['automation'] : []),
     ...(membershipMode || financeReadMode ? ['finance'] : []),
@@ -364,7 +367,7 @@ async function main() {
     TRIP_INVITATION_LINK_BASE_URL: `http://127.0.0.1:${ports.gateway}`,
     IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.identityGrpc}`,
     TRIP_IDENTITY_SECRET: secrets.TRIP_IDENTITY_SECRET,
-    TRIP_OUTBOX_ENABLED: invitationMode ? 'true' : 'false',
+    TRIP_OUTBOX_ENABLED: invitationMode || demo1Mode ? 'true' : 'false',
     RABBITMQ_URL: brokerUrl(),
     DATABASE_URL: databaseUrl(infra, 'trip'),
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
@@ -373,10 +376,12 @@ async function main() {
     AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
   };
   let tripProcess = await start('trip-workspace-service', tripValues);
-  if (priceWatchMode || notificationMode) {
+  const automationHttpPort = await port();
+  const financeHttpPort = await port();
+  if (priceWatchMode || notificationMode || demo1Mode) {
     const automationPort = await port();
     await start('automation-service', {
-      AUTOMATION_PORT: String(automationPort),
+      AUTOMATION_PORT: String(demo1Mode ? automationHttpPort : automationPort),
       AUTOMATION_GRPC_PORT: String(ports.automationGrpc),
       DATABASE_URL: databaseUrl(infra, 'automation'),
       GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
@@ -392,12 +397,13 @@ async function main() {
       AUTOMATION_TRIP_SECRET: secrets.AUTOMATION_TRIP_SECRET,
       RABBITMQ_URL: brokerUrl(),
       SMTP_HOST: '127.0.0.1',
-      SMTP_PORT: '9',
+      SMTP_PORT: demo1Mode ? infra.MAILPIT_SMTP_PORT : '9',
     });
   }
+  let financeProcess;
   if (financeReadMode)
-    await start('finance-service', {
-      FINANCE_PORT: String(await port()),
+    financeProcess = await start('finance-service', {
+      FINANCE_PORT: String(financeHttpPort),
       MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
       MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
       MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
@@ -423,6 +429,8 @@ async function main() {
     IDENTITY_HTTP_URL: `http://127.0.0.1:${ports.identity}`,
     IDENTITY_GRPC_TARGET: `127.0.0.1:${ports.identityGrpc}`,
     TRIP_HTTP_URL: `http://127.0.0.1:${ports.trip}`,
+    FINANCE_HTTP_URL: `http://127.0.0.1:${financeHttpPort}`,
+    AUTOMATION_HTTP_URL: `http://127.0.0.1:${automationHttpPort}`,
     TRIP_GRPC_TARGET: `127.0.0.1:${ports.tripGrpc}`,
     GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
@@ -435,6 +443,27 @@ async function main() {
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
+  if (demo1Mode) {
+    await runDemo1Acceptance({
+      request,
+      account,
+      bearer,
+      waitFor,
+      pass,
+      ports,
+      infra,
+      query,
+      stopFinance: () => stop(financeProcess),
+      restartTrip: async () => {
+        await stop(tripProcess);
+        tripProcess = await start('trip-workspace-service', tripValues);
+      },
+    });
+    console.log(
+      `PASS demo:acceptance completed ${checks} groups (real Gateway/services; no business SQL seed).`,
+    );
+    return;
+  }
   if (priceWatchMode) {
     await runPriceWatchTests({
       request,

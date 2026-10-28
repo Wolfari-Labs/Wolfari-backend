@@ -660,7 +660,11 @@ export interface ContributionView {
   waived_reason?: string | undefined;
   cancelled_reason?: string | undefined;
   version?: number | undefined;
-  finance_version?: number | undefined;
+  finance_version?:
+    | number
+    | undefined;
+  /** Latest Holder rejection reason. Absent on never-rejected/legacy receipt snapshots. */
+  rejected_reason?: string | undefined;
 }
 
 export interface ListContributionRequestsRequest {

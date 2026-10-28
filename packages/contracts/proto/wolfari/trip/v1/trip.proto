@@ -22,6 +22,7 @@ service TripService {
   rpc UpdateTrip(UpdateTripRequest) returns (UpdateTripResponse);
   rpc GetAccessContext(GetAccessContextRequest) returns (GetAccessContextResponse);
   rpc UpdatePlanPolicy(UpdatePlanPolicyRequest) returns (UpdatePlanPolicyResponse);
+  rpc GetPlanPolicy(GetPlanPolicyRequest) returns (GetPlanPolicyResponse);
   rpc BeginFinanceOperation(BeginFinanceOperationRequest) returns (BeginFinanceOperationResponse);
   rpc CompleteOperation(CompleteOperationRequest) returns (CompleteOperationResponse);
   rpc GetOperationResult(GetOperationResultRequest) returns (GetOperationResultResponse);
@@ -149,6 +150,13 @@ message UpdatePlanPolicyRequest {
 }
 
 message UpdatePlanPolicyResponse {
+  PlanPolicySettings plan_policy = 1;
+}
+message GetPlanPolicyRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+}
+message GetPlanPolicyResponse {
   PlanPolicySettings plan_policy = 1;
 }
 
@@ -439,6 +447,7 @@ message PlanActivity {
   int32 position = 10; ActivityStatus status = 11; EntitySource source = 12;
   optional string completed_by_user_id = 13; google.protobuf.Timestamp completed_at = 14;
   string created_by_user_id = 15; int32 plan_version = 16;
+  optional string scheduled_date = 17; // YYYY-MM-DD; only without timestamps.
 }
 message PlanLocation {
   string id = 1; string trip_id = 2; string name = 3; optional string address = 4;
@@ -477,6 +486,7 @@ message CreateActivityRequest {
   optional string selected_location_id = 9;
   google.protobuf.Timestamp starts_at = 10; google.protobuf.Timestamp ends_at = 11;
   int32 position = 12;
+  optional string scheduled_date = 13;
 }
 message CreateActivityResponse { PlanActivity activity = 1; int32 export_revision = 2; }
 
@@ -488,6 +498,7 @@ message UpdateActivityRequest {
   StringPatch selected_location_id = 10;
   TimestampPatch starts_at = 11; TimestampPatch ends_at = 12;
   optional int32 position = 13;
+  StringPatch scheduled_date = 14;
 }
 message UpdateActivityResponse { PlanActivity activity = 1; int32 export_revision = 2; }
 

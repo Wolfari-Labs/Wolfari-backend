@@ -1,5 +1,7 @@
 # Database và migration Wolfari
 
+> Demo1 (28/10/2026): thêm **Trip V003**, nullable `activities.scheduled_date` và CHECK loại trừ timestamps; không backfill ngày, không sửa V001/V002. Readiness yêu cầu V003. [Phụ lục](../architecture/demo-1-addendum-v1.0.md), [kiểm chứng upgrade/constraint](../architecture/demo-1-backend-validation.md). Không đổi số bảng/FK. Mermaid đồng bộ thêm Finance V002 và Automation V002–V005; SQL là nguồn constraint/index chuẩn.
+
 Năm file `apps/<service>/migrations/V001.sql` là baseline PostgreSQL 16+ hiện có. Local dùng PostgreSQL 17 theo image/digest trong Compose. SQL gốc được giữ nguyên; ứng dụng dùng pg.
 
 ## Chạy và kiểm tra

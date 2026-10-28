@@ -3,7 +3,7 @@
   "info": {
     "title": "Wolfari Membership Lifecycle",
     "version": "1.0.0",
-    "description": "Trip-side, default disabled. Finance fixture tests are not Finance E2E. Update stacked base after Invitations merge."
+    "description": "Membership list and asynchronous leave/remove. Demo enables lifecycle with real Finance obligations. Display names are best-effort Identity enrichment; never use them for authorization. Legacy fixture suites remain distinct from real Finance integration."
   },
   "security": [
     {
@@ -598,8 +598,13 @@
       "Membership": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "trip_id", "user_id", "role", "joined_at", "left_at"],
+        "required": ["id", "trip_id", "user_id", "role", "joined_at", "left_at", "display_name"],
         "properties": {
+          "display_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Identity full name or null on missing profile/timeout. No email or avatar is disclosed."
+          },
           "id": {
             "type": "string",
             "format": "uuid"

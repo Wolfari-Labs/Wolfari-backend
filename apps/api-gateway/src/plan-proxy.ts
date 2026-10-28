@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TripClient } from './trip-client';
+import { isCalendarDate } from '@wolfari/common';
 import {
   authenticate,
   ensureQuery,
@@ -74,6 +75,11 @@ function list(value: unknown): unknown[] {
   if (!Array.isArray(value)) throw new Error('Invalid Plan list');
   return value;
 }
+function calendarDateProjection(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!isCalendarDate(value)) throw new Error('Invalid activity date');
+  return value;
+}
 export function projectActivity(value: unknown) {
   const row = responseRecord(value);
   return {
@@ -86,6 +92,7 @@ export function projectActivity(value: unknown) {
     selected_location_id: optionalString(row.selected_location_id),
     starts_at: optionalTime(row.starts_at),
     ends_at: optionalTime(row.ends_at),
+    scheduled_date: calendarDateProjection(row.scheduled_date),
     position: nonNegativeInteger(row.position),
     status: enumValue(row.status, statuses),
     source: enumValue(row.source, sources),
@@ -223,6 +230,7 @@ export function planRequest(
     'selected_location_id',
     'starts_at',
     'ends_at',
+    'scheduled_date',
     'position',
   ]);
   const create = route.kind === 'create';
@@ -251,6 +259,7 @@ export function planRequest(
     'selected_location_id',
     'starts_at',
     'ends_at',
+    'scheduled_date',
   ] as const) {
     if (!Object.hasOwn(body, key)) continue;
     const value = body[key];
@@ -261,6 +270,8 @@ export function planRequest(
     if (typeof value !== 'string') throw new RequestError(`Invalid ${key}`);
     if (key === 'selected_location_id' && !uuid.test(value))
       throw new RequestError('Invalid location id');
+    if (key === 'scheduled_date' && !isCalendarDate(value))
+      throw new RequestError('Invalid calendar date');
     const normalized =
       key === 'starts_at' || key === 'ends_at'
         ? parseTimestamp(value)

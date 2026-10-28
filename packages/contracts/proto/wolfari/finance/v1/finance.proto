@@ -577,6 +577,8 @@ message ContributionView {
   optional string cancelled_reason = 12;
   int32 version = 13;
   int32 finance_version = 14;
+  // Latest Holder rejection reason. Absent on never-rejected/legacy receipt snapshots.
+  optional string rejected_reason = 15;
 }
 message ListContributionRequestsRequest {
   string actor_user_id = 1;

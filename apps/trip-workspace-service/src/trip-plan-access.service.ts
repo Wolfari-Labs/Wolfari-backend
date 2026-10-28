@@ -116,6 +116,25 @@ async function policyView(
 export class TripPlanAccessService {
   constructor(private readonly database: DatabaseProvider) {}
 
+  async getPolicy(actor: unknown, trip: unknown): Promise<PlanPolicyView> {
+    const actorId = accessUuid(actor),
+      tripId = accessUuid(trip);
+    return this.database.withTransaction(async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+      const result = await client.query<OwnerRow>(
+        `SELECT t.id AS trip_id,t.plan_edit_policy,t.membership_revision,
+          m.role AS membership_role
+         FROM trips t JOIN trip_members m ON m.trip_id=t.id
+         WHERE t.id=$1 AND t.deleted_at IS NULL AND m.user_id=$2 AND m.left_at IS NULL`,
+        [tripId, actorId],
+      );
+      const row = result.rows[0];
+      if (!row) return fail('RESOURCE_NOT_FOUND', 404);
+      if (row.membership_role !== 'OWNER') return fail('PERMISSION_DENIED', 403);
+      return policyView(client, row);
+    });
+  }
+
   async updatePolicy(input: UpdatePlanPolicyInput): Promise<PlanPolicyView> {
     const operationId = accessUuid(input.operationId);
     const actorUserId = accessUuid(input.actorUserId);

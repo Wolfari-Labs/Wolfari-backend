@@ -47,6 +47,7 @@ export type ContributionReadRow = {
   confirmed_by_user_id: string | null;
   waived_reason: string | null;
   cancelled_reason: string | null;
+  rejected_reason: string | null;
 };
 export type ContributionRequestReadRow = Omit<
   NewContributionRequestRow,
@@ -80,6 +81,7 @@ export function contributionResponse(
     confirmed_by_user_id: row.confirmed_by_user_id ?? undefined,
     waived_reason: row.waived_reason ?? undefined,
     cancelled_reason: row.cancelled_reason ?? undefined,
+    rejected_reason: row.rejected_reason ?? undefined,
   };
 }
 export function contributionRequestReadResponse(
