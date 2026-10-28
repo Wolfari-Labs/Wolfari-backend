@@ -56,13 +56,21 @@ export class FinanceNotificationRepository {
     return this.withClient((query) => this.existing(query, event));
   }
 
-  complete(event: FinanceNotificationEvent, users: string[]): Promise<'APPLIED' | 'DUPLICATE'> {
+  complete(
+    event: FinanceNotificationEvent,
+    users: string[],
+    sourceRevision?: number,
+  ): Promise<'APPLIED' | 'DUPLICATE'> {
     const recipients = users.map(recipientUuid).sort();
     const closure = 'closureId' in event;
-    const sourceId = closure ? event.closureId : event.requestId;
+    const review = 'contributionId' in event;
+    const sourceId = closure ? event.closureId : review ? event.contributionId : event.requestId;
     if (
       new Set(recipients).size !== recipients.length ||
-      (!closure && recipients.length > event.contributionCount)
+      (!closure && recipients.length > (review ? 1 : event.contributionCount)) ||
+      (review &&
+        (recipients.length > 0 || sourceRevision !== undefined) &&
+        (!Number.isInteger(sourceRevision) || sourceRevision! < 1 || sourceRevision! > 2147483647))
     )
       throw new Error('FINANCE_NOTIFICATION_RECIPIENTS_INVALID');
     return this.withClient(async (query) => {
@@ -74,7 +82,7 @@ export class FinanceNotificationRepository {
         [
           FINANCE_NOTIFICATION_CONSUMER,
           event.eventId,
-          closure ? 'ClosureRequested' : 'ContributionRequested',
+          closure ? 'ClosureRequested' : review ? 'ContributionUpdated' : 'ContributionRequested',
           event.fundId,
           event.version,
           JSON.stringify({
@@ -100,25 +108,36 @@ export class FinanceNotificationRepository {
         ? await query(
             `INSERT INTO notifications(user_id,trip_id,type,title,body,source_id,event_id,status,dedupe_key,created_at)
          SELECT recipient,$2::uuid,$7::varchar,$3::varchar,$4::text,$5::varchar,$6::uuid,'AVAILABLE',
-           $8::text || $6::uuid::text || ':' || recipient::text,statement_timestamp()
+           $8::text || $10::text || ':' || recipient::text,statement_timestamp()
          FROM unnest($1::uuid[]) AS recipient
          WHERE NOT $9::boolean OR NOT EXISTS (
            SELECT 1 FROM notifications n WHERE n.user_id=recipient
              AND n.type='CLOSURE_REQUESTED' AND n.source_id=$5::varchar
              AND n.created_at > statement_timestamp()-interval '24 hours'
-         ) RETURNING id`,
+         ) ${review ? 'ON CONFLICT(dedupe_key) DO NOTHING' : ''} RETURNING id`,
             [
               recipients,
               event.tripId,
-              closure ? 'Yêu cầu xác nhận đóng quỹ' : 'Yêu cầu đóng góp',
+              closure
+                ? 'Yêu cầu xác nhận đóng quỹ'
+                : review
+                  ? 'Báo chuyển chờ xác nhận'
+                  : 'Yêu cầu đóng góp',
               closure
                 ? 'Có yêu cầu xác nhận đóng quỹ. Mở chuyến đi để xem thông tin hiện tại.'
-                : 'Một yêu cầu đóng góp đã được tạo. Mở chuyến đi để xem thông tin hiện tại.',
+                : review
+                  ? 'Có báo chuyển cần kiểm tra. Mở chuyến đi để xem thông tin hiện tại.'
+                  : 'Một yêu cầu đóng góp đã được tạo. Mở chuyến đi để xem thông tin hiện tại.',
               sourceId,
               event.eventId,
-              closure ? 'CLOSURE_REQUESTED' : 'CONTRIBUTION_REQUESTED',
-              closure ? 'finance-closure:' : 'finance-request:',
+              closure
+                ? 'CLOSURE_REQUESTED'
+                : review
+                  ? 'CONTRIBUTION_REVIEW'
+                  : 'CONTRIBUTION_REQUESTED',
+              closure ? 'finance-closure:' : review ? 'finance-review:' : 'finance-request:',
               closure,
+              review ? `${sourceId}:${sourceRevision}` : event.eventId,
             ],
           )
         : undefined;
@@ -132,7 +151,13 @@ export class FinanceNotificationRepository {
             event_hash: event.fingerprint,
             ...(closure
               ? { closure_id: sourceId, cooldown_suppressed: recipients.length - count }
-              : { request_id: sourceId }),
+              : review
+                ? {
+                    contribution_id: sourceId,
+                    source_revision: sourceRevision,
+                    duplicate_suppressed: recipients.length - count,
+                  }
+                : { request_id: sourceId }),
             outcome: count ? 'CREATED' : 'SUPPRESSED',
             count,
           }),

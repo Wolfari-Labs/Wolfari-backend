@@ -68,7 +68,9 @@ export class FinanceNotificationClient implements OnApplicationShutdown {
           fund_id: event.fundId,
           ...('closureId' in event
             ? { source_type: 'CLOSURE', source_id: event.closureId }
-            : { source_type: 'CONTRIBUTION_REQUEST', source_id: event.requestId }),
+            : 'contributionId' in event
+              ? { source_type: 'CONTRIBUTION_REVIEW', source_id: event.contributionId }
+              : { source_type: 'CONTRIBUTION_REQUEST', source_id: event.requestId }),
         },
         metadata,
         { deadline: Math.min(deadline, Date.now() + 2000) },

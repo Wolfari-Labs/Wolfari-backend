@@ -22,7 +22,6 @@
       "bindings": [
         "AccountStatusChanged",
         "PlanUpdated",
-        "ContributionUpdated",
         "ClosureCancelled",
         "FinanceClosed",
         "AccountEmailRequested"
@@ -32,7 +31,7 @@
       "name": "wolfari.automation.finance-notifications.v1",
       "consumer": "Automation",
       "durable": true,
-      "bindings": ["ContributionRequested", "ClosureRequested"]
+      "bindings": ["ContributionRequested", "ClosureRequested", "ContributionUpdated"]
     },
     {
       "name": "wolfari.automation.price-watch.v1",

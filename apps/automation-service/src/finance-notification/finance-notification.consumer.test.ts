@@ -105,26 +105,39 @@ function message(headers: Record<string, unknown> = {}): ConsumeMessage {
   } as ConsumeMessage;
 }
 describe('Finance notification broker ownership and acknowledgements', () => {
-  it('dispatches ClosureRequested through the same commit-before-ACK path', async () => {
-    const h = await start();
-    const value = message();
-    const body = JSON.parse(value.content.toString());
-    body.event_type = 'ClosureRequested';
-    body.payload = {
-      fund_id: body.aggregate_id,
-      trip_id: body.trip_id,
-      closure_id: randomUUID(),
-      snapshot_hash: 'a'.repeat(64),
-      finance_version: body.aggregate_version,
-    };
-    value.content = Buffer.from(JSON.stringify(body));
-    receive(value);
-    await drain();
-    expect(h.service.process.mock.calls[0]?.[0]).toMatchObject({
-      closureId: body.payload.closure_id,
-    });
-    expect(channel.ack).toHaveBeenCalledWith(value);
-  });
+  it.each(['ClosureRequested', 'ContributionUpdated'])(
+    'dispatches %s through the same commit-before-ACK path',
+    async (type) => {
+      const h = await start();
+      const value = message();
+      const body = JSON.parse(value.content.toString());
+      body.event_type = type;
+      body.payload = {
+        fund_id: body.aggregate_id,
+        trip_id: body.trip_id,
+        closure_id: randomUUID(),
+        snapshot_hash: 'a'.repeat(64),
+        finance_version: body.aggregate_version,
+      };
+      if (type === 'ContributionUpdated')
+        body.payload = {
+          fund_id: body.aggregate_id,
+          trip_id: body.trip_id,
+          contribution_id: randomUUID(),
+          status: 'TRANSFER_REPORTED',
+          finance_version: body.aggregate_version,
+        };
+      value.content = Buffer.from(JSON.stringify(body));
+      receive(value);
+      await drain();
+      expect(h.service.process.mock.calls[0]?.[0]).toMatchObject({
+        ...(type === 'ClosureRequested'
+          ? { closureId: body.payload.closure_id }
+          : { contributionId: body.payload.contribution_id }),
+      });
+      expect(channel.ack).toHaveBeenCalledWith(value);
+    },
+  );
   it('does not connect or provision queues when disabled', async () => {
     const h = await start('false');
     expect(h.worker.connected).toBe(false);
@@ -136,6 +149,7 @@ describe('Finance notification broker ownership and acknowledgements', () => {
     expect(channel.bindQueue.mock.calls).toEqual([
       [queue, 'wolfari.events.v1', 'ContributionRequested'],
       [queue, 'wolfari.events.v1', 'ClosureRequested'],
+      [queue, 'wolfari.events.v1', 'ContributionUpdated'],
     ]);
     const retry = channel.assertQueue.mock.calls.filter((call) =>
       String(call[0]).includes('.retry.'),

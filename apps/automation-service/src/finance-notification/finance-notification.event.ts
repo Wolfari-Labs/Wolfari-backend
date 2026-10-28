@@ -40,12 +40,49 @@ export interface ClosureNotificationEvent extends Omit<
   closureId: string;
   snapshotHash: string;
 }
-export type FinanceNotificationEvent = ContributionNotificationEvent | ClosureNotificationEvent;
+export interface ContributionReviewNotificationEvent extends Omit<
+  ContributionNotificationEvent,
+  'requestId' | 'contributionCount'
+> {
+  contributionId: string;
+  contributionStatus: string;
+}
+export type FinanceNotificationEvent =
+  ContributionNotificationEvent | ClosureNotificationEvent | ContributionReviewNotificationEvent;
 
 /** Preserve the original contribution projection/hash so processed events survive upgrades. */
 export function financeNotificationEvent(value: unknown): FinanceNotificationEvent {
   try {
     const event = parseEventForConsume(value);
+    if (event.event_type === 'ContributionUpdated') {
+      if (event.producer !== 'Finance' || event.aggregate_type !== 'Fund')
+        throw new InvalidFinanceNotificationEvent();
+      const result = {
+        eventId: recipientUuid(event.event_id),
+        fundId: recipientUuid(event.aggregate_id),
+        tripId: recipientUuid(event.trip_id),
+        contributionId: recipientUuid(event.payload.contribution_id),
+        contributionStatus: event.payload.status as string,
+        version: event.aggregate_version!,
+        correlationId: recipientUuid(event.correlation_id),
+      };
+      return {
+        ...result,
+        fingerprint: createHash('sha256')
+          .update(
+            JSON.stringify([
+              'ContributionUpdated',
+              result,
+              event.occurred_at,
+              event.operation_id ?? null,
+              event.causation_id ?? null,
+              event.actor_user_id ?? null,
+              event.system_actor ?? null,
+            ]),
+          )
+          .digest('hex'),
+      };
+    }
     if (event.event_type !== 'ClosureRequested') return contributionNotificationEvent(value);
     if (event.producer !== 'Finance' || event.aggregate_type !== 'Fund')
       throw new InvalidFinanceNotificationEvent();

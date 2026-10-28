@@ -37,14 +37,22 @@ function context(value: FinanceV1.GetAutomationContextResponse, event: FinanceNo
   )
     return unavailable();
   const closure = 'closureId' in event;
+  const review = 'contributionId' in event;
   const raw = value.authorized_recipients === undefined ? [] : value.authorized_recipients;
-  if (!Array.isArray(raw) || (!closure && raw.length > event.contributionCount))
+  if (!Array.isArray(raw) || (!closure && raw.length > (review ? 1 : event.contributionCount)))
     return unavailable();
   const users = raw.map((item) => recipientUuid(item?.user_id)).sort();
   if (new Set(users).size !== users.length || (value.status !== (closure ? 2 : 1) && users.length))
     return unavailable();
   const due = value.due_at;
-  if (closure && due !== undefined) return unavailable();
+  if ((closure || review) && due !== undefined) return unavailable();
+  if (
+    review &&
+    (!Number.isInteger(value.source_revision) ||
+      value.source_revision! < 1 ||
+      value.source_revision! > 2147483647)
+  )
+    return unavailable();
   if (
     due !== undefined &&
     (typeof due.seconds !== 'string' ||
@@ -61,6 +69,7 @@ function context(value: FinanceV1.GetAutomationContextResponse, event: FinanceNo
     status: value.status,
     users,
     due: due ? [due.seconds, due.nanos ?? 0] : null,
+    ...(review ? { sourceRevision: value.source_revision } : {}),
   };
 }
 function eligible(
@@ -126,6 +135,8 @@ export class FinanceNotificationService {
     const last = await read();
     check();
     if (JSON.stringify(first) !== JSON.stringify(last)) return unavailable();
-    await this.repository.complete(event, accepted);
+    if ('contributionId' in event)
+      await this.repository.complete(event, accepted, last?.sourceRevision);
+    else await this.repository.complete(event, accepted);
   }
 }
