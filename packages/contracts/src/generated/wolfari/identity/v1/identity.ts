@@ -77,6 +77,23 @@ export interface GetAccountEmailDeliveryResponse {
   delivery?: AccountEmailDelivery | undefined;
 }
 
+/** A raw batch contains 1..100 UUIDs. Results preserve first-seen normalized unique IDs. */
+export interface GetNotificationEligibilityRequest {
+  user_ids?: string[] | undefined;
+}
+
+export interface NotificationEligibility {
+  user_id?:
+    | string
+    | undefined;
+  /** Unknown or inactive accounts are false; no account details are exposed. */
+  eligible?: boolean | undefined;
+}
+
+export interface GetNotificationEligibilityResponse {
+  recipients?: NotificationEligibility[] | undefined;
+}
+
 export const WOLFARI_IDENTITY_V1_PACKAGE_NAME = "wolfari.identity.v1";
 
 /** Source: DDL/API/Event v1.1 section 6. Authorization is enforced by the owner. */
@@ -90,6 +107,13 @@ export interface IdentityServiceClient {
   validateSession(request: ValidateSessionRequest, metadata?: Metadata): Observable<ValidateSessionResponse>;
 
   getProfiles(request: GetProfilesRequest, metadata?: Metadata): Observable<GetProfilesResponse>;
+
+  /** Additive notification prerequisite; Automation-only account eligibility read. */
+
+  getNotificationEligibility(
+    request: GetNotificationEligibilityRequest,
+    metadata?: Metadata,
+  ): Observable<GetNotificationEligibilityResponse>;
 
   getAccountEmailDelivery(
     request: GetAccountEmailDeliveryRequest,
@@ -115,6 +139,16 @@ export interface IdentityServiceController {
     metadata?: Metadata,
   ): Promise<GetProfilesResponse> | Observable<GetProfilesResponse> | GetProfilesResponse;
 
+  /** Additive notification prerequisite; Automation-only account eligibility read. */
+
+  getNotificationEligibility(
+    request: GetNotificationEligibilityRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetNotificationEligibilityResponse>
+    | Observable<GetNotificationEligibilityResponse>
+    | GetNotificationEligibilityResponse;
+
   getAccountEmailDelivery(
     request: GetAccountEmailDeliveryRequest,
     metadata?: Metadata,
@@ -130,6 +164,7 @@ export function IdentityServiceControllerMethods() {
       "getInvitationIdentity",
       "validateSession",
       "getProfiles",
+      "getNotificationEligibility",
       "getAccountEmailDelivery",
     ];
     for (const method of grpcMethods) {

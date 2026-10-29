@@ -9,6 +9,8 @@ Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 
 
 > Đã có runtime Identity, Trip/Plan/Invitations, Finance API070–125 và nghĩa vụ membership, Notification I1, Price Watch H1–H3. Nhánh tích hợp đã qua kiểm tra local ngày 25/10/2026: 1.442 unit test, 28 nhóm database và các bộ Finance/Price Watch/Notification; xem [kết quả và giới hạn](docs/architecture/design-baseline.md#trạng-thái-triển-khai). Chưa nghiệm thu toàn bộ MVP. `MOCK_FLIGHT` chỉ là dữ liệu thử, MoMo chỉ cấu hình Sandbox; provider giá thật, push/FCM, Reminder API132, export và Finance notification delivery còn thiếu. Membership lifecycle vẫn mặc định tắt cho production. Baseline chính thức là SRS v2.3/ERD v1.2/DDL API Event v1.1; schema gồm năm V001, Trip/Finance V002 và Automation V002–V005.
 
+Mốc bổ sung ngày 28/10/2026: [Finance inbox](docs/architecture/finance-notification-inbox.md) tạo thông báo in-app từ `ContributionRequested`, `ClosureRequested` và `ContributionUpdated` (Holder review), kiểm tra Finance/Identity hiện tại và chống trùng. Closure chỉ gửi cho người chưa xác nhận, tối đa một thông báo/người/phiên trong 24 giờ. Holder chỉ nhận một thông báo mỗi revision báo chuyển, kể cả khi request được sửa metadata. Consumer mặc định tắt; ClosureCancelled/FinanceClosed, push/email và scheduler Reminder vẫn chưa thuộc mốc này. Chạy `corepack pnpm finance:notification:test` để kiểm thử môi trường cô lập.
+
 ## Kiến trúc
 
 | Thành phần                  | Vai trò                                           |   Cổng |

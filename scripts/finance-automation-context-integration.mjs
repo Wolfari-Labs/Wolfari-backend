@@ -109,10 +109,26 @@ export async function runFinanceAutomationContextTests(h) {
       'finance_version',
       'status',
       'authorized_recipients',
+      // proto-loader oneofs:true exposes the presence marker for a proto3 optional field.
+      ...(input.source_type === 'CONTRIBUTION_REVIEW'
+        ? ['source_revision', '_source_revision']
+        : []),
       ...(dueAt ? ['due_at'] : []),
     ]);
     for (const key of Object.keys(result))
       assert(allowed.has(key), `Unexpected context field ${key}`);
+    if (input.source_type === 'CONTRIBUTION_REVIEW') {
+      const [contribution] = await query(
+        'finance',
+        'SELECT version FROM contributions WHERE id=$1',
+        [input.source_id],
+      );
+      assert.equal(result.source_revision, contribution.version);
+      assert.equal(result._source_revision, 'source_revision');
+    } else {
+      assert.equal(result.source_revision, undefined);
+      assert.equal(result._source_revision, undefined);
+    }
     if (dueAt) {
       const milliseconds = Date.parse(dueAt);
       assert.deepEqual(result.due_at, {

@@ -461,3 +461,7 @@ Xem [thiết kế và protocol](../../docs/architecture/finance-closures.md) và
 ## Automation context reads
 
 Finance.GetAutomationContext resolves current contribution debtors, transfer-review Holders and unconfirmed closure members for Automation. It uses a dedicated service credential, current Trip membership and a repeated Finance source snapshot. The response contains only version/status, authorized user IDs and an optional deadline; it makes no business writes or notification deliveries. See the [source-purpose mapping, authorization and limits](../../docs/architecture/finance-automation-context.md). Run corepack pnpm finance:automation-context:test for the isolated focused suite.
+
+## Durable outbox publication
+
+The optional relay publishes existing committed Finance events with leases, strict contract validation, mandatory routing and publisher confirms. FINANCE_OUTBOX_ENABLED remains false by default. The [Finance inbox consumer](../../docs/architecture/finance-notification-inbox.md) covers ContributionRequested, ClosureRequested (with a per-user/source 24-hour limit) and ContributionUpdated Holder review (per contribution revision); other Finance consumers remain pending. Run corepack pnpm finance:outbox:test for isolated relay acceptance or corepack pnpm finance:notification:test for these consumers; see [publication, diagnostics and explicit replay](../../docs/architecture/finance-outbox.md). Broker acceptance does not mean a notification was delivered.

@@ -114,6 +114,14 @@
   {
     "package": "wolfari.identity.v1",
     "service": "IdentityService",
+    "method": "GetNotificationEligibility",
+    "callers": ["Automation"],
+    "deadline_ms": 2000,
+    "source": "Notification recipient eligibility prerequisite - additive implementation contract"
+  },
+  {
+    "package": "wolfari.identity.v1",
+    "service": "IdentityService",
     "method": "GetAccountEmailDelivery",
     "callers": ["Automation"],
     "deadline_ms": 2000,

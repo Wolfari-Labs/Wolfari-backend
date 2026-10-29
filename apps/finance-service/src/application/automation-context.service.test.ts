@@ -139,6 +139,23 @@ describe('Finance Automation current audience', () => {
     },
   );
 
+  it.each(['CONTRIBUTION_REQUEST', 'CONTRIBUTION_DUE', 'CONTRIBUTION_REVIEW', 'CLOSURE'] as const)(
+    'exposes a distinct current source revision only for review purpose %s',
+    async (sourceType) => {
+      const s = setup();
+      s.current.sourceType = sourceType;
+      const result = await s.service.get(
+        { ...input, source_type: sourceType },
+        correlation,
+        deadline(),
+      );
+      if (sourceType === 'CONTRIBUTION_REVIEW') {
+        expect(result.source_revision).toBe(2);
+        expect(result.source_revision).not.toBe(result.finance_version);
+      } else expect(result).not.toHaveProperty('source_revision');
+    },
+  );
+
   it.each(['CONTRIBUTION_REVIEW', 'CLOSURE'] as const)(
     'never fabricates a deadline for %s',
     async (sourceType) => {
