@@ -24,7 +24,7 @@ Status/migrate/inspect hỗ trợ `--service identity|trip|travel|finance|automa
 | finance_db    | finance_app    |                              18 |
 | automation_db | automation_app |                              14 |
 
-Có 57 bảng mô hình, 5 bảng lịch sử và 52 FK cùng database sau Trip V002, Finance V002 và Automation V005 (baseline V001 có 46 FK). Finance V002 thêm một bảng chứng từ và ba FK. Automation V002/V003/V005 chỉ thêm cột hoặc index; V004 thêm hai bảng và hai FK cho alert/lifecycle. Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
+Có 57 bảng mô hình, 5 bảng lịch sử và 52 FK cùng database sau Trip V002, Finance V002 và Automation V006 (baseline V001 có 46 FK). Finance V002 thêm một bảng chứng từ và ba FK. Automation V002/V003/V005/V006 chỉ thêm cột hoặc index; V004 thêm hai bảng và hai FK cho alert/lifecycle. Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
 
 ## Hợp đồng runner
 
@@ -39,7 +39,7 @@ Có 57 bảng mô hình, 5 bảng lịch sử và 52 FK cùng database sau Trip 
 
 Trip V002 thêm liên kết acceptance cùng Trip, unique EMAIL/PENDING chuẩn hóa và index expiry. Readiness Trip yêu cầu cả V001/V002. Runner đọc thêm [manifest forward](SHA256SUMS.forward.txt), từ chối ghi đè baseline hoặc trùng đường dẫn. Không đổi byte/checksum SQL baseline hoặc V001 đã áp dụng. ACCEPTED legacy thiếu liên kết và duplicate pending phải xử lý có chủ đích trước khi migrate; runner dừng, không tự backfill/xóa dữ liệu. Xem [invitations](../architecture/trip-invitations.md).
 
-Automation V002 thêm `price_watches.owner_membership_id` và index phục vụ quyền theo đúng vòng đời membership. Nếu đã có watch legacy, migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED`; operator phải xác định membership đúng thay vì suy từ `user_id`. Automation V003 thêm `price_query_attempts.next_attempt_at` cùng partial index để tách lịch retry khỏi hạn lease. V004 thêm alert candidate có lease/dedupe và bảng revision lifecycle Trip. V005 thêm partial index inbox AVAILABLE/unread theo Self mà không đổi bảng hoặc FK. Readiness Automation yêu cầu V001–V005. Xem [Price Watch Core](../architecture/price-watch-core.md) và [Notification Self Management](../architecture/notification-management.md).
+Automation V002 thêm `price_watches.owner_membership_id` và index phục vụ quyền theo đúng vòng đời membership. Nếu đã có watch legacy, migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED`; operator phải xác định membership đúng thay vì suy từ `user_id`. Automation V003 thêm `price_query_attempts.next_attempt_at` cùng partial index để tách lịch retry khỏi hạn lease. V004 thêm alert candidate có lease/dedupe và bảng revision lifecycle Trip. V005 thêm partial index inbox AVAILABLE/unread theo Self mà không đổi bảng hoặc FK. V006 thêm partial index cho ClosureCancelled/FinanceClosed trong inbox_events, không thay bảng/FK hay xóa lịch sử. Readiness Automation yêu cầu V001–V006. Xem [Price Watch Core](../architecture/price-watch-core.md) và [Notification Self Management](../architecture/notification-management.md).
 
 Finance V002 adds private receipt storage metadata; Finance readiness requires both V001 and V002. See [Finance receipts](../architecture/finance-receipts.md).
 

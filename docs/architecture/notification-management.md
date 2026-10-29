@@ -39,7 +39,7 @@ API131 chỉ cập nhật notification AVAILABLE của Self. SQL dùng `read_at=
 
 ## Schema và contract
 
-Automation V005 chỉ thêm hai partial index cho trang AVAILABLE và unread theo `(user_id,created_at DESC,id DESC)`; không sửa V001 hoặc dữ liệu nghiệp vụ. Readiness Automation yêu cầu V001–V005. Catalog tăng từ 49 lên 55 RPC: Automation có 13 RPC, gồm sáu Notification và bảy Price Watch.
+Automation V005 chỉ thêm hai partial index cho trang AVAILABLE và unread theo `(user_id,created_at DESC,id DESC)`; không sửa V001 hoặc dữ liệu nghiệp vụ. Readiness Automation yêu cầu V001–V006. Catalog tăng từ 49 lên 55 RPC: Automation có 13 RPC, gồm sáu Notification và bảy Price Watch.
 
 Gateway và Automation dùng transport/secret Automation hiện có, deadline 2 giây và correlation ID. Response whitelist không có token, recipient email, delivery context hoặc claim state. [OpenAPI](../api/notification.openapi.yaml) là contract HTTP của mốc I1.
 
@@ -49,4 +49,4 @@ Gateway và Automation dùng transport/secret Automation hiện có, deadline 2 
 
 I2 cần thêm push delivery worker/provider adapter, retry/lease, invalid-token deactivation, recheck tài khoản/quyền ngay trước dispatch và nội dung màn hình khóa tối thiểu. API132 cùng scheduler Reminder thuộc FR-AU02 riêng.
 
-Mốc [Finance inbox](finance-notification-inbox.md) bổ sung nguồn tạo notification `AVAILABLE` từ `ContributionRequested`, `ClosureRequested` và `ContributionUpdated` (Holder review), kiểm tra Finance/Identity hiện tại và chống trùng theo event/user; riêng Holder review thêm khóa contribution/revision/Holder để sửa metadata không gửi lặp. Closure chỉ gửi cho người chưa xác nhận, với giới hạn 24 giờ/người/phiên kể cả nhắc lại từ API125. Worker mặc định tắt; preference push/email false vẫn giữ inbox. Các sự kiện Finance khác, push/email và scheduler Reminder vẫn thuộc mốc sau.
+Mốc [Finance inbox](finance-notification-inbox.md) bổ sung nguồn tạo notification `AVAILABLE` từ `ContributionRequested`, `ClosureRequested` và `ContributionUpdated` (Holder review), kiểm tra Finance/Identity hiện tại và chống trùng theo event/user; riêng Holder review thêm khóa contribution/revision/Holder để sửa metadata không gửi lặp. Closure chỉ gửi cho người chưa xác nhận, với giới hạn 24 giờ/người/phiên kể cả nhắc lại từ API125. Worker mặc định tắt; preference push/email false vẫn giữ inbox. ClosureCancelled/FinanceClosed lưu terminal barrier ngăn tạo thêm thông báo lỗi thời, giữ các AVAILABLE notice làm lịch sử. Push/email và scheduler Reminder vẫn thuộc mốc sau.

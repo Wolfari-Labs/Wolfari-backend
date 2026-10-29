@@ -114,6 +114,8 @@ export class FinanceNotificationConsumer implements OnApplicationBootstrap, OnAp
       await channel.bindQueue(queue, EVENT_TOPOLOGY.exchange.name, 'ContributionRequested');
       await channel.bindQueue(queue, EVENT_TOPOLOGY.exchange.name, 'ClosureRequested');
       await channel.bindQueue(queue, EVENT_TOPOLOGY.exchange.name, 'ContributionUpdated');
+      await channel.bindQueue(queue, EVENT_TOPOLOGY.exchange.name, 'ClosureCancelled');
+      await channel.bindQueue(queue, EVENT_TOPOLOGY.exchange.name, 'FinanceClosed');
       for (const [index, delay] of EVENT_TOPOLOGY.retry_delays_ms.entries()) {
         await channel.assertQueue(`${queue}.retry.${index}`, {
           durable: true,

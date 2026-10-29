@@ -153,12 +153,18 @@ describe('event contracts', () => {
   });
 
   it('publishes dedicated invitation, general Automation, Price Watch and export bindings', () => {
-    expect(EVENT_TOPOLOGY.queues.map((queue) => queue.bindings.length)).toEqual([2, 5, 3, 5, 1, 3]);
+    expect(EVENT_TOPOLOGY.queues.map((queue) => queue.bindings.length)).toEqual([2, 3, 5, 5, 1, 3]);
     expect(
       EVENT_TOPOLOGY.queues.find(
         (queue) => queue.name === 'wolfari.automation.finance-notifications.v1',
       )?.bindings,
-    ).toEqual(['ContributionRequested', 'ClosureRequested', 'ContributionUpdated']);
+    ).toEqual([
+      'ContributionRequested',
+      'ClosureRequested',
+      'ContributionUpdated',
+      'ClosureCancelled',
+      'FinanceClosed',
+    ]);
     expect(EVENT_TOPOLOGY.retry_delays_ms).toEqual([10_000, 30_000, 120_000, 300_000, 900_000]);
   });
 

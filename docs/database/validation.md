@@ -2,6 +2,10 @@
 
 Các số liệu dưới đây là bằng chứng theo ngày chạy, không phải trạng thái kiểm thử của mọi HEAD mới. Bộ tài liệu chính thức hiện hành đã chốt ngày 02/10/2026 tại [danh mục tài liệu](../README.md).
 
+## Finance terminal inbox verification, 29 October 2026
+
+The subsequent Finance terminal inbox checkpoint on 29 October 2026 passes 29 isolated database groups. Automation V006 adds only a partial index on terminal inbox events; table/FK counts stay unchanged. Fresh/repeated migration, checksum checks, required V006 readiness and index presence pass alongside the existing repository/concurrency/outage tests. The Finance notification fixture separately passes 75 groups, including terminal barriers, real lock contention, rollback, DLQ/replay and restart. Existing development databases were not migrated. These are local results, not deployment acceptance.
+
 ## Integrated Finance and Automation verification, 25 October 2026
 
 The final isolated database integration passes 28 groups on the combined Finance/Price Watch/Notification source: 57 model tables plus 5 migration-history tables and 52 same-database foreign keys. Finance/Trip readiness requires V001-V002; Automation requires V001-V005. All migrations remain byte-identical to their manifests. The thirteen new Price Watch cases include native deadlock recovery, a single provider fetch and dispatch eligibility after pause/stop/expiry. Existing repository, migration concurrency, cross-database denial, readiness and outage/recovery checks also pass. The test project was cleaned; no development database was migrated. Earlier dated results below remain historical evidence.

@@ -3,7 +3,11 @@ import { status } from '@grpc/grpc-js';
 import { FinanceV1, type IdentityV1 } from '@wolfari/contracts/grpc';
 import { FinanceNotificationClient } from './finance-notification.client';
 import { FinanceNotificationRepository } from './finance-notification.repository';
-import { recipientUuid, type FinanceNotificationEvent } from './finance-notification.event';
+import {
+  recipientUuid,
+  type FinanceNotificationEvent,
+  type FinanceNoticeEvent,
+} from './finance-notification.event';
 
 const unavailable = (): never => {
   throw new Error('FINANCE_NOTIFICATION_CONTEXT_UNAVAILABLE');
@@ -27,7 +31,7 @@ function trustedMissing(error: unknown): boolean {
     return false;
   }
 }
-function context(value: FinanceV1.GetAutomationContextResponse, event: FinanceNotificationEvent) {
+function context(value: FinanceV1.GetAutomationContextResponse, event: FinanceNoticeEvent) {
   if (
     !value ||
     !Number.isInteger(value.finance_version) ||
@@ -113,6 +117,13 @@ export class FinanceNotificationService {
     };
     check();
     if (await this.repository.isProcessed(event)) return;
+    if ('terminalType' in event) {
+      // Immutable Finance terminal facts only remove permission to create notices.
+      // No recipient/source RPC is needed to persist this deny-only barrier.
+      check();
+      await this.repository.complete(event, []);
+      return;
+    }
     const read = async () => {
       check();
       try {
