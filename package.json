@@ -48,6 +48,7 @@
     "finance:notification:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notifications",
     "finance:replay-outbox": "node scripts/finance-replay-outbox.mjs",
     "finance:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance",
+    "finance:history:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-history",
     "finance:automation-context:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-automation-context",
     "finance:expenses:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-expenses",
     "finance:notes:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-notes",

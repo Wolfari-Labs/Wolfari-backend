@@ -11,6 +11,7 @@ import {
 } from './contribution-management-http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { FinanceClient } from './finance-client';
+import { handleFinanceHistory } from './finance-history-http';
 import {
   validateContributionRequestBody,
   projectContributionRequest,
@@ -146,6 +147,16 @@ export class FinanceProxy {
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const history = /^\/api\/v1\/funds\/([^/]+)\/history$/.exec(url.pathname);
+    if (history)
+      return handleFinanceHistory(
+        request,
+        response,
+        url,
+        history[1]!,
+        this.validateSession,
+        this.client,
+      );
     const payment = paymentRoute(url.pathname);
     if (payment)
       return handlePayment(request, response, url, payment, this.validateSession, this.client);

@@ -1,4 +1,5 @@
 import { FinanceAutomationContextService } from './application/automation-context.service';
+import { FinanceHistoryService } from './history/history.service';
 import { PaymentInstructionService } from './application/payment-instruction.service';
 import { ReceiptService } from './receipts/receipt.service';
 import { ManualContributionService } from './application/manual-contribution.service';
@@ -55,7 +56,20 @@ export class FinanceGrpcController {
     private readonly payments?: PaymentService,
     private readonly lifecycle?: LifecycleFinanceRepository,
     private readonly automationContext?: FinanceAutomationContextService,
+    private readonly history?: FinanceHistoryService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ListFundHistory')
+  listFundHistory(
+    request: FinanceV1.ListFundHistoryRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ListFundHistory', metadata, call, (correlation, deadline) => {
+      if (!this.history) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.history.list(request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'GetAutomationContext')
   getAutomationContext(

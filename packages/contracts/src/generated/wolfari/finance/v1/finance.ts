@@ -45,6 +45,34 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+/** Public Member audit metadata only; raw details and provider data are excluded. */
+export interface FundAuditEntry {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  system_actor?: string | undefined;
+  action?: string | undefined;
+  entity_type?: string | undefined;
+  entity_id?: string | undefined;
+  from_version?: number | undefined;
+  to_version?: number | undefined;
+  reason?: string | undefined;
+  occurred_at?: Timestamp | undefined;
+  correlation_id?: string | undefined;
+}
+
+export interface ListFundHistoryRequest {
+  fund_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  limit?: number | undefined;
+  cursor?: string | undefined;
+}
+
+export interface ListFundHistoryResponse {
+  items?: FundAuditEntry[] | undefined;
+  next_cursor?: string | undefined;
+}
+
 export interface PaymentAttemptView {
   id?: string | undefined;
   contribution_id?: string | undefined;
@@ -1185,6 +1213,8 @@ export interface GetPaymentInstructionResponse {
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  listFundHistory(request: ListFundHistoryRequest, metadata?: Metadata): Observable<ListFundHistoryResponse>;
+
   createPaymentAttempt(
     request: CreatePaymentAttemptRequest,
     metadata?: Metadata,
@@ -1399,6 +1429,11 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  listFundHistory(
+    request: ListFundHistoryRequest,
+    metadata?: Metadata,
+  ): Promise<ListFundHistoryResponse> | Observable<ListFundHistoryResponse> | ListFundHistoryResponse;
+
   createPaymentAttempt(
     request: CreatePaymentAttemptRequest,
     metadata?: Metadata,
@@ -1756,6 +1791,7 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "listFundHistory",
       "createPaymentAttempt",
       "getPaymentAttempt",
       "reconcilePaymentAttempt",

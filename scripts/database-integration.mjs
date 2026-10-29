@@ -287,7 +287,7 @@ async function main() {
   for (const [index, service] of services.entries()) await db(service, async client => {
     assert.equal((await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'")).rows[0].n, counts[index]);
     fks += (await client.query("SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace")).rows[0].n;
-    assert.deepEqual(await history(client, files[service]), service === 'automation' ? ['V001', 'V002', 'V003', 'V004', 'V005'] : ['trip', 'finance'].includes(service) ? ['V001', 'V002'] : ['V001']);
+    assert.deepEqual(await history(client, files[service]), service === 'automation' ? ['V001', 'V002', 'V003', 'V004', 'V005'] : service === 'finance' ? ['V001', 'V002', 'V003'] : service === 'trip' ? ['V001', 'V002'] : ['V001']);
   });
   assert.equal(fks, 52); pass('57 bảng mô hình + 5 lịch sử, 52 FK');
   await db('trip', async client => {
@@ -376,6 +376,16 @@ async function main() {
     await health(app,'ready');
   }
   pass('Trip and Finance require V002, not merely V001, for readiness');
+  const financeApp = apps.find(a => a.service === 'finance');
+  await db('finance',async client=>{
+    await client.query("DELETE FROM schema_migrations WHERE version='V003'");
+    try {assert.equal((await health(financeApp,'ready',503)).checks.migrations,'missing');}
+    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");}
+    const { rows } = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='finance_audit_history_idx'");
+    assert.match(rows[0].indexdef,/fund_id, occurred_at DESC, id DESC/);
+  });
+  await health(financeApp,'ready');
+  pass('Finance requires V003 and has the audit history keyset index');
   const automationApp = apps.find(a => a.service === 'automation');
   await db('automation',async client=>{
     await client.query("DELETE FROM schema_migrations WHERE version='V005'");

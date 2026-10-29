@@ -1,4 +1,6 @@
 import { FinanceOutboxRepository } from './outbox/finance-outbox.repository';
+import { FinanceHistoryRepository } from './history/history.repository';
+import { FinanceHistoryService } from './history/history.service';
 import { FinanceOutboxService } from './outbox/finance-outbox.service';
 import { FinanceOutboxPublisher } from './outbox/finance-outbox.publisher';
 import { FinanceDependenciesController } from './outbox/finance-outbox.controller';
@@ -44,6 +46,8 @@ import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.rep
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
   controllers: [FinanceGrpcController, FinanceDependenciesController],
   providers: [
+    FinanceHistoryRepository,
+    FinanceHistoryService,
     FinanceOutboxRepository,
     FinanceOutboxService,
     FinanceOutboxPublisher,
