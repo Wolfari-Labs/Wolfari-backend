@@ -41,7 +41,7 @@ Trip V002 thêm liên kết acceptance cùng Trip, unique EMAIL/PENDING chuẩn 
 
 Automation V002 thêm `price_watches.owner_membership_id` và index phục vụ quyền theo đúng vòng đời membership. Nếu đã có watch legacy, migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED`; operator phải xác định membership đúng thay vì suy từ `user_id`. Automation V003 thêm `price_query_attempts.next_attempt_at` cùng partial index để tách lịch retry khỏi hạn lease. V004 thêm alert candidate có lease/dedupe và bảng revision lifecycle Trip. V005 thêm partial index inbox AVAILABLE/unread theo Self mà không đổi bảng hoặc FK. Readiness Automation yêu cầu V001–V005. Xem [Price Watch Core](../architecture/price-watch-core.md) và [Notification Self Management](../architecture/notification-management.md).
 
-Finance V002 adds private receipt storage metadata; Finance readiness requires both V001 and V002. See [Finance receipts](../architecture/finance-receipts.md).
+Finance V002 adds private receipt storage metadata; Finance readiness now requires V001, V002 and V003. V003 adds the audit-history keyset index without adding tables or foreign keys; see [Finance history](../architecture/finance-history.md). See [Finance receipts](../architecture/finance-receipts.md).
 
 Giữ V001 bất biến; thêm V002.sql, V003.sql ở service sở hữu. Mỗi file kiểm tra đúng DB, có BEGIN/COMMIT và INSERT schema_migrations cùng transaction. Thêm SHA-256 theo đường dẫn root vào manifest trong cùng thay đổi có review. .gitattributes giữ byte SQL khi checkout Windows/Linux. Lệnh cần chạy ngoài transaction phải dùng quy trình DBA riêng.
 

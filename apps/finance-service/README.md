@@ -81,7 +81,7 @@ Invoke-RestMethod http://127.0.0.1:3104/health/ready
 ```
 
 - `/health/live`: tiến trình đang chạy, không chứng minh DB sẵn sàng.
-- `/health/ready`: kiểm tra đúng DB/role và đã có V001+V002. Nếu DB kết nối được nhưng
+- `/health/ready`: kiểm tra đúng DB/role và đã có V001+V002+V003. Nếu DB kết nối được nhưng
   chưa migrate, endpoint trả HTTP 503 với `database: up`, `migrations: missing`.
 - Startup không tự chạy migration. Xem [quy trình SQL của nhóm](../../docs/database/README.md)
   trước khi áp dụng `apps/finance-service/migrations/V001.sql`; không sửa V001
@@ -97,9 +97,9 @@ pnpm.cmd db:migrate --service finance
 pnpm.cmd db:status --service finance
 ```
 
-Runner kiểm tra checksum/lịch sử và bỏ qua phiên bản đã áp dụng. Khi V001 và V002 đã chạy,
+Runner kiểm tra checksum/lịch sử và bỏ qua phiên bản đã áp dụng. Khi V001, V002 và V003 đã chạy,
 Finance có 17 bảng nghiệp vụ cùng `schema_migrations`; readiness phải trả 200
-khi database kết nối được và đủ cả hai migration. Không bỏ `--service finance` nếu chỉ chuẩn bị Finance,
+khi database kết nối được và đủ cả ba migration. Không bỏ `--service finance` nếu chỉ chuẩn bị Finance,
 vì runner mặc định xử lý cả năm database. Không chạy lại bootstrap trên volume cũ.
 
 ## Dùng DB trong nghiệp vụ tiếp theo
@@ -139,6 +139,10 @@ ngân sách `null`/0, quỹ khác Trip, quỹ không tồn tại và thời gian
 Kiểm thử summary bao gồm các trạng thái hoàn dư, cách ly giữa quỹ, giữ toàn bộ
 số dư, dữ liệu giữ vượt số dư và tổng vượt giới hạn int8.
 Dữ liệu fixture nằm trong transaction ROLLBACK; không seed vào Finance local.
+
+## Lịch sử audit Finance (API162)
+
+`GET /api/v1/funds/{fund_id}/history` dành cho Owner/Member hiện tại, kể cả Trip archived/Fund closed. Phân trang cursor giữ microsecond, không trả raw audit details. Xem [thiết kế, giới hạn và rollout V003](../../docs/architecture/finance-history.md) và [OpenAPI](../../docs/api/finance-history.openapi.json). Kiểm thử riêng: `corepack pnpm finance:history:test`; đã nối vào `finance:test`.
 
 ## Đọc lịch sử ledger
 
@@ -386,7 +390,7 @@ liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn 
 
 - [OpenAPI105/106](../../docs/api/finance-receipts.openapi.json)
 - [Thiết kế, quyền, giới hạn và phục hồi](../../docs/architecture/finance-receipts.md)
-- Migration mới `migrations/V002.sql`; Finance readiness yêu cầu V001+V002.
+- Migration mới `migrations/V002.sql`; Finance readiness yêu cầu V001+V002+V003.
 - `corepack pnpm env:init` bổ sung cấu hình MinIO; người dùng tự chạy
   `corepack pnpm db:migrate --service finance` để nâng database phát triển.
 - `corepack pnpm finance:test` kiểm tra toàn bộ Finance hiện có trong database/MinIO cô lập.

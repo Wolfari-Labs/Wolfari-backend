@@ -4,6 +4,7 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc ListFundHistory(ListFundHistoryRequest) returns (ListFundHistoryResponse);
   rpc CreatePaymentAttempt(CreatePaymentAttemptRequest) returns (CreatePaymentAttemptResponse);
   rpc GetPaymentAttempt(GetPaymentAttemptRequest) returns (GetPaymentAttemptResponse);
   rpc ReconcilePaymentAttempt(ReconcilePaymentAttemptRequest) returns (ReconcilePaymentAttemptResponse);
@@ -65,6 +66,32 @@ service FinanceService {
   rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+}
+
+// Public Member audit metadata only; raw details and provider data are excluded.
+message FundAuditEntry {
+  string id = 1;
+  string fund_id = 2;
+  optional string actor_user_id = 3;
+  optional string system_actor = 4;
+  string action = 5;
+  string entity_type = 6;
+  optional string entity_id = 7;
+  optional int32 from_version = 8;
+  optional int32 to_version = 9;
+  optional string reason = 10;
+  google.protobuf.Timestamp occurred_at = 11;
+  string correlation_id = 12;
+}
+message ListFundHistoryRequest {
+  string fund_id = 1;
+  string actor_user_id = 2;
+  optional int32 limit = 3;
+  optional string cursor = 4;
+}
+message ListFundHistoryResponse {
+  repeated FundAuditEntry items = 1;
+  optional string next_cursor = 2;
 }
 
 message PaymentAttemptView {

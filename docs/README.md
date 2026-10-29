@@ -14,6 +14,8 @@ Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026**
 
 ## Triển khai và tích hợp
 
+- [Finance history API162](architecture/finance-history.md): lịch sử audit cho Member hiện tại, phân trang và giới hạn dữ liệu công khai.
+
 - [Demo Web local độc lập](architecture/local-demo.md), [nghiệm thu demo](architecture/local-demo-acceptance.md): Docker infrastructure, native Backend/Web, dữ liệu riêng và không thay baseline SRS/ERD.
 
 - [Membership lifecycle](architecture/trip-member-lifecycle.md), [handoff/runbook và tiến độ Hà](architecture/trip-member-lifecycle-handoff.md), [validation](architecture/trip-member-lifecycle-validation.md). Nhánh Trip-side; Finance/consumer E2E chưa hoàn thành.

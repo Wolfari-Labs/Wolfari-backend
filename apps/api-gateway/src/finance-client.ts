@@ -14,6 +14,7 @@ export class FinanceClient {
   ) {}
   call(
     methodName:
+      | 'ListFundHistory'
       | 'CreatePaymentAttempt'
       | 'GetPaymentAttempt'
       | 'ReconcilePaymentAttempt'
