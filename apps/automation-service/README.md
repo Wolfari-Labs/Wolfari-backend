@@ -4,6 +4,8 @@ Service xử lý email/invitation delivery, Notification Self Management và Pri
 
 Notification I1 cung cấp API126–131 qua Gateway: preference version hóa, đăng ký/xóa device token Self, hộp notification `AVAILABLE` có cursor và đánh dấu đã đọc idempotent. Token không được trả về; inbox kiểm tra lại quyền Trip và che nội dung khi không xác minh được current access. I1 chưa gửi push/FCM và chưa triển khai Reminder API132.
 
+[Finance inbox](../../docs/architecture/finance-notification-inbox.md) nhận năm sự kiện Finance qua queue riêng: tạo thông báo contribution/closure/Holder sau kiểm tra nguồn và tài khoản; ClosureCancelled/FinanceClosed lưu chặn tạo thông báo tiếp theo cho nguồn đã kết thúc. Khóa giao dịch theo Fund ngăn worker đang xử lý ghi từ context cũ sau terminal commit. Lịch sử AVAILABLE được giữ; scheduler/push/email chưa triển khai. Consumer mặc định tắt và cần thay hết worker cũ trước khi bật các binding mới.
+
 Price Watch H1 hỗ trợ tạo, list, cập nhật, pause, resume, stop và đọc observation. Gateway là caller duy nhất của bảy RPC công khai; Automation gọi Trip Access cho mọi request.
 
 Price Watch H2 bổ sung worker theo slot UTC sáu giờ. Scheduler tạo tối đa một attempt cho mỗi query group/slot, worker claim bằng lease và retry cùng attempt sau 10/30/120/300/900 giây. H2 chỉ dùng adapter `MOCK_FLIGHT` xác định, không gọi mạng và không đại diện cho giá thật. Success ghi một best-fare observation; no-result và lỗi không ghi giá 0.
@@ -22,6 +24,6 @@ Các biến runtime do `pnpm env:init` tạo:
 - `PRICE_WATCH_WORKER_POLL_MS`, `PRICE_WATCH_WORKER_BATCH_SIZE` — nhịp poll và batch có giới hạn;
 - `PRICE_WATCH_ATTEMPT_LEASE_MS`, `PRICE_WATCH_PROVIDER_TIMEOUT_MS` — timeout provider phải ngắn hơn lease.
 
-Database phải có V001–V005. Không backfill `owner_membership_id` bằng phỏng đoán; nếu có dữ liệu legacy, V002 dừng để nhóm lập kế hoạch migration riêng. V003 thêm lịch retry bền vững `next_attempt_at` và index claim; V004 thêm alert candidate cùng trạng thái lifecycle Trip có revision; V005 thêm partial index hộp thông báo Self. Không dùng `claim_until` kiêm thời điểm backoff.
+Database phải có V001–V006. Không backfill `owner_membership_id` bằng phỏng đoán; nếu có dữ liệu legacy, V002 dừng để nhóm lập kế hoạch migration riêng. V003 thêm lịch retry bền vững `next_attempt_at` và index claim; V004 thêm alert candidate cùng trạng thái lifecycle Trip có revision; V005 thêm partial index hộp thông báo Self; V006 thêm index terminal inbox Finance. Không dùng `claim_until` kiêm thời điểm backoff.
 
 Xem [Notification Self Management](../../docs/architecture/notification-management.md), [OpenAPI Notification](../../docs/api/notification.openapi.yaml), [thiết kế Price Watch Core](../../docs/architecture/price-watch-core.md) và [OpenAPI Price Watch](../../docs/api/price-watch.openapi.yaml).

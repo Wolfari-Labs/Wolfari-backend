@@ -61,12 +61,14 @@ export class FinanceNotificationRepository {
     users: string[],
     sourceRevision?: number,
   ): Promise<'APPLIED' | 'DUPLICATE'> {
-    const recipients = users.map(recipientUuid).sort();
+    let recipients = users.map(recipientUuid).sort();
+    const terminal = 'terminalType' in event;
     const closure = 'closureId' in event;
     const review = 'contributionId' in event;
     const sourceId = closure ? event.closureId : review ? event.contributionId : event.requestId;
     if (
       new Set(recipients).size !== recipients.length ||
+      (terminal && (recipients.length > 0 || sourceRevision !== undefined)) ||
       (!closure && recipients.length > (review ? 1 : event.contributionCount)) ||
       (review &&
         (recipients.length > 0 || sourceRevision !== undefined) &&
@@ -75,6 +77,11 @@ export class FinanceNotificationRepository {
       throw new Error('FINANCE_NOTIFICATION_RECIPIENTS_INVALID');
     return this.withClient(async (query) => {
       await query('BEGIN ISOLATION LEVEL READ COMMITTED');
+      // All effects for a Fund share this lock. A waiter reads a fresh snapshot
+      // after the preceding terminal/notification transaction has committed.
+      await query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        `finance-notification-fund:${event.fundId}`,
+      ]);
       const claimed = await query(
         `INSERT INTO inbox_events(consumer_name,event_id,event_type,aggregate_id,aggregate_version,result)
          VALUES($1,$2,$3,$4,$5,$6::jsonb)
@@ -82,11 +89,18 @@ export class FinanceNotificationRepository {
         [
           FINANCE_NOTIFICATION_CONSUMER,
           event.eventId,
-          closure ? 'ClosureRequested' : review ? 'ContributionUpdated' : 'ContributionRequested',
+          terminal
+            ? event.terminalType
+            : closure
+              ? 'ClosureRequested'
+              : review
+                ? 'ContributionUpdated'
+                : 'ContributionRequested',
           event.fundId,
           event.version,
           JSON.stringify({
             event_hash: event.fingerprint,
+            ...(terminal ? { closure_id: event.closureId, outcome: 'TERMINAL', count: 0 } : {}),
           }),
         ],
       );
@@ -96,6 +110,18 @@ export class FinanceNotificationRepository {
         await query('COMMIT');
         return 'DUPLICATE';
       }
+      if (terminal) {
+        await query('COMMIT');
+        return 'APPLIED';
+      }
+      const stopped = await query(
+        `SELECT 1 FROM inbox_events WHERE consumer_name=$1 AND aggregate_id=$2
+           AND (event_type='FinanceClosed' OR
+             (event_type='ClosureCancelled' AND result->>'closure_id'=$3)) LIMIT 1`,
+        [FINANCE_NOTIFICATION_CONSUMER, event.fundId, closure ? event.closureId : null],
+      );
+      const terminalSuppressed = stopped.rowCount ? recipients.length : 0;
+      if (stopped.rowCount) recipients = [];
       if (closure) {
         // Serialize distinct events for each source/user, in deterministic order.
         // READ COMMITTED then observes the preceding worker's committed notification.
@@ -149,6 +175,7 @@ export class FinanceNotificationRepository {
           event.eventId,
           JSON.stringify({
             event_hash: event.fingerprint,
+            terminal_suppressed: terminalSuppressed,
             ...(closure
               ? { closure_id: sourceId, cooldown_suppressed: recipients.length - count }
               : review

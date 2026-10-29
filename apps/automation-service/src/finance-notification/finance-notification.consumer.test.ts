@@ -105,7 +105,7 @@ function message(headers: Record<string, unknown> = {}): ConsumeMessage {
   } as ConsumeMessage;
 }
 describe('Finance notification broker ownership and acknowledgements', () => {
-  it.each(['ClosureRequested', 'ContributionUpdated'])(
+  it.each(['ClosureRequested', 'ContributionUpdated', 'ClosureCancelled', 'FinanceClosed'])(
     'dispatches %s through the same commit-before-ACK path',
     async (type) => {
       const h = await start();
@@ -116,7 +116,7 @@ describe('Finance notification broker ownership and acknowledgements', () => {
         fund_id: body.aggregate_id,
         trip_id: body.trip_id,
         closure_id: randomUUID(),
-        snapshot_hash: 'a'.repeat(64),
+        ...(type === 'ClosureRequested' ? { snapshot_hash: 'a'.repeat(64) } : {}),
         finance_version: body.aggregate_version,
       };
       if (type === 'ContributionUpdated')
@@ -131,7 +131,7 @@ describe('Finance notification broker ownership and acknowledgements', () => {
       receive(value);
       await drain();
       expect(h.service.process.mock.calls[0]?.[0]).toMatchObject({
-        ...(type === 'ClosureRequested'
+        ...(type !== 'ContributionUpdated'
           ? { closureId: body.payload.closure_id }
           : { contributionId: body.payload.contribution_id }),
       });
@@ -150,6 +150,8 @@ describe('Finance notification broker ownership and acknowledgements', () => {
       [queue, 'wolfari.events.v1', 'ContributionRequested'],
       [queue, 'wolfari.events.v1', 'ClosureRequested'],
       [queue, 'wolfari.events.v1', 'ContributionUpdated'],
+      [queue, 'wolfari.events.v1', 'ClosureCancelled'],
+      [queue, 'wolfari.events.v1', 'FinanceClosed'],
     ]);
     const retry = channel.assertQueue.mock.calls.filter((call) =>
       String(call[0]).includes('.retry.'),

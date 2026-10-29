@@ -8,6 +8,7 @@ import pg from 'pg';
 import { appEnvironment, apps } from './config.mjs';
 import { runClosureInboxTests } from './finance-closure-inbox-integration.mjs';
 import { runReviewInboxTests } from './finance-review-inbox-integration.mjs';
+import { runTerminalInboxTests } from './finance-terminal-inbox-integration.mjs';
 
 const require = createRequire(import.meta.url);
 const appRequire = createRequire(
@@ -494,6 +495,27 @@ export async function runFinanceNotificationTests(h) {
         .storedFinanceEvent,
     });
     await runReviewInboxTests(h, {
+      owner,
+      holder,
+      member,
+      setupFund,
+      createRequest,
+      r,
+      repository,
+      pool,
+      inbox,
+      notifications,
+      processed,
+      copied,
+      publish,
+      awaitDlq,
+      broker,
+      crashConsumer,
+      sourceFingerprint,
+      storedEvent: require('../apps/finance-service/dist/outbox/finance-outbox.event.js')
+        .storedFinanceEvent,
+    });
+    await runTerminalInboxTests(h, {
       owner,
       holder,
       member,
