@@ -38,6 +38,10 @@ export class IdentityClient {
     return this.call<IdentityV1.GetProfilesRequest, IdentityV1.GetProfilesResponse>('GetProfiles', request, correlationId, deadlineMs);
   }
 
+  getNotificationEligibility(request: IdentityV1.GetNotificationEligibilityRequest, correlationId?: string, deadlineMs?: number) {
+    return this.call<IdentityV1.GetNotificationEligibilityRequest, IdentityV1.GetNotificationEligibilityResponse>('GetNotificationEligibility', request, correlationId, deadlineMs);
+  }
+
   getAccountEmailDelivery(request: IdentityV1.GetAccountEmailDeliveryRequest, correlationId?: string) {
     return this.call<IdentityV1.GetAccountEmailDeliveryRequest, IdentityV1.GetAccountEmailDeliveryResponse>('GetAccountEmailDelivery', request, correlationId);
   }

@@ -9,6 +9,8 @@ service IdentityService {
   rpc GetInvitationIdentity(GetInvitationIdentityRequest) returns (GetInvitationIdentityResponse);
   rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);
   rpc GetProfiles(GetProfilesRequest) returns (GetProfilesResponse);
+  // Additive notification prerequisite; Automation-only account eligibility read.
+  rpc GetNotificationEligibility(GetNotificationEligibilityRequest) returns (GetNotificationEligibilityResponse);
   rpc GetAccountEmailDelivery(GetAccountEmailDeliveryRequest) returns (GetAccountEmailDeliveryResponse);
 }
 message GetInvitationIdentityRequest {
@@ -57,4 +59,17 @@ message AccountEmailDelivery {
 message GetAccountEmailDeliveryResponse {
   bool valid = 1;
   AccountEmailDelivery delivery = 2; // Present iff valid.
+}
+
+// A raw batch contains 1..100 UUIDs. Results preserve first-seen normalized unique IDs.
+message GetNotificationEligibilityRequest {
+  repeated string user_ids = 1;
+}
+message NotificationEligibility {
+  string user_id = 1;
+  // Unknown or inactive accounts are false; no account details are exposed.
+  bool eligible = 2;
+}
+message GetNotificationEligibilityResponse {
+  repeated NotificationEligibility recipients = 1;
 }

@@ -133,6 +133,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
   ];
   const automationKeys = [
+    'AUTOMATION_FINANCE_NOTIFICATION_ENABLED',
     'AUTOMATION_FINANCE_SECRET',
     'FINANCE_GRPC_TARGET',
     'AUTOMATION_GRPC_PORT',
@@ -152,6 +153,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'SMTP_PORT',
   ];
   const financeKeys = [
+    'FINANCE_OUTBOX_ENABLED',
+    'RABBITMQ_URL',
     'AUTOMATION_FINANCE_SECRET',
     'MINIO_ENDPOINT',
     'MINIO_ACCESS_KEY',
@@ -351,6 +354,8 @@ export async function initEnvironment(
                     TRIP_GRPC_TARGET: '127.0.0.1:3202',
                     FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
                     FINANCE_GRPC_PORT: '3204',
+                    FINANCE_OUTBOX_ENABLED: 'false',
+                    RABBITMQ_URL: brokerUrl(shared),
                     MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
                     MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
                     MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,

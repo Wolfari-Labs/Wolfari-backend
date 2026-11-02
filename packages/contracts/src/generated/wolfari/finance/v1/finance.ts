@@ -936,7 +936,11 @@ export interface GetAutomationContextResponse {
   finance_version?: number | undefined;
   status?: FundStatus | undefined;
   authorized_recipients?: Recipient[] | undefined;
-  due_at?: Timestamp | undefined;
+  due_at?:
+    | Timestamp
+    | undefined;
+  /** Present for CONTRIBUTION_REVIEW: current contribution version, not Fund version. */
+  source_revision?: number | undefined;
 }
 
 export interface Fund {

@@ -189,6 +189,7 @@ export class FinanceAutomationContextService {
         CLOSED: FinanceV1.FundStatus.FUND_STATUS_CLOSED,
       }[snapshot.fundStatus],
       authorized_recipients: recipients,
+      ...(sourceType === 'CONTRIBUTION_REVIEW' ? { source_revision: snapshot.sourceVersion } : {}),
       due_at:
         recipients.length &&
         snapshot.eligible &&

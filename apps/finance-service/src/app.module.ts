@@ -1,3 +1,7 @@
+import { FinanceOutboxRepository } from './outbox/finance-outbox.repository';
+import { FinanceOutboxService } from './outbox/finance-outbox.service';
+import { FinanceOutboxPublisher } from './outbox/finance-outbox.publisher';
+import { FinanceDependenciesController } from './outbox/finance-outbox.controller';
 import { FinanceAutomationContextService } from './application/automation-context.service';
 import { FinanceAutomationContextRepository } from './repositories/automation-context.repository';
 import { PaymentInstructionService } from './application/payment-instruction.service';
@@ -38,8 +42,11 @@ import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.rep
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
-  controllers: [FinanceGrpcController],
+  controllers: [FinanceGrpcController, FinanceDependenciesController],
   providers: [
+    FinanceOutboxRepository,
+    FinanceOutboxService,
+    FinanceOutboxPublisher,
     FinanceAutomationContextService,
     FinanceAutomationContextRepository,
     PaymentInstructionService,
