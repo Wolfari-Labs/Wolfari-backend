@@ -104,8 +104,8 @@ export async function runDemoScenarios(demo, command) {
       })
     ).stdout.trim(),
   );
-  const pass = (name) => {
-    report.checks.push({ name, status: 'PASS' });
+  const pass = (name, evidence) => {
+    report.checks.push({ name, status: 'PASS', evidence });
     console.log(`PASS ${name}`);
   };
   const seedPath = resolve(demoRoot, 'seed.json');
@@ -177,8 +177,8 @@ export async function runDemoScenarios(demo, command) {
     }
     pass('Auth: four real accounts verified through RabbitMQ/Automation/Mailpit');
     let journalPath = seedPath;
-    if (command === 'api') {
-      journalPath = resolve(demoRoot, `scenario-${randomUUID()}.json`);
+    if (command !== 'seed') {
+      journalPath = resolve(demoRoot, `scenario-${report.runId}.json`);
       state = {
         version: 1,
         instanceId: state.instanceId,
@@ -260,60 +260,64 @@ export async function runDemoScenarios(demo, command) {
       });
       if (!invitation) throw new Error('DEMO_INVITATION_MISSING');
     }
-    await step('pending-invitation', async () => ({
-      path: base + '/invitations',
-      body: {
-        invitation_type: 'EMAIL',
-        email: outsider.email,
-        expected_membership_revision: (await getTrip()).membership_revision,
-      },
-    }));
-    await step('pending-link', async () => ({
-      path: base + '/invitations',
-      body: {
-        invitation_type: 'LINK',
-        expected_membership_revision: (await getTrip()).membership_revision,
-      },
-    }));
-    pass('Trip/Members: real EMAIL acceptance; pending EMAIL/LINK invitations');
-    const plan = async () => (await api(base + '/plan', 'GET', undefined, owner)).data;
-    for (const [index, title] of [
-      'Ăn sáng cùng nhóm',
-      'Tham quan thành phố',
-      'Tổng kết chuyến đi',
-    ].entries()) {
-      await step(`activity-${index}`, async () => ({
-        path: base + '/activities',
+    if (command === 'finance-price-watch') {
+      pass('Setup – Holder và Member đã gia nhập Trip demo qua Gateway');
+    } else {
+      await step('pending-invitation', async () => ({
+        path: base + '/invitations',
         body: {
-          title,
-          activity_type: 'OTHER',
-          position: index,
-          expected_plan_version: (await plan()).plan_version,
+          invitation_type: 'EMAIL',
+          email: outsider.email,
+          expected_membership_revision: (await getTrip()).membership_revision,
         },
       }));
+      await step('pending-link', async () => ({
+        path: base + '/invitations',
+        body: {
+          invitation_type: 'LINK',
+          expected_membership_revision: (await getTrip()).membership_revision,
+        },
+      }));
+      pass('Trip/Members: real EMAIL acceptance; pending EMAIL/LINK invitations');
+      const plan = async () => (await api(base + '/plan', 'GET', undefined, owner)).data;
+      for (const [index, title] of [
+        'Ăn sáng cùng nhóm',
+        'Tham quan thành phố',
+        'Tổng kết chuyến đi',
+      ].entries()) {
+        await step(`activity-${index}`, async () => ({
+          path: base + '/activities',
+          body: {
+            title,
+            activity_type: 'OTHER',
+            position: index,
+            expected_plan_version: (await plan()).plan_version,
+          },
+        }));
+      }
+      pass('Activity: three persistent server activities');
+      const profile = (await api('/api/v1/me', 'GET', undefined, owner)).data;
+      if (!profile.avatar && command === 'seed') {
+        const require = createRequire(
+          new URL('../apps/identity-service/package.json', import.meta.url),
+        );
+        const image = await require('sharp')({
+          create: { width: 64, height: 64, channels: 3, background: '#23614d' },
+        })
+          .png()
+          .toBuffer();
+        const form = new FormData();
+        form.set('file', new Blob([image], { type: 'image/png' }), 'demo-avatar.png');
+        const upload = await api('/api/v1/me/avatar', 'POST', form, owner, undefined, [201]);
+        await api(
+          '/api/v1/me',
+          'PATCH',
+          { expected_version: profile.version, avatar_object_key: upload.data.object_key },
+          owner,
+        );
+      }
+      pass('Profile: persisted profile; demo avatar uses real private MinIO');
     }
-    pass('Activity: three persistent server activities');
-    const profile = (await api('/api/v1/me', 'GET', undefined, owner)).data;
-    if (!profile.avatar && command === 'seed') {
-      const require = createRequire(
-        new URL('../apps/identity-service/package.json', import.meta.url),
-      );
-      const image = await require('sharp')({
-        create: { width: 64, height: 64, channels: 3, background: '#23614d' },
-      })
-        .png()
-        .toBuffer();
-      const form = new FormData();
-      form.set('file', new Blob([image], { type: 'image/png' }), 'demo-avatar.png');
-      const upload = await api('/api/v1/me/avatar', 'POST', form, owner, undefined, [201]);
-      await api(
-        '/api/v1/me',
-        'PATCH',
-        { expected_version: profile.version, avatar_object_key: upload.data.object_key },
-        owner,
-      );
-    }
-    pass('Profile: persisted profile; demo avatar uses real private MinIO');
     const fund = await step('fund', async () => ({
       path: base + '/fund',
       body: {
@@ -341,6 +345,15 @@ export async function runDemoScenarios(demo, command) {
         expected_finance_version: (await getFund()).finance_version,
       },
     }));
+    if (command === 'finance-price-watch') {
+      const { demonstrateFund, demonstratePriceWatch } =
+        await import('./demo-finance-price-watch.mjs');
+      report.instanceId = demo.manifest.instanceId;
+      report.resources = { tripId: trip.id, fundId: fund.id };
+      await demonstrateFund({ actors, fundBase, getFund, destinationId: destination.id, pass });
+      await demonstratePriceWatch({ actors, base, demo, pass });
+      return;
+    }
     const contributions = await step('contribution-request', async () => ({
       path: fundBase + '/contribution-requests',
       body: {

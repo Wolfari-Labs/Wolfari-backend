@@ -1,0 +1,156 @@
+{
+  "info": {
+    "name": "Wolfari – Kiểm chứng backend quỹ và Price Watch",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Chạy sau demo:finance-price-watch. Dùng Runner theo thứ tự, với tripId của lượt demo và accessToken của Owner trong biến local. Gateway chỉ dùng loopback."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01 - Số dư quỹ",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://127.0.0.1:13000/api/v1/trips/{{tripId}}/fund"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Gateway trả 200', () => pm.response.to.have.status(200));",
+              "const fund = pm.response.json().data;",
+              "pm.test('Quỹ OPEN dùng VND, số dư 500000', () => {",
+              "  pm.expect(fund.status).to.equal('OPEN');",
+              "  pm.expect(fund.currency).to.equal('VND');",
+              "  pm.expect(fund.current_balance).to.equal('500000');",
+              "});",
+              "pm.variables.set('fundId', fund.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Hai bút toán thu",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://127.0.0.1:13000/api/v1/funds/{{fundId}}/transactions?limit=100"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Gateway trả 200', () => pm.response.to.have.status(200));",
+              "const page = pm.response.json().data;",
+              "pm.test('Sổ quỹ có đúng 2 IN và số dư sau từng lần thu', () => {",
+              "  pm.expect(page.items.map(row => [row.direction, row.amount, row.balance_after])).to.deep.equal([",
+              "    ['IN', '300000', '500000'], ['IN', '200000', '200000']",
+              "  ]);",
+              "  pm.expect(page.next_cursor).to.be.oneOf([null, undefined]);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Hai watch chung nhóm",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://127.0.0.1:13000/api/v1/trips/{{tripId}}/price-watches"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Gateway trả 200', () => pm.response.to.have.status(200));",
+              "const watches = pm.response.json().data;",
+              "const high = watches.find(row => row.threshold_price === '9000000');",
+              "const low = watches.find(row => row.threshold_price === '1');",
+              "pm.test('Hai chủ watch riêng, một nhóm và trạng thái cảnh báo riêng', () => {",
+              "  pm.expect(watches).to.have.lengthOf(2);",
+              "  pm.expect(high.id).not.to.equal(low.id);",
+              "  pm.expect(high.user_id).not.to.equal(low.user_id);",
+              "  pm.expect(high.query_group_id).to.equal(low.query_group_id);",
+              "  pm.expect(high.last_alert_at).to.be.a('string');",
+              "  pm.expect(low.last_alert_at).to.equal(null);",
+              "  pm.expect(low.status).to.equal('STOPPED');",
+              "});",
+              "pm.variables.set('highWatchId', high.id);",
+              "pm.variables.set('lowWatchId', low.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Giá của watch ngưỡng cao",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://127.0.0.1:13000/api/v1/price-watches/{{highWatchId}}/observations"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Gateway trả 200', () => pm.response.to.have.status(200));",
+              "const quote = pm.response.json().data[0];",
+              "pm.test('Có giá mô phỏng VND nằm giữa hai ngưỡng', () => {",
+              "  pm.expect(quote.provider).to.equal('MOCK_FLIGHT');",
+              "  pm.expect(quote.currency).to.equal('VND');",
+              "  pm.expect(Number(quote.price)).to.be.within(1, 8999999);",
+              "});",
+              "pm.variables.set('quoteId', quote.id);",
+              "pm.variables.set('quotePrice', quote.price);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Giá của watch ngưỡng thấp",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://127.0.0.1:13000/api/v1/price-watches/{{lowWatchId}}/observations"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Gateway trả 200', () => pm.response.to.have.status(200));",
+              "const quotes = pm.response.json().data;",
+              "pm.test('Hai watch đọc được cùng observation ID và giá', () => {",
+              "  const shared = quotes.find(row => row.id === pm.variables.get('quoteId'));",
+              "  pm.expect(shared).to.be.an('object');",
+              "  pm.expect(shared.price).to.equal(pm.variables.get('quotePrice'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

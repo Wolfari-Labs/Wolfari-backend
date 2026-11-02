@@ -1,5 +1,46 @@
 # Wolfari demo local — Windows, Docker infrastructure và Node apps
 
+## Demo kiểm thử Quỹ và Price Watch bằng Backend
+
+Chạy từ thư mục backend với Node 24, Corepack và Docker Desktop Linux. Trên máy mới cài dependencies bằng `corepack pnpm install --frozen-lockfile`. Terminal thứ nhất giữ backend chạy.
+
+```powershell
+corepack pnpm demo:init
+corepack pnpm demo:start
+```
+
+Mở terminal thứ hai cùng thư mục. Cài Newman một lần vào thư mục công cụ riêng của demo.
+
+```powershell
+npm install --prefix .local/demo/tools --ignore-scripts --no-audit --no-fund newman@6.2.1
+corepack pnpm demo:finance-price-watch
+corepack pnpm demo:postman
+```
+
+Mỗi lượt `demo:finance-price-watch` dùng lại tài khoản TEST, tạo Trip và quỹ riêng. Bốn vai trò gồm Owner, Holder, Member và người ngoài Trip. Owner cũng có một khoản đóng riêng. Quỹ bắt đầu từ 0 VND và đích nhận TEST do Holder xác nhận. Chạy lại là đủ để có dữ liệu mới cho buổi trình bày.
+
+| Ca | Thao tác và bằng chứng cần mở |
+| --- | --- |
+| API01–03 | Owner lập đợt thu 200.000 và 300.000 VND. Member báo khoản đầu. Khi Holder từ chối, lý do được lưu, khoản trở về PENDING, sổ quỹ vẫn trống. |
+| API04–07 | Member báo lại, Holder xác nhận. Gửi lại cùng khóa phải giữ nguyên dòng thu. Owner tự xác nhận thay Holder bị 403. Với khoản thứ hai, hai yêu cầu xác nhận đồng thời trả 200 và 409. Sổ quỹ kết thúc ở 500.000 VND với hai dòng IN. |
+| API08–09 | Member và Owner cùng theo dõi DAD → HAN, cùng chuyến bay sau 30 ngày. Ngưỡng 9.000.000 và 1 VND giúp giá MOCK_FLIGHT luôn nằm giữa hai ngưỡng. Đọc cùng observation qua hai watch và đối soát PostgreSQL theo đúng nhóm/kỳ. Một attempt thành công, một observation và một thông báo PRICE_ALERT trong ứng dụng cho watch ngưỡng cao. |
+| API10–12 | Watch ngưỡng thấp đi qua PAUSED, ACTIVE, STOPPED. Resume sau stop và sửa bằng phiên bản cũ trả 409. Người ngoài Trip đọc danh sách watch nhận 404. |
+
+Mở `.local/demo/reports/finance-price-watch-latest.json` để xem số dư, hai dòng ledger, hai watch ID, query group, giá và thời điểm quan sát. Lệnh Newman đọc lại Trip vừa chạy bằng 5 HTTP request và 10 assertion. Mở `.local/demo/reports/postman-latest.json` để xem kết quả cùng `sourceRunId`. Khi đưa vào OneDrive, lấy hai bản mang run ID trong cùng thư mục để giữ đúng cặp bằng chứng. Tài khoản nằm trong journal riêng của demo. Chỉ chia sẻ các báo cáo.
+
+Để trình chiếu trong Postman Desktop, import [collection kiểm chứng](../api/finance-price-watch.postman_collection.json), đặt `tripId` bằng `resources.tripId` trong báo cáo và `accessToken` bằng bearer token local của Owner demo. Dùng Collection Runner chạy theo thứ tự. Lệnh `demo:postman` tự đăng nhập lại trong bộ nhớ khi chạy bằng CLI. Để kết thúc buổi demo dùng `corepack pnpm demo:stop`, dữ liệu được giữ để xem lại.
+
+Để kiểm tra quy tắc tiền, khóa truy vấn, ngưỡng, giảm 5% và cooldown 24 giờ ở mức Unit, chạy sau khi build.
+
+```powershell
+corepack pnpm build
+corepack pnpm demo:unit
+```
+
+Vitest xuất `.local/demo/reports/finance-price-watch-unit.xml` theo định dạng JUnit. Lưu bản này cùng hai báo cáo JSON của lượt trình diễn vào thư mục bằng chứng của nhóm.
+
+Hai bộ hồi quy sâu chạy riêng bằng `corepack pnpm finance:test` và `corepack pnpm price-watch:test`. Demo dùng đóng góp thủ công TEST, worker thật, nguồn giá MOCK_FLIGHT và thông báo trong ứng dụng. Web, Android, camera, thanh toán ngoài hệ thống và benchmark NFR-P01 cần bằng chứng ở lượt kiểm thử tương ứng.
+
 > Backend demo1: [phụ lục v1.0](demo-1-addendum-v1.0.md), [validation](demo-1-backend-validation.md), [handoff Web](demo-1-web-handoff.md). Nâng demo cũ: dừng demo, chạy lại `demo:init` để thêm cấu hình thiếu mà giữ secrets, rồi `demo:start` áp dụng **Trip V003**. Không reset dữ liệu. Gateway `/health/ready` chỉ kiểm core Identity/Trip; `/health/dependencies` thêm Finance/Automation. `demo:check` còn kiểm broker/SMTP với retry15 giây, không thay acceptance.
 
 `corepack pnpm demo:accounts` đọc email thực tế trong journal và trạng thái Identity bằng READ ONLY, không in mật khẩu/tạo session. Không giả định journal cũ dùng email cố định. Mật khẩu tại `.local/demo/seed.json` có thể cũ nếu đã đổi trong UI; dùng password reset qua Mailpit, không chạy seed để ép password. Account đã tồn tại nhưng không đăng nhập bằng journal được sẽ báo `DEMO_CREDENTIALS_UNUSABLE`, không reset ngầm.

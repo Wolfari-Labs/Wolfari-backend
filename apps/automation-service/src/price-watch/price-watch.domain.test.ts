@@ -69,6 +69,20 @@ describe('price watch domain', () => {
     expect(second.request_hash).not.toBe(first.request_hash);
   });
 
+  it('separates the same route and passenger mix on different departure days', () => {
+    const original = normalizeWatch(input(), context, now);
+    const followingDay = normalizeWatch(
+      {
+        ...input(),
+        departure_date: '2026-11-02',
+        departure_at: { seconds: String(Date.parse('2026-11-02T02:00:00Z') / 1000), nanos: 0 },
+      },
+      context,
+      now,
+    );
+    expect(followingDay.canonical_key).not.toBe(original.canonical_key);
+  });
+
   it('rejects invalid routes, trip shapes, passengers, amounts and expired departures', () => {
     code(
       () => normalizeWatch({ ...input(), destination: 'dad' }, context, now),

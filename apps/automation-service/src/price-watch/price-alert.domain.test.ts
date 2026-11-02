@@ -22,6 +22,24 @@ describe('Price Watch alert rule', () => {
     expect(evaluatePriceAlert(state())).toEqual({ rearm: false, reason: 'FIRST' });
     expect(evaluatePriceAlert(state({ price: '1500000' }))).toEqual({ rearm: true });
     expect(evaluatePriceAlert(state({ price: '1600000' }))).toEqual({ rearm: true });
+    expect(evaluatePriceAlert(state({ price: '1499999' }))).toEqual({
+      rearm: false,
+      reason: 'FIRST',
+    });
+    expect(evaluatePriceAlert(state({ price: '1500001' }))).toEqual({ rearm: true });
+  });
+
+  it('requires the full 5% drop even when the difference is only one VND', () => {
+    const previous = {
+      lastAlertPrice: '1400000',
+      lastAlertAt: new Date(now.getTime() - PRICE_ALERT_COOLDOWN_MS),
+      alertArmed: false,
+    };
+    expect(evaluatePriceAlert(state({ ...previous, price: '1330001' }))).toEqual({ rearm: false });
+    expect(evaluatePriceAlert(state({ ...previous, price: '1330000' }))).toEqual({
+      rearm: false,
+      reason: 'DROP_5_PERCENT',
+    });
   });
 
   it('allows a re-armed crossing after cooldown', () => {
