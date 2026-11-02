@@ -1,10 +1,14 @@
 # Wolfari demo local — Windows, Docker infrastructure và Node apps
 
+> **Readiness 02/11/2026:** chạy cặp Web `feat/demo-1-readiness-web` + Backend `feat/demo-1-readiness-backend` (Backend đã ghép `origin/main`). Runbook này chỉ dành localhost trên Windows. Cặp SHA, PASS/FAIL/NOT_RUN và bằng chứng hiện hành nằm trong [báo cáo readiness Web](../../../Wolfari-web/docs/demo-readiness-validation.md). Không xem lệnh local là CI/reviewer/main verification.
+
 > Backend demo1: [phụ lục v1.0](demo-1-addendum-v1.0.md), [validation](demo-1-backend-validation.md), [handoff Web](demo-1-web-handoff.md). Nâng demo cũ: dừng demo, chạy lại `demo:init` để thêm cấu hình thiếu mà giữ secrets, rồi `demo:start` áp dụng **Trip V003**. Không reset dữ liệu. Gateway `/health/ready` chỉ kiểm core Identity/Trip; `/health/dependencies` thêm Finance/Automation. `demo:check` còn kiểm broker/SMTP với retry15 giây, không thay acceptance.
 
 `corepack pnpm demo:accounts` đọc email thực tế trong journal và trạng thái Identity bằng READ ONLY, không in mật khẩu/tạo session. Không giả định journal cũ dùng email cố định. Mật khẩu tại `.local/demo/seed.json` có thể cũ nếu đã đổi trong UI; dùng password reset qua Mailpit, không chạy seed để ép password. Account đã tồn tại nhưng không đăng nhập bằng journal được sẽ báo `DEMO_CREDENTIALS_UNUSABLE`, không reset ngầm.
 
 `corepack pnpm demo:acceptance` build và kiểm thử API5 actor bằng hạ tầng riêng, tự dọn tài nguyên test; không cần demo đang chạy. Operation202/timeout/NEEDS_REVIEW xử lý theo [runbook](demo-1-addendum-v1.0.md#6-seedaccount-và-operation-recovery); retry CLI phải dùng `--demo` để tránh chọn development.
+
+`FINANCE_OUTBOX_ENABLED=false` và `AUTOMATION_FINANCE_NOTIFICATION_ENABLED=false` là mặc định an toàn của demo cá nhân. Acceptance harness có thể bật riêng hai cờ sau khi tạo đúng RabbitMQ bindings và kiểm tra consumer; không bật trên volume trình diễn chỉ để làm notification xuất hiện. Nếu đổi runtime/config, phải chạy lại live acceptance và ghi cặp SHA mới. Price Watch worker dùng provider `MOCK_FLIGHT`, không phải giá vé/provider thật.
 
 ## Phạm vi
 
@@ -30,7 +34,7 @@ Terminal 2 tại Backend:
 
 ```powershell
 corepack pnpm demo:check
-corepack pnpm demo:seed
+corepack pnpm demo:accounts
 ```
 
 `demo:check` đợi health tối đa90 giây sau kiểm tra hạ tầng, rồi broker/SMTP tối đa15 giây. Mọi service dùng V001; Trip thêm V002–V003, Finance thêm V002; Automation thêm V002–V005. Readiness không thay thế nghiệm thu liên service. Không chạy `db:migrate` thông thường để migrate demo: lệnh đó vẫn phục vụ development.
@@ -82,7 +86,7 @@ Seed dùng Gateway thật, xác minh email từ Mailpit, chấp nhận lời m�
 
 Journal lưu request, idempotency key và kết quả từng bước trước/sau ghi. Chạy lại không lặp nghiệp vụ đã hoàn tất. Tài khoản/ảnh được đối chiếu trạng thái trước khi tạo. Nếu request không xác định kết quả thì báo lỗi, không thay key để tạo trùng. Journal có link/token nên được xem là file nhạy cảm dù chỉ local.
 
-Seed không hoàn tác thay đổi của người dùng. Sau khi thao tác làm hết hiệu lực/xóa tài nguyên mẫu, muốn quay về bộ mẫu ban đầu hãy reset demo. Ngày Trip/Price Watch tính từ thời điểm tạo seed; demo lâu ngày cần tái tạo. `demo:api` tạo Trip và journal riêng theo lần chạy; dữ liệu kiểm thử được giữ để xem lại, chỉ reset demo mới dọn toàn bộ.
+`demo:seed` chỉ dùng khi chủ động tạo bộ mẫu lần đầu và chưa có journal; không mặc định chạy trong checklist hằng ngày. Seed không hoàn tác thay đổi người dùng. Ngày Trip/Price Watch tính từ thời điểm tạo seed; khi hết phù hợp, tạo Trip TEST mới bằng UI/API hợp lệ và giữ bộ cũ. `demo:api` tạo Trip/journal riêng nhưng vẫn ghi vào instance demo; không chạy fault hoặc legacy live test vào bộ dữ liệu đang trình diễn. Nếu journal cũ còn mà tài khoản `MISSING`, giữ backup/journal, đăng ký email TEST mới; password reset không khôi phục database đã mất.
 
 ## Kiểm tra chức năng
 
@@ -90,17 +94,18 @@ Seed không hoàn tác thay đổi của người dùng. Sau khi thao tác làm 
 # Backend demo đang chạy
 corepack pnpm demo:api
 
-# Web; phải dừng Web demo thủ công đang chiếm 5273 trước
+# Web; kiểm thử riêng, không dùng dataset trình diễn
 corepack pnpm exec playwright install chromium
-corepack pnpm test:e2e:live
+corepack pnpm test:e2e:demo1 --runtime=dev
+corepack pnpm test:e2e:demo1 --runtime=preview
 ```
 
-`demo:api` nghiệm thu chuỗi Auth/Trip/invitations/Activity, quỹ + đóng góp thủ công, notification preferences/devices/read và Price Watch observation. Các tình huống Finance chuyên sâu tiếp tục dùng harness có sẵn thay vì thêm Postman/Bruno:
+`demo:api` nghiệm thu chuỗi Auth/Trip/invitations/Activity, quỹ + đóng góp thủ công, notification preferences/devices/read và Price Watch observation. Finance inbox delivery từ outbox được chứng minh riêng bằng `finance:notification:test` trong stack cô lập; không suy ra demo cá nhân đã bật bindings. Các tình huống Finance chuyên sâu tiếp tục dùng harness có sẵn thay vì thêm Postman/Bruno:
 
 ```powershell
 corepack pnpm build
 corepack pnpm lint
-corepack pnpm test
+corepack pnpm test --maxWorkers=2
 corepack pnpm contracts:lint
 corepack pnpm contracts:check
 corepack pnpm db:test
@@ -111,11 +116,14 @@ corepack pnpm trip:members:test
 corepack pnpm finance:test
 corepack pnpm notification:test
 corepack pnpm price-watch:test
+corepack pnpm demo:acceptance
+corepack pnpm finance:outbox:test
+corepack pnpm finance:notification:test
 ```
 
 Các harness tạo project test riêng, có thể seed SQL/fault injection rồi tự dọn tài nguyên của chính chúng. `trip:members:test` có Finance protocol fixture; `finance:test`/`finance:lifecycle:test` dùng Trip và Finance thật. Không mô tả fixture thành tích hợp thật.
 
-Luồng leave/remove hiện chỉ nghiệm thu Backend: Web chưa nối hai nút này. Price Watch chạy service/DB/worker thật nhưng provider `MOCK_FLIGHT`. MoMo mock chỉ được phép trong `NODE_ENV=test`; demo thường giữ `MOMO_SANDBOX_MODE=disabled`, không nới guard này. Finance outbox delivery, push/FCM, Reminder, provider giá thật, Travel/Export chưa hoàn thành. Finance/Notification/Price Watch chưa có Web tích hợp.
+Web Gateway hiện có leave/remove, selected editors, quỹ TEST, inbox/read/preferences và Price Watch. Map/Dress/Packing chỉ đọc, Admin là placeholder; không suy có Web expense/refund/closure/payment writer. Price Watch chạy service/DB/worker thật nhưng provider `MOCK_FLIGHT`. MoMo mock chỉ được phép trong `NODE_ENV=test`; demo thường giữ `MOMO_SANDBOX_MODE=disabled`, không nới guard này. Finance outbox/inbox đã có implementation và suite riêng; shared deployment, push/FCM, Reminder, provider giá thật và Travel/Export vẫn ngoài nghiệm thu này.
 
 Kết quả máy đọc được: `.local/demo/reports/{seed,api}-latest.json`; Web: `test-results/live-{dev,preview}/results.json`. [Báo cáo nghiệm thu](local-demo-acceptance.md) ghi ngày/SHA, câu lệnh, kết quả và bốn nhóm trạng thái. Log không chứa response auth, cookies hoặc URL token. Không bật browser trace/HAR cho các bài Auth.
 

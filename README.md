@@ -1,6 +1,6 @@
-# Wolfari
+# Wolfari Backend
 
-> Backend demo1 — 28/10/2026, nhánh `feat/demo-1-backend`: Activity ngày chưa giờ (Trip V003), GET plan-policy, tên thành viên, diagnostics và account read-only. Xem [phụ lục v1.0](docs/architecture/demo-1-addendum-v1.0.md), [kiểm chứng mới](docs/architecture/demo-1-backend-validation.md) và [bàn giao 34 tác vụ cho Web](docs/architecture/demo-1-web-handoff.md). Các số liệu 25/10 bên dưới là lịch sử; Web/Mobile/production chưa nghiệm thu trong đợt Backend này.
+> Bản nghiệm thu localhost ngày 02/11/2026 dùng nhánh `feat/demo-1-readiness-backend`, nguồn `feat/demo-1-backend` đã hợp nhất `origin/main`; Web tương thích là `feat/demo-1-readiness-web`. Chỉ Web + Backend, không Mobile/production. Xem [runbook local](docs/architecture/local-demo.md), [readiness Web–Backend](../Wolfari-web/docs/demo-readiness-validation.md) và [phụ lục runtime](docs/architecture/demo-readiness-runtime.md). Các số liệu lịch sử bên dưới không thay thế log hiện hành.
 
 ```powershell
 # Nâng cấu hình additive, giữ secrets và dữ liệu cũ
@@ -13,14 +13,14 @@ corepack pnpm demo:accounts
 corepack pnpm demo:acceptance
 ```
 
-`demo:accounts` đọc email từ journal và trạng thái Identity, không in/đặt lại mật khẩu. Credentials nằm trong `.local/demo/seed.json`, không đưa vào Git/log. Nếu chưa seed, xem [local-demo](docs/architecture/local-demo.md). Docker chạy **hạ tầng**; Backend/Web vẫn native Node, chưa có image production.
+`demo:accounts` đọc email từ journal và trạng thái Identity READ ONLY, không in/đặt lại mật khẩu. Credentials nằm trong `.local/demo/seed.json`, không đưa vào Git/log. Nếu journal còn nhưng DB thiếu account, kết quả `MISSING` không phải bằng chứng password sai; không reset/reseed để né kiểm tra. Nếu chưa seed, xem [local-demo](docs/architecture/local-demo.md). Docker chạy **hạ tầng**; Backend/Web vẫn native Node, chưa có image production.
 
 [![CI](https://github.com/thepiece27/Wolfari/actions/workflows/contracts.yml/badge.svg)](https://github.com/thepiece27/Wolfari/actions/workflows/contracts.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm nhỏ. Sản phẩm hướng tới việc cùng xây dựng lịch trình, lưu địa điểm, quản lý quỹ, nhận nhắc việc và xuất kế hoạch.
 
-Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core**, **Finance API070–125**, **Notification Self Management I1** và **Price Watch H1–H3**. Identity hỗ trợ auth email, hồ sơ, phiên đăng nhập, avatar private và email thử qua Mailpit; Trip core hỗ trợ tạo Trip + Owner, đọc theo membership, Owner sửa metadata và quản lý quyền sửa Plan theo policy có kiểm tra revision. Notification I1 quản lý preference/device/inbox Self; Price Watch quản lý watch/lịch sử, worker mock, alert bền vững và lifecycle Trip/membership.
+Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core**, **Finance API070–125**, **Notification Self Management I1** và **Price Watch H1–H3**. Bản readiness đã giữ cả Demo 1 và Finance outbox/inbox từ `main`; catalog hợp nhất có **113 RPC** và generated contracts đã tái sinh/check. Finance outbox/inbox notification chỉ bật trong acceptance stack khi đã provisioned consumer bindings; cờ demo cá nhân vẫn mặc định tắt. `MOCK_FLIGHT` chỉ là provider thử.
 
 > Đã có runtime Identity, Trip/Plan/Invitations, Finance API070–125 và nghĩa vụ membership, Notification I1, Price Watch H1–H3. Nhánh tích hợp đã qua kiểm tra local ngày 25/10/2026: 1.442 unit test, 28 nhóm database và các bộ Finance/Price Watch/Notification; xem [kết quả và giới hạn](docs/architecture/design-baseline.md#trạng-thái-triển-khai). Chưa nghiệm thu toàn bộ MVP. `MOCK_FLIGHT` chỉ là dữ liệu thử, MoMo chỉ cấu hình Sandbox; provider giá thật, push/FCM, Reminder API132, export và Finance notification delivery còn thiếu. Membership lifecycle vẫn mặc định tắt cho production. Baseline chính thức là SRS v2.3/ERD v1.2/DDL API Event v1.1; schema gồm năm V001, Trip/Finance V002 và Automation V002–V005.
 
@@ -57,7 +57,7 @@ Mỗi service nghiệp vụ chỉ truy cập database của mình. Không dùng 
 
 ## Demo Web với backend thật
 
-Môi trường riêng `wolfari-demo` giữ nguyên cấu hình và dữ liệu development. Tại Backend chạy `corepack pnpm demo:init`, sau đó `corepack pnpm demo:start`. Terminal Backend khác chạy `corepack pnpm demo:check` và `corepack pnpm demo:seed`. Tại repository Web cạnh bên chạy `corepack pnpm demo:dev`, mở http://localhost:5273/login?returnTo=%2Ftrips.
+Môi trường riêng `wolfari-demo` giữ nguyên cấu hình và dữ liệu development. Tại Backend chạy `corepack pnpm demo:init`, sau đó `corepack pnpm demo:start`. Terminal Backend khác chạy `corepack pnpm demo:check` và `corepack pnpm demo:accounts`. Seed chỉ dùng khi chủ động tạo bộ mẫu lần đầu, không chạy để tìm/reset password. Tại Web cạnh bên chạy `corepack pnpm demo:build` rồi `corepack pnpm demo:preview`, mở http://localhost:5273/login?returnTo=%2Ftrips.
 
 Tài khoản và mật khẩu sinh riêng nằm trong `.local/demo/seed.json`; không commit file này. `demo:stop` dừng demo và giữ dữ liệu. [Runbook đầy đủ](docs/architecture/local-demo.md) mô tả bản build/preview, reset có kiểm tra ownership, cổng và các API chưa có Web. [Nghiệm thu](docs/architecture/local-demo-acceptance.md) phân biệt backend thật, fixture và provider mô phỏng.
 
