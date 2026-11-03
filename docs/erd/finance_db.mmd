@@ -259,6 +259,24 @@ erDiagram
     uuid correlation_id
     varchar_60_ system_actor
   }
+  %% V002: private immutable file identity/binding; max one of contribution/expense.
+  finance_files {
+    text object_key PK
+    uuid fund_id FK
+    uuid uploader_user_id
+    text sha256
+    text mime_type
+    integer size_bytes
+    text state
+    uuid contribution_id FK
+    uuid expense_id FK
+    timestamptz created_at
+    timestamptz bound_at
+    timestamptz cleanup_after
+  }
+  funds ||--o{ finance_files : "fund_id"
+  contributions |o--o{ finance_files : "contribution_id, fund_id"
+  fund_expenses |o--o{ finance_files : "expense_id, fund_id"
   funds ||--o{ payment_destinations : "fund_id"
   funds ||--o{ contribution_requests : "fund_id"
   funds ||--o{ contributions : "fund_id"

@@ -109,6 +109,7 @@
                         "confirmed_by_user_id": null,
                         "waived_reason": null,
                         "cancelled_reason": null,
+                        "rejected_reason": null,
                         "version": 1,
                         "finance_version": 3
                       }
@@ -315,6 +316,7 @@
                                 "confirmed_by_user_id": null,
                                 "waived_reason": null,
                                 "cancelled_reason": null,
+                                "rejected_reason": null,
                                 "version": 1,
                                 "finance_version": 3
                               }
@@ -499,6 +501,7 @@
                             "confirmed_by_user_id": null,
                             "waived_reason": null,
                             "cancelled_reason": null,
+                            "rejected_reason": null,
                             "version": 1,
                             "finance_version": 3
                           }
@@ -1780,6 +1783,7 @@
           "confirmed_by_user_id",
           "waived_reason",
           "cancelled_reason",
+          "rejected_reason",
           "version",
           "finance_version"
         ],
@@ -1832,6 +1836,11 @@
           "cancelled_reason": {
             "type": "string",
             "nullable": true
+          },
+          "rejected_reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Latest stored Holder rejection reason, readable under the existing contribution read permission. Retained after re-report/confirmation; null if never rejected or absent from a legacy immutable receipt. Not evidence or bank data."
           },
           "version": {
             "type": "integer",

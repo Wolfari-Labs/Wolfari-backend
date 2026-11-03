@@ -175,6 +175,15 @@ export interface UpdatePlanPolicyResponse {
   plan_policy?: PlanPolicySettings | undefined;
 }
 
+export interface GetPlanPolicyRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+}
+
+export interface GetPlanPolicyResponse {
+  plan_policy?: PlanPolicySettings | undefined;
+}
+
 export interface BeginFinanceOperationRequest {
   operation_id?: string | undefined;
   trip_id?: string | undefined;
@@ -515,7 +524,11 @@ export interface PlanActivity {
   completed_by_user_id?: string | undefined;
   completed_at?: Timestamp | undefined;
   created_by_user_id?: string | undefined;
-  plan_version?: number | undefined;
+  plan_version?:
+    | number
+    | undefined;
+  /** YYYY-MM-DD; only without timestamps. */
+  scheduled_date?: string | undefined;
 }
 
 export interface PlanLocation {
@@ -606,6 +619,7 @@ export interface CreateActivityRequest {
   starts_at?: Timestamp | undefined;
   ends_at?: Timestamp | undefined;
   position?: number | undefined;
+  scheduled_date?: string | undefined;
 }
 
 export interface CreateActivityResponse {
@@ -627,6 +641,7 @@ export interface UpdateActivityRequest {
   starts_at?: TimestampPatch | undefined;
   ends_at?: TimestampPatch | undefined;
   position?: number | undefined;
+  scheduled_date?: StringPatch | undefined;
 }
 
 export interface UpdateActivityResponse {
@@ -712,6 +727,8 @@ export interface TripServiceClient {
   getAccessContext(request: GetAccessContextRequest, metadata?: Metadata): Observable<GetAccessContextResponse>;
 
   updatePlanPolicy(request: UpdatePlanPolicyRequest, metadata?: Metadata): Observable<UpdatePlanPolicyResponse>;
+
+  getPlanPolicy(request: GetPlanPolicyRequest, metadata?: Metadata): Observable<GetPlanPolicyResponse>;
 
   beginFinanceOperation(
     request: BeginFinanceOperationRequest,
@@ -842,6 +859,11 @@ export interface TripServiceController {
     metadata?: Metadata,
   ): Promise<UpdatePlanPolicyResponse> | Observable<UpdatePlanPolicyResponse> | UpdatePlanPolicyResponse;
 
+  getPlanPolicy(
+    request: GetPlanPolicyRequest,
+    metadata?: Metadata,
+  ): Promise<GetPlanPolicyResponse> | Observable<GetPlanPolicyResponse> | GetPlanPolicyResponse;
+
   beginFinanceOperation(
     request: BeginFinanceOperationRequest,
     metadata?: Metadata,
@@ -926,6 +948,7 @@ export function TripServiceControllerMethods() {
       "updateTrip",
       "getAccessContext",
       "updatePlanPolicy",
+      "getPlanPolicy",
       "beginFinanceOperation",
       "completeOperation",
       "getOperationResult",

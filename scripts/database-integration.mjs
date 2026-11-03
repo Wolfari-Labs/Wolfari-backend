@@ -31,45 +31,81 @@ let created = false;
 let directory;
 let env;
 let stage = 'setup';
-const pass = message => { checks++; console.log(`PASS ${message}`); };
+const pass = (message) => {
+  checks++;
+  console.log(`PASS ${message}`);
+};
 const port = createTestPortAllocator();
 async function db(service, work) {
   const client = await connectDatabase(service, databaseUrl(env, service));
-  try { return await work(client); } finally { await client.end(); }
+  try {
+    return await work(client);
+  } finally {
+    await client.end();
+  }
 }
 async function waitForDatabase(service, timeoutMs = 180000) {
   const deadline = Date.now() + timeoutMs;
   while (true) {
-    try { await db(service, client => client.query('SELECT 1')); return; }
-    catch (error) {
-      if (['28P01', '42501'].includes(error.code) || error.message === 'WRONG_DATABASE_OR_ROLE') throw error;
+    try {
+      await db(service, (client) => client.query('SELECT 1'));
+      return;
+    } catch (error) {
+      if (['28P01', '42501'].includes(error.code) || error.message === 'WRONG_DATABASE_OR_ROLE')
+        throw error;
       if (Date.now() >= deadline) throw new Error('POSTGRES_RESTART_TIMEOUT');
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
 }
-function docker(args) { return compose(env, args, { project, envFile: resolve(directory, '.env') }); }
+function docker(args) {
+  return compose(env, args, { project, envFile: resolve(directory, '.env') });
+}
 function dockerDiagnostic(args) {
-  return new Promise(resolveResult => {
-    const command = ['compose', '--project-name', project, '--env-file', resolve(directory, '.env'),
-      '-f', resolve(root, 'infrastructure/docker-compose.yml'), ...args];
-    const child = spawn('docker', command, { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  return new Promise((resolveResult) => {
+    const command = [
+      'compose',
+      '--project-name',
+      project,
+      '--env-file',
+      resolve(directory, '.env'),
+      '-f',
+      resolve(root, 'infrastructure/docker-compose.yml'),
+      ...args,
+    ];
+    const child = spawn('docker', command, {
+      env: { ...process.env, ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
     let output = '';
-    const append = chunk => { output = (output + chunk.toString()).slice(-16000); };
+    const append = (chunk) => {
+      output = (output + chunk.toString()).slice(-16000);
+    };
     child.stdout.on('data', append);
     child.stderr.on('data', append);
     const timer = setTimeout(() => child.kill(), 10000);
-    child.once('error', error => { clearTimeout(timer); resolveResult({ code: error.code ?? 'ERROR', output }); });
-    child.once('close', code => { clearTimeout(timer); resolveResult({ code, output }); });
+    child.once('error', (error) => {
+      clearTimeout(timer);
+      resolveResult({ code: error.code ?? 'ERROR', output });
+    });
+    child.once('close', (code) => {
+      clearTimeout(timer);
+      resolveResult({ code, output });
+    });
   });
 }
 async function reportDockerDiagnostics() {
   if (!created || !directory || !env) return;
-  for (const [label, args] of [['containers', ['ps', '--all']], ['postgres logs', ['logs', '--no-color', '--tail=80', 'postgres']]]) {
+  for (const [label, args] of [
+    ['containers', ['ps', '--all']],
+    ['postgres logs', ['logs', '--no-color', '--tail=80', 'postgres']],
+  ]) {
     const result = await dockerDiagnostic(args);
     let output = result.output;
     for (const [key, value] of Object.entries(env)) {
-      if (/(?:PASS|PASSWORD|SECRET|TOKEN|PRIVATE_KEY)/.test(key) && value) output = output.replaceAll(String(value), '[REDACTED]');
+      if (/(?:PASS|PASSWORD|SECRET|TOKEN|PRIVATE_KEY)/.test(key) && value)
+        output = output.replaceAll(String(value), '[REDACTED]');
     }
     console.error(`db:test Docker ${label} (exit ${result.code}):\n${output || '(no output)'}`);
   }
@@ -77,37 +113,69 @@ async function reportDockerDiagnostics() {
 function bootstrapFailureProbe() {
   return new Promise((resolvePromise, reject) => {
     const args = [
-      'compose', '--project-name', project, '--env-file', resolve(directory, '.env'),
-      '-f', resolve(root, 'infrastructure/docker-compose.yml'), 'exec', '-T', 'postgres',
-      'psql', '--set=ON_ERROR_STOP=1', '--username', env.POSTGRES_USER, '--dbname', 'postgres',
+      'compose',
+      '--project-name',
+      project,
+      '--env-file',
+      resolve(directory, '.env'),
+      '-f',
+      resolve(root, 'infrastructure/docker-compose.yml'),
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '--set=ON_ERROR_STOP=1',
+      '--username',
+      env.POSTGRES_USER,
+      '--dbname',
+      'postgres',
     ];
-    const child = spawn('docker', args, { env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
-    let stdout = ''; let stderr = '';
-    child.stdout.on('data', chunk => { stdout += chunk; });
-    child.stderr.on('data', chunk => { stderr += chunk; });
+    const child = spawn('docker', args, {
+      env: { ...process.env, ...env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
     child.once('error', reject);
-    child.once('exit', code => resolvePromise({ code, stdout, stderr }));
+    child.once('exit', (code) => resolvePromise({ code, stdout, stderr }));
     child.stdin.end('SELECT 1/0;\nSELECT 42 AS should_not_run;\n');
   });
 }
 async function health(app, endpoint, status = 200) {
   const started = Date.now();
-  const response = await fetch(`http://127.0.0.1:${app.testPort}/health/${endpoint}`, { signal: AbortSignal.timeout(3500), headers: { 'x-correlation-id': 'ab814514-965c-443b-ae80-257a6776d89d' } });
+  const response = await fetch(`http://127.0.0.1:${app.testPort}/health/${endpoint}`, {
+    signal: AbortSignal.timeout(3500),
+    headers: { 'x-correlation-id': 'ab814514-965c-443b-ae80-257a6776d89d' },
+  });
   assert.equal(response.status, status);
   const body = await response.json();
   assert.equal(body.service, app.name);
-  if (endpoint === 'ready') { assert.equal(body.correlation_id, 'ab814514-965c-443b-ae80-257a6776d89d'); assert(Date.now() - started < 3000); }
+  if (endpoint === 'ready') {
+    assert.equal(body.correlation_id, 'ab814514-965c-443b-ae80-257a6776d89d');
+    assert(Date.now() - started < 3000);
+  }
   return body;
 }
 function reportAppDiagnostics() {
-  for (const child of children.filter(item => !item.live || item.exitCode !== null || item.signalCode !== null)) {
+  for (const child of children.filter(
+    (item) => !item.live || item.exitCode !== null || item.signalCode !== null,
+  )) {
     let output = child.output;
     for (const [key, value] of Object.entries(child.testEnvironment)) {
       if (/(?:PASSWORD|PASS|SECRET|TOKEN|KEY|DATABASE_URL)/.test(key) && value)
         output = output.replaceAll(String(value), '[REDACTED]');
     }
     output = output.replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s/@]+:[^\s/@]+@/gi, '$1[REDACTED]@');
-    console.error(`db:test app ${child.appName} (exit ${child.exitCode ?? 'running'}, signal ${child.signalCode ?? 'none'}):\n${output.slice(-8000) || '(no output)'}`);
+    console.error(
+      `db:test app ${child.appName} (exit ${child.exitCode ?? 'running'}, signal ${child.signalCode ?? 'none'}):\n${output.slice(-8000) || '(no output)'}`,
+    );
   }
 }
 async function launchApps() {
@@ -117,15 +185,34 @@ async function launchApps() {
   const automationGrpcPort = await port();
   const financeGrpcPort = await port();
   const bindings = {
-    ...Object.fromEntries(['POSTGRES_PORT', 'RABBITMQ_PORT', 'RABBITMQ_MANAGEMENT_PORT', 'MINIO_API_PORT', 'MINIO_CONSOLE_PORT'].map(key => [key, Number(env[key])])),
-    ...Object.fromEntries(apps.map(app => [app.portKey, app.testPort])),
-    IDENTITY_GRPC_PORT: grpcPort, TRIP_GRPC_PORT: tripGrpcPort,
-    AUTOMATION_GRPC_PORT: automationGrpcPort, FINANCE_GRPC_PORT: financeGrpcPort,
+    ...Object.fromEntries(
+      [
+        'POSTGRES_PORT',
+        'RABBITMQ_PORT',
+        'RABBITMQ_MANAGEMENT_PORT',
+        'MINIO_API_PORT',
+        'MINIO_CONSOLE_PORT',
+      ].map((key) => [key, Number(env[key])]),
+    ),
+    ...Object.fromEntries(apps.map((app) => [app.portKey, app.testPort])),
+    IDENTITY_GRPC_PORT: grpcPort,
+    TRIP_GRPC_PORT: tripGrpcPort,
+    AUTOMATION_GRPC_PORT: automationGrpcPort,
+    FINANCE_GRPC_PORT: financeGrpcPort,
   };
-  assert.equal(new Set(Object.values(bindings)).size, Object.keys(bindings).length, 'TEST_PORT_ASSIGNMENT_COLLISION');
+  assert.equal(
+    new Set(Object.values(bindings)).size,
+    Object.keys(bindings).length,
+    'TEST_PORT_ASSIGNMENT_COLLISION',
+  );
   console.log(`db:test port assignments: ${JSON.stringify(bindings)}`);
   const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
-  const secrets = Object.fromEntries(['GATEWAY', 'AUTOMATION', 'TRIP', 'FINANCE', 'TRAVEL', 'EXPORT'].map(caller => [`${caller}_IDENTITY_SECRET`, randomBytes(32).toString('hex')]));
+  const secrets = Object.fromEntries(
+    ['GATEWAY', 'AUTOMATION', 'TRIP', 'FINANCE', 'TRAVEL', 'EXPORT'].map((caller) => [
+      `${caller}_IDENTITY_SECRET`,
+      randomBytes(32).toString('hex'),
+    ]),
+  );
   const gatewayTripSecret = randomBytes(32).toString('hex');
   const financeTripSecret = randomBytes(32).toString('hex');
   const travelTripSecret = randomBytes(32).toString('hex');
@@ -133,70 +220,107 @@ async function launchApps() {
   const gatewayAutomationSecret = randomBytes(32).toString('hex');
   const gatewayFinanceSecret = randomBytes(32).toString('hex');
   const tripFinanceSecret = randomBytes(32).toString('hex');
-  const gatewayPort = apps.find(app => app.name === 'api-gateway').testPort;
-  const identityPort = apps.find(app => app.name === 'identity-service').testPort;
-  const tripPort = apps.find(app => app.name === 'trip-workspace-service').testPort;
+  const gatewayPort = apps.find((app) => app.name === 'api-gateway').testPort;
+  const identityPort = apps.find((app) => app.name === 'identity-service').testPort;
+  const tripPort = apps.find((app) => app.name === 'trip-workspace-service').testPort;
   for (const app of apps) {
     const values = {
-      NODE_ENV: 'test', [app.portKey]: String(app.testPort),
+      NODE_ENV: 'test',
+      [app.portKey]: String(app.testPort),
       ...(app.service ? { DATABASE_URL: databaseUrl(env, app.service) } : {}),
-      ...(app.name === 'identity-service' ? {
-        ...secrets, IDENTITY_GRPC_PORT: String(grpcPort),
-        IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64'),
-        IDENTITY_ACCESS_PUBLIC_KEY: pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64'),
-        IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
-        RABBITMQ_URL: 'amqp://127.0.0.1:9', MINIO_ENDPOINT: '127.0.0.1:9',
-        MINIO_ACCESS_KEY: 'test', MINIO_SECRET_KEY: 'test',
-        IDENTITY_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
-      } : {}),
-      ...(app.name === 'finance-service' ? {
-        FINANCE_GRPC_PORT: String(financeGrpcPort),
-        GATEWAY_FINANCE_SECRET: gatewayFinanceSecret,
-        FINANCE_TRIP_SECRET: financeTripSecret, TRIP_FINANCE_SECRET: tripFinanceSecret,
-        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
-        MOMO_SANDBOX_MODE: 'disabled',
-      } : {}),
-      ...(app.name === 'travel-intelligence-service' ? {
-        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`, TRAVEL_TRIP_SECRET: travelTripSecret,
-      } : {}),
-      ...(app.name === 'automation-service' ? {
-        AUTOMATION_GRPC_PORT: String(automationGrpcPort), GATEWAY_AUTOMATION_SECRET: gatewayAutomationSecret,
-        AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
-        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`, AUTOMATION_TRIP_SECRET: automationTripSecret,
-        AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
-        IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`, RABBITMQ_URL: 'amqp://127.0.0.1:9',
-        SMTP_HOST: '127.0.0.1', SMTP_PORT: '9',
-      } : {}),
-      ...(app.name === 'trip-workspace-service' ? {
-        TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
-        TRIP_INVITATION_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
-        IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`, TRIP_IDENTITY_SECRET: secrets.TRIP_IDENTITY_SECRET,
-        TRIP_OUTBOX_ENABLED: 'false', TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'false',
-        FINANCE_GRPC_TARGET: `127.0.0.1:${financeGrpcPort}`, TRIP_FINANCE_SECRET: tripFinanceSecret,
-        TRIP_GRPC_PORT: String(tripGrpcPort), GATEWAY_TRIP_SECRET: gatewayTripSecret,
-        FINANCE_TRIP_SECRET: financeTripSecret, TRAVEL_TRIP_SECRET: travelTripSecret,
-        AUTOMATION_TRIP_SECRET: automationTripSecret,
-      } : {}),
-      ...(app.name === 'api-gateway' ? {
-        GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
-        GATEWAY_TRIP_SECRET: gatewayTripSecret,
-        FINANCE_GRPC_TARGET: `127.0.0.1:${financeGrpcPort}`, GATEWAY_FINANCE_SECRET: gatewayFinanceSecret,
-        GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
-        IDENTITY_HTTP_URL: `http://127.0.0.1:${identityPort}`,
-        IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`,
-        TRIP_HTTP_URL: `http://127.0.0.1:${tripPort}`,
-        TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
-        AUTOMATION_GRPC_TARGET: `127.0.0.1:${automationGrpcPort}`, GATEWAY_AUTOMATION_SECRET: gatewayAutomationSecret,
-        WEB_ORIGIN: `http://127.0.0.1:${gatewayPort}`,
-      } : {}),
+      ...(app.name === 'identity-service'
+        ? {
+            ...secrets,
+            IDENTITY_GRPC_PORT: String(grpcPort),
+            IDENTITY_ACCESS_PRIVATE_KEY: pair.privateKey
+              .export({ type: 'pkcs8', format: 'der' })
+              .toString('base64'),
+            IDENTITY_ACCESS_PUBLIC_KEY: pair.publicKey
+              .export({ type: 'spki', format: 'der' })
+              .toString('base64'),
+            IDENTITY_TOKEN_KEY: randomBytes(32).toString('hex'),
+            RABBITMQ_URL: 'amqp://127.0.0.1:9',
+            MINIO_ENDPOINT: '127.0.0.1:9',
+            MINIO_ACCESS_KEY: 'test',
+            MINIO_SECRET_KEY: 'test',
+            IDENTITY_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
+          }
+        : {}),
+      ...(app.name === 'finance-service'
+        ? {
+            FINANCE_GRPC_PORT: String(financeGrpcPort),
+            GATEWAY_FINANCE_SECRET: gatewayFinanceSecret,
+            FINANCE_TRIP_SECRET: financeTripSecret,
+            TRIP_FINANCE_SECRET: tripFinanceSecret,
+            TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
+            MOMO_SANDBOX_MODE: 'disabled',
+          }
+        : {}),
+      ...(app.name === 'travel-intelligence-service'
+        ? {
+            TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
+            TRAVEL_TRIP_SECRET: travelTripSecret,
+          }
+        : {}),
+      ...(app.name === 'automation-service'
+        ? {
+            AUTOMATION_GRPC_PORT: String(automationGrpcPort),
+            GATEWAY_AUTOMATION_SECRET: gatewayAutomationSecret,
+            AUTOMATION_CURSOR_SECRET: randomBytes(32).toString('hex'),
+            TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
+            AUTOMATION_TRIP_SECRET: automationTripSecret,
+            AUTOMATION_IDENTITY_SECRET: secrets.AUTOMATION_IDENTITY_SECRET,
+            IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`,
+            RABBITMQ_URL: 'amqp://127.0.0.1:9',
+            SMTP_HOST: '127.0.0.1',
+            SMTP_PORT: '9',
+          }
+        : {}),
+      ...(app.name === 'trip-workspace-service'
+        ? {
+            TRIP_INVITATION_TOKEN_KEY: randomBytes(32).toString('hex'),
+            TRIP_INVITATION_LINK_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
+            IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`,
+            TRIP_IDENTITY_SECRET: secrets.TRIP_IDENTITY_SECRET,
+            TRIP_OUTBOX_ENABLED: 'false',
+            TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'false',
+            FINANCE_GRPC_TARGET: `127.0.0.1:${financeGrpcPort}`,
+            TRIP_FINANCE_SECRET: tripFinanceSecret,
+            TRIP_GRPC_PORT: String(tripGrpcPort),
+            GATEWAY_TRIP_SECRET: gatewayTripSecret,
+            FINANCE_TRIP_SECRET: financeTripSecret,
+            TRAVEL_TRIP_SECRET: travelTripSecret,
+            AUTOMATION_TRIP_SECRET: automationTripSecret,
+          }
+        : {}),
+      ...(app.name === 'api-gateway'
+        ? {
+            GATEWAY_IDENTITY_SECRET: secrets.GATEWAY_IDENTITY_SECRET,
+            GATEWAY_TRIP_SECRET: gatewayTripSecret,
+            FINANCE_GRPC_TARGET: `127.0.0.1:${financeGrpcPort}`,
+            GATEWAY_FINANCE_SECRET: gatewayFinanceSecret,
+            GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
+            IDENTITY_HTTP_URL: `http://127.0.0.1:${identityPort}`,
+            IDENTITY_GRPC_TARGET: `127.0.0.1:${grpcPort}`,
+            TRIP_HTTP_URL: `http://127.0.0.1:${tripPort}`,
+            TRIP_GRPC_TARGET: `127.0.0.1:${tripGrpcPort}`,
+            AUTOMATION_GRPC_TARGET: `127.0.0.1:${automationGrpcPort}`,
+            GATEWAY_AUTOMATION_SECRET: gatewayAutomationSecret,
+            WEB_ORIGIN: `http://127.0.0.1:${gatewayPort}`,
+          }
+        : {}),
     };
     const testEnvironment = appEnvironment(app, values);
-    const child = fork(resolve(root, 'apps', app.name, 'dist/main.js'), [], { env: testEnvironment, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true });
+    const child = fork(resolve(root, 'apps', app.name, 'dist/main.js'), [], {
+      env: testEnvironment,
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      windowsHide: true,
+    });
     child.appName = app.name;
     child.testEnvironment = testEnvironment;
     child.output = '';
     child.live = false;
-    const append = chunk => {
+    const append = (chunk) => {
       child.output += chunk.toString();
       if (child.output.length > 64000) {
         child.output = child.output.slice(-64000);
@@ -205,19 +329,24 @@ async function launchApps() {
     };
     child.stdout.on('data', append);
     child.stderr.on('data', append);
-    child.once('error', () => { child.startFailed = true; });
+    child.once('error', () => {
+      child.startFailed = true;
+    });
     children.push(child);
   }
   const deadline = Date.now() + 20000;
   for (const app of apps) {
-    const child = children.find(item => item.appName === app.name);
+    const child = children.find((item) => item.appName === app.name);
     while (true) {
       if (child.startFailed || child.exitCode !== null || child.signalCode !== null)
         throw new Error('APP_START_FAILED');
-      try { await health(app, 'live'); child.live = true; break; }
-      catch (error) {
+      try {
+        await health(app, 'live');
+        child.live = true;
+        break;
+      } catch (error) {
         if (Date.now() > deadline) throw new Error('APP_START_TIMEOUT', { cause: error });
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
     }
   }
@@ -225,9 +354,26 @@ async function launchApps() {
 async function main() {
   await mkdir(resolve(root, '.cache'), { recursive: true });
   directory = await mkdtemp(resolve(root, '.cache', 'db-test-'));
-  env = parseEnv((await readFile(resolve(root, '.env.example'), 'utf8')).replace(/change-me-[\w-]+/g, () => randomBytes(24).toString('hex')));
-  for (const key of ['POSTGRES_PORT', 'RABBITMQ_PORT', 'RABBITMQ_MANAGEMENT_PORT', 'MINIO_API_PORT', 'MINIO_CONSOLE_PORT']) env[key] = String(await port());
-  await writeFile(resolve(directory, '.env'), Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n'), { mode: 0o600 });
+  env = parseEnv(
+    (await readFile(resolve(root, '.env.example'), 'utf8')).replace(/change-me-[\w-]+/g, () =>
+      randomBytes(24).toString('hex'),
+    ),
+  );
+  for (const key of [
+    'POSTGRES_PORT',
+    'RABBITMQ_PORT',
+    'RABBITMQ_MANAGEMENT_PORT',
+    'MINIO_API_PORT',
+    'MINIO_CONSOLE_PORT',
+  ])
+    env[key] = String(await port());
+  await writeFile(
+    resolve(directory, '.env'),
+    Object.entries(env)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
+    { mode: 0o600 },
+  );
   created = true;
   stage = 'postgres-start';
   await docker(['up', '-d', '--wait', '--wait-timeout', '180', 'postgres']);
@@ -238,41 +384,90 @@ async function main() {
   assert.match(bootstrapProbe.stderr, /division by zero/i);
   pass('psql bootstrap dừng ngay và trả mã lỗi khi SQL thất bại');
   stage = 'migrations';
-  const files = Object.fromEntries(await Promise.all(services.map(async service => [service, await migrationFiles(service)])));
-  await Promise.all([migrate('identity', databaseUrl(env, 'identity'), files.identity), migrate('identity', databaseUrl(env, 'identity'), files.identity)]);
+  const files = Object.fromEntries(
+    await Promise.all(services.map(async (service) => [service, await migrationFiles(service)])),
+  );
+  await Promise.all([
+    migrate('identity', databaseUrl(env, 'identity'), files.identity),
+    migrate('identity', databaseUrl(env, 'identity'), files.identity),
+  ]);
   pass('hai runner đồng thời chỉ áp dụng V001 một lần');
-  await migrate('trip',databaseUrl(env,'trip'),files.trip.slice(0,1));
-  const fixtureTrip='90000000-0000-4000-8000-000000000001';
-  const fixtureActor='90000000-0000-4000-8000-000000000002';
-  await db('trip',async client=>{
-    await client.query("INSERT INTO trips(id,name,start_at,end_at,timezone,created_by_user_id) VALUES($1,'Upgrade fixture',now(),now()+interval '1 day','Asia/Ho_Chi_Minh',$2)",[fixtureTrip,fixtureActor]);
-    await client.query("INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,status) VALUES($1,'upgrade@example.test',$2,'upgrade-accepted',now()+interval '1 day','EMAIL','ACCEPTED')",[fixtureTrip,fixtureActor]);
+  await migrate('trip', databaseUrl(env, 'trip'), files.trip.slice(0, 1));
+  const fixtureTrip = '90000000-0000-4000-8000-000000000001';
+  const fixtureActor = '90000000-0000-4000-8000-000000000002';
+  await db('trip', async (client) => {
+    await client.query(
+      "INSERT INTO trips(id,name,start_at,end_at,timezone,created_by_user_id) VALUES($1,'Upgrade fixture',now(),now()+interval '1 day','Asia/Ho_Chi_Minh',$2)",
+      [fixtureTrip, fixtureActor],
+    );
+    await client.query(
+      "INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,status) VALUES($1,'upgrade@example.test',$2,'upgrade-accepted',now()+interval '1 day','EMAIL','ACCEPTED')",
+      [fixtureTrip, fixtureActor],
+    );
   });
-  await assert.rejects(migrate('trip',databaseUrl(env,'trip'),files.trip),error=>error.message==='INVITATION_ACCEPTANCE_BACKFILL_REQUIRED');
-  await db('trip',async client=>{
-    assert.deepEqual(await history(client,files.trip),['V001']);
-    await client.query("UPDATE invitations SET status='PENDING' WHERE trip_id=$1",[fixtureTrip]);
-    await client.query("INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type) VALUES($1,' UPGRADE@EXAMPLE.TEST ',$2,'upgrade-duplicate',now()+interval '1 day','EMAIL')",[fixtureTrip,fixtureActor]);
+  await assert.rejects(
+    migrate('trip', databaseUrl(env, 'trip'), files.trip),
+    (error) => error.message === 'INVITATION_ACCEPTANCE_BACKFILL_REQUIRED',
+  );
+  await db('trip', async (client) => {
+    assert.deepEqual(await history(client, files.trip), ['V001']);
+    await client.query("UPDATE invitations SET status='PENDING' WHERE trip_id=$1", [fixtureTrip]);
+    await client.query(
+      "INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type) VALUES($1,' UPGRADE@EXAMPLE.TEST ',$2,'upgrade-duplicate',now()+interval '1 day','EMAIL')",
+      [fixtureTrip, fixtureActor],
+    );
   });
-  await assert.rejects(migrate('trip',databaseUrl(env,'trip'),files.trip),error=>error.message==='DUPLICATE_PENDING_INVITATIONS');
-  await db('trip',async client=>{
+  await assert.rejects(
+    migrate('trip', databaseUrl(env, 'trip'), files.trip),
+    (error) => error.message === 'DUPLICATE_PENDING_INVITATIONS',
+  );
+  await db('trip', async (client) => {
     await client.query("DELETE FROM invitations WHERE token_hash='upgrade-duplicate'");
   });
-  await migrate('trip',databaseUrl(env,'trip'),files.trip);
-  await db('trip',async client=>{
-    assert.equal((await client.query("SELECT * FROM invitations WHERE token_hash='upgrade-accepted'")).rows[0].status,'PENDING');
-    await client.query('DELETE FROM invitations WHERE trip_id=$1',[fixtureTrip]);
-    await client.query('DELETE FROM trips WHERE id=$1',[fixtureTrip]);
+  await migrate('trip', databaseUrl(env, 'trip'), files.trip.slice(0, 2));
+  await db('trip', async (client) => {
+    await client.query(
+      "INSERT INTO activities(trip_id,title,activity_type,position,source,created_by_user_id) VALUES($1,'Legacy dayless','OTHER',0,'MANUAL',$2)",
+      [fixtureTrip, fixtureActor],
+    );
   });
-  pass('V001 upgrade preserves data; ambiguous acceptance and duplicate pending fail without partial migration');
-  await migrate('automation',databaseUrl(env,'automation'),files.automation.slice(0,1));
-  await db('automation',async client=>{
-    const group=(await client.query(`INSERT INTO price_query_groups(provider,transport_type,canonical_key,origin,destination,departure_date,passenger_count,currency,params) VALUES('MOCK_FLIGHT','FLIGHT','upgrade-fixture','DAD','SGN','2026-11-01',1,'VND','{}') RETURNING id`)).rows[0];
-    await client.query(`INSERT INTO price_watches(query_group_id,user_id,trip_id,threshold_price,currency,expires_at,client_request_id,request_hash) VALUES($1,'90000000-0000-4000-8000-000000000011','90000000-0000-4000-8000-000000000012',1000000,'VND',now()+interval '1 day','90000000-0000-4000-8000-000000000013','fixture')`,[group.id]);
+  await migrate('trip', databaseUrl(env, 'trip'), files.trip);
+  await db('trip', async (client) => {
+    assert.equal(
+      (await client.query('SELECT scheduled_date FROM activities WHERE trip_id=$1', [fixtureTrip]))
+        .rows[0].scheduled_date,
+      null,
+    );
+    await client.query('DELETE FROM activities WHERE trip_id=$1', [fixtureTrip]);
+    assert.equal(
+      (await client.query("SELECT * FROM invitations WHERE token_hash='upgrade-accepted'")).rows[0]
+        .status,
+      'PENDING',
+    );
+    await client.query('DELETE FROM invitations WHERE trip_id=$1', [fixtureTrip]);
+    await client.query('DELETE FROM trips WHERE id=$1', [fixtureTrip]);
   });
-  await assert.rejects(migrate('automation',databaseUrl(env,'automation'),files.automation),error=>error.message==='PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED');
-  await db('automation',async client=>{
-    assert.deepEqual(await history(client,files.automation),['V001']);
+  pass(
+    'V001 upgrade preserves data; ambiguous acceptance and duplicate pending fail without partial migration',
+  );
+  await migrate('automation', databaseUrl(env, 'automation'), files.automation.slice(0, 1));
+  await db('automation', async (client) => {
+    const group = (
+      await client.query(
+        `INSERT INTO price_query_groups(provider,transport_type,canonical_key,origin,destination,departure_date,passenger_count,currency,params) VALUES('MOCK_FLIGHT','FLIGHT','upgrade-fixture','DAD','SGN','2026-11-01',1,'VND','{}') RETURNING id`,
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO price_watches(query_group_id,user_id,trip_id,threshold_price,currency,expires_at,client_request_id,request_hash) VALUES($1,'90000000-0000-4000-8000-000000000011','90000000-0000-4000-8000-000000000012',1000000,'VND',now()+interval '1 day','90000000-0000-4000-8000-000000000013','fixture')`,
+      [group.id],
+    );
+  });
+  await assert.rejects(
+    migrate('automation', databaseUrl(env, 'automation'), files.automation),
+    (error) => error.message === 'PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED',
+  );
+  await db('automation', async (client) => {
+    assert.deepEqual(await history(client, files.automation), ['V001']);
     await client.query('DELETE FROM price_watches');
     await client.query('DELETE FROM price_query_groups');
   });
@@ -283,33 +478,90 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 4, 18, 14]; let fks = 0;
-  for (const [index, service] of services.entries()) await db(service, async client => {
-    assert.equal((await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'")).rows[0].n, counts[index]);
-    fks += (await client.query("SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace")).rows[0].n;
-    assert.deepEqual(await history(client, files[service]), service === 'automation' ? ['V001', 'V002', 'V003', 'V004', 'V005'] : ['trip', 'finance'].includes(service) ? ['V001', 'V002'] : ['V001']);
-  });
-  assert.equal(fks, 52); pass('57 bảng mô hình + 5 lịch sử, 52 FK');
-  await db('trip', async client => {
-    await client.query(await readFile(resolve(root,'apps/trip-workspace-service/tests/database/V002_constraints.sql'),'utf8'));
+  const counts = [8, 18, 4, 18, 14];
+  let fks = 0;
+  for (const [index, service] of services.entries())
+    await db(service, async (client) => {
+      assert.equal(
+        (await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'"))
+          .rows[0].n,
+        counts[index],
+      );
+      fks += (
+        await client.query(
+          "SELECT count(*)::int AS n FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace",
+        )
+      ).rows[0].n;
+      assert.deepEqual(
+        await history(client, files[service]),
+        service === 'automation'
+          ? ['V001', 'V002', 'V003', 'V004', 'V005']
+          : service === 'trip'
+            ? ['V001', 'V002', 'V003']
+            : service === 'finance'
+              ? ['V001', 'V002']
+              : ['V001'],
+      );
+    });
+  assert.equal(fks, 52);
+  pass('57 bảng mô hình + 5 lịch sử, 52 FK');
+  await db('trip', async (client) => {
+    await client.query(
+      await readFile(
+        resolve(root, 'apps/trip-workspace-service/tests/database/V002_constraints.sql'),
+        'utf8',
+      ),
+    );
   });
   pass('V002 normalized pending email and same-Trip acceptance constraints');
+  await db('trip', async (client) => {
+    await client.query(
+      await readFile(
+        resolve(root, 'apps/trip-workspace-service/tests/database/V003_constraints.sql'),
+        'utf8',
+      ),
+    );
+  });
+  pass('V003 date/timestamp exclusivity, calendar bounds and failed-update rollback');
   await db('automation', checkPriceWatchRepository);
-  pass('Automation PriceWatchRepository: idempotency, shared query, version, transition and observations');
-  await db('automation', client => checkPriceWatchWorkerRepository(client, databaseUrl(env, 'automation')));
+  pass(
+    'Automation PriceWatchRepository: idempotency, shared query, version, transition and observations',
+  );
+  await db('automation', (client) =>
+    checkPriceWatchWorkerRepository(client, databaseUrl(env, 'automation')),
+  );
   pass('Automation PriceWatchWorkerRepository: slot, lease, retry, terminal result and expiry');
   stage = 'price-watch-concurrency';
   await checkPriceWatchConcurrency(databaseUrl(env, 'automation'));
-  pass('Automation Price Watch: real deadlock recovery, one provider fetch and dispatch eligibility');
+  pass(
+    'Automation Price Watch: real deadlock recovery, one provider fetch and dispatch eligibility',
+  );
   stage = 'price-alert-repository';
   await db('automation', checkPriceAlertRepository);
   pass('Automation PriceAlertRepository: rule, cooldown, lease, notification and lifecycle');
   await db('automation', checkNotificationRepository);
   pass('Automation NotificationRepository: preference, device isolation, inbox and read state');
-  for (const service of ['identity', 'trip', 'finance']) await db(service, async client => {
-    await client.query(await readFile(resolve(root, 'apps', apps.find(a => a.service === service).name, 'tests/database/V001_constraints.sql'), 'utf8'));
-    if (service === 'trip') await client.query(await readFile(resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'), 'utf8'));
-  });
+  for (const service of ['identity', 'trip', 'finance'])
+    await db(service, async (client) => {
+      await client.query(
+        await readFile(
+          resolve(
+            root,
+            'apps',
+            apps.find((a) => a.service === service).name,
+            'tests/database/V001_constraints.sql',
+          ),
+          'utf8',
+        ),
+      );
+      if (service === 'trip')
+        await client.query(
+          await readFile(
+            resolve(root, 'apps/trip-workspace-service/tests/database/V001_plan_constraints.sql'),
+            'utf8',
+          ),
+        );
+    });
   pass('3 fixture constraint hiện có (ROLLBACK)');
   stage = 'finance-fund-repository';
   await db('finance', checkFundRepository);
@@ -324,112 +576,222 @@ async function main() {
   await db('finance', checkPaymentDestinationRepository);
   pass('Finance PaymentDestinationRepository: đúng Fund/IDs, cấu hình và rollback');
   stage = 'database-isolation';
-  for (const source of services) for (const target of services.filter(s => s !== source)) {
-    const url = new URL(databaseUrl(env, source)); url.pathname = `/${target}_db`;
-    const client = new pg.Client({ connectionString: url.href, connectionTimeoutMillis: 2000 });
-    try { await assert.rejects(client.connect(), error => error.code === '42501'); } finally { await client.end().catch(() => {}); }
-  }
+  for (const source of services)
+    for (const target of services.filter((s) => s !== source)) {
+      const url = new URL(databaseUrl(env, source));
+      url.pathname = `/${target}_db`;
+      const client = new pg.Client({ connectionString: url.href, connectionTimeoutMillis: 2000 });
+      try {
+        await assert.rejects(client.connect(), (error) => error.code === '42501');
+      } finally {
+        await client.end().catch(() => {});
+      }
+    }
   pass('20/20 kết nối chéo database bị PostgreSQL từ chối');
-  await assert.rejects(connectDatabase('identity', databaseUrl(env, 'travel')), /WRONG_DATABASE_OR_ROLE/);
-  const wrongPassword = new URL(databaseUrl(env, 'identity')); wrongPassword.password = 'wrong-password';
-  await assert.rejects(connectDatabase('identity', wrongPassword.href), error => error.code === '28P01');
+  await assert.rejects(
+    connectDatabase('identity', databaseUrl(env, 'travel')),
+    /WRONG_DATABASE_OR_ROLE/,
+  );
+  const wrongPassword = new URL(databaseUrl(env, 'identity'));
+  wrongPassword.password = 'wrong-password';
+  await assert.rejects(
+    connectDatabase('identity', wrongPassword.href),
+    (error) => error.code === '28P01',
+  );
   pass('sai database/role và mật khẩu đều bị chặn');
   stage = 'migration-failure-cases';
-  await db('travel', async client => {
+  await db('travel', async (client) => {
     await client.query('SELECT pg_advisory_lock(1464814674, 1)');
-    try { await assert.rejects(migrate('travel', databaseUrl(env, 'travel'), files.travel, 200), /MIGRATION_LOCK_TIMEOUT/); }
-    finally { await client.query('SELECT pg_advisory_unlock(1464814674, 1)'); }
-  }); pass('runner timeout khi khóa đang bận');
-  await assert.rejects(migrate('travel', databaseUrl(env, 'travel'), [...files.travel, { version: 'V002', sql: "BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('V002'); COMMIT;" }]), error => error.code === '22012');
-  await db('travel', async client => {
-    assert.equal((await client.query("SELECT to_regclass('public.rollback_probe') AS name")).rows[0].name, null);
+    try {
+      await assert.rejects(
+        migrate('travel', databaseUrl(env, 'travel'), files.travel, 200),
+        /MIGRATION_LOCK_TIMEOUT/,
+      );
+    } finally {
+      await client.query('SELECT pg_advisory_unlock(1464814674, 1)');
+    }
+  });
+  pass('runner timeout khi khóa đang bận');
+  await assert.rejects(
+    migrate('travel', databaseUrl(env, 'travel'), [
+      ...files.travel,
+      {
+        version: 'V002',
+        sql: "BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('V002'); COMMIT;",
+      },
+    ]),
+    (error) => error.code === '22012',
+  );
+  await db('travel', async (client) => {
+    assert.equal(
+      (await client.query("SELECT to_regclass('public.rollback_probe') AS name")).rows[0].name,
+      null,
+    );
     assert.deepEqual(await history(client, files.travel), ['V001']);
     await client.query("INSERT INTO schema_migrations(version) VALUES('V999')");
-    try { await assert.rejects(history(client, files.travel), /UNKNOWN_OR_INVALID/); }
-    finally { await client.query("DELETE FROM schema_migrations WHERE version='V999'"); }
+    try {
+      await assert.rejects(history(client, files.travel), /UNKNOWN_OR_INVALID/);
+    } finally {
+      await client.query("DELETE FROM schema_migrations WHERE version='V999'");
+    }
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');
-    try { await assert.rejects(migrate('travel', databaseUrl(env, 'travel'), files.travel), /UNVERSIONED_SCHEMA/); }
-    finally { await client.query('ALTER TABLE saved_migrations RENAME TO schema_migrations'); }
-  }); pass('rollback migration lỗi; từ chối lịch sử lạ và schema chưa đánh phiên bản');
+    try {
+      await assert.rejects(
+        migrate('travel', databaseUrl(env, 'travel'), files.travel),
+        /UNVERSIONED_SCHEMA/,
+      );
+    } finally {
+      await client.query('ALTER TABLE saved_migrations RENAME TO schema_migrations');
+    }
+  });
+  pass('rollback migration lỗi; từ chối lịch sử lạ và schema chưa đánh phiên bản');
 
   stage = 'database-provider';
   const config = databaseConfig({ DATABASE_URL: databaseUrl(env, 'travel') }, 'travel');
   provider = new DatabaseProvider(new pg.Pool(config), config, 'travel');
   await provider.query('CREATE TABLE provider_probe(value bigint, precise numeric)');
-  await provider.withTransaction(client => client.query('INSERT INTO provider_probe VALUES($1,$2)', ['9007199254740993', '12.34']));
-  await assert.rejects(provider.withTransaction(async client => { await client.query('INSERT INTO provider_probe VALUES(2,3)'); throw new Error('rollback'); }));
-  assert.deepEqual((await provider.query('SELECT * FROM provider_probe')).rows, [{ value: '9007199254740993', precise: '12.34' }]);
+  await provider.withTransaction((client) =>
+    client.query('INSERT INTO provider_probe VALUES($1,$2)', ['9007199254740993', '12.34']),
+  );
+  await assert.rejects(
+    provider.withTransaction(async (client) => {
+      await client.query('INSERT INTO provider_probe VALUES(2,3)');
+      throw new Error('rollback');
+    }),
+  );
+  assert.deepEqual((await provider.query('SELECT * FROM provider_probe')).rows, [
+    { value: '9007199254740993', precise: '12.34' },
+  ]);
   assert.equal(provider.pool.totalCount, provider.pool.idleCount);
   pass('provider commit/rollback, bigint/numeric chính xác, trả connection về pool');
   stage = 'app-startup-readiness';
   await launchApps();
-  for (const app of apps.filter(a => a.service)) await health(app, 'ready');
+  for (const app of apps.filter((a) => a.service)) await health(app, 'ready');
   pass('7 liveness, 5 readiness trên cổng thử nghiệm');
   stage = 'missing-migration-readiness';
   for (const service of ['trip', 'finance']) {
-    const app = apps.find(a => a.service === service);
-    await db(service,async client=>{
+    const app = apps.find((a) => a.service === service);
+    await db(service, async (client) => {
       await client.query("DELETE FROM schema_migrations WHERE version='V002'");
-      try {assert.equal((await health(app,'ready',503)).checks.migrations,'missing');}
-      finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V002')");}
+      try {
+        assert.equal((await health(app, 'ready', 503)).checks.migrations, 'missing');
+      } finally {
+        await client.query("INSERT INTO schema_migrations(version) VALUES('V002')");
+      }
     });
-    await health(app,'ready');
+    await health(app, 'ready');
   }
   pass('Trip and Finance require V002, not merely V001, for readiness');
-  const automationApp = apps.find(a => a.service === 'automation');
-  await db('automation',async client=>{
-    await client.query("DELETE FROM schema_migrations WHERE version='V005'");
-    try {assert.equal((await health(automationApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V005')");}
+  await db('trip', async (client) => {
+    await client.query("DELETE FROM schema_migrations WHERE version='V003'");
+    try {
+      assert.equal(
+        (
+          await health(
+            apps.find((a) => a.service === 'trip'),
+            'ready',
+            503,
+          )
+        ).checks.migrations,
+        'missing',
+      );
+    } finally {
+      await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");
+    }
   });
-  await health(automationApp,'ready');
+  await health(
+    apps.find((a) => a.service === 'trip'),
+    'ready',
+  );
+  pass('Trip day-only scheduling requires V003; legacy rows retain NULL dates');
+  const automationApp = apps.find((a) => a.service === 'automation');
+  await db('automation', async (client) => {
+    await client.query("DELETE FROM schema_migrations WHERE version='V005'");
+    try {
+      assert.equal((await health(automationApp, 'ready', 503)).checks.migrations, 'missing');
+    } finally {
+      await client.query("INSERT INTO schema_migrations(version) VALUES('V005')");
+    }
+  });
+  await health(automationApp, 'ready');
   pass('Automation requires V005 for readiness');
-  const travel = apps.find(a => a.service === 'travel');
-  await db('travel', async client => {
+  const travel = apps.find((a) => a.service === 'travel');
+  await db('travel', async (client) => {
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');
-    try { assert.equal((await health(travel, 'ready', 503)).checks.migrations, 'missing'); }
-    finally { await client.query('ALTER TABLE saved_migrations RENAME TO schema_migrations'); }
-  }); pass('thiếu migration trả HTTP 503');
+    try {
+      assert.equal((await health(travel, 'ready', 503)).checks.migrations, 'missing');
+    } finally {
+      await client.query('ALTER TABLE saved_migrations RENAME TO schema_migrations');
+    }
+  });
+  pass('thiếu migration trả HTTP 503');
   stage = 'paused-database-readiness';
   await docker(['pause', 'postgres']);
   try {
     await Promise.all(Array.from({ length: 10 }, () => health(travel, 'ready', 503)));
     await health(travel, 'live');
-  } finally { await docker(['unpause', 'postgres']); }
+  } finally {
+    await docker(['unpause', 'postgres']);
+  }
   pass('DB treo: 10 readiness đồng thời hoàn tất <3 giây, liveness vẫn sống');
   stage = 'database-outage-readiness';
-  await provider.onApplicationShutdown(); provider = undefined;
+  await provider.onApplicationShutdown();
+  provider = undefined;
   console.log('db:test: cố ý dừng PostgreSQL để kiểm tra outage/recovery.');
   await docker(['stop', 'postgres']);
-  for (const app of apps.filter(a => a.service)) await health(app, 'ready', 503);
+  for (const app of apps.filter((a) => a.service)) await health(app, 'ready', 503);
   stage = 'database-restart';
   await startTestService(project, 'postgres');
   await waitForDatabase('identity');
   stage = 'database-recovery-readiness';
-  for (const app of apps.filter(a => a.service)) await health(app, 'ready');
-  await db('travel', async client => {
-    assert.equal((await client.query('SELECT count(*)::int AS n FROM provider_probe')).rows[0].n, 1);
+  for (const app of apps.filter((a) => a.service)) await health(app, 'ready');
+  await db('travel', async (client) => {
+    assert.equal(
+      (await client.query('SELECT count(*)::int AS n FROM provider_probe')).rows[0].n,
+      1,
+    );
     await client.query('DROP TABLE provider_probe');
-  }); pass('DB stop/start: 503 → 200, dữ liệu còn nguyên');
+  });
+  pass('DB stop/start: 503 → 200, dữ liệu còn nguyên');
   console.log(`PASS ${checks} nhóm kiểm thử database tích hợp.`);
 }
 
-try { await main(); }
-catch (error) {
-  console.error(`FAIL db:test [${stage}]:`, safeError(error), error instanceof assert.AssertionError ? error.message : '');
+try {
+  await main();
+} catch (error) {
+  console.error(
+    `FAIL db:test [${stage}]:`,
+    safeError(error),
+    error instanceof assert.AssertionError ? error.message : '',
+  );
   reportAppDiagnostics();
   await reportDockerDiagnostics();
   process.exitCode = 1;
-}
-finally {
-  await Promise.all(children.map(child => new Promise(resolve => {
-    if (child.exitCode !== null || child.signalCode !== null) { resolve(); return; }
-    const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
-    child.once('exit', () => { clearTimeout(timer); resolve(); });
-    if (child.connected) child.send('shutdown'); else child.kill();
-  })));
+} finally {
+  await Promise.all(
+    children.map(
+      (child) =>
+        new Promise((resolve) => {
+          if (child.exitCode !== null || child.signalCode !== null) {
+            resolve();
+            return;
+          }
+          const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+          child.once('exit', () => {
+            clearTimeout(timer);
+            resolve();
+          });
+          if (child.connected) child.send('shutdown');
+          else child.kill();
+        }),
+    ),
+  );
   await provider?.onApplicationShutdown();
   // Only destroy the unique project generated by this invocation.
-  if (created && /^wolfari-test-[a-f0-9]{12}$/.test(project)) await docker(['down', '--volumes']).catch(() => { console.error(`Không dọn được project thử nghiệm ${project}.`); process.exitCode = 1; });
+  if (created && /^wolfari-test-[a-f0-9]{12}$/.test(project))
+    await docker(['down', '--volumes']).catch(() => {
+      console.error(`Không dọn được project thử nghiệm ${project}.`);
+      process.exitCode = 1;
+    });
   if (directory) await rm(directory, { recursive: true, force: true });
 }

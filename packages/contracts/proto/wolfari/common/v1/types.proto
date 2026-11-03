@@ -81,6 +81,7 @@ message Membership {
   MembershipRole role = 4;
   google.protobuf.Timestamp joined_at = 5;
   google.protobuf.Timestamp left_at = 6;
+  optional string display_name = 7; // Authorized ListMembers enrichment, never email.
 }
 message AccessContext {
   string trip_id = 1;

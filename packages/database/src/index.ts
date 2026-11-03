@@ -1,4 +1,15 @@
-import { Controller, DynamicModule, Get, Header, Inject, Injectable, Logger, Module, OnApplicationShutdown, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  DynamicModule,
+  Get,
+  Header,
+  Inject,
+  Injectable,
+  Logger,
+  Module,
+  OnApplicationShutdown,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { currentCorrelationId } from '@wolfari/common';
 import { Pool, PoolClient, PoolConfig, QueryResultRow } from 'pg';
@@ -8,15 +19,33 @@ const DATABASE_OPTIONS = Symbol('DATABASE_OPTIONS');
 const DATABASE_NAME = Symbol('DATABASE_NAME');
 export const DATABASE_POOL = Symbol('DATABASE_POOL');
 
-export function databaseConfig(values: Record<string, unknown>, service: DatabaseServiceName): PoolConfig {
+export function databaseConfig(
+  values: Record<string, unknown>,
+  service: DatabaseServiceName,
+): PoolConfig {
   let url: URL;
-  try { url = new URL(String(values.DATABASE_URL ?? '')); } catch { throw new Error('DATABASE_URL không hợp lệ.'); }
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.pathname !== `/${service}_db` || decodeURIComponent(url.username) !== `${service}_app` || !url.password || !url.hostname || url.search || url.hash) {
-    throw new Error(`DATABASE_URL phải trỏ tới ${service}_db bằng ${service}_app, không có query/fragment.`);
+  try {
+    url = new URL(String(values.DATABASE_URL ?? ''));
+  } catch {
+    throw new Error('DATABASE_URL không hợp lệ.');
+  }
+  if (
+    !['postgres:', 'postgresql:'].includes(url.protocol) ||
+    url.pathname !== `/${service}_db` ||
+    decodeURIComponent(url.username) !== `${service}_app` ||
+    !url.password ||
+    !url.hostname ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error(
+      `DATABASE_URL phải trỏ tới ${service}_db bằng ${service}_app, không có query/fragment.`,
+    );
   }
   const integer = (key: string, fallback: number, max: number) => {
     const raw = String(values[key] ?? fallback);
-    if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > max) throw new Error(`${key} không hợp lệ.`);
+    if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > max)
+      throw new Error(`${key} không hợp lệ.`);
     return Number(raw);
   };
   return {
@@ -50,8 +79,16 @@ export class DatabaseProvider implements OnApplicationShutdown {
     @Inject(DATABASE_NAME) private readonly name: DatabaseServiceName,
   ) {
     // A single separate probe connection avoids readiness queuing behind business transactions.
-    this.probe = new Pool({ ...options, max: 1, connectionTimeoutMillis: 800, statement_timeout: 700, query_timeout: 800, idleTimeoutMillis: 1000 });
-    for (const pool of [this.pool, this.probe]) pool.on('error', () => this.logger.warn('DATABASE_CONNECTION_ERROR'));
+    this.probe = new Pool({
+      ...options,
+      max: 1,
+      connectionTimeoutMillis: 800,
+      statement_timeout: 700,
+      query_timeout: 800,
+      idleTimeoutMillis: 1000,
+    });
+    for (const pool of [this.pool, this.probe])
+      pool.on('error', () => this.logger.warn('DATABASE_CONNECTION_ERROR'));
   }
 
   query<T extends QueryResultRow = QueryResultRow>(text: string, values: unknown[] = []) {
@@ -67,15 +104,24 @@ export class DatabaseProvider implements OnApplicationShutdown {
       await client.query('COMMIT');
       return result;
     } catch (error) {
-      try { await client.query('ROLLBACK'); } catch { broken = true; }
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        broken = true;
+      }
       throw error;
-    } finally { client.release(broken); }
+    } finally {
+      client.release(broken);
+    }
   }
 
   async readiness(): Promise<Readiness> {
     // Concurrent probes share one bounded attempt. Never leave timed-out queries in a queue.
-    if (!this.pendingProbe) this.pendingProbe = this.check().finally(() => { this.pendingProbe = undefined; });
-    return { ...await this.pendingProbe, correlation_id: currentCorrelationId() };
+    if (!this.pendingProbe)
+      this.pendingProbe = this.check().finally(() => {
+        this.pendingProbe = undefined;
+      });
+    return { ...(await this.pendingProbe), correlation_id: currentCorrelationId() };
   }
 
   private async check(): Promise<Omit<Readiness, 'correlation_id'>> {
@@ -84,20 +130,45 @@ export class DatabaseProvider implements OnApplicationShutdown {
     try {
       client = await this.probe.connect();
       const identity = await client.query('SELECT current_database() AS db, current_user AS role');
-      if (identity.rows[0]?.db === `${this.name}_db` && identity.rows[0]?.role === `${this.name}_app`) {
+      if (
+        identity.rows[0]?.db === `${this.name}_db` &&
+        identity.rows[0]?.role === `${this.name}_app`
+      ) {
         checks.database = 'up';
-        const required = this.name === 'automation' ? ['V001', 'V002', 'V003', 'V004', 'V005'] : ['trip', 'finance'].includes(this.name) ? ['V001', 'V002'] : ['V001'];
-        const migrations = await client.query('SELECT version FROM public.schema_migrations WHERE version=ANY($1::text[])', [required]);
+        const required =
+          this.name === 'automation'
+            ? ['V001', 'V002', 'V003', 'V004', 'V005']
+            : this.name === 'trip'
+              ? ['V001', 'V002', 'V003']
+              : this.name === 'finance'
+                ? ['V001', 'V002']
+                : ['V001'];
+        const migrations = await client.query(
+          'SELECT version FROM public.schema_migrations WHERE version=ANY($1::text[])',
+          [required],
+        );
         checks.migrations = migrations.rowCount === required.length ? 'up' : 'missing';
       }
     } catch (error) {
-      if ((error as { code?: string }).code === '42P01') { checks.database = 'up'; checks.migrations = 'missing'; }
+      if ((error as { code?: string }).code === '42P01') {
+        checks.database = 'up';
+        checks.migrations = 'missing';
+      }
     } finally {
       // Destroy the probe socket, including on timeout, cancelling any pending server work.
       client?.release(true);
     }
-    const service = this.name === 'trip' ? 'trip-workspace-service' : this.name === 'travel' ? 'travel-intelligence-service' : `${this.name}-service`;
-    return { status: checks.database === 'up' && checks.migrations === 'up' ? 'ok' : 'error', service, checks };
+    const service =
+      this.name === 'trip'
+        ? 'trip-workspace-service'
+        : this.name === 'travel'
+          ? 'travel-intelligence-service'
+          : `${this.name}-service`;
+    return {
+      status: checks.database === 'up' && checks.migrations === 'up' ? 'ok' : 'error',
+      service,
+      checks,
+    };
   }
 
   async onApplicationShutdown(): Promise<void> {
@@ -125,8 +196,28 @@ export class DatabaseModule {
       module: DatabaseModule,
       providers: [
         { provide: DATABASE_NAME, useValue: service },
-        { provide: DATABASE_OPTIONS, inject: [ConfigService], useFactory: (config: ConfigService) => databaseConfig(Object.fromEntries(['DATABASE_URL', 'DATABASE_POOL_MAX', 'DATABASE_CONNECT_TIMEOUT_MS', 'DATABASE_IDLE_TIMEOUT_MS', 'DATABASE_STATEMENT_TIMEOUT_MS'].map(key => [key, config.get(key)])), service) },
-        { provide: DATABASE_POOL, inject: [DATABASE_OPTIONS], useFactory: (options: PoolConfig) => new Pool(options) },
+        {
+          provide: DATABASE_OPTIONS,
+          inject: [ConfigService],
+          useFactory: (config: ConfigService) =>
+            databaseConfig(
+              Object.fromEntries(
+                [
+                  'DATABASE_URL',
+                  'DATABASE_POOL_MAX',
+                  'DATABASE_CONNECT_TIMEOUT_MS',
+                  'DATABASE_IDLE_TIMEOUT_MS',
+                  'DATABASE_STATEMENT_TIMEOUT_MS',
+                ].map((key) => [key, config.get(key)]),
+              ),
+              service,
+            ),
+        },
+        {
+          provide: DATABASE_POOL,
+          inject: [DATABASE_OPTIONS],
+          useFactory: (options: PoolConfig) => new Pool(options),
+        },
         DatabaseProvider,
       ],
       controllers: [ReadinessController],

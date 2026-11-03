@@ -11,6 +11,7 @@ export interface PlanVersion {
 }
 export interface AccessRow {
   id: string;
+  timezone: string;
   start_at: DbTime;
   end_at: DbTime;
   plan_edit_policy: PlanPolicy;
@@ -31,6 +32,7 @@ export interface ActivityRow {
   selected_location_id: string | null;
   starts_at: DbTime | null;
   ends_at: DbTime | null;
+  scheduled_date: string | null;
   position: number;
   status: ActivityStatus;
   source: EntitySource;
@@ -87,14 +89,14 @@ export type PlanView = PlanVersion & {
   permissions: { can_read: boolean; can_edit: boolean; can_complete: boolean };
 };
 
-export const ACCESS_SQL = `SELECT t.id,t.start_at,t.end_at,t.plan_edit_policy,t.plan_version,
+export const ACCESS_SQL = `SELECT t.id,t.start_at,t.end_at,t.timezone,t.plan_edit_policy,t.plan_version,
   t.export_revision,t.archived_at,m.id AS membership_id,m.role,
   EXISTS (SELECT 1 FROM trip_plan_editors e
           WHERE e.trip_id=t.id AND e.trip_member_id=m.id) AS selected_editor
   FROM trips t JOIN trip_members m ON m.trip_id=t.id AND m.user_id=$2 AND m.left_at IS NULL
   WHERE t.id=$1 AND t.deleted_at IS NULL`;
 export const ACTIVITY_COLUMNS = `id,trip_id,title,description,public_description,activity_type,
-  selected_location_id,starts_at,ends_at,position,status,source,
+  selected_location_id,starts_at,ends_at,to_char(scheduled_date,'YYYY-MM-DD') AS scheduled_date,position,status,source,
   completed_by_user_id,completed_at,created_by_user_id`;
 export const LOCATION_METADATA_KEYS: readonly string[] = [];
 const time = (value: DbTime | null) => (value === null ? null : iso(value));

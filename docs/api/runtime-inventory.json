@@ -1,0 +1,572 @@
+{
+  "version": 1,
+  "scope": "Reviewed OpenAPI inventory and Gateway routing-source fingerprints; executable Plan/Fund coverage in demo1-openapi.test.ts. Not proof that all target SRS APIs exist.",
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/closures",
+      "document": "finance-closures.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/closures",
+      "document": "finance-closures.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/closures/{id}",
+      "document": "finance-closures.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/closures/{id}/confirm",
+      "document": "finance-closures.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/closures/{id}/cancel",
+      "document": "finance-closures.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/closures/{id}/remind",
+      "document": "finance-closures.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/contribution-requests",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/contribution-requests",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/contributions",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/funds/{id}/contribution-requests/{id}",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/contributions/{id}",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/contributions/{id}/waive",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/contributions/{id}/cancel",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/contributions/{id}/reverse",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/contributions/{id}/report-transfer",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/contributions/{id}/confirm-received",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/contributions/{id}/reject-transfer",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/contributions/{id}/vietqr",
+      "document": "finance-contributions.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/expenses",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/expenses",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/expenses/{id}",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/expenses/{id}",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/expenses/{id}/submit",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/expenses/{id}/withdraw",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/expenses/{id}/confirm",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/expenses/{id}/reject",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/expenses/{id}/reverse",
+      "document": "finance-expenses.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/fund",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/fund",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/funds/{id}/budget",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/destinations",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/destinations",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/destinations/{id}/confirm",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/funds/{id}/destinations/{id}",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/transactions",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/notes",
+      "document": "finance-notes.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/notes",
+      "document": "finance-notes.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/notes/{id}",
+      "document": "finance-notes.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/notes/{id}",
+      "document": "finance-notes.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/contributions/{id}/payment-attempts",
+      "document": "finance-payments.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/payment-attempts/{id}",
+      "document": "finance-payments.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payment-attempts/{id}/reconcile",
+      "document": "finance-payments.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/webhooks/momo",
+      "document": "finance-payments.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/payment-exceptions",
+      "document": "finance-payments.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payment-exceptions/{id}/resolve",
+      "document": "finance-payments.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/receipts",
+      "document": "finance-receipts.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/receipts/download",
+      "document": "finance-receipts.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/refunds",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/refunds",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/refunds/{id}/report-paid",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/refunds/{id}/confirm-received",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/refunds/{id}/confirm-nonreceipt",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/refunds/{id}/cancel",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/refunds/{id}/request-reversal",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/refunds/{id}/consent-reversal",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/refunds/{id}/reverse",
+      "document": "finance-refunds.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/csrf",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/refresh",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/email-verifications",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/email-verifications/confirm",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/password-reset-requests",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/password-resets",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/local/{id}",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/me",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/password-change",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/sessions",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/me/sessions/{id}",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/avatar",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/avatar",
+      "document": "identity.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/notification-preferences",
+      "document": "notification.openapi.yaml"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/me/notification-preferences",
+      "document": "notification.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/me/devices",
+      "document": "notification.openapi.yaml"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/me/devices/{id}",
+      "document": "notification.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/notifications",
+      "document": "notification.openapi.yaml"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/me/notifications/{id}/read",
+      "document": "notification.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/plan",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/activities",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}/activities/{id}",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}/activities/{id}",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/trips/{id}/activities/order",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}/activities/{id}/completion",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/price-watches",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/price-watches",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/price-watches/{id}",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/price-watches/{id}/pause",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/price-watches/{id}/resume",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/price-watches/{id}/stop",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/price-watches/{id}/observations",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips",
+      "document": "trip-core.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips",
+      "document": "trip-core.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}",
+      "document": "trip-core.openapi.yaml"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}",
+      "document": "trip-core.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/plan-policy",
+      "document": "trip-core.openapi.yaml"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/trips/{id}/plan-policy",
+      "document": "trip-core.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/invitations",
+      "document": "trip-invitations.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/invitations",
+      "document": "trip-invitations.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/invitations/preview",
+      "document": "trip-invitations.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/invitations/accept",
+      "document": "trip-invitations.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/invitations/decline",
+      "document": "trip-invitations.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/invitations/{id}/revoke",
+      "document": "trip-invitations.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/invitations/{id}/resend",
+      "document": "trip-invitations.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/members",
+      "document": "trip-member-lifecycle.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/leave",
+      "document": "trip-member-lifecycle.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}/members/{id}",
+      "document": "trip-member-lifecycle.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/operations/{id}",
+      "document": "trip-member-lifecycle.openapi.json"
+    }
+  ],
+  "sources": {
+    "closure-http.ts": "4b33519f1171da5257d7dcef51cef0bb2dadbd0674098ac4680a32539557e74b",
+    "contribution-management-http.ts": "878b3c3ca8e32464bc3df9c30be96fcccf821781b5056941d2fad967d2003ad8",
+    "contribution-request-http.ts": "a9826e6602fa0f62e361741874d7d65ed50e2daf27eeb0784c7616d09d0af77b",
+    "expense-http.ts": "f11c8b19eb5519e72abae6a0490ceeb3ca6b90a73c73eb05e93e32b527261d43",
+    "finance-proxy.ts": "0292d93815521b4d78ab9b18aa75719aa2cab86a7784252b1851a0261a0d2d66",
+    "finance-receipt-http.ts": "dce37b44b049043cdfad2455d9b427b71aac3e5086341b93c883193187d39131",
+    "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
+    "identity-proxy.ts": "aed3d05b7d84f09f71a8442736b1a0e0b7b3e0c26c874af966a59f270f39e719",
+    "invitation-proxy.ts": "22c866198e0e1625ca5f191525b105dff506ce00bc0a8bd124ec1b3ede59355a",
+    "membership-proxy.ts": "dc907460ee56e0b4427dd3c40e2c15749fa6afe7719ecea1d8e6e0c8f689af9b",
+    "notification-proxy.ts": "fdf5b40a624f8d5f0e3f81bc1e98ea3b15d6493558f8751cd4dd5f49281d67a1",
+    "payment-http.ts": "76406a92b30b302355a5bef52d03beaf5fedab27e99989aeeecb54c47e116c35",
+    "payment-instruction-http.ts": "003535cf5ec6effb1dd6e9d5ad9d4510f2171eef7003ee2864aa49d6001949ac",
+    "plan-proxy.ts": "71f6653f0ddbc75857649e308339921c65cf27ad07ff5e2bcfe553aecb600a08",
+    "price-watch-proxy.ts": "9a6b71ebc0a6be9c8ba59ed512ac297f8877f03e21ba109534e1b76eedbef168",
+    "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
+    "refund-http.ts": "5c01cbf2a574619b2a601682d750e5234e58f9de959466c5f271831d21dfba1d",
+    "trip-http.ts": "2459aeba43239285b50093e9ff93f46e0706e03f5415eb90e29b86bc6feeb246",
+    "trip-proxy.ts": "33c71118e4489cebd1fcbd18ae953340e2b451933a513c5d697abe59b914e0e5"
+  }
+}
