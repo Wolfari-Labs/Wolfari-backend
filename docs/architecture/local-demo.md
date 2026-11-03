@@ -6,6 +6,51 @@
 
 `corepack pnpm demo:acceptance` build và kiểm thử API5 actor bằng hạ tầng riêng, tự dọn tài nguyên test; không cần demo đang chạy. Operation202/timeout/NEEDS_REVIEW xử lý theo [runbook](demo-1-addendum-v1.0.md#6-seedaccount-và-operation-recovery); retry CLI phải dùng `--demo` để tránh chọn development.
 
+## Phạm vi
+
+Demo dùng Compose project `wolfari-demo`, credentials, database và volumes riêng. Docker chạy PostgreSQL/RabbitMQ/MinIO/Mailpit; bảy ứng dụng NestJS và Web chạy native Node. Không sửa `.env` hoặc dữ liệu development project `wolfari`. Mobile và production chưa thuộc đợt này.
+
+Sơ đồ luồng thực thi: browser → Web proxy `/api/v1` → Gateway → Identity HTTP/gRPC hoặc Trip/Finance/Automation gRPC. Identity/Trip outbox → RabbitMQ → Automation → Mailpit/notification. Mỗi service chỉ kết nối database do mình sở hữu. Gateway không có credential database.
+
+## Chuẩn bị và khởi động
+
+Node.js 24.x, Corepack, pnpm 10.34.5 và Docker Desktop Linux engine. Clone Backend/Web cạnh nhau; chạy lệnh trong từng repository để Corepack dùng đúng bản pnpm. Lần đầu cần mạng để tải dependencies và Docker images/build MinIO.
+
+Terminal 1 tại `Wolfari-backend`:
+
+```powershell
+corepack pnpm install --frozen-lockfile
+corepack pnpm demo:init
+corepack pnpm demo:start
+```
+
+`demo:init` sinh `.local/demo/` từ các template hiện có, không đọc secrets development. Chạy lại giữ nguyên secrets/config; cấu hình không khớp báo lỗi thay vì tự sửa. `demo:start` kiểm tra ownership/cổng, bật Compose, kiểm tra hạ tầng, áp dụng migration rồi build/chạy launcher **không hot reload**. Terminal giữ mở. Restart demo để nhận thay đổi source. Điều này tránh việc contract generation/unit tests kích hoạt restart giữa kịch bản demo; `pnpm dev` development vẫn có hot reload. Một app thoát bất thường sẽ dừng các app cùng launcher.
+
+Terminal 2 tại Backend:
+
+```powershell
+corepack pnpm demo:check
+corepack pnpm demo:seed
+```
+
+`demo:check` đợi health tối đa90 giây sau kiểm tra hạ tầng, rồi broker/SMTP tối đa15 giây. Mọi service dùng V001; Trip thêm V002–V003, Finance thêm V002; Automation thêm V002–V005. Readiness không thay thế nghiệm thu liên service. Không chạy `db:migrate` thông thường để migrate demo: lệnh đó vẫn phục vụ development.
+
+Terminal 3 tại `Wolfari-web`:
+
+```powershell
+corepack pnpm install --frozen-lockfile
+corepack pnpm demo:dev
+```
+
+Mở http://localhost:5273/login?returnTo=%2Ftrips. Khi cần bản build, Ctrl+C Web dev rồi:
+
+```powershell
+corepack pnpm demo:build
+corepack pnpm demo:preview
+```
+
+Không chạy dev và preview đồng thời trên 5273. Web demo luôn dùng Gateway, output `dist-demo/` riêng. `vite preview` chỉ phục vụ nghiệm thu local.
+
 ## Demo kiểm thử Quỹ và Price Watch bằng Backend
 
 Chạy từ thư mục backend với Node 24, Corepack và Docker Desktop Linux. Trên máy mới cài dependencies bằng `corepack pnpm install --frozen-lockfile`. Terminal thứ nhất giữ backend chạy.
@@ -63,51 +108,6 @@ Quyên dùng bản native Wolfari Mobile có package `com.tanthanh_67.Wolfarimob
 1. Chạy `maestro test scripts/android/AND04.yaml`. Flow yêu cầu quyền camera, chọn từ chối tại hộp thoại Android, mở cách dán, đọc vector TEST và đối chiếu màn hình kiểm tra với **180.000 ₫**. Để nghiệm thu thao tác dán của hệ điều hành, sao chép đúng vector trong YAML vào clipboard điện thoại và lặp lại bằng nhấn giữ → Dán. Lệnh [pasteText của Maestro](https://docs.maestro.dev/reference/commands-available/pastetext) dùng clipboard nội bộ của công cụ.
 2. Đóng bảng quét, giữ camera bị từ chối, chạy `maestro test scripts/android/AND05.yaml`. Chuỗi chỉ khác ký tự CRC cuối (E → F). Ứng dụng phải hiện “Mã kiểm tra QR không khớp” và không hiển thị màn hình số tiền.
 3. Trước và sau mỗi ca, đối chiếu cùng số dư và sổ quỹ trên tài khoản TEST, ghi commit mobile, model máy, phiên bản Android, ngày và bằng chứng của lượt chạy. Luồng này chỉ đọc mã. Không mở ứng dụng ngân hàng hay thực hiện chuyển tiền. Chỉ điền Round sau khi chạy thật.
-
-## Phạm vi
-
-Demo dùng Compose project `wolfari-demo`, credentials, database và volumes riêng. Docker chạy PostgreSQL/RabbitMQ/MinIO/Mailpit; bảy ứng dụng NestJS và Web chạy native Node. Không sửa `.env` hoặc dữ liệu development project `wolfari`. Mobile và production chưa thuộc đợt này.
-
-Sơ đồ luồng thực thi: browser → Web proxy `/api/v1` → Gateway → Identity HTTP/gRPC hoặc Trip/Finance/Automation gRPC. Identity/Trip outbox → RabbitMQ → Automation → Mailpit/notification. Mỗi service chỉ kết nối database do mình sở hữu. Gateway không có credential database.
-
-## Chuẩn bị và khởi động
-
-Node.js 24.x, Corepack, pnpm 10.34.5 và Docker Desktop Linux engine. Clone Backend/Web cạnh nhau; chạy lệnh trong từng repository để Corepack dùng đúng bản pnpm. Lần đầu cần mạng để tải dependencies và Docker images/build MinIO.
-
-Terminal 1 tại `Wolfari-backend`:
-
-```powershell
-corepack pnpm install --frozen-lockfile
-corepack pnpm demo:init
-corepack pnpm demo:start
-```
-
-`demo:init` sinh `.local/demo/` từ các template hiện có, không đọc secrets development. Chạy lại giữ nguyên secrets/config; cấu hình không khớp báo lỗi thay vì tự sửa. `demo:start` kiểm tra ownership/cổng, bật Compose, kiểm tra hạ tầng, áp dụng migration rồi build/chạy launcher **không hot reload**. Terminal giữ mở. Restart demo để nhận thay đổi source. Điều này tránh việc contract generation/unit tests kích hoạt restart giữa kịch bản demo; `pnpm dev` development vẫn có hot reload. Một app thoát bất thường sẽ dừng các app cùng launcher.
-
-Terminal 2 tại Backend:
-
-```powershell
-corepack pnpm demo:check
-corepack pnpm demo:seed
-```
-
-`demo:check` đợi health tối đa90 giây sau kiểm tra hạ tầng, rồi broker/SMTP tối đa15 giây. Mọi service dùng V001; Trip thêm V002–V003, Finance thêm V002; Automation thêm V002–V005. Readiness không thay thế nghiệm thu liên service. Không chạy `db:migrate` thông thường để migrate demo: lệnh đó vẫn phục vụ development.
-
-Terminal 3 tại `Wolfari-web`:
-
-```powershell
-corepack pnpm install --frozen-lockfile
-corepack pnpm demo:dev
-```
-
-Mở http://localhost:5273/login?returnTo=%2Ftrips. Khi cần bản build, Ctrl+C Web dev rồi:
-
-```powershell
-corepack pnpm demo:build
-corepack pnpm demo:preview
-```
-
-Không chạy dev và preview đồng thời trên 5273. Web demo luôn dùng Gateway, output `dist-demo/` riêng. `vite preview` chỉ phục vụ nghiệm thu local.
 
 ## Cổng và cách ly
 
