@@ -161,9 +161,19 @@ export async function runPriceWatchTests({
     bearer(firstOwner),
   );
   assert.equal(resumed.status, 200);
+  const stopPath = `/api/v1/price-watches/${first.body.data.id}`;
+  assert.equal((await request(stopPath, 'DELETE', {}, bearer(firstOwner))).status, 400);
+  assert.equal(
+    (await request(stopPath, 'DELETE', { expected_version: 4 }, bearer(outsider))).status,
+    404,
+  );
+  assert.equal(
+    (await request(stopPath, 'DELETE', { expected_version: 3 }, bearer(firstOwner))).status,
+    409,
+  );
   const stopped = await request(
-    `/api/v1/price-watches/${first.body.data.id}/stop`,
-    'POST',
+    stopPath,
+    'DELETE',
     {
       expected_version: 4,
     },
@@ -171,6 +181,17 @@ export async function runPriceWatchTests({
   );
   assert.equal(stopped.status, 200);
   assert.equal(stopped.body.data.status, 'STOPPED');
+  assert.equal(
+    (
+      await request(
+        stopPath + '/stop',
+        'POST',
+        { expected_version: stopped.body.data.version },
+        bearer(firstOwner),
+      )
+    ).status,
+    409,
+  );
   assert.equal(
     (
       await request(

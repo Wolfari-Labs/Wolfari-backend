@@ -325,7 +325,7 @@ export async function runDemoScenarios(demo, command) {
         currency: 'VND',
         destination: {
           destination_type: 'VIETQR',
-          bank_code: 'TEST',
+          bank_code: command === 'finance-price-watch' ? 'VCB' : 'TEST',
           account_number: '000987654321',
           account_name: 'DEMO ONLY - NOT A REAL ACCOUNT',
           active: true,

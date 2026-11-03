@@ -309,6 +309,19 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
   /price-watches/{watch_id}:
     parameters: [{ $ref: '#/components/parameters/WatchId' }]
+    delete:
+      operationId: stopPriceWatchById
+      description: API138. Stop the watch and retain its observation history.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VersionCommand' } } }
+      responses:
+        '200': { $ref: '#/components/responses/WatchOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
     patch:
       operationId: updatePriceWatch
       requestBody:

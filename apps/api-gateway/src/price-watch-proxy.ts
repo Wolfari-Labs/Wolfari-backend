@@ -45,6 +45,7 @@ export function priceWatchRoute(method: string, path: string): Route | null {
   if (!uuid.test(match[1]!)) throw new RequestError('Invalid watch id');
   const action = match[2];
   if (!action && method === 'PATCH') return { kind: 'update', watchId: match[1]!.toLowerCase() };
+  if (!action && method === 'DELETE') return { kind: 'stop', watchId: match[1]!.toLowerCase() };
   if (action === 'observations' && method === 'GET')
     return { kind: 'observations', watchId: match[1]!.toLowerCase() };
   if (action && action !== 'observations' && method === 'POST')

@@ -6,7 +6,7 @@ const trip = '11111111-1111-4111-8111-111111111111';
 const watch = '22222222-2222-4222-8222-222222222222';
 
 describe('price watch HTTP boundary', () => {
-  it('maps only the seven declared routes', () => {
+  it('maps API138 DELETE and the existing stop action to the same command', () => {
     expect(priceWatchRoute('POST', `/api/v1/trips/${trip}/price-watches`)).toEqual({
       kind: 'create',
       tripId: trip,
@@ -27,7 +27,10 @@ describe('price watch HTTP boundary', () => {
       kind: 'observations',
       watchId: watch,
     });
-    expect(priceWatchRoute('DELETE', `/api/v1/price-watches/${watch}`)).toBeNull();
+    const stop = { kind: 'stop', watchId: watch };
+    expect(priceWatchRoute('DELETE', `/api/v1/price-watches/${watch}`)).toEqual(stop);
+    expect(priceWatchRoute('POST', `/api/v1/price-watches/${watch}/stop`)).toEqual(stop);
+    expect(priceWatchRoute('DELETE', `/api/v1/price-watches/${watch}/observations`)).toBeNull();
   });
 
   it('creates the complete protobuf write shape', () => {

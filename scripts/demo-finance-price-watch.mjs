@@ -58,10 +58,35 @@ export async function demonstrateFund({ actors, fundBase, getFund, destinationId
     expected_finance_version: (await getFund()).finance_version,
   });
   const path = (id, action) => '/api/v1/contributions/' + id + '/' + action;
+  const instructionPath = path(first.id, 'vietqr');
+  const instruction = await read(instructionPath, member);
+  assert.equal(instruction.contribution_id, first.id);
+  assert.equal(instruction.environment, 'TEST');
+  assert.equal(instruction.currency, 'VND');
+  assert.equal(instruction.amount, first.amount);
+  assert.equal(instruction.bank_bin, '970436');
+  assert.match(instruction.reference, /^[0-9A-Z]{25}$/);
+  const qr = new URL(instruction.qr_url);
+  assert.equal(qr.origin, 'https://img.vietqr.io');
+  assert.equal(qr.searchParams.get('amount'), first.amount);
+  assert.equal(qr.searchParams.get('addInfo'), instruction.reference);
+  for (const other of [owner, holder, actors.outsider]) {
+    await api(instructionPath, 'GET', undefined, other, undefined, [404]);
+  }
+  assert.equal((await contribution(first.id)).status, 'PENDING');
+  assert.equal(await balance(), '0');
+  assert.equal((await ledger()).length, 0);
+  pass('VietQR API086 – Xem hướng dẫn TEST của chính mình, giữ nguyên quỹ', {
+    amount: instruction.amount,
+    currency: instruction.currency,
+    balance: '0',
+    entries: 0,
+  });
   const report = async (id, actor) =>
     financeWrite(path(id, 'report-transfer'), await versions(id), actor);
   await report(first.id, member);
   assert.equal((await contribution(first.id)).status, 'TRANSFER_REPORTED');
+  await api(instructionPath, 'GET', undefined, member, undefined, [409]);
   assert.equal(await balance(), '0');
   assert.equal((await ledger()).length, 0);
   pass('API02 – Báo chuyển chưa làm tăng số dư', { balance: '0', entries: 0 });
@@ -261,7 +286,7 @@ export async function demonstratePriceWatch({ actors, base, demo, pass }) {
   });
   const resumed = (await action('resume', paused.version)).data;
   assert.equal(resumed.status, 'ACTIVE');
-  const stopped = (await action('stop', resumed.version)).data;
+  const stopped = (await api(route, 'DELETE', { expected_version: resumed.version }, owner)).data;
   assert.equal(stopped.status, 'STOPPED');
   await action('resume', stopped.version, [409]);
   pass('API10 – Pause, resume, stop và từ chối resume sau stop', {

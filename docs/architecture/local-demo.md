@@ -22,6 +22,7 @@ Mỗi lượt `demo:finance-price-watch` dùng lại tài khoản TEST, tạo Tr
 | Ca | Thao tác và bằng chứng cần mở |
 | --- | --- |
 | API01–03 | Owner lập đợt thu 200.000 và 300.000 VND. Member báo khoản đầu. Khi Holder từ chối, lý do được lưu, khoản trở về PENDING, sổ quỹ vẫn trống. |
+| VietQR API086 | Trước khi báo chuyển, Member đọc hướng dẫn TEST cho khoản 200.000 VND của mình. Demo đối chiếu số tiền, mã tham chiếu và URL QuickLink ngay trên máy, kiểm tra người khác bị 404, số dư và sổ quỹ giữ nguyên. Sau khi báo chuyển, yêu cầu cấp hướng dẫn mới bị 409. Ảnh QR ngoài hệ thống và camera Android cần kiểm riêng. |
 | API04–07 | Member báo lại, Holder xác nhận. Gửi lại cùng khóa phải giữ nguyên dòng thu. Owner tự xác nhận thay Holder bị 403. Với khoản thứ hai, hai yêu cầu xác nhận đồng thời trả 200 và 409. Sổ quỹ kết thúc ở 500.000 VND với hai dòng IN. |
 | API08–09 | Member và Owner cùng theo dõi DAD → HAN, cùng chuyến bay sau 30 ngày. Ngưỡng 9.000.000 và 1 VND giúp giá MOCK_FLIGHT luôn nằm giữa hai ngưỡng. Đọc cùng observation qua hai watch và đối soát PostgreSQL theo đúng nhóm/kỳ. Một attempt thành công, một observation và một thông báo PRICE_ALERT trong ứng dụng cho watch ngưỡng cao. |
 | API10–12 | Watch ngưỡng thấp đi qua PAUSED, ACTIVE, STOPPED. Resume sau stop và sửa bằng phiên bản cũ trả 409. Người ngoài Trip đọc danh sách watch nhận 404. |
