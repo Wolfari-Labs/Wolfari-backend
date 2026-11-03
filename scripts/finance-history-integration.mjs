@@ -62,10 +62,11 @@ export async function runFinanceHistoryTests(h) {
     (await request(f.path, 'GET', undefined, { authorization: 'Bearer invalid' })).status,
     401,
   );
+  // The preceding outage test restarts Trip. Wait for Finance to reconnect before checking access.
+  await waitFor(async () => (await get('', owner, empty.path)).status === 200);
   assert.equal((await get('', outsider)).status, 404);
   assert.equal((await get('', owner, other.path)).status, 404);
   assert.equal((await get('', owner, `/api/v1/funds/${randomUUID()}/history`)).status, 404);
-  await waitFor(async () => (await get('', owner, empty.path)).status === 200);
   assert.deepEqual((await get('', owner, empty.path)).body.data, { items: [], next_cursor: null });
   assert.equal((await request(f.path, 'POST', {}, bearer(owner))).status, 404);
   pass('API162 distinguishes missing/empty Fund and enforces session/current Member access');
