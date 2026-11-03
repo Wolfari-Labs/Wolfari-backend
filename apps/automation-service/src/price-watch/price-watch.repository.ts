@@ -335,19 +335,44 @@ export class PriceWatchRepository {
     queryGroupId: string,
     limit: number,
     after?: { sort_at: string; id: string },
-  ): Promise<ObservationRecord[]> {
-    const result = await this.database.query<ObservationRow>(
-      `SELECT id,price::text,currency,provider,fare_metadata,observed_at,fetched_at
-       FROM price_observations WHERE query_group_id=$1
-       AND ($2::timestamptz IS NULL OR (observed_at,id)<($2::timestamptz,$3::uuid))
-       ORDER BY observed_at DESC,id DESC LIMIT $4`,
+  ) {
+    // Read the page and provider state from the same PostgreSQL snapshot, including empty pages.
+    const result = await this.database.query<
+      ObservationRow & { stale: boolean; last_error: string | null }
+    >(
+      `SELECT page.*, q.last_error, (q.last_error IS NOT NULL AND EXISTS
+         (SELECT 1 FROM price_observations WHERE query_group_id=q.id)) AS stale
+       FROM price_query_groups q LEFT JOIN LATERAL (
+         SELECT id,price::text,currency,provider,fare_metadata,observed_at,fetched_at
+         FROM price_observations WHERE query_group_id=q.id
+         AND ($2::timestamptz IS NULL OR (observed_at,id)<($2::timestamptz,$3::uuid))
+         ORDER BY observed_at DESC,id DESC LIMIT $4
+       ) page ON true WHERE q.id=$1 ORDER BY page.observed_at DESC,page.id DESC`,
       [queryGroupId, after?.sort_at ?? null, after?.id ?? null, limit],
     );
-    return result.rows.map((row) => ({
-      ...row,
-      price: String(row.price),
-      observed_at: iso(row.observed_at),
-      fetched_at: iso(row.fetched_at),
-    }));
+    const state = result.rows[0];
+    const code = state?.last_error;
+    const publicCodes = [
+      'PROVIDER_TIMEOUT',
+      'PROVIDER_NOT_SUPPORTED',
+      'PROVIDER_RESPONSE_INVALID',
+      'PROVIDER_UNAVAILABLE',
+      'LEASE_EXHAUSTED',
+    ];
+    return {
+      stale: state?.stale ?? false,
+      last_error: code ? (publicCodes.includes(code) ? code : 'PROVIDER_UNAVAILABLE') : null,
+      items: result.rows
+        .filter((row) => row.id !== null)
+        .map((row) => ({
+          id: row.id,
+          price: String(row.price),
+          currency: row.currency,
+          provider: row.provider,
+          fare_metadata: row.fare_metadata,
+          observed_at: iso(row.observed_at),
+          fetched_at: iso(row.fetched_at),
+        })),
+    };
   }
 }

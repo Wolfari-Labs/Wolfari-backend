@@ -18,6 +18,8 @@
     "demo:finance-price-watch": "node scripts/demo.mjs finance-price-watch",
     "demo:unit": "vitest run apps/finance-service/src/domain/contribution-request.test.ts apps/finance-service/src/domain/contribution-request-creation.test.ts apps/finance-service/src/domain/contribution-transition.test.ts apps/automation-service/src/price-watch/price-watch.domain.test.ts apps/automation-service/src/price-watch/price-alert.domain.test.ts --reporter=default --reporter=junit --outputFile.junit=.local/demo/reports/finance-price-watch-unit.xml",
     "demo:postman": "node scripts/demo.mjs postman",
+    "demo:perf:smoke": "node scripts/demo-performance.mjs PERF01",
+    "demo:perf:load": "node scripts/demo-performance.mjs PERF02",
     "demo:stop": "node scripts/demo.mjs stop",
     "demo:reset": "node scripts/demo.mjs reset",
     "build": "corepack pnpm -r --if-present build",

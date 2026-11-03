@@ -301,6 +301,8 @@ export interface ListPriceWatchesResponse {
 export interface ListPriceObservationsResponse {
   items?: PriceObservationView[] | undefined;
   next_cursor?: string | undefined;
+  stale?: boolean | undefined;
+  last_error?: string | undefined;
 }
 
 export const WOLFARI_AUTOMATION_V1_PACKAGE_NAME = "wolfari.automation.v1";

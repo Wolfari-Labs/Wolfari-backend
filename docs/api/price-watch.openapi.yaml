@@ -221,7 +221,15 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/Observation' }
-        meta: { $ref: '#/components/schemas/PageMeta' }
+        meta:
+          type: object
+          additionalProperties: false
+          required: [correlation_id, next_cursor, stale, last_error]
+          properties:
+            correlation_id: { type: string, format: uuid }
+            next_cursor: { type: [string, 'null'] }
+            stale: { type: boolean, description: Historical prices exist and the most recent provider check failed. }
+            last_error: { type: [string, 'null'], description: Safe provider error code or null after a successful check. }
     Error:
       type: object
       required: [error, meta]

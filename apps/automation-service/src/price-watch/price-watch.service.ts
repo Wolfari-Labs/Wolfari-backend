@@ -130,7 +130,12 @@ export class PriceWatchService {
   async observations(
     request: AutomationV1.ListPriceObservationsRequest,
     correlationId: string,
-  ): Promise<{ items: ObservationRecord[]; next_cursor: string | null }> {
+  ): Promise<{
+    items: ObservationRecord[];
+    next_cursor: string | null;
+    stale: boolean;
+    last_error: string | null;
+  }> {
     const userId = watchUuid(request.actor_user_id);
     const id = watchUuid(request.watch_id);
     const watch = await this.requiredWatch(id);
@@ -140,11 +145,17 @@ export class PriceWatchService {
     const after = request.cursor
       ? this.cursor.decode(request.cursor, 'OBSERVATIONS', cursorScope)
       : undefined;
-    const rows = await this.repository.listObservations(watch.query_group_id, limit + 1, after);
+    const {
+      items: rows,
+      stale,
+      last_error,
+    } = await this.repository.listObservations(watch.query_group_id, limit + 1, after);
     const items = rows.slice(0, limit);
     const last = items.at(-1);
     return {
       items,
+      stale,
+      last_error,
       next_cursor:
         rows.length > limit && last
           ? this.cursor.encode({

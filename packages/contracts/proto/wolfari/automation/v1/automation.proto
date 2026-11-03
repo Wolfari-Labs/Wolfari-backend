@@ -273,4 +273,6 @@ message ListPriceWatchesResponse {
 message ListPriceObservationsResponse {
   repeated PriceObservationView items = 1;
   optional string next_cursor = 2;
+  bool stale = 3;
+  optional string last_error = 4;
 }

@@ -1,5 +1,11 @@
 # Wolfari demo local — Windows, Docker infrastructure và Node apps
 
+> Backend demo1: [phụ lục v1.0](demo-1-addendum-v1.0.md), [validation](demo-1-backend-validation.md), [handoff Web](demo-1-web-handoff.md). Nâng demo cũ: dừng demo, chạy lại `demo:init` để thêm cấu hình thiếu mà giữ secrets, rồi `demo:start` áp dụng **Trip V003**. Không reset dữ liệu. Gateway `/health/ready` chỉ kiểm core Identity/Trip; `/health/dependencies` thêm Finance/Automation. `demo:check` còn kiểm broker/SMTP với retry15 giây, không thay acceptance.
+
+`corepack pnpm demo:accounts` đọc email thực tế trong journal và trạng thái Identity bằng READ ONLY, không in mật khẩu/tạo session. Không giả định journal cũ dùng email cố định. Mật khẩu tại `.local/demo/seed.json` có thể cũ nếu đã đổi trong UI; dùng password reset qua Mailpit, không chạy seed để ép password. Account đã tồn tại nhưng không đăng nhập bằng journal được sẽ báo `DEMO_CREDENTIALS_UNUSABLE`, không reset ngầm.
+
+`corepack pnpm demo:acceptance` build và kiểm thử API5 actor bằng hạ tầng riêng, tự dọn tài nguyên test; không cần demo đang chạy. Operation202/timeout/NEEDS_REVIEW xử lý theo [runbook](demo-1-addendum-v1.0.md#6-seedaccount-và-operation-recovery); retry CLI phải dùng `--demo` để tránh chọn development.
+
 ## Demo kiểm thử Quỹ và Price Watch bằng Backend
 
 Chạy từ thư mục backend với Node 24, Corepack và Docker Desktop Linux. Trên máy mới cài dependencies bằng `corepack pnpm install --frozen-lockfile`. Terminal thứ nhất giữ backend chạy.
@@ -42,11 +48,21 @@ Vitest xuất `.local/demo/reports/finance-price-watch-unit.xml` theo định d�
 
 Hai bộ hồi quy sâu chạy riêng bằng `corepack pnpm finance:test` và `corepack pnpm price-watch:test`. Demo dùng đóng góp thủ công TEST, worker thật, nguồn giá MOCK_FLIGHT và thông báo trong ứng dụng. Web, Android, camera, thanh toán ngoài hệ thống và benchmark NFR-P01 cần bằng chứng ở lượt kiểm thử tương ứng.
 
-> Backend demo1: [phụ lục v1.0](demo-1-addendum-v1.0.md), [validation](demo-1-backend-validation.md), [handoff Web](demo-1-web-handoff.md). Nâng demo cũ: dừng demo, chạy lại `demo:init` để thêm cấu hình thiếu mà giữ secrets, rồi `demo:start` áp dụng **Trip V003**. Không reset dữ liệu. Gateway `/health/ready` chỉ kiểm core Identity/Trip; `/health/dependencies` thêm Finance/Automation. `demo:check` còn kiểm broker/SMTP với retry15 giây, không thay acceptance.
+## Đo PERF01 và PERF02 bằng JMeter
 
-`corepack pnpm demo:accounts` đọc email thực tế trong journal và trạng thái Identity bằng READ ONLY, không in mật khẩu/tạo session. Không giả định journal cũ dùng email cố định. Mật khẩu tại `.local/demo/seed.json` có thể cũ nếu đã đổi trong UI; dùng password reset qua Mailpit, không chạy seed để ép password. Account đã tồn tại nhưng không đăng nhập bằng journal được sẽ báo `DEMO_CREDENTIALS_UNUSABLE`, không reset ngầm.
+Mạnh chạy trên Gateway demo ở 127.0.0.1:13000, với PostgreSQL demo đang hoạt động. Cài Java 17 hoặc 21 và [Apache JMeter 5.6.3](https://jmeter.apache.org/download_jmeter.cgi). Đặt `JMETER_HOME` trỏ vào thư mục JMeter đã giải nén hoặc giải nén vào `.local/demo/tools/apache-jmeter-5.6.3`. Nếu cần chọn Java khác với PATH, đặt `JMETER_JAVA` bằng đường dẫn tuyệt đối tới java.exe. Từ gốc backend, chạy lần lượt `corepack pnpm demo:perf:smoke` và `corepack pnpm demo:perf:load`.
 
-`corepack pnpm demo:acceptance` build và kiểm thử API5 actor bằng hạ tầng riêng, tự dọn tài nguyên test; không cần demo đang chạy. Operation202/timeout/NEEDS_REVIEW xử lý theo [runbook](demo-1-addendum-v1.0.md#6-seedaccount-và-operation-recovery); retry CLI phải dùng `--demo` để tránh chọn development.
+Fixture TD06 được tạo và dùng lại trong instance demo. Có 50 tài khoản giả lập, 100 Trip, mỗi Trip 6 thành viên và 4 ngày × 10 Activity. Mỗi quỹ có một khoản thu 200.000 VND và mỗi Trip có một watch dùng MOCK_FLIGHT. Mỗi người dùng đăng nhập riêng và luân phiên hai Trip được phân quyền. JMeter chỉ đo ba request GET đọc Plan, sổ quỹ và danh sách watch. Mỗi request có thời gian nghỉ 1 giây. Chi phí đăng nhập, tạo dữ liệu và gọi provider được tách khỏi lượt đo.
+
+PERF01 dùng 5 người, tăng tải 5 giây, làm nóng thêm 10 giây rồi đo 30 giây. PERF02 dùng 50 người, tăng tải 10 giây, làm nóng thêm 60 giây rồi đo 600 giây. Condition của NFR-P01 là p95 từng API dưới 2.000 ms. Runner cũng kiểm tra đủ người dùng suốt cửa sổ đo, HTTP 200 và nội dung đúng bộ TD06. Kết quả riêng từng endpoint gồm p95 (ms), throughput (request/giây) và tỷ lệ lỗi. Chỉ sao chép `summary.json` và `samples.csv` từ thư mục PERF tương ứng trong `.local/demo/reports`. Report ghi commit checkout và cờ dirty. Sau khi đổi code, khởi động lại backend demo đúng bản build trước khi đo.
+
+## Chạy AND04–AND05 trên Android thật
+
+Quyên dùng bản native Wolfari Mobile có package `com.tanthanh_67.Wolfarimobile`, tài khoản TEST, vào Chuyến đi → Tiện ích → Quỹ nhóm. Kiểm tra `adb devices -l` hiển thị đúng điện thoại. Mỗi flow bắt đầu ở nút “Quét QR thanh toán”, khi bảng quét còn đóng. Chuẩn bị quyền camera ở trạng thái có thể hỏi lần đầu cho AND04. Nếu Android đang nhớ lựa chọn, mở cài đặt quyền ứng dụng và đặt lại quyền trước khi mở Wolfari. Không cần xóa dữ liệu ứng dụng.
+
+1. Chạy `maestro test scripts/android/AND04.yaml`. Flow yêu cầu quyền camera, chọn từ chối tại hộp thoại Android, mở cách dán, đọc vector TEST và đối chiếu màn hình kiểm tra với **180.000 ₫**. Để nghiệm thu thao tác dán của hệ điều hành, sao chép đúng vector trong YAML vào clipboard điện thoại và lặp lại bằng nhấn giữ → Dán. Lệnh [pasteText của Maestro](https://docs.maestro.dev/reference/commands-available/pastetext) dùng clipboard nội bộ của công cụ.
+2. Đóng bảng quét, giữ camera bị từ chối, chạy `maestro test scripts/android/AND05.yaml`. Chuỗi chỉ khác ký tự CRC cuối (E → F). Ứng dụng phải hiện “Mã kiểm tra QR không khớp” và không hiển thị màn hình số tiền.
+3. Trước và sau mỗi ca, đối chiếu cùng số dư và sổ quỹ trên tài khoản TEST, ghi commit mobile, model máy, phiên bản Android, ngày và bằng chứng của lượt chạy. Luồng này chỉ đọc mã. Không mở ứng dụng ngân hàng hay thực hiện chuyển tiền. Chỉ điền Round sau khi chạy thật.
 
 ## Phạm vi
 
