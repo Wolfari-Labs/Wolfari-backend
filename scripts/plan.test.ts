@@ -32,6 +32,7 @@ const base = {
 const fields = { title: 'Walk', activity_type: 'OTHER', position: 0 };
 const access: AccessRow = {
   id: trip,
+  timezone: 'UTC',
   start_at: '2026-10-01T00:00:00Z',
   end_at: '2026-10-03T00:00:00Z',
   plan_edit_policy: 'OWNER_ONLY',

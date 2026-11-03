@@ -49,13 +49,14 @@ describe('Contribution public projections', () => {
       ...request,
       finance_version: 3,
       contributions: [
-        { ...contribution, destination_snapshot: { secret: 'hidden' }, rejected_reason: 'hidden' },
+        { ...contribution, destination_snapshot: { secret: 'hidden' } },
       ],
     });
     expect(row.contributions?.[0]).toMatchObject({
       amount: '9007199254740993',
       confirmed_at: null,
       waived_reason: null,
+      rejected_reason: null,
       confirmed_by_user_id: null,
     });
     expect(JSON.stringify(row)).not.toContain('hidden');
@@ -108,5 +109,23 @@ describe('Contribution public projections', () => {
       projectContributionPage({ items: [contribution] }, id.replace(/1$/, '2'), false, {}),
     ).toThrow();
     expect(() => projectContributionPage({ next_cursor: 'abc' }, id, false, {})).toThrow();
+  });
+  it('preserves rejection feedback through real protobuf and both read projections', () => {
+    const service = loadSync(PROTO_PATHS.finance, GRPC_LOADER_OPTIONS)[
+      'wolfari.finance.v1.FinanceService'
+    ] as ServiceDefinition;
+    const method = service.ListContributions as MethodDefinition<unknown, { items: unknown[] }>;
+    const decoded = method.responseDeserialize(method.responseSerialize({ items: [{
+      ...contribution, version: 3, rejected_reason: 'Chưa nhận được khoản chuyển',
+      destination_snapshot: { secret: 'private' }, transfer_evidence_object_key: 'private',
+    }] }));
+    const page = projectContributionPage(decoded, id, false, {});
+    expect(page.items[0]).toMatchObject({ rejected_reason: 'Chưa nhận được khoản chuyển' });
+    expect(JSON.stringify(page)).not.toContain('private');
+    const nested = projectContributionRequest({ ...request, version: 2, finance_version: 3,
+      contributions: decoded.items }, false);
+    expect(nested.contributions?.[0]?.rejected_reason).toBe('Chưa nhận được khoản chuyển');
+    expect(() => projectContribution({ ...contribution, rejected_reason: 42 })).toThrow();
+    expect(projectContribution(contribution).rejected_reason).toBeNull();
   });
 });

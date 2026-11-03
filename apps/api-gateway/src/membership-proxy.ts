@@ -14,6 +14,7 @@ import {
   grpcFailure,
   responseRecord,
   requiredString,
+  optionalString,
   enumValue,
   timestampToIso,
   isLoopbackGrpcTarget,
@@ -126,7 +127,10 @@ export class MembershipProxy {
         if (result.items !== undefined && !Array.isArray(result.items))
           throw new Error('Invalid membership list');
         data = {
-          items: ((result.items ?? []) as unknown[]).map(projectMembership),
+          items: ((result.items ?? []) as unknown[]).map((item) => ({
+            ...projectMembership(item),
+            display_name: optionalString(responseRecord(item).display_name),
+          })),
           next_cursor: result.next_cursor ?? null,
         };
       } else {

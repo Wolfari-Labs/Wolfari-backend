@@ -1,4 +1,12 @@
-# Nghiệm thu demo Web local — 27/10/2026
+# Nghiệm thu demo local
+
+## Mốc Backend demo1 — 28/10/2026
+
+[Bằng chứng mới](demo-1-backend-validation.md), [phụ lục](demo-1-addendum-v1.0.md) và [gate Web còn lại](demo-1-web-handoff.md) dành cho nhánh `feat/demo-1-backend`. `corepack pnpm demo:acceptance` build rồi tạo hạ tầng cô lập, dùng5 tài khoản mới xác minh email, EMAIL/LINK invitation, selected Editor, ngày-only/overnight và quỹ Owner–Holder tách biệt/ledger500000. Không seed nghiệp vụ bằng SQL; tự dọn tài nguyên test, không xóa dữ liệu `wolfari-demo`. Đây là API E2E, không phải Browser E2E.
+
+## Lịch sử nghiệm thu Web — 27/10/2026
+
+Các mục sau giữ bằng chứng lịch sử theo ngày/SHA của chúng, không dùng làm nghiệm thu HEAD mới.
 
 ## Kết luận và mốc kiểm tra
 
@@ -17,31 +25,31 @@
 
 Mỗi lệnh dưới đây chạy tại repository được nêu, với tiền tố `corepack pnpm`.
 
-| Repository | Lệnh | Kết quả |
-| --- | --- | --- |
-| Backend | `build` | PASS, toàn bộ workspace có build script |
-| Backend | `lint` | PASS |
-| Backend | `test` | PASS: 111 files, **1.565 tests**, gồm regression chờ launcher dừng trước khi xác nhận |
-| Backend | `contracts:lint`, `contracts:check` | PASS; generated contract sources tái lập được |
-| Web | `lint`, `typecheck` | PASS |
-| Web | `test` | PASS: 37 files, **484 tests** |
-| Web | `build` | PASS: bundle Gateway thông thường |
-| Web | `test:e2e --workers=1` | PASS: **164 tests**, fixture UI; không chứng minh tích hợp Backend |
-| Web | `test:e2e:gateway --workers=1` | PASS: **33 tests**; HTTP bị mock, không phải Backend thật |
-| Web | `test:e2e:live` | PASS: **4 dev + 4 build/preview**; không mock API |
+| Repository | Lệnh                                | Kết quả                                                                               |
+| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
+| Backend    | `build`                             | PASS, toàn bộ workspace có build script                                               |
+| Backend    | `lint`                              | PASS                                                                                  |
+| Backend    | `test`                              | PASS: 111 files, **1.565 tests**, gồm regression chờ launcher dừng trước khi xác nhận |
+| Backend    | `contracts:lint`, `contracts:check` | PASS; generated contract sources tái lập được                                         |
+| Web        | `lint`, `typecheck`                 | PASS                                                                                  |
+| Web        | `test`                              | PASS: 37 files, **484 tests**                                                         |
+| Web        | `build`                             | PASS: bundle Gateway thông thường                                                     |
+| Web        | `test:e2e --workers=1`              | PASS: **164 tests**, fixture UI; không chứng minh tích hợp Backend                    |
+| Web        | `test:e2e:gateway --workers=1`      | PASS: **33 tests**; HTTP bị mock, không phải Backend thật                             |
+| Web        | `test:e2e:live`                     | PASS: **4 dev + 4 build/preview**; không mock API                                     |
 
 Live suite tự build `dist-demo/` rồi chạy hai runtime tuần tự. Browser dùng đúng Origin/CSRF/refresh cookie; dữ liệu đi qua Gateway, service và database thật. Mailpit là SMTP local, không phải email delivery ra Internet. Avatar dùng MinIO private thật.
 
 ### Hạ tầng và chuỗi API demo
 
-| Lệnh Backend | Kết quả |
-| --- | --- |
-| `demo:init` | PASS; chạy lại giữ cấu hình/secrets demo |
-| `demo:start`, `demo:check` | PASS; Compose, migration, credential từng database, RabbitMQ, private MinIO, Mailpit và 7 application liveness |
-| `demo:seed` hai lần sau reset | PASS; lần hai tái sử dụng journal, không lặp các bước nghiệp vụ đã hoàn tất |
-| `demo:api` | PASS: **11 nhóm kiểm tra**, qua Gateway/service thật |
-| `demo:stop` khi Backend và Web preview cùng chạy | PASS; hai launcher thoát code 0 trước khi Compose down; giữ cả ba demo volumes |
-| `demo:reset -- --confirm wolfari-demo` | PASS; chỉ xóa 3 volume demo đã xác minh ownership và seed manifest; sau đó start/seed lại thành công |
+| Lệnh Backend                                     | Kết quả                                                                                                        |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `demo:init`                                      | PASS; chạy lại giữ cấu hình/secrets demo                                                                       |
+| `demo:start`, `demo:check`                       | PASS; Compose, migration, credential từng database, RabbitMQ, private MinIO, Mailpit và 7 application liveness |
+| `demo:seed` hai lần sau reset                    | PASS; lần hai tái sử dụng journal, không lặp các bước nghiệp vụ đã hoàn tất                                    |
+| `demo:api`                                       | PASS: **11 nhóm kiểm tra**, qua Gateway/service thật                                                           |
+| `demo:stop` khi Backend và Web preview cùng chạy | PASS; hai launcher thoát code 0 trước khi Compose down; giữ cả ba demo volumes                                 |
+| `demo:reset -- --confirm wolfari-demo`           | PASS; chỉ xóa 3 volume demo đã xác minh ownership và seed manifest; sau đó start/seed lại thành công           |
 
 Seed/API kiểm tra: bốn tài khoản và xác minh email; tạo Trip; EMAIL invitation acceptance và EMAIL/LINK đang chờ; Activity; Profile/avatar; Fund/Holder/destination; contribution report/confirm và ledger balance; financial note; Price Watch observation; notification từ sự kiện Trip thật. API bổ sung pause/resume/stop Price Watch, preferences/device/read, từ chối truy cập khác Trip và Member rời Trip qua Trip–Finance sau khi hoàn tất đóng góp.
 
@@ -65,16 +73,16 @@ Các assertion được gộp theo hành trình; 11 nhóm API không đồng ngh
 
 Các kết quả dưới đây được ghi nhận trong đợt triển khai; Identity (19 nhóm) và Notification (7 nhóm) được chạy lại sau sửa launcher và tiếp tục PASS. Các harness còn lại là kết quả trước vòng kiểm tra launcher cuối. Không suy ra rằng tất cả harness là browser E2E. Harness tạo project/database test riêng, có thể seed SQL hoặc fault injection; cuối mỗi lần chạy tự xóa dữ liệu test riêng, không giữ để phục hồi.
 
-| Lệnh Backend | Kết quả đã ghi nhận | Giới hạn |
-| --- | --- | --- |
-| `db:test` | 28 nhóm PASS | Migration/role/isolation trên database test |
-| `identity:test` | 19 nhóm PASS | Gateway/Identity/Trip/Automation, SMTP local |
-| `trip:test` | 39 nhóm PASS | Trip integration harness |
-| `trip:invitations:test` | 19 nhóm PASS | Invitation integration harness |
-| `trip:members:test` | 19 nhóm PASS | Có Finance protocol fixture; không gọi là Finance E2E đầy đủ |
-| `finance:test` | 122 nhóm PASS | Trip–Finance thật; các provider/mock và fault injection vẫn thuộc harness |
-| `notification:test` | 7 nhóm PASS | Self management/event integration; không chứng minh push delivery |
-| `price-watch:test` | 12 nhóm PASS | Worker thật, provider `MOCK_FLIGHT` |
+| Lệnh Backend            | Kết quả đã ghi nhận | Giới hạn                                                                  |
+| ----------------------- | ------------------- | ------------------------------------------------------------------------- |
+| `db:test`               | 28 nhóm PASS        | Migration/role/isolation trên database test                               |
+| `identity:test`         | 19 nhóm PASS        | Gateway/Identity/Trip/Automation, SMTP local                              |
+| `trip:test`             | 39 nhóm PASS        | Trip integration harness                                                  |
+| `trip:invitations:test` | 19 nhóm PASS        | Invitation integration harness                                            |
+| `trip:members:test`     | 19 nhóm PASS        | Có Finance protocol fixture; không gọi là Finance E2E đầy đủ              |
+| `finance:test`          | 122 nhóm PASS       | Trip–Finance thật; các provider/mock và fault injection vẫn thuộc harness |
+| `notification:test`     | 7 nhóm PASS         | Self management/event integration; không chứng minh push delivery         |
+| `price-watch:test`      | 12 nhóm PASS        | Worker thật, provider `MOCK_FLIGHT`                                       |
 
 ## 2. Backend chạy nhưng Web chưa tích hợp
 

@@ -85,8 +85,8 @@ async function validateCatalogs() {
     readJson('schemas/events-v1.schema.json'),
   ]);
   const catalogRpcKeys = rpc.map((item) => `${item.package}.${item.service}/${item.method}`).sort();
-  if (rpc.length !== 113 || new Set(catalogRpcKeys).size !== 113) {
-    throw new Error('RPC_CATALOG_INVALID: expected 113 unique RPCs');
+  if (rpc.length !== 114 || new Set(catalogRpcKeys).size !== 114) {
+    throw new Error('RPC_CATALOG_INVALID: expected 114 unique RPCs');
   }
   if (events.length !== 19 || new Set(events.map((item) => item.event_type)).size !== 19) {
     throw new Error('EVENT_CATALOG_INVALID: expected 19 unique events');
@@ -132,6 +132,7 @@ function readJson(path) {
 
 async function check() {
   await validateCatalogs();
+  await run(process.execPath, [resolve(root, 'scripts/rest-contracts.mjs')]);
   await mkdir(resolve(root, '.cache'), { recursive: true });
   const temporary = await mkdtemp(resolve(root, '.cache', 'contracts-check-'));
   try {

@@ -2,6 +2,14 @@
   {
     "package": "wolfari.trip.v1",
     "service": "TripService",
+    "method": "GetPlanPolicy",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Demo 1 addendum v1.0: Owner-only policy read"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
     "method": "ListMembers",
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,

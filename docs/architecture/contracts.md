@@ -1,5 +1,13 @@
 # Protobuf và event contract Wolfari
 
+## Cập nhật demo1 — 28/10/2026
+
+Catalog hiện có112 RPC, thêm `GetPlanPolicy` (ApiGateway→Trip), Membership optional `display_name=7` và Plan day-only fields. Không đổi event schema. Trip yêu cầu V003. [Phụ lục v1.0](demo-1-addendum-v1.0.md) ghi field numbers/null/omission/replay và ảnh hưởng Mobile. Các đợt bên dưới là lịch sử, không phải tổng kết runtime hiện tại.
+
+REST mới: [Plan](../api/plan.openapi.json), [Fund/ledger](../api/finance-fund.openapi.json); cập nhật [policy](../api/trip-core.openapi.yaml), [members](../api/trip-member-lifecycle.openapi.json). Mỗi spec có server prefix riêng; không cộng `/api/v1` hai lần.
+
+`contracts:rest` chạy inventory gate và executable route/projection tests cho6 Plan +8 Fund operations. `contracts:check` cũng chặn inventory drift. [runtime-inventory.json](../api/runtime-inventory.json) là danh mục OpenAPI đã review kèm fingerprints routing source, không phải tự suy ra mọi dynamic route hoặc chứng minh mọi API SRS đã implemented. Health/diagnostics và HTML local token landing không thuộc catalog nghiệp vụ này. Khi source routing đổi, review API, chạy tests rồi dùng `node scripts/rest-contracts.mjs --inventory` để xem candidate và cập nhật inventory. Không chấp nhận fingerprint chỉ để qua CI. YAML extractor chỉ hỗ trợ block style hiện tại; schemas/projections JSON Plan/Fund được compile bằng Ajv trong `demo1-openapi.test.ts`.
+
 ## Baseline và phạm vi
 
 Contract mã nguồn được đối chiếu với [DDL/API/Event Specification v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx), năm V001, Trip/Finance V002 và Automation V002–V005. Bộ tài liệu đã chốt ngày 02/10/2026; catalog mô tả cả hợp đồng mục tiêu, không đồng nghĩa mọi handler đã triển khai.
@@ -58,7 +66,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 113 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125, Notification API126–131 và Price Watch API133–139   |
+| 114 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125, Notification API126–131 và Price Watch API133–139   |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -198,7 +206,7 @@ và [OpenAPI090–095](../api/finance-payments.openapi.json).
 
 ## Integration checkpoint: 25 October 2026
 
-The Finance and Price Watch/Notification branches are combined locally. The 113-RPC catalog describes contracts; it does not prove that every declared handler, event consumer or production provider is implemented. Finance.GetAutomationContext now has an Automation-only read handler with a documented [source-purpose convention](finance-automation-context.md). Finance has a default-disabled [outbox relay](finance-outbox.md) for its five existing events. ExportSnapshot and downstream notification delivery still require separate work. Integration verification is recorded separately from historical per-branch results.
+The Finance and Price Watch/Notification branches are combined locally. The 114-RPC catalog describes contracts; it does not prove that every declared handler, event consumer or production provider is implemented. Finance.GetAutomationContext now has an Automation-only read handler with a documented [source-purpose convention](finance-automation-context.md). Finance has a default-disabled [outbox relay](finance-outbox.md) for its five existing events. ExportSnapshot and downstream notification delivery still require separate work. Integration verification is recorded separately from historical per-branch results.
 
 ## Notification account eligibility prerequisite
 
@@ -207,4 +215,4 @@ Identity.GetNotificationEligibility adds one Automation-only read, bringing the 
 Holder review inbox adds optional int32 source_revision=5 to Finance.GetAutomationContextResponse. Only CONTRIBUTION_REVIEW populates it from the existing contribution.version; other purposes omit it. Automation requires this revision and rechecks it before deduplicating a notice by contribution/revision/current Holder. Request metadata edits keep the contribution revision, while rejection followed by a fresh report advances it. No RPC method, event payload or migration is added. Deploy the Finance field before enabling the new ContributionUpdated binding; older consumers must be drained/replaced. See [Finance inbox](finance-notification-inbox.md) for retry and scope limitations.
 
 
-Finance.ListFundHistory adds the Gateway-only read for API162 (113 RPCs total). It projects current-member audit metadata with microsecond pagination and no raw audit details. See [Finance history](finance-history.md); Finance V003 adds its index and readiness gate. Existing events remain unchanged.
+Finance.ListFundHistory adds the Gateway-only read for API162 (114 RPCs total). It projects current-member audit metadata with microsecond pagination and no raw audit details. See [Finance history](finance-history.md); Finance V003 adds its index and readiness gate. Existing events remain unchanged.

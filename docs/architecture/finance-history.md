@@ -20,7 +20,7 @@ Malformed stored records fail the page with 503 rather than silently truncating 
 
 ## Deployment
 
-The additive `FinanceService.ListFundHistory` RPC is Gateway-only, with the existing caller secret and a 2-second deadline. Catalog: 113 RPCs, 19 events. Existing loopback/non-production transport restrictions apply.
+The additive `FinanceService.ListFundHistory` RPC is Gateway-only, with the existing caller secret and a 2-second deadline. Catalog: 114 RPCs, 19 events. Existing loopback/non-production transport restrictions apply.
 
 Apply Finance [V003](../../apps/finance-service/migrations/V003.sql) after V001/V002 with the normal checksum-verifying migration runner, then deploy Finance and Gateway/contracts together. V003 adds `finance_audit_history_idx(fund_id, occurred_at DESC, id DESC)`; no model table or FK is added. Finance readiness requires all three migrations. Index creation takes the normal transactional PostgreSQL index lock; schedule rollout accordingly on a populated database. Existing migrations/checksums are immutable. No development or shared database was migrated by this feature's isolated tests.
 

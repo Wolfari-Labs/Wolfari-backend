@@ -1,5 +1,6 @@
 import { PlanService } from './planning/plan.service';
 import { MembershipRepository } from './membership/membership.repository';
+import { MemberProfilesService } from './membership/member-profiles.service';
 import { LifecycleFinanceClient } from './operations/lifecycle-finance.client';
 import { LifecycleService } from './operations/lifecycle.service';
 import { FinanceOperationService } from './operations/finance-operation.service';
@@ -22,6 +23,7 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
   controllers: [TripGrpcController, TripDependenciesController],
   providers: [
     MembershipRepository,
+    MemberProfilesService,
     LifecycleFinanceClient,
     LifecycleService,
     FinanceOperationService,

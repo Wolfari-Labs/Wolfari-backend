@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import pg from 'pg';
 import { readEnv, root } from './config.mjs';
+import { loadDemo } from './demo-config.mjs';
 const require = createRequire(import.meta.url);
 const {
   MembershipRepository,
@@ -15,10 +16,14 @@ const operationId = args.find((arg) => !arg.startsWith('--'));
 if (
   !operationId ||
   !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(operationId) ||
-  args.some((arg) => arg !== operationId && arg !== '--execute')
+  args.some((arg) => arg !== operationId && arg !== '--execute' && arg !== '--demo')
 )
-  throw new Error('Usage: pnpm trip:retry-lifecycle <operation-id> [--execute]; default dry-run');
-const env = await readEnv(resolve(root, 'apps/trip-workspace-service/.env'));
+  throw new Error(
+    'Usage: pnpm trip:retry-lifecycle <operation-id> [--demo] [--execute]; default dry-run',
+  );
+const env = args.includes('--demo')
+  ? (await loadDemo()).configs['trip-workspace-service']
+  : await readEnv(resolve(root, 'apps/trip-workspace-service/.env'));
 const { databaseConfig } = require('../packages/database/dist/index.js');
 const pool = new pg.Pool(databaseConfig(env, 'trip'));
 const db = {

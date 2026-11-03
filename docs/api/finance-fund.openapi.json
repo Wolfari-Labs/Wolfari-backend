@@ -1,0 +1,1845 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Fund Setup and Ledger",
+    "version": "1.0.0",
+    "description": "API070–077 current runtime. No schema redesign; references original specification plus Demo 1 addendum."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/trips/{trip_id}/fund": {
+      "post": {
+        "operationId": "enableFund",
+        "summary": "API070 Enable Fund; Owner selects fixed active Holder",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "trip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnableFund"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Fund"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Pending operation: poll API038 with initiating actor; SUCCEEDED then retry same method/body/key for receipt. FAILED/NEEDS_REVIEW are not success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getFund",
+        "summary": "API071 Read Fund; 404 when absent, not zero balance",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "trip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Fund"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/budget": {
+      "patch": {
+        "operationId": "updateFundBudget",
+        "summary": "API072 Budget, no ledger effect",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Budget"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Fund"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Pending operation: poll API038 with initiating actor; SUCCEEDED then retry same method/body/key for receipt. FAILED/NEEDS_REVIEW are not success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/destinations": {
+      "get": {
+        "operationId": "listPaymentDestinations",
+        "summary": "API073 Authorized destinations, privacy by current role",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Destination"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPaymentDestination",
+        "summary": "API074 New unconfirmed recipient destination",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDestination"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Destination"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Pending operation: poll API038 with initiating actor; SUCCEEDED then retry same method/body/key for receipt. FAILED/NEEDS_REVIEW are not success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/destinations/{destination_id}/confirm": {
+      "post": {
+        "operationId": "confirmPaymentDestination",
+        "summary": "API075 Holder confirms exact destination version",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "destination_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmDestination"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Destination"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Pending operation: poll API038 with initiating actor; SUCCEEDED then retry same method/body/key for receipt. FAILED/NEEDS_REVIEW are not success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/destinations/{destination_id}": {
+      "patch": {
+        "operationId": "updatePaymentDestination",
+        "summary": "API076 Owner edits destination, clears consent if recipient changes",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "destination_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDestination"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Destination"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Pending operation: poll API038 with initiating actor; SUCCEEDED then retry same method/body/key for receipt. FAILED/NEEDS_REVIEW are not success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/transactions": {
+      "get": {
+        "operationId": "listFundTransactions",
+        "summary": "API077 Ledger ordered by descending sequence",
+        "description": "Active Trip membership required, current role rechecked. Writes require unarchived Trip and OPEN Fund, Trip guard and optimistic versions. Owner configures, Holder confirms consent. Unknown write outcomes retain idempotency key and payload. Web Origin/CSRF behavior follows identity.openapi.yaml. Holder is fixed until CLOSED; TEST recipient data only for local demo.",
+        "parameters": [
+          {
+            "name": "fund_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "description": "Opaque, bound to Fund; use unchanged. Reauthorize each page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persisted projection; no balance computed from a ledger page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LedgerPage"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write result can be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error", "meta"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "details", "retryable"],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "nullable": true,
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "correlation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      },
+      "Operation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation_id", "trip_id", "state"],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trip_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["PROCESSING", "PENDING_RECOVERY", "NEEDS_REVIEW"]
+          },
+          "outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["COMMITTED", "REJECTED", "CANCELLED"]
+              },
+              "error_code": {
+                "type": "string",
+                "enum": ["FINANCE_OBLIGATION_BLOCKED", "STATE_CONFLICT", "VERSION_CONFLICT"]
+              }
+            }
+          },
+          "error_code": {
+            "type": "string",
+            "enum": ["FINANCE_OBLIGATION_BLOCKED", "STATE_CONFLICT", "VERSION_CONFLICT"]
+          },
+          "next_retry_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Money": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]*)$",
+        "maxLength": 19,
+        "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number"
+      },
+      "Fund": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "trip_id",
+          "holder_user_id",
+          "currency",
+          "budget_amount",
+          "current_balance",
+          "reserved_refund",
+          "available_balance",
+          "status",
+          "finance_version",
+          "closed_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trip_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "holder_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["VND"]
+          },
+          "budget_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19,
+            "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number",
+            "nullable": true
+          },
+          "current_balance": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19,
+            "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number"
+          },
+          "reserved_refund": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19,
+            "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number"
+          },
+          "available_balance": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19,
+            "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["OPEN", "CLOSING", "CLOSED"]
+          },
+          "finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "Destination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "destination_type",
+          "is_default",
+          "active",
+          "version",
+          "confirmed_by_holder_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "destination_type": {
+            "type": "string",
+            "enum": ["VIETQR", "MOMO_SANDBOX"]
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "confirmed_by_holder_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "bank_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          },
+          "account_number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          },
+          "account_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          },
+          "momo_phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          }
+        },
+        "description": "Owner/Holder only: full type-specific private recipient fields. Ordinary Member: metadata only, private fields omitted. Confirmation is Holder consent, not bank verification."
+      },
+      "DestinationWrite": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "destination_type",
+              "bank_code",
+              "account_number",
+              "account_name",
+              "active",
+              "is_default"
+            ],
+            "properties": {
+              "destination_type": {
+                "type": "string",
+                "enum": ["VIETQR"]
+              },
+              "bank_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "account_number": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "account_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "is_default": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["destination_type", "momo_phone", "active", "is_default"],
+            "properties": {
+              "destination_type": {
+                "type": "string",
+                "enum": ["MOMO_SANDBOX"]
+              },
+              "momo_phone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "is_default": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "EnableFund": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["holder_user_id", "currency", "destination"],
+        "properties": {
+          "holder_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["VND"]
+          },
+          "budget_amount": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Digits only; leading zeros accepted; parsed value <= int64 maximum"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/DestinationWrite"
+          }
+        }
+      },
+      "Budget": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["budget_amount", "expected_finance_version"],
+        "properties": {
+          "budget_amount": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Digits only; leading zeros accepted; parsed value <= int64 maximum",
+            "nullable": true
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "CreateDestination": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "destination_type",
+              "bank_code",
+              "account_number",
+              "account_name",
+              "active",
+              "is_default",
+              "expected_finance_version"
+            ],
+            "properties": {
+              "destination_type": {
+                "type": "string",
+                "enum": ["VIETQR"]
+              },
+              "bank_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "account_number": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "account_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 150,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "is_default": {
+                "type": "boolean"
+              },
+              "expected_finance_version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "destination_type",
+              "momo_phone",
+              "active",
+              "is_default",
+              "expected_finance_version"
+            ],
+            "properties": {
+              "destination_type": {
+                "type": "string",
+                "enum": ["MOMO_SANDBOX"]
+              },
+              "momo_phone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30,
+                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "is_default": {
+                "type": "boolean"
+              },
+              "expected_finance_version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              }
+            }
+          }
+        ]
+      },
+      "UpdateDestination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "properties": {
+          "destination_type": {
+            "type": "string",
+            "enum": ["VIETQR", "MOMO_SANDBOX"]
+          },
+          "bank_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          },
+          "account_number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          },
+          "account_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          },
+          "momo_phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30,
+            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "minProperties": 3,
+        "description": "Destination type is immutable; only matching recipient fields allowed. Recipient changes clear Holder consent."
+      },
+      "ConfirmDestination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "expected_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "LedgerEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "sequence",
+          "direction",
+          "transaction_type",
+          "amount",
+          "balance_after",
+          "contribution_id",
+          "expense_id",
+          "refund_id",
+          "reversal_of_id",
+          "actor_user_id",
+          "reason",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fund_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequence": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["IN", "OUT"]
+          },
+          "transaction_type": {
+            "type": "string",
+            "enum": ["CONTRIBUTION", "EXPENSE", "REFUND", "REVERSAL"]
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number"
+          },
+          "balance_after": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19,
+            "description": "Canonical unsigned int64 <= 9223372036854775807; never JSON number"
+          },
+          "contribution_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "expense_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "refund_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "reversal_of_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "actor_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LedgerPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "next_cursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LedgerEntry"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}
