@@ -76,7 +76,7 @@ export async function runContributionReadTests(h, fixture) {
       'finance',
       `INSERT INTO contributions(id,request_id,fund_id,member_user_id,amount,status,destination_snapshot,destination_version,
       created_at,self_contribution,version,member_reported_at,confirmed_at,confirmed_by_user_id,waived_reason,cancelled_reason,rejected_reason,transfer_evidence_object_key)
-      VALUES($1,$2,$3,$4,9223372036854775807,$5,'{"private":"READ_PRIVATE_BANK"}',1,$6,false,4,$6,$6,$7,'Waived fixture','Cancelled fixture','READ_PRIVATE_REJECTED','READ_PRIVATE_EVIDENCE')`,
+      VALUES($1,$2,$3,$4,9223372036854775807,$5,'{"private":"READ_PRIVATE_BANK"}',1,$6,false,4,$6,$6,$7,'Waived fixture','Cancelled fixture','Public rejection feedback','READ_PRIVATE_EVIDENCE')`,
       [randomUUID(), id, fundId, member.id, statuses[n], at, holder.id],
     );
   }
@@ -159,9 +159,11 @@ export async function runContributionReadTests(h, fixture) {
       'destination_snapshot',
       'destination_version',
       'transfer_evidence_object_key',
-      'rejected_reason',
     ])
       assert(!serialized.includes(secret));
+    const contributions = table === 'contribution_requests' ? rows.flatMap(row => row.contributions) : rows;
+    assert(contributions.some(row => row.rejected_reason === 'Public rejection feedback'));
+    assert(contributions.every(row => row.rejected_reason === null || typeof row.rejected_reason === 'string'));
     if (table === 'contribution_requests')
       assert.equal(rows.find((row) => row.id === seededRequests[0]).contributions.length, 151);
   }

@@ -94,6 +94,7 @@ export function projectContribution(value: unknown) {
       row.confirmed_by_user_id === undefined ? null : identifier(row.confirmed_by_user_id),
     waived_reason: nullableString(row.waived_reason),
     cancelled_reason: nullableString(row.cancelled_reason),
+    rejected_reason: nullableString(row.rejected_reason),
   };
 }
 export function projectContributionRequest(value: unknown, created = true) {
@@ -140,7 +141,8 @@ export function projectContributionRequest(value: unknown, created = true) {
             c.confirmed_at !== null ||
             c.confirmed_by_user_id !== null ||
             c.waived_reason !== null ||
-            c.cancelled_reason !== null)),
+            c.cancelled_reason !== null ||
+            c.rejected_reason !== null)),
     )
   )
     throw new Error('Allocation scope mismatch');

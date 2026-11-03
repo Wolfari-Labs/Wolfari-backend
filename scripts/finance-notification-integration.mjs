@@ -33,8 +33,21 @@ export async function runFinanceNotificationTests(h) {
   const owner = await account('Inbox owner'),
     holder = await account('Inbox holder'),
     member = await account('Inbox debtor');
-  const write = (path, body, user = owner) =>
-    request(path, 'POST', body, { ...bearer(user), 'Idempotency-Key': randomUUID() });
+  const write = async (path, body, user = owner) => {
+    const key = randomUUID();
+    const send = () => request(path, 'POST', body, { ...bearer(user), 'Idempotency-Key': key });
+    const response = await send();
+    if (response.status !== 202) return response;
+    assert.equal(response.body.data.operation_id, key);
+    const terminal = await waitFor(async () => {
+      const operation = await request('/api/v1/operations/' + key, 'GET', undefined, bearer(user));
+      assert.equal(operation.status, 200);
+      const state = operation.body.data.state;
+      return ['SUCCEEDED', 'FAILED', 'NEEDS_REVIEW'].includes(state) && state;
+    }, 45_000);
+    assert.equal(terminal, 'SUCCEEDED');
+    return send();
+  };
   let connection, channel;
   const broker = async () => {
     if (channel) return channel;

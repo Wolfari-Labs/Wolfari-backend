@@ -24,7 +24,7 @@ import {
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TripClient } from './trip-client';
 
-type Route = 'create' | 'list' | 'get' | 'update' | 'planPolicy';
+type Route = 'create' | 'list' | 'get' | 'update' | 'planPolicy' | 'getPlanPolicy';
 
 const lifecycleValues: Record<string, number> = {
   UPCOMING: 1,
@@ -141,9 +141,12 @@ function routeFor(method: string, pathname: string): { route: Route; tripId?: st
   }
   const planPolicyMatch = /^\/api\/v1\/trips\/([^/]+)\/plan-policy$/.exec(pathname);
   if (planPolicyMatch) {
-    if (method !== 'PUT') return null;
+    if (method !== 'PUT' && method !== 'GET') return null;
     if (!uuid.test(planPolicyMatch[1]!)) throw new RequestError('Invalid trip id');
-    return { route: 'planPolicy', tripId: planPolicyMatch[1]!.toLowerCase() };
+    return {
+      route: method === 'GET' ? 'getPlanPolicy' : 'planPolicy',
+      tripId: planPolicyMatch[1]!.toLowerCase(),
+    };
   }
   const match = /^\/api\/v1\/trips\/([^/]+)$/.exec(pathname);
   if (!match) return null;
@@ -381,6 +384,18 @@ export class TripProxy {
         );
         return json(response, 200, {
           data: projectTrip(result.trip),
+          meta: { correlation_id: correlationId },
+        });
+      }
+      if (route.route === 'getPlanPolicy') {
+        ensureQuery(url, []);
+        result = await this.client.call(
+          'GetPlanPolicy',
+          { actor_user_id: actorUserId, trip_id: route.tripId },
+          correlationId,
+        );
+        return json(response, 200, {
+          data: projectPlanPolicy(result.plan_policy),
           meta: { correlation_id: correlationId },
         });
       }

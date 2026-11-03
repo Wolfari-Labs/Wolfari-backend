@@ -101,7 +101,7 @@ Sai input400, session401, Trip/SQL/transport lỗi503; không biến lỗi thàn
 Contribution công khai gồm id/request_id/fund_id/member_user_id, amount, status,
 self_contribution, member_reported_at, confirmed_at, confirmed_by_user_id,
 waived_reason, cancelled_reason, version và finance_version. Các giá trị optional
-trả JSON null. Không có rejected_reason, evidence, snapshot hoặc tài khoản.
+trả JSON null. Bổ sung ngày 28/10/2026: `rejected_reason` nullable trả lý do từ chối gần nhất theo quyền đọc contribution hiện có. Không trả evidence, snapshot hoặc tài khoản. Receipt cũ thiếu field trả null, không dựng lịch sử từ row hiện hành.
 Request list có đầy đủ allocations lồng bên trong. Các field created_by_user_id,
 created_at, amount_per_member và closed_at là metadata extension đã giữ từ API078.
 

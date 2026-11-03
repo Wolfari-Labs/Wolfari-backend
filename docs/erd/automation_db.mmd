@@ -99,11 +99,13 @@ erDiagram
     timestamptz completed_at
     varchar_60_ error_code
     timestamptz created_at
+    timestamptz next_attempt_at "V003 required"
   }
   price_watches {
     uuid id PK
     uuid query_group_id FK
     uuid user_id
+    uuid owner_membership_id "V002 logical Trip membership, no FK"
     uuid trip_id
     bigint threshold_price
     char_3_ currency
@@ -148,6 +150,33 @@ erDiagram
     integer version
     timestamptz updated_at
   }
+  %% V004: dedupe watch/observation; at most one open candidate per watch.
+  price_alert_candidates {
+    uuid id PK
+    uuid watch_id FK
+    uuid observation_id FK
+    integer watch_version
+    varchar_24_ reason
+    varchar_16_ status
+    integer attempt_count
+    timestamptz next_attempt_at
+    varchar_100_ claim_owner
+    timestamptz claim_until
+    varchar_60_ last_error
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz completed_at
+  }
+  price_watch_trip_lifecycle {
+    uuid trip_id PK "logical Trip reference, no FK"
+    integer export_revision
+    varchar_16_ state
+    uuid event_id UK
+    timestamptz updated_at
+  }
+  %% V005: notifications user available/unread partial indexes; see SQL for predicates.
+  price_watches ||--o{ price_alert_candidates : "watch_id"
+  price_observations ||--o{ price_alert_candidates : "observation_id"
   notifications ||--o{ notification_deliveries : "notification_id"
   price_query_groups ||--o{ price_query_attempts : "query_group_id"
   price_query_groups ||--o{ price_watches : "query_group_id"

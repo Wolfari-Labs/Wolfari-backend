@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isCalendarDate } from '@wolfari/common';
 import { DatabaseProvider } from '@wolfari/database';
 import {
   digest,
@@ -50,6 +51,7 @@ type Fields = {
   selected_location_id?: string | null;
   starts_at?: string | null;
   ends_at?: string | null;
+  scheduled_date?: string | null;
   position?: number;
 };
 export interface MutationResult {
@@ -109,6 +111,7 @@ export function normalizeActivityFields(value: unknown, create: boolean): Fields
     'selected_location_id',
     'starts_at',
     'ends_at',
+    'scheduled_date',
     'position',
   ];
   if (
@@ -121,6 +124,12 @@ export function normalizeActivityFields(value: unknown, create: boolean): Fields
     return fail('VALIDATION_FAILED', 400);
   const input = value as Record<string, unknown>;
   const fields: Fields = {};
+  // Preserve old canonical request hashes when the new field is omitted.
+  if (Object.hasOwn(input, 'scheduled_date')) {
+    if (input.scheduled_date !== null && !isCalendarDate(input.scheduled_date))
+      return fail('VALIDATION_FAILED', 400);
+    fields.scheduled_date = input.scheduled_date;
+  }
   if (create || Object.hasOwn(input, 'title')) fields.title = label(input.title, 255);
   if (create || Object.hasOwn(input, 'activity_type'))
     fields.activity_type = label(input.activity_type, 40);
@@ -345,12 +354,30 @@ export class PlanService {
         ids = list.rows.map((row) => row.id);
       }
       if (input.fields) {
-        const fields = input.fields;
+        const fields = { ...input.fields };
+        // Derived storage change only: never mutate the submitted intent/hash.
+        if (fields.starts_at != null || fields.ends_at != null) {
+          if (fields.scheduled_date != null) return fail('VALIDATION_FAILED', 400);
+          fields.scheduled_date = null;
+        }
         const merged = {
           ...(activity ? projectActivity(activity, trip.plan_version) : {}),
           ...fields,
         };
         validateTimes(merged.starts_at ?? null, merged.ends_at ?? null, trip);
+        if (merged.scheduled_date != null) {
+          if (merged.starts_at != null || merged.ends_at != null)
+            return fail('VALIDATION_FAILED', 400);
+          // PostgreSQL timezone rules cover DST and skipped calendar days.
+          const bounds = await client.query<{ valid: boolean }>(
+            `SELECT day_start < $3::timestamptz AND day_end > $4::timestamptz
+              AND day_end > day_start AS valid
+             FROM (SELECT $1::date::timestamp AT TIME ZONE $2 AS day_start,
+               ($1::date + 1)::timestamp AT TIME ZONE $2 AS day_end) d`,
+            [merged.scheduled_date, trip.timezone, trip.end_at, trip.start_at],
+          );
+          if (!bounds.rows[0]?.valid) return fail('VALIDATION_FAILED', 400);
+        }
         if (fields.selected_location_id) {
           const found = await client.query(
             'SELECT id FROM selected_locations WHERE id=$1 AND trip_id=$2',
@@ -366,8 +393,8 @@ export class PlanService {
           await reorder(ids);
           const created = await client.query<ActivityRow>(
             `INSERT INTO activities(trip_id,title,activity_type,
-            description,public_description,selected_location_id,starts_at,ends_at,position,source,created_by_user_id)
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'MANUAL',$10) RETURNING ${ACTIVITY_COLUMNS}`,
+            description,public_description,selected_location_id,starts_at,ends_at,position,source,created_by_user_id,scheduled_date)
+            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'MANUAL',$10,$11::date) RETURNING ${ACTIVITY_COLUMNS}`,
             [
               input.tripId,
               fields.title,
@@ -379,6 +406,7 @@ export class PlanService {
               fields.ends_at,
               ids.length,
               input.actorUserId,
+              fields.scheduled_date ?? null,
             ],
           );
           activity = created.rows[0];
@@ -401,7 +429,8 @@ export class PlanService {
               public_description=CASE WHEN $9 THEN $10 ELSE public_description END,
               selected_location_id=CASE WHEN $11 THEN $12::uuid ELSE selected_location_id END,
               starts_at=CASE WHEN $13 THEN $14::timestamptz ELSE starts_at END,
-              ends_at=CASE WHEN $15 THEN $16::timestamptz ELSE ends_at END,updated_at=now()
+              ends_at=CASE WHEN $15 THEN $16::timestamptz ELSE ends_at END,
+              scheduled_date=CASE WHEN $17 THEN $18::date ELSE scheduled_date END,updated_at=now()
               WHERE id=$1 AND trip_id=$2`,
               [
                 activity!.id,
@@ -415,6 +444,7 @@ export class PlanService {
                     'selected_location_id',
                     'starts_at',
                     'ends_at',
+                    'scheduled_date',
                   ] as const
                 ).flatMap((key) => [Object.hasOwn(fields, key), fields[key] ?? null]),
               ],

@@ -1,5 +1,7 @@
 # Baseline thiết kế Wolfari
 
+> Phụ lục28/10/2026: [demo1 v1.0](demo-1-addendum-v1.0.md) bổ sung ngày chưa giờ/Trip V003, GET policy và tên thành viên. Ba DOCX/checksum giữ nguyên; hợp nhất phụ lục vào phiên bản kế tiếp. [Validation mới](demo-1-backend-validation.md) không đồng nghĩa Web/production đã đạt.
+
 Bộ tài liệu được người yêu cầu chốt ngày 02/10/2026 là baseline chính thức cho bước triển khai tiếp theo. Việc chốt tài liệu không phải nghiệm thu API, event, database hay toàn bộ nghiệp vụ.
 
 ## Tài liệu nguồn

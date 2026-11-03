@@ -3,4 +3,4 @@ export { CorrelationMiddleware, currentCorrelationId, normalizeCorrelationId } f
 export { validateAppEnvironment } from './environment';
 export { InfrastructureModule, type AppName } from './infrastructure.module';
 export { StructuredLogger } from './structured-logger';
-
+export { isCalendarDate } from './calendar-date';
