@@ -48,7 +48,7 @@ export async function runPriceWatchTests({
     passengers: { adults: 2, children: 1, infants: 1 },
     cabin_class: 'ECONOMY',
     currency: 'VND',
-    threshold_price: '2500000',
+    threshold_price: '1',
     departure_at: departure.toISOString(),
   };
   const createWatch = (tripId, owner, key, payload = body) =>
@@ -58,13 +58,14 @@ export async function runPriceWatchTests({
     });
 
   const firstKey = randomUUID();
-  const [first, replay, second] = await Promise.all([
+  // Create the alert-eligible watch before polling can start. Keep lifecycle assertions
+  // on the low-threshold watch so an asynchronous alert cannot increment its version.
+  const second = await createWatch(secondTrip, secondOwner, randomUUID(), {
+    ...body, threshold_price: '9000000',
+  });
+  const [first, replay] = await Promise.all([
     createWatch(firstTrip, firstOwner, firstKey),
     createWatch(firstTrip, firstOwner, firstKey),
-    createWatch(secondTrip, secondOwner, randomUUID(), {
-      ...body,
-      threshold_price: '9000000',
-    }),
   ]);
   assert.equal(first.status, 201);
   assert.equal(replay.status, 201);
@@ -109,7 +110,7 @@ export async function runPriceWatchTests({
     'PATCH',
     {
       expected_version: 1,
-      threshold_price: '2500000',
+      threshold_price: '1',
     },
     bearer(firstOwner),
   );
@@ -120,7 +121,7 @@ export async function runPriceWatchTests({
     'PATCH',
     {
       expected_version: 1,
-      threshold_price: '2300000',
+      threshold_price: '2',
     },
     bearer(firstOwner),
   );
@@ -161,9 +162,19 @@ export async function runPriceWatchTests({
     bearer(firstOwner),
   );
   assert.equal(resumed.status, 200);
+  const stopPath = `/api/v1/price-watches/${first.body.data.id}`;
+  assert.equal((await request(stopPath, 'DELETE', {}, bearer(firstOwner))).status, 400);
+  assert.equal(
+    (await request(stopPath, 'DELETE', { expected_version: 4 }, bearer(outsider))).status,
+    404,
+  );
+  assert.equal(
+    (await request(stopPath, 'DELETE', { expected_version: 3 }, bearer(firstOwner))).status,
+    409,
+  );
   const stopped = await request(
-    `/api/v1/price-watches/${first.body.data.id}/stop`,
-    'POST',
+    stopPath,
+    'DELETE',
     {
       expected_version: 4,
     },
@@ -171,6 +182,17 @@ export async function runPriceWatchTests({
   );
   assert.equal(stopped.status, 200);
   assert.equal(stopped.body.data.status, 'STOPPED');
+  assert.equal(
+    (
+      await request(
+        stopPath + '/stop',
+        'POST',
+        { expected_version: stopped.body.data.version },
+        bearer(firstOwner),
+      )
+    ).status,
+    409,
+  );
   assert.equal(
     (
       await request(
@@ -201,6 +223,24 @@ export async function runPriceWatchTests({
   assert.equal(observations.body.data[0].provider, 'MOCK_FLIGHT');
   assert.equal(observations.body.data[0].currency, 'VND');
   assert.equal(observations.body.data[0].fare_metadata.baggage_summary, 'MOCK_DATA');
+  assert.equal(observations.body.meta.stale, false);
+  assert.equal(observations.body.meta.last_error, null);
+  // Inject a provider outcome in this isolated database. Keep the worker's real historical fare.
+  const groupId = first.body.data.query_group_id;
+  const historyPath = '/api/v1/price-watches/' + first.body.data.id + '/observations';
+  await query('automation', "UPDATE price_query_groups SET last_error='PROVIDER_TIMEOUT' WHERE id=$1", [groupId]);
+  const history = await request(historyPath, 'GET', undefined, bearer(firstOwner));
+  assert.equal(history.status, 200);
+  assert.deepEqual(history.body.data, observations.body.data);
+  assert.equal(history.body.meta.stale, true);
+  assert.equal(history.body.meta.last_error, 'PROVIDER_TIMEOUT');
+  assert.equal((await request(historyPath, 'GET', undefined, bearer(outsider))).status, 404);
+  await query('automation', 'UPDATE price_query_groups SET last_error=NULL WHERE id=$1', [groupId]);
+  const recovered = await request(historyPath, 'GET', undefined, bearer(firstOwner));
+  assert.deepEqual(recovered.body.data, observations.body.data);
+  assert.equal(recovered.body.meta.stale, false);
+  assert.equal(recovered.body.meta.last_error, null);
+  pass('AC-AU03: API139 preserves observed prices and exposes the provider failure only to authorized readers');
   assert.equal(
     (await query(
       'automation',

@@ -17,6 +17,7 @@ describe.each([
       'pausePriceWatch',
       'resumePriceWatch',
       'stopPriceWatch',
+      'stopPriceWatchById',
       'listPriceObservations',
     ]) {
       expect(document.match(new RegExp(`operationId: ${operation}\\b`, 'g'))).toHaveLength(1);

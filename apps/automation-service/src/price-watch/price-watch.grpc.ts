@@ -325,7 +325,12 @@ export class PriceWatchGrpcController implements AutomationV1.AutomationServiceC
     const correlation = this.authorize('ListPriceObservations', metadata);
     return this.execute(async () => {
       const result = await this.service.observations(request, correlation);
-      return { items: result.items.map(observation), next_cursor: result.next_cursor ?? undefined };
+      return {
+        items: result.items.map(observation),
+        next_cursor: result.next_cursor ?? undefined,
+        stale: result.stale,
+        last_error: result.last_error ?? undefined,
+      };
     });
   }
 }

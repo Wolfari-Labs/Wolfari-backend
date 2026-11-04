@@ -6,6 +6,8 @@ H1 hiện thực API133–139 cho việc cấu hình và quản lý theo dõi gi
 
 ## Luồng và quyền
 
+API138 nhận `DELETE /api/v1/price-watches/{id}` với body `{"expected_version": ...}`. Gateway cũng nhận `POST /api/v1/price-watches/{id}/stop` cho các client hiện có. Cả hai gọi cùng lệnh StopPriceWatch, dùng cùng kiểm tra quyền và phiên bản, chuyển watch sang STOPPED và giữ lịch sử giá.
+
 1. Gateway xác thực bearer session rồi gọi `AutomationService` qua loopback gRPC bằng secret riêng và correlation ID.
 2. Automation gọi `Trip.GetAccessContext` trước mỗi thao tác. Member hiện tại được tạo, list và đọc lịch sử. Chỉ membership đã tạo watch được sửa, pause hoặc resume. Creator hoặc current Owner được stop.
 3. Read vẫn hợp lệ với Trip archived nếu caller còn membership. Mọi write bị chặn khi Trip archived, deleted, caller đã rời Trip hoặc dependency không xác định được quyền.

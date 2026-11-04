@@ -55,6 +55,64 @@ corepack pnpm demo:preview
 
 Không chạy dev và preview đồng thời trên 5273. Web demo luôn dùng Gateway, output `dist-demo/` riêng. `vite preview` chỉ phục vụ nghiệm thu local.
 
+## Demo kiểm thử Quỹ và Price Watch bằng Backend
+
+Chạy từ thư mục backend với Node 24, Corepack và Docker Desktop Linux. Trên máy mới cài dependencies bằng `corepack pnpm install --frozen-lockfile`. Terminal thứ nhất giữ backend chạy.
+
+```powershell
+corepack pnpm demo:init
+corepack pnpm demo:start
+```
+
+Mở terminal thứ hai cùng thư mục. Cài Newman một lần vào thư mục công cụ riêng của demo.
+
+```powershell
+npm install --prefix .local/demo/tools --ignore-scripts --no-audit --no-fund newman@6.2.1
+corepack pnpm demo:finance-price-watch
+corepack pnpm demo:postman
+```
+
+Mỗi lượt `demo:finance-price-watch` dùng lại tài khoản TEST, tạo Trip và quỹ riêng. Bốn vai trò gồm Owner, Holder, Member và người ngoài Trip. Owner cũng có một khoản đóng riêng. Quỹ bắt đầu từ 0 VND và đích nhận TEST do Holder xác nhận. Chạy lại là đủ để có dữ liệu mới cho buổi trình bày.
+
+| Ca | Thao tác và bằng chứng cần mở |
+| --- | --- |
+| API01–03 | Owner lập đợt thu 200.000 và 300.000 VND. Member báo khoản đầu. Khi Holder từ chối, lý do được lưu, khoản trở về PENDING, sổ quỹ vẫn trống. |
+| VietQR API086 | Trước khi báo chuyển, Member đọc hướng dẫn TEST cho khoản 200.000 VND của mình. Demo đối chiếu số tiền, mã tham chiếu và URL QuickLink ngay trên máy, kiểm tra người khác bị 404, số dư và sổ quỹ giữ nguyên. Sau khi báo chuyển, yêu cầu cấp hướng dẫn mới bị 409. Ảnh QR ngoài hệ thống và camera Android cần kiểm riêng. |
+| API04–07 | Member báo lại, Holder xác nhận. Gửi lại cùng khóa phải giữ nguyên dòng thu. Owner tự xác nhận thay Holder bị 403. Với khoản thứ hai, hai yêu cầu xác nhận đồng thời trả 200 và 409. Sổ quỹ kết thúc ở 500.000 VND với hai dòng IN. |
+| API08–09 | Member và Owner cùng theo dõi DAD → HAN, cùng chuyến bay sau 30 ngày. Ngưỡng 9.000.000 và 1 VND giúp giá MOCK_FLIGHT luôn nằm giữa hai ngưỡng. Đọc cùng observation qua hai watch và đối soát PostgreSQL theo đúng nhóm/kỳ. Một attempt thành công, một observation và một thông báo PRICE_ALERT trong ứng dụng cho watch ngưỡng cao. |
+| API10–12 | Watch ngưỡng thấp đi qua PAUSED, ACTIVE, STOPPED. Resume sau stop và sửa bằng phiên bản cũ trả 409. Người ngoài Trip đọc danh sách watch nhận 404. |
+
+Mở `.local/demo/reports/finance-price-watch-latest.json` để xem số dư, hai dòng ledger, hai watch ID, query group, giá và thời điểm quan sát. Lệnh Newman đọc lại Trip vừa chạy bằng 5 HTTP request và 10 assertion. Mở `.local/demo/reports/postman-latest.json` để xem kết quả cùng `sourceRunId`. Khi đưa vào OneDrive, lấy hai bản mang run ID trong cùng thư mục để giữ đúng cặp bằng chứng. Tài khoản nằm trong journal riêng của demo. Chỉ chia sẻ các báo cáo.
+
+Để trình chiếu trong Postman Desktop, import [collection kiểm chứng](../api/finance-price-watch.postman_collection.json), đặt `tripId` bằng `resources.tripId` trong báo cáo và `accessToken` bằng bearer token local của Owner demo. Dùng Collection Runner chạy theo thứ tự. Lệnh `demo:postman` tự đăng nhập lại trong bộ nhớ khi chạy bằng CLI. Để kết thúc buổi demo dùng `corepack pnpm demo:stop`, dữ liệu được giữ để xem lại.
+
+Để kiểm tra quy tắc tiền, khóa truy vấn, ngưỡng, giảm 5% và cooldown 24 giờ ở mức Unit, chạy sau khi build.
+
+```powershell
+corepack pnpm build
+corepack pnpm demo:unit
+```
+
+Vitest xuất `.local/demo/reports/finance-price-watch-unit.xml` theo định dạng JUnit. Lưu bản này cùng hai báo cáo JSON của lượt trình diễn vào thư mục bằng chứng của nhóm.
+
+Hai bộ hồi quy sâu chạy riêng bằng `corepack pnpm finance:test` và `corepack pnpm price-watch:test`. Demo dùng đóng góp thủ công TEST, worker thật, nguồn giá MOCK_FLIGHT và thông báo trong ứng dụng. Web, Android, camera, thanh toán ngoài hệ thống và benchmark NFR-P01 cần bằng chứng ở lượt kiểm thử tương ứng.
+
+## Đo PERF01 và PERF02 bằng JMeter
+
+Mạnh chạy trên Gateway demo ở 127.0.0.1:13000, với PostgreSQL demo đang hoạt động. Cài Java 17 hoặc 21 và [Apache JMeter 5.6.3](https://jmeter.apache.org/download_jmeter.cgi). Đặt `JMETER_HOME` trỏ vào thư mục JMeter đã giải nén hoặc giải nén vào `.local/demo/tools/apache-jmeter-5.6.3`. Nếu cần chọn Java khác với PATH, đặt `JMETER_JAVA` bằng đường dẫn tuyệt đối tới java.exe. Từ gốc backend, chạy lần lượt `corepack pnpm demo:perf:smoke` và `corepack pnpm demo:perf:load`.
+
+Fixture TD06 được tạo và dùng lại trong instance demo. Có 50 tài khoản giả lập, 100 Trip, mỗi Trip 6 thành viên và 4 ngày × 10 Activity. Mỗi quỹ có một khoản thu 200.000 VND và mỗi Trip có một watch dùng MOCK_FLIGHT. Mỗi người dùng đăng nhập riêng và luân phiên hai Trip được phân quyền. JMeter chỉ đo ba request GET đọc Plan, sổ quỹ và danh sách watch. Mỗi request có thời gian nghỉ 1 giây. Chi phí đăng nhập, tạo dữ liệu và gọi provider được tách khỏi lượt đo.
+
+PERF01 dùng 5 người, tăng tải 5 giây, làm nóng thêm 10 giây rồi đo 30 giây. PERF02 dùng 50 người, tăng tải 10 giây, làm nóng thêm 60 giây rồi đo 600 giây. Condition của NFR-P01 là p95 từng API dưới 2.000 ms. Runner cũng kiểm tra đủ người dùng suốt cửa sổ đo, HTTP 200 và nội dung đúng bộ TD06. Kết quả riêng từng endpoint gồm p95 (ms), throughput (request/giây) và tỷ lệ lỗi. Chỉ sao chép `summary.json` và `samples.csv` từ thư mục PERF tương ứng trong `.local/demo/reports`. Report ghi commit checkout và cờ dirty. Sau khi đổi code, khởi động lại backend demo đúng bản build trước khi đo.
+
+## Chạy AND04–AND05 trên Android thật
+
+Quyên dùng bản native Wolfari Mobile có package `com.tanthanh_67.Wolfarimobile`, tài khoản TEST, vào Chuyến đi → Tiện ích → Quỹ nhóm. Kiểm tra `adb devices -l` hiển thị đúng điện thoại. Mỗi flow bắt đầu ở nút “Quét QR thanh toán”, khi bảng quét còn đóng. Chuẩn bị quyền camera ở trạng thái có thể hỏi lần đầu cho AND04. Nếu Android đang nhớ lựa chọn, mở cài đặt quyền ứng dụng và đặt lại quyền trước khi mở Wolfari. Không cần xóa dữ liệu ứng dụng.
+
+1. Chạy `maestro test scripts/android/AND04.yaml`. Flow yêu cầu quyền camera, chọn từ chối tại hộp thoại Android, mở cách dán, đọc vector TEST và đối chiếu màn hình kiểm tra với **180.000 ₫**. Để nghiệm thu thao tác dán của hệ điều hành, sao chép đúng vector trong YAML vào clipboard điện thoại và lặp lại bằng nhấn giữ → Dán. Lệnh [pasteText của Maestro](https://docs.maestro.dev/reference/commands-available/pastetext) dùng clipboard nội bộ của công cụ.
+2. Đóng bảng quét, giữ camera bị từ chối, chạy `maestro test scripts/android/AND05.yaml`. Chuỗi chỉ khác ký tự CRC cuối (E → F). Ứng dụng phải hiện “Mã kiểm tra QR không khớp” và không hiển thị màn hình số tiền.
+3. Trước và sau mỗi ca, đối chiếu cùng số dư và sổ quỹ trên tài khoản TEST, ghi commit mobile, model máy, phiên bản Android, ngày và bằng chứng của lượt chạy. Luồng này chỉ đọc mã. Không mở ứng dụng ngân hàng hay thực hiện chuyển tiền. Chỉ điền Round sau khi chạy thật.
+
 ## Cổng và cách ly
 
 | Thành phần           | Development      | Demo             |

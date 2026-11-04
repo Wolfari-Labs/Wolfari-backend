@@ -59,13 +59,17 @@ async function updateGroupResult(
     errorCode: string | null;
   },
 ): Promise<void> {
+  // A second statement after acquiring the lock sees outcomes committed by the previous writer.
+  await client.query('SELECT id FROM price_query_groups WHERE id=$1 FOR UPDATE', [
+    input.queryGroupId,
+  ]);
   await client.query(
     `UPDATE price_query_groups q SET last_checked_at=clock_timestamp(),last_error=$3,
        updated_at=clock_timestamp()
      WHERE q.id=$1 AND NOT EXISTS(
        SELECT 1 FROM price_query_attempts newer
        WHERE newer.query_group_id=q.id AND newer.scheduled_slot>$2::timestamptz
-         AND newer.status IN ('SUCCEEDED','NO_RESULT','FAILED')
+         AND (newer.status IN ('SUCCEEDED','NO_RESULT','FAILED') OR newer.error_code IS NOT NULL)
      )`,
     [input.queryGroupId, input.scheduledSlot, input.errorCode],
   );

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="TD06 – API đọc nội bộ">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Wolfari">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Lặp">
+          <intProp name="LoopController.loops">-1</intProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(users,5)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(ramp,5)}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,50)}</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Một tài khoản mỗi người dùng">
+          <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp>
+          <stringProp name="script"><![CDATA[
+if (vars.getObject('actor') == null) {
+    def users = new groovy.json.JsonSlurper().parse(new File(props.get('fixture')), 'UTF-8')
+    vars.putObject('actor', users[ctx.getThreadNum()])
+}
+def actor = vars.getObject('actor')
+def target = actor.trips[(vars.getIteration() - 1) % actor.trips.size()]
+vars.put('token', actor.token)
+vars.put('trip', target.trip)
+vars.put('fund', target.fund)
+]]></stringProp>
+        </JSR223PreProcessor><hashTree/>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Phiên đăng nhập demo">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header"><stringProp name="Header.name">Authorization</stringProp><stringProp name="Header.value">Bearer ${token}</stringProp></elementProp>
+            <elementProp name="" elementType="Header"><stringProp name="Header.name">X-Client-Type</stringProp><stringProp name="Header.value">mobile</stringProp></elementProp>
+          </collectionProp>
+        </HeaderManager><hashTree/>
+        <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Nghỉ 1 giây trước mỗi request"><stringProp name="ConstantTimer.delay">1000</stringProp></ConstantTimer><hashTree/>
+        <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Kiểm tra dữ liệu TD06">
+          <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="cacheKey">true</stringProp>
+          <stringProp name="script"><![CDATA[
+def valid = prev.responseCode == '200'
+if (valid) {
+    def data = new groovy.json.JsonSlurper().parse(prev.responseData).data
+    switch (prev.sampleLabel) {
+        case 'Plan': valid = data.activities.size() == 40 && data.activities.every { it.trip_id == vars.get('trip') }; break
+        case 'SoQuy': valid = data.items.size() == 1 && data.items[0].amount == '200000' && data.items[0].direction == 'IN'; break
+        case 'Watch': valid = data.size() == 1 && data[0].trip_id == vars.get('trip'); break
+        default: valid = false
+    }
+}
+if (!valid) { AssertionResult.setFailure(true); AssertionResult.setFailureMessage('TD06 response mismatch: '+prev.sampleLabel) }
+]]></stringProp>
+        </JSR223Assertion><hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Plan">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp><stringProp name="HTTPSampler.port">13000</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.method">GET</stringProp>
+          <stringProp name="HTTPSampler.path">/api/v1/trips/${trip}/plan</stringProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+        </HTTPSamplerProxy><hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="SoQuy">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp><stringProp name="HTTPSampler.port">13000</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.method">GET</stringProp>
+          <stringProp name="HTTPSampler.path">/api/v1/funds/${fund}/transactions</stringProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+        </HTTPSamplerProxy><hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Watch">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp><stringProp name="HTTPSampler.port">13000</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.method">GET</stringProp>
+          <stringProp name="HTTPSampler.path">/api/v1/trips/${trip}/price-watches</stringProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp><stringProp name="HTTPSampler.response_timeout">10000</stringProp>
+        </HTTPSamplerProxy><hashTree/>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

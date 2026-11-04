@@ -178,11 +178,18 @@ async function main() {
   }
   const operation = await operationLock(manifest);
   try {
-    if (command === 'seed' || command === 'api') {
+    if (['seed', 'api', 'finance-price-watch'].includes(command)) {
       await resources(manifest);
       await checkDemo(demo);
       const { runDemoScenarios } = await import('./demo-scenarios.mjs');
       await runDemoScenarios(demo, command);
+      return;
+    }
+    if (command === 'postman') {
+      await resources(manifest);
+      await checkDemo(demo);
+      const { runDemoCollection } = await import('./demo-postman.mjs');
+      await runDemoCollection(demo);
       return;
     }
     if (command === 'stop' || command === 'reset') {

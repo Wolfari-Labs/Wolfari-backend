@@ -130,9 +130,15 @@ export async function checkPriceWatchRepository(client) {
       [moved.query_group_id, attempt.id],
     );
     const observations = await repository.listObservations(moved.query_group_id, 10);
-    assert.equal(observations.length, 1);
-    assert.equal(observations[0].price, '1500000');
-    assert.equal((await repository.listObservations(second.query_group_id, 10)).length, 0);
+    assert.equal(observations.items.length, 1);
+    assert.equal(observations.items[0].price, '1500000');
+    assert.equal(observations.stale, false);
+    await client.query("UPDATE price_query_groups SET last_error='PROVIDER_TIMEOUT' WHERE id=ANY($1::uuid[])", [[moved.query_group_id, second.query_group_id]]);
+    const stale = await repository.listObservations(moved.query_group_id, 10);
+    assert.deepEqual(stale, {...observations, stale: true, last_error: 'PROVIDER_TIMEOUT'});
+    assert.deepEqual(await repository.listObservations(second.query_group_id, 10), {items: [], stale: false, last_error: 'PROVIDER_TIMEOUT'});
+    await client.query('UPDATE price_query_groups SET last_error=NULL WHERE id=$1', [moved.query_group_id]);
+    assert.deepEqual(await repository.listObservations(moved.query_group_id, 10), observations);
   } finally {
     await client.query('ROLLBACK');
   }

@@ -154,6 +154,15 @@ export async function checkPriceWatchWorkerRepository(client, connectionString) 
       'RETRY',
     );
     assert.equal(await repository.claimNext('worker-b', 30_000), undefined);
+    const older = (await client.query(
+      `INSERT INTO price_query_attempts(query_group_id,scheduled_slot,status,claim_owner,claim_until,attempt_count)
+       VALUES($1,'2026-10-22T23:00:00Z','RUNNING','late-worker',now()+interval '1 minute',1) RETURNING id`,
+      [group.id],
+    )).rows[0];
+    assert.equal(await repository.completeNoResult('late-worker', {
+      ...retrying, id: older.id, scheduled_slot: '2026-10-22T23:00:00Z', attempt_count: 1,
+    }), true);
+    assert.equal((await client.query('SELECT last_error FROM price_query_groups WHERE id=$1', [group.id])).rows[0].last_error, 'PROVIDER_TIMEOUT');
     await client.query(
       "UPDATE price_query_attempts SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE id=$1",
       [retrying.id],

@@ -443,6 +443,11 @@
       "document": "price-watch.openapi.yaml"
     },
     {
+      "method": "DELETE",
+      "path": "/api/v1/price-watches/{id}",
+      "document": "price-watch.openapi.yaml"
+    },
+    {
       "method": "PATCH",
       "path": "/api/v1/price-watches/{id}",
       "document": "price-watch.openapi.yaml"
@@ -569,7 +574,7 @@
     "payment-http.ts": "76406a92b30b302355a5bef52d03beaf5fedab27e99989aeeecb54c47e116c35",
     "payment-instruction-http.ts": "003535cf5ec6effb1dd6e9d5ad9d4510f2171eef7003ee2864aa49d6001949ac",
     "plan-proxy.ts": "71f6653f0ddbc75857649e308339921c65cf27ad07ff5e2bcfe553aecb600a08",
-    "price-watch-proxy.ts": "9a6b71ebc0a6be9c8ba59ed512ac297f8877f03e21ba109534e1b76eedbef168",
+    "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "5c01cbf2a574619b2a601682d750e5234e58f9de959466c5f271831d21dfba1d",
     "trip-http.ts": "2459aeba43239285b50093e9ff93f46e0706e03f5415eb90e29b86bc6feeb246",
