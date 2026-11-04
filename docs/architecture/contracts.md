@@ -10,7 +10,7 @@ REST mới: [Plan](../api/plan.openapi.json), [Fund/ledger](../api/finance-fund.
 
 ## Baseline và phạm vi
 
-Contract mã nguồn được đối chiếu với [DDL/API/Event Specification v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx), năm V001, Trip/Finance V002 và Automation V002–V005. Bộ tài liệu đã chốt ngày 02/10/2026; catalog mô tả cả hợp đồng mục tiêu, không đồng nghĩa mọi handler đã triển khai.
+Contract mã nguồn được đối chiếu với [DDL/API/Event Specification v1.1](../Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx), [ERD v1.2](../Wolfari_ERD_Database_v1.2_ChinhThuc.docx), năm V001, Trip/Finance V002 và Automation V002–V006. Bộ tài liệu đã chốt ngày 02/10/2026; catalog mô tả cả hợp đồng mục tiêu, không đồng nghĩa mọi handler đã triển khai.
 
 Package contract chứa contract, type, validator, fixture, metadata topology và client mỏng cho các RPC nội bộ đã bật. Identity đợt 1, Trip core, Plan access và [Trip invitations](trip-invitations.md) đã có handler tương ứng; phần lớn RPC/event handler nghiệp vụ khác chưa được triển khai.
 
@@ -119,6 +119,8 @@ Topology metadata dùng exchange topic durable `wolfari.events.v1`, message pers
 Consumer Price Watch chỉ nhận `MemberLeft`, `MemberRemoved`, `TripArchived`, `TripDeleted`, `TripReopened`. Việc tách queue ngăn consumer nghiệp vụ khác lấy và ACK nhầm lifecycle event. Consumer vẫn validate envelope v1, ghi inbox cùng effect, xử lý revision cũ/duplicate và chỉ ACK sau commit.
 
 Worker phải giữ `aggregate_version` của `GenerateExport` cho mọi result trong cùng attempt. Trip không được loại terminal result chỉ vì cùng version với progress. `ExportFailed.retryable` cố định `false` trong catalog v1 hiện hành.
+
+The terminal inbox extension moves ClosureCancelled/FinanceClosed to that same dedicated queue without changing their payloads. All five Finance bindings now serve the in-app consumer. Durable terminal inbox rows and a Fund transaction lock prevent late/in-flight notice creation for cancelled closures or closed Funds. Automation V006 adds a partial index and becomes required for readiness; no table, RPC or event type is added. Existing history remains visible subject to Self authorization. Reminder scheduling/cancellation, external delivery, retention and mixed-version rollout are not completed by this extension.
 
 ## Tương thích và bàn giao runtime
 

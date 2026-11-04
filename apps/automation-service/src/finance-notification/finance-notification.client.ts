@@ -9,7 +9,7 @@ import {
   type IdentityV1,
 } from '@wolfari/contracts/grpc';
 import { IdentityClient } from '@wolfari/contracts/identity-client';
-import { notificationEnabled, type FinanceNotificationEvent } from './finance-notification.event';
+import { notificationEnabled, type FinanceNoticeEvent } from './finance-notification.event';
 
 const definition = loadSync(PROTO_PATHS.finance, GRPC_LOADER_OPTIONS)[
   'wolfari.finance.v1.FinanceService'
@@ -49,7 +49,7 @@ export class FinanceNotificationClient implements OnApplicationShutdown {
   }
 
   getContext(
-    event: FinanceNotificationEvent,
+    event: FinanceNoticeEvent,
     deadline: number,
   ): Promise<FinanceV1.GetAutomationContextResponse> {
     const client = this.finance;

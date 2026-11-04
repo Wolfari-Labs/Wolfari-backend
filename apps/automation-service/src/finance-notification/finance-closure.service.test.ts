@@ -92,8 +92,6 @@ describe('Closure notification boundary', () => {
     { producer: 'Trip' },
     { aggregate_type: 'Trip' },
     { schema_version: 2 },
-    { event_type: 'ClosureCancelled' },
-    { event_type: 'FinanceClosed' },
     { trip_id: randomUUID() },
     { aggregate_id: randomUUID() },
     { aggregate_version: 8 },

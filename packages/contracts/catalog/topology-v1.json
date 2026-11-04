@@ -19,19 +19,19 @@
       "name": "wolfari.automation.v1",
       "consumer": "Automation",
       "durable": true,
-      "bindings": [
-        "AccountStatusChanged",
-        "PlanUpdated",
-        "ClosureCancelled",
-        "FinanceClosed",
-        "AccountEmailRequested"
-      ]
+      "bindings": ["AccountStatusChanged", "PlanUpdated", "AccountEmailRequested"]
     },
     {
       "name": "wolfari.automation.finance-notifications.v1",
       "consumer": "Automation",
       "durable": true,
-      "bindings": ["ContributionRequested", "ClosureRequested", "ContributionUpdated"]
+      "bindings": [
+        "ContributionRequested",
+        "ClosureRequested",
+        "ContributionUpdated",
+        "ClosureCancelled",
+        "FinanceClosed"
+      ]
     },
     {
       "name": "wolfari.automation.price-watch.v1",

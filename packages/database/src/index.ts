@@ -137,7 +137,7 @@ export class DatabaseProvider implements OnApplicationShutdown {
         checks.database = 'up';
         const required =
           this.name === 'automation'
-            ? ['V001', 'V002', 'V003', 'V004', 'V005']
+            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
             : this.name === 'trip'
               ? ['V001', 'V002', 'V003']
               : this.name === 'finance'

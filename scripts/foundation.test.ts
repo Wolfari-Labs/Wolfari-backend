@@ -225,7 +225,7 @@ describe('development configuration', () => {
         (await migrationFiles(service)).map((file: { version: string }) => file.version),
       ).toEqual(
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
           : service === 'trip'
             ? ['V001', 'V002', 'V003']
             : service === 'finance'

@@ -495,7 +495,7 @@ async function main() {
       assert.deepEqual(
         await history(client, files[service]),
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
           : service === 'trip'
             ? ['V001', 'V002', 'V003']
             : service === 'finance'
@@ -715,6 +715,20 @@ async function main() {
   });
   await health(automationApp, 'ready');
   pass('Automation requires V005 for readiness');
+  await db('automation',async client=>{
+    await client.query("DELETE FROM schema_migrations WHERE version='V006'");
+    try {assert.equal((await health(automationApp,'ready',503)).checks.migrations,'missing');}
+    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V006')");}
+  });
+  await health(automationApp,'ready');
+  pass('Automation requires V006 for readiness');
+  await db('automation', async client => {
+    const indexes = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='ix_inbox_events_finance_terminal'");
+    assert.equal(indexes.rowCount, 1);
+    assert.match(indexes.rows[0].indexdef, /ClosureCancelled/);
+    assert.match(indexes.rows[0].indexdef, /FinanceClosed/);
+  });
+  pass('Automation V006 terminal inbox lookup index is present after migration/replay');
   const travel = apps.find((a) => a.service === 'travel');
   await db('travel', async (client) => {
     await client.query('ALTER TABLE schema_migrations RENAME TO saved_migrations');
