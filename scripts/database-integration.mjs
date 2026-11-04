@@ -499,7 +499,7 @@ async function main() {
           : service === 'trip'
             ? ['V001', 'V002', 'V003']
             : service === 'finance'
-              ? ['V001', 'V002']
+              ? ['V001', 'V002', 'V003']
               : ['V001'],
       );
     });
@@ -704,6 +704,16 @@ async function main() {
     'ready',
   );
   pass('Trip day-only scheduling requires V003; legacy rows retain NULL dates');
+  const financeApp = apps.find(a => a.service === 'finance');
+  await db('finance',async client=>{
+    await client.query("DELETE FROM schema_migrations WHERE version='V003'");
+    try {assert.equal((await health(financeApp,'ready',503)).checks.migrations,'missing');}
+    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");}
+    const { rows } = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='finance_audit_history_idx'");
+    assert.match(rows[0].indexdef,/fund_id, occurred_at DESC, id DESC/);
+  });
+  await health(financeApp,'ready');
+  pass('Finance requires V003 and has the audit history keyset index');
   const automationApp = apps.find((a) => a.service === 'automation');
   await db('automation', async (client) => {
     await client.query("DELETE FROM schema_migrations WHERE version='V005'");

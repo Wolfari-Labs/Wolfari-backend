@@ -1,3 +1,4 @@
+import { runFinanceHistoryTests } from './finance-history-integration.mjs';
 import { runFinanceReadTests } from './finance-read-integration.mjs';
 import { runFinanceAutomationContextTests } from './finance-automation-context-integration.mjs';
 import { runFinanceWriteTests } from './finance-write-integration.mjs';
@@ -24,6 +25,7 @@ import { runPriceWatchTests } from './price-watch-integration.mjs';
 import { runNotificationManagementTests } from './notification-management-integration.mjs';
 import { runFinanceNotificationTests } from './finance-notification-integration.mjs';
 
+const historyOnly = process.argv.includes('--finance-history');
 const demo1Mode = process.argv.includes('--demo1');
 const automationContextOnly = process.argv.includes('--finance-automation-context');
 const receiptsOnly = process.argv.includes('--finance-receipts');
@@ -38,6 +40,7 @@ const allFinance = process.argv.includes('--finance');
 const paymentTestMode = paymentsOnly || allFinance;
 const lifecycleTestMode = lifecycleOnly || allFinance || demo1Mode;
 const financeReadMode =
+  historyOnly ||
   demo1Mode ||
   process.argv.includes('--finance-notifications') ||
   automationContextOnly ||
@@ -191,6 +194,7 @@ async function request(path, method = 'GET', body, headers = {}) {
   const type = response.headers.get('content-type') ?? '';
   return {
     status: response.status,
+    headers: response.headers,
     body: type.includes('json') ? await response.json() : await response.text(),
   };
 }
@@ -543,6 +547,41 @@ async function main() {
         }
       },
     });
+    const history = () =>
+      runFinanceHistoryTests({
+        request,
+        query,
+        transaction,
+        bearer,
+        tripBody,
+        pass,
+        waitFor,
+        actors: result.actors,
+        financeTarget: `127.0.0.1:${financePort}`,
+        financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+        whileTripStopped: async (work) => {
+          await stop(tripProcess);
+          try {
+            return await work();
+          } finally {
+            tripProcess = await start('trip-workspace-service', tripValues);
+          }
+        },
+      });
+    if (historyOnly) {
+      const historyResult = await history();
+      for (const child of children)
+        for (const value of [
+          ...result.forbidden,
+          ...historyResult.forbidden,
+          ...Object.values(secrets),
+          infra.POSTGRES_PASSWORD,
+        ])
+          assert(!child.output.includes(value), `${child.appName} logged private data`);
+      pass('Finance history logs contain no tokens, service secrets or private audit details');
+      console.log(`PASS finance:history:test completed ${checks} groups.`);
+      return;
+    }
     if (automationContextOnly || allFinance) {
       const context = await runFinanceAutomationContextTests({
         request,
@@ -644,6 +683,7 @@ async function main() {
       },
     });
     result.forbidden.push(...ledger.forbidden);
+    if (allFinance) result.forbidden.push(...(await history()).forbidden);
     for (const child of children)
       for (const value of [
         ...result.forbidden,

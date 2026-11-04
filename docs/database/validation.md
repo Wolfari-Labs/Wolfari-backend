@@ -2,6 +2,10 @@
 
 Các số liệu dưới đây là bằng chứng theo ngày chạy, không phải trạng thái kiểm thử của mọi HEAD mới. Bộ tài liệu chính thức hiện hành đã chốt ngày 02/10/2026 tại [danh mục tài liệu](../README.md).
 
+## Finance history verification, 29 October 2026
+
+On main37a4b57 plus the Finance history change, the isolated database suite passes 29 groups. Finance V003 adds the `(fund_id, occurred_at DESC, id DESC)` audit index; readiness rejects missing V003. Counts stay at 57 model tables, 5 migration-history tables and 52 same-database foreign keys. Fresh migrations, checksum validation, rerun, constraints, cross-database denial and outage/recovery checks pass. Test resources were torn down; no development/shared database was migrated. See [Finance history](../architecture/finance-history.md) for the API and rollout limits.
+
 ## Integrated Finance and Automation verification, 25 October 2026
 
 The final isolated database integration passes 28 groups on the combined Finance/Price Watch/Notification source: 57 model tables plus 5 migration-history tables and 52 same-database foreign keys. Finance/Trip readiness requires V001-V002; Automation requires V001-V005. All migrations remain byte-identical to their manifests. The thirteen new Price Watch cases include native deadlock recovery, a single provider fetch and dispatch eligibility after pause/stop/expiry. Existing repository, migration concurrency, cross-database denial, readiness and outage/recovery checks also pass. The test project was cleaned; no development database was migrated. Earlier dated results below remain historical evidence.

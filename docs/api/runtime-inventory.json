@@ -179,6 +179,11 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/funds/{id}/history",
+      "document": "finance-history.openapi.json"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/funds/{id}/notes",
       "document": "finance-notes.openapi.json"
     },
@@ -553,7 +558,8 @@
     "contribution-management-http.ts": "878b3c3ca8e32464bc3df9c30be96fcccf821781b5056941d2fad967d2003ad8",
     "contribution-request-http.ts": "a9826e6602fa0f62e361741874d7d65ed50e2daf27eeb0784c7616d09d0af77b",
     "expense-http.ts": "f11c8b19eb5519e72abae6a0490ceeb3ca6b90a73c73eb05e93e32b527261d43",
-    "finance-proxy.ts": "0292d93815521b4d78ab9b18aa75719aa2cab86a7784252b1851a0261a0d2d66",
+    "finance-history-http.ts": "f9e6c35e707a60e97bb4053cd4a8173f5a39a471dca29b9e405422df92f255f6",
+    "finance-proxy.ts": "c6c46a5e97bab7a6976fd37842e2e126b9e61fd58783fb721bfe360fb6633e51",
     "finance-receipt-http.ts": "dce37b44b049043cdfad2455d9b427b71aac3e5086341b93c883193187d39131",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "identity-proxy.ts": "aed3d05b7d84f09f71a8442736b1a0e0b7b3e0c26c874af966a59f270f39e719",
