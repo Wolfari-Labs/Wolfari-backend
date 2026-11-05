@@ -129,6 +129,15 @@ export class IdentityController {
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'");
-    response.end(`<!doctype html><html lang="vi"><meta charset="utf-8"><title>${title}</title><h1>${title}</h1><p>Liên kết chỉ có hiệu lực một lần.</p><form id="form">${action === 'reset' ? '<input type="password" name="new_password" minlength="15" maxlength="128" required autocomplete="new-password" placeholder="Mật khẩu mới">' : ''}<button>Xác nhận</button></form><p id="message"></p><script>const token=${safeToken};document.getElementById('form').addEventListener('submit',async event=>{event.preventDefault();const body={token};${action === 'reset' ? "body.new_password=new FormData(event.target).get('new_password');" : ''}const result=await fetch('${endpoint}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});document.getElementById('message').textContent=result.ok?'Hoàn tất':'Liên kết không còn hiệu lực';});</script></html>`);
+    response.end(`<!doctype html><html lang="vi"><meta charset="utf-8"><title>${title}</title><h1>${title}</h1><p>Liên kết chỉ có hiệu lực một lần.</p><form id="form">${action === 'reset' ? '<label>Mật khẩu mới (8–128 ký tự)<input type="password" name="new_password" required autocomplete="new-password" autocapitalize="none" spellcheck="false"></label>' : ''}<button>Xác nhận</button></form><p id="message" role="status"></p><script>
+const token=${safeToken},form=document.getElementById('form'),message=document.getElementById('message'),button=form.querySelector('button');let locked=false;
+form.addEventListener('submit',async event=>{event.preventDefault();if(locked)return;const body={token};
+${action === 'reset' ? "body.new_password=new FormData(form).get('new_password');const length=Array.from(body.new_password).length;if(length<8||length>128){message.textContent='Mật khẩu phải có từ 8 đến 128 ký tự.';return;}" : ''}
+locked=true;button.disabled=true;message.textContent='Đang xử lý…';
+try{const result=await fetch('${endpoint}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+if(result.ok){form.reset();message.textContent='Hoàn tất';}
+else if(result.status>=500){form.reset();message.textContent='Chưa xác định được kết quả. Hãy kiểm tra đăng nhập trước khi yêu cầu liên kết mới.';}
+else{locked=false;button.disabled=false;message.textContent=result.status===400?'Mã đã hết hạn, đã dùng hoặc thông tin chưa hợp lệ.':result.status===429?'Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.':'Chưa thể hoàn tất yêu cầu. Vui lòng thử lại sau.';}}
+catch{form.reset();message.textContent='Mất kết nối; chưa xác định được kết quả. Hãy kiểm tra đăng nhập trước khi yêu cầu liên kết mới.';}});</script></html>`);
   }
 }

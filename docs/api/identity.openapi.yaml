@@ -141,7 +141,7 @@ paths:
               properties:
                 email: { type: string, format: email }
                 full_name: { type: string, minLength: 1, maxLength: 150 }
-                password: { type: string, minLength: 15, maxLength: 128, writeOnly: true }
+                password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
       responses:
         '202':
           {
@@ -295,7 +295,7 @@ paths:
               required: [token, new_password]
               properties:
                 token: { type: string, writeOnly: true }
-                new_password: { type: string, minLength: 15, maxLength: 128, writeOnly: true }
+                new_password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
       responses:
         '200': { description: Password changed }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -373,7 +373,7 @@ paths:
               required: [current_password, new_password]
               properties:
                 current_password: { type: string, writeOnly: true }
-                new_password: { type: string, minLength: 15, maxLength: 128, writeOnly: true }
+                new_password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
       responses:
         '200': { description: AcceptedMessage; all prior sessions revoked }
         '401': { $ref: '#/components/responses/Unauthorized' }

@@ -1,5 +1,11 @@
 # Identity đợt 1 — email auth, hồ sơ, phiên và avatar
 
+## Cập nhật chính sách mật khẩu ngày 05/11/2026
+
+Theo yêu cầu giảm độ dài tối thiểu, mật khẩu mới khi đăng ký, đặt lại hoặc đổi mật khẩu nhận **8–128 Unicode code points**. Backend, OpenAPI, helper local, Web và mobile phải áp dụng cùng giới hạn. Không trim/normalize mật khẩu, không thêm yêu cầu bắt buộc chữ hoa/ký hiệu; giữ Argon2id, giới hạn tần suất và thu hồi phiên sau reset/change. Đăng nhập vẫn đối chiếu hash của mật khẩu đã lưu, không áp giới hạn mới để loại tài khoản cũ. Đây là thay đổi runtime theo yêu cầu hiện tại, không sửa nội dung SRS lịch sử.
+
+Kiểm thử biên gồm 7/8/128/129 ký tự ASCII và Unicode; integration dùng mật khẩu giả dài đúng 8 ký tự cho cả đăng ký/reset/change, kiểm tra dữ liệu sai không tạo tài khoản, không tiêu thụ reset token và không thu hồi phiên trước khi thay đổi hợp lệ.
+
 ## Phạm vi và quyết định
 
 Đợt này hiện thực các phần email của FR-ID01/FR-ID02 và dùng Identity V001. Phạm vi đã được đồng bộ vào bộ SRS v2.3, DDL/API/Event v1.1 và ERD v1.2 chính thức; xem [danh mục tài liệu](../README.md). OAuth Google, liên kết tài khoản, đổi email, xóa tài khoản, khóa/mở khóa bởi Admin, push notification và UI sản phẩm chưa được thực hiện. Không sửa V001 hay bổ sung migration.

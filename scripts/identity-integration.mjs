@@ -164,11 +164,18 @@ async function main() {
     GATEWAY_TRIP_SECRET: secrets.GATEWAY_TRIP_SECRET,
     AUTOMATION_GRPC_TARGET: `127.0.0.1:${ports.automationGrpc}`, GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
     GATEWAY_CSRF_KEY: secrets.GATEWAY_CSRF_KEY, WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
+    // This isolated suite includes rejected password boundaries as well as
+    // registration/outage cases. Keep production limits unchanged.
+    GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER: '2',
   });
   pass('Gateway, Identity, Trip, Automation ready');
 
   const email = `identity-${randomUUID()}@example.test`;
-  const originalPassword = 'Long-local-test-password-42!';
+  const originalPassword = 'Wolfari1';
+  for (const invalidPassword of ['a'.repeat(7), 'a'.repeat(129)]) {
+    assert.equal((await request('/api/v1/auth/register', 'POST', { email, password: invalidPassword, full_name: 'Identity Test' })).status, 400);
+  }
+  assert.equal((await query('identity', 'SELECT count(*)::int AS n FROM users WHERE email=$1', [email]))[0].n, 0);
   const registerBody = { email: `  ${email.toUpperCase()}  `, password: originalPassword, full_name: 'Identity Test' };
   const registrations = await Promise.all([request('/api/v1/auth/register', 'POST', registerBody), request('/api/v1/auth/register', 'POST', registerBody)]);
   assert.deepEqual(registrations.map(item => item.status), [202, 202]);
@@ -325,7 +332,10 @@ async function main() {
   assert.equal(unknown.status, 202); assert.equal(known.status, 202);
   assert.equal(unknown.body.data.message_code, known.body.data.message_code);
   const resetToken = tokenFromMail(await mail(email, 'Đặt lại'));
-  const newPassword = 'Different-long-password-43!';
+  const newPassword = 'Reset123';
+  for (const invalidPassword of ['a'.repeat(7), 'a'.repeat(129)]) {
+    assert.equal((await request('/api/v1/auth/password-resets', 'POST', { token: resetToken, new_password: invalidPassword })).status, 400);
+  }
   assert.equal((await request('/api/v1/auth/password-resets', 'POST', { token: resetToken, new_password: newPassword })).status, 200);
   assert.equal((await request('/api/v1/auth/password-resets', 'POST', { token: resetToken, new_password: newPassword })).status, 400);
   assert.equal((await request('/api/v1/auth/login', 'POST', { email, password: originalPassword }, mobileHeaders)).status, 401);
@@ -335,7 +345,11 @@ async function main() {
   pass('generic reset response, single-use reset, old session/password revoked');
 
   const changeAuth = { ...mobileHeaders, authorization: `Bearer ${changed.body.data.access_token}` };
-  const finalPassword = 'Third-long-password-value-44!';
+  const finalPassword = 'Change12';
+  for (const invalidPassword of ['a'.repeat(7), 'a'.repeat(129)]) {
+    assert.equal((await request('/api/v1/me/password-change', 'POST', { current_password: newPassword, new_password: invalidPassword }, changeAuth)).status, 400);
+  }
+  assert.equal((await request('/api/v1/me', 'GET', undefined, changeAuth)).status, 200);
   assert.equal((await request('/api/v1/me/password-change', 'POST', { current_password: newPassword, new_password: finalPassword }, changeAuth)).status, 200);
   assert.equal((await request('/api/v1/me', 'GET', undefined, changeAuth)).status, 401);
   assert.equal((await request('/api/v1/auth/login', 'POST', { email, password: newPassword }, mobileHeaders)).status, 401);
