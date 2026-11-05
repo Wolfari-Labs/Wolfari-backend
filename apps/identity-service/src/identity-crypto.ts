@@ -7,7 +7,7 @@ export const digest = (value: string) => createHash('sha256').update(value).dige
 export const newSecret = () => randomBytes(32).toString('base64url');
 
 export function passwordPolicy(password: unknown): asserts password is string {
-  if (typeof password !== 'string' || [...password].length < 15 || [...password].length > 128) {
+  if (typeof password !== 'string' || [...password].length < 8 || [...password].length > 128) {
     throw new Error('PASSWORD_POLICY');
   }
 }
