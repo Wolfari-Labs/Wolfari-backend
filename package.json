@@ -8,6 +8,12 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "trial:init": "node scripts/trial.mjs init",
+    "trial:check": "node scripts/trial.mjs check",
+    "trial:health": "node scripts/trial.mjs health",
+    "trial:migrate": "node scripts/trial.mjs migrate",
+    "trial:compose": "node scripts/trial.mjs compose",
+    "trial:storage": "node scripts/trial-storage.mjs",
     "demo:init": "node scripts/demo.mjs init",
     "demo:start": "node scripts/demo.mjs start",
     "demo:check": "node scripts/demo.mjs check",
@@ -76,6 +82,6 @@
     "tsx": "4.23.13",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",
-    "vitest": "5.0.1"
+    "vitest": "5.0.4"
   }
 }

@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import 'reflect-metadata';
 import { bootstrapApp } from '@wolfari/common';
 import { GRPC_LOADER_OPTIONS, GRPC_PACKAGES, PROTO_PATHS } from '@wolfari/contracts/grpc';
@@ -5,7 +6,7 @@ import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 
 void bootstrapApp(AppModule, 'automation-service', async (app) => {
-  if (process.env.NODE_ENV === 'production')
+  if (productionTransportBlocked())
     throw new Error('Automation internal gRPC requires TLS in production');
   if (!process.env.GATEWAY_AUTOMATION_SECRET || process.env.GATEWAY_AUTOMATION_SECRET.length < 32)
     throw new Error('GATEWAY_AUTOMATION_SECRET missing');

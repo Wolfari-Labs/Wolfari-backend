@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TripClient } from './trip-client';
 import {
@@ -64,7 +65,7 @@ export class MembershipProxy {
     if (
       !isLoopbackGrpcTarget(target) ||
       secret.length < 32 ||
-      process.env.NODE_ENV === 'production'
+      productionTransportBlocked()
     )
       throw new Error('Invalid membership transport configuration');
     this.client = new TripClient(target, secret);

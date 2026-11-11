@@ -10,6 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { connect, type ChannelModel, type Channel, type ConsumeMessage } from 'amqplib';
 import { createTransport, type Transporter } from 'nodemailer';
+import { productionTransportBlocked, trialSmtpOptions, trialSmtpSender } from '@wolfari/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseProvider } from '@wolfari/database';
 import { EVENT_TOPOLOGY, parseEventForConsume } from '@wolfari/contracts/events';
@@ -27,6 +28,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
   private readonly owner = randomUUID();
   private readonly identity: IdentityClient;
   private readonly smtp: Transporter;
+  private readonly sender: string;
   private brokerTimer?: NodeJS.Timeout;
   private senderTimer?: NodeJS.Timeout;
   private connection?: ChannelModel;
@@ -38,20 +40,15 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
     private readonly db: DatabaseProvider,
     config: ConfigService,
   ) {
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Automation gRPC/AMQP/SMTP transport requires TLS in production');
     this.identity = new IdentityClient(
       config.getOrThrow<string>('IDENTITY_GRPC_TARGET'),
       'Automation',
       config.getOrThrow<string>('AUTOMATION_IDENTITY_SECRET'),
     );
-    this.smtp = createTransport({
-      host: config.getOrThrow<string>('SMTP_HOST'),
-      port: Number(config.getOrThrow<string>('SMTP_PORT')),
-      secure: false,
-      connectionTimeout: 2000,
-      socketTimeout: 5000,
-    });
+    this.smtp = createTransport(trialSmtpOptions(config));
+    this.sender = trialSmtpSender(config);
     this.brokerUrl = config.getOrThrow<string>('RABBITMQ_URL');
   }
 
@@ -212,7 +209,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
         return;
       }
       const info = await this.smtp.sendMail({
-        from: 'Wolfari <no-reply@wolfari.local>',
+        from: this.sender,
         to: response.delivery.recipient_email,
         subject:
           response.delivery.purpose === 1 ? 'Xác minh email Wolfari' : 'Đặt lại mật khẩu Wolfari',

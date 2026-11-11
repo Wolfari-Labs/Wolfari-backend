@@ -98,6 +98,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'IDENTITY_LINK_BASE_URL',
     'IDENTITY_VERIFY_LINK_PATH',
     'IDENTITY_RESET_LINK_PATH',
+    'IDENTITY_REGISTRATION_ALLOWLIST',
   ];
   const tripKeys = [
     'TRIP_MEMBERSHIP_LIFECYCLE_ENABLED',
@@ -151,6 +152,10 @@ export function appEnvironment(app, values, inherited = process.env) {
     'RABBITMQ_URL',
     'SMTP_HOST',
     'SMTP_PORT',
+    'SMTP_USER',
+    'SMTP_PASSWORD',
+    'SMTP_FROM',
+    'SMTP_REQUIRE_TLS',
   ];
   const financeKeys = [
     'FINANCE_OUTBOX_ENABLED',
@@ -177,6 +182,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const allowed = [
     'NODE_ENV',
     'WOLFARI_ISOLATED_ENV',
+    'WOLFARI_DEPLOYMENT_PROFILE',
     app.portKey,
     ...(app.service
       ? [

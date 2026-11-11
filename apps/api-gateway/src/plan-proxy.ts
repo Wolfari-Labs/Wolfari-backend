@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TripClient } from './trip-client';
 import { isCalendarDate } from '@wolfari/common';
@@ -289,7 +290,7 @@ export class PlanProxy {
       secret = process.env.GATEWAY_TRIP_SECRET ?? '';
     if (!isLoopbackGrpcTarget(target) || secret.length < 32)
       throw new Error('Gateway Trip configuration invalid');
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Gateway Trip transport requires TLS in production');
     this.client = new TripClient(target, secret);
   }

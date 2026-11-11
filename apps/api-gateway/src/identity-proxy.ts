@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { IdentityClient } from '@wolfari/contracts/identity-client';
 import type { IdentityV1 } from '@wolfari/contracts/grpc';
-import { currentCorrelationId } from '@wolfari/common';
+import { currentCorrelationId, gatewayClientIp, productionTransportBlocked } from '@wolfari/common';
 
 const cookieName = 'wolfari_refresh';
 const allowed: Array<[string, RegExp]> = [
@@ -93,7 +93,7 @@ export class IdentityProxy {
       !this.origin
     )
       throw new Error('Gateway Identity configuration invalid');
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Gateway Identity transport requires TLS in production');
     this.client = new IdentityClient(grpcTarget, 'ApiGateway', this.secret);
   }
@@ -185,7 +185,9 @@ export class IdentityProxy {
       )
         return error(response, 403, 'PERMISSION_DENIED');
     }
-    const ip = request.socket.remoteAddress ?? 'unknown';
+    let ip: string;
+    try { ip = gatewayClientIp(request); }
+    catch { return error(response, 403, 'PERMISSION_DENIED'); }
     const limit =
       path.includes('password-reset-requests') ||
       path.includes('email-verifications') ||
