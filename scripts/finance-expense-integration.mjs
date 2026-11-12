@@ -7,7 +7,7 @@ const sharp = require('sharp');
 
 export async function runExpenseDraftTests(h, helpers) {
   const { request, query, bearer, waitFor, pass } = h;
-  const { owner, holder, outsider } = h.actors;
+  const { owner, holder, member, outsider } = h.actors;
   const { newTrip, write, enableBody } = helpers;
   const mutate = async (path, method, body, user, key = randomUUID()) => {
     const headers = { ...bearer(user), 'idempotency-key': key };
@@ -34,10 +34,10 @@ export async function runExpenseDraftTests(h, helpers) {
   })
     .png()
     .toBuffer();
-  const uploadReceipt = async (user) => {
+  const uploadReceipt = async (user, bytes = png, targetFund = fundId) => {
     const form = new FormData();
-    form.append('file', new Blob([png], { type: 'image/png' }), 'expense.png');
-    const response = await fetch(h.gatewayUrl + receiptPath, {
+    form.append('file', new Blob([bytes], { type: 'image/png' }), 'expense.png');
+    const response = await fetch(`${h.gatewayUrl}/api/v1/funds/${targetFund}/receipts`, {
       method: 'POST',
       headers: bearer(user),
       body: form,
@@ -78,6 +78,104 @@ export async function runExpenseDraftTests(h, helpers) {
   assert.equal(Object.hasOwn(created.body.data, 'receipt_object_key'), false);
   assert.equal((await downloadReceipt(firstReceipt, owner)).status, 200);
   const expenseId = created.body.data.id;
+  const downloadExpense = (id, user, suffix = '') =>
+    fetch(`${h.gatewayUrl}/api/v1/expenses/${id}/receipt${suffix}`, { headers: bearer(user) });
+  // A different member knows only the freshly reloaded Expense ID, not the uploader's key.
+  const freshList = await request(collection, 'GET', undefined, bearer(owner));
+  const reloaded = freshList.body.data.items.find((row) => row.id === expenseId);
+  assert.equal(reloaded.receipt_available, true);
+  assert.equal(Object.hasOwn(reloaded, 'receipt_object_key'), false);
+  const receiptRead = await downloadExpense(reloaded.id, owner);
+  assert.equal(receiptRead.status, 200);
+  assert.equal(receiptRead.headers.get('content-type'), 'image/png');
+  assert.equal(receiptRead.headers.get('cache-control'), 'private, no-store');
+  assert.equal(
+    receiptRead.headers.get('content-disposition'),
+    'attachment; filename="receipt.png"',
+  );
+  assert.deepEqual(Buffer.from(await receiptRead.arrayBuffer()), png);
+  assert.equal((await downloadExpense(expenseId, outsider)).status, 404);
+  assert.equal((await downloadExpense(randomUUID(), owner)).status, 404);
+  // A plain Member (neither Owner nor Holder) resolves the same attachment; leaving the Trip revokes it.
+  await query(
+    'trip',
+    "INSERT INTO trip_members(trip_id,user_id,role,joined_at) VALUES($1,$2,'MEMBER',now())",
+    [tripId, member.id],
+  );
+  const memberRead = await downloadExpense(expenseId, member);
+  assert.equal(memberRead.status, 200);
+  assert.deepEqual(Buffer.from(await memberRead.arrayBuffer()), png);
+  await query('trip', 'UPDATE trip_members SET left_at=now() WHERE trip_id=$1 AND user_id=$2', [
+    tripId,
+    member.id,
+  ]);
+  assert.equal((await downloadExpense(expenseId, member)).status, 404);
+  assert.equal(
+    (await downloadExpense(expenseId, owner, '?object_key=' + encodeURIComponent(firstReceipt)))
+      .status,
+    400,
+  );
+  // Corrupt/missing backing-object fixtures are isolated to this disposable integration database.
+  const missingKey = firstReceipt.replace(
+    /\/receipts\/[0-9a-f-]{36}-/,
+    `/receipts/${randomUUID()}-`,
+  );
+  await query(
+    'finance',
+    `INSERT INTO finance_files(object_key,fund_id,uploader_user_id,sha256,mime_type,size_bytes,state,expense_id,bound_at)
+    SELECT $2,fund_id,uploader_user_id,sha256,mime_type,size_bytes,state,expense_id,bound_at FROM finance_files WHERE object_key=$1`,
+    [firstReceipt, missingKey],
+  );
+  try {
+    await query('finance', 'UPDATE fund_expenses SET receipt_object_key=$2 WHERE id=$1', [
+      expenseId,
+      missingKey,
+    ]);
+    assert.equal((await downloadExpense(expenseId, owner)).status, 404);
+  } finally {
+    await query('finance', 'UPDATE fund_expenses SET receipt_object_key=$2 WHERE id=$1', [
+      expenseId,
+      firstReceipt,
+    ]);
+  }
+  const otherTrip = await newTrip();
+  const otherFundResult = (await write(`/api/v1/trips/${otherTrip}/fund`, enableBody())).body.data;
+  const otherFund = otherFundResult.id;
+  // Membership in a different Trip grants nothing for this expense.
+  await query(
+    'trip',
+    "INSERT INTO trip_members(trip_id,user_id,role,joined_at) VALUES($1,$2,'MEMBER',now())",
+    [otherTrip, member.id],
+  );
+  assert.equal((await downloadExpense(expenseId, member)).status, 404);
+  const otherKey = await uploadReceipt(owner, png, otherFund);
+  const otherExpense = await mutate(
+    `/api/v1/funds/${otherFund}/expenses`,
+    'POST',
+    {
+      title: 'Cross-Fund receipt fixture',
+      amount: '1000',
+      receipt_object_key: otherKey,
+      expected_finance_version: otherFundResult.finance_version,
+    },
+    owner,
+  );
+  assert.equal(otherExpense.status, 201);
+  try {
+    await query('finance', 'UPDATE fund_expenses SET receipt_object_key=$2 WHERE id=$1', [
+      expenseId,
+      otherKey,
+    ]);
+    assert.equal((await downloadExpense(expenseId, owner)).status, 404);
+  } finally {
+    await query('finance', 'UPDATE fund_expenses SET receipt_object_key=$2 WHERE id=$1', [
+      expenseId,
+      firstReceipt,
+    ]);
+  }
+  pass(
+    'Expense receipt resolves by ID after reload for Owner and plain Member; hides outsider, departed and cross-Trip member, missing object and cross-Fund attachment',
+  );
   financeVersion = created.body.data.finance_version;
 
   const replay = await mutate(collection, 'POST', createBody, holder, createKey);
@@ -104,7 +202,12 @@ export async function runExpenseDraftTests(h, helpers) {
   assert.equal(noOp.body.data.version, 1);
   assert.equal(noOp.body.data.finance_version, financeVersion);
 
-  const replacementReceipt = await uploadReceipt(owner);
+  const replacementBytes = await sharp({
+    create: { width: 2, height: 2, channels: 3, background: 'red' },
+  })
+    .png()
+    .toBuffer();
+  const replacementReceipt = await uploadReceipt(owner, replacementBytes);
   const updated = await mutate(
     item,
     'PATCH',
@@ -125,6 +228,9 @@ export async function runExpenseDraftTests(h, helpers) {
   financeVersion = updated.body.data.finance_version;
   assert.equal((await downloadReceipt(firstReceipt, holder)).status, 200);
   assert.equal((await downloadReceipt(replacementReceipt, holder)).status, 200);
+  const currentReceipt = await downloadExpense(expenseId, holder);
+  assert.equal(currentReceipt.status, 200);
+  assert.deepEqual(Buffer.from(await currentReceipt.arrayBuffer()), replacementBytes);
   assert.equal(
     (
       await mutate(
@@ -182,6 +288,7 @@ export async function runExpenseDraftTests(h, helpers) {
   assert.equal(cleared.status, 200);
   assert.equal(cleared.body.data.version, 5);
   assert.equal(cleared.body.data.receipt_available, false);
+  assert.equal((await downloadExpense(expenseId, owner)).status, 404);
   financeVersion = cleared.body.data.finance_version;
   assert.equal((await downloadReceipt(firstReceipt, owner)).status, 200);
   assert.equal((await downloadReceipt(replacementReceipt, owner)).status, 200);
@@ -239,6 +346,7 @@ export async function runExpenseDraftTests(h, helpers) {
   financeVersion += 1;
   assert.equal((await downloadReceipt(firstReceipt, owner)).status, 404);
   assert.equal((await downloadReceipt(replacementReceipt, owner)).status, 404);
+  assert.equal((await downloadExpense(expenseId, owner)).status, 404);
   const list = await request(collection, 'GET', undefined, bearer(holder));
   assert.equal(list.status, 200);
   assert.equal(

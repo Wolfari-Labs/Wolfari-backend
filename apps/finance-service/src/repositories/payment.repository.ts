@@ -26,6 +26,7 @@ import {
 } from '../projections/payment-response';
 import type { FundWrite, StoredResult } from './fund-command.repository';
 import type { MomoCreateResult, MomoQueryResult } from '../providers/momo-sandbox.provider';
+import { destinationHolder, previousHolderReceiptAudit } from '../domain/destination-holder';
 
 export type PaymentWriteCommand =
   | {
@@ -472,6 +473,7 @@ export class PaymentRepository {
     const payload = payloadRecord(exception.payload);
     const resultCode = Number(payload.result_code);
     if (!Number.isInteger(resultCode)) throw new FinanceReadError('STATE_CONFLICT');
+    let resolutionAudit: Record<string, unknown> = {};
     if (input.body.resolution === 'NO_FINANCIAL_EFFECT') {
       if (resultCode === 0 && typeof payload.transaction_id === 'string')
         throw new FinanceReadError('STATE_CONFLICT');
@@ -511,8 +513,15 @@ export class PaymentRepository {
           correlation,
           actor: input.actor,
           system: null,
+          previousHolderTransferConfirmed: input.body.previousHolderTransferConfirmed,
         });
         if (!settlement) throw new FinanceReadError('STATE_CONFLICT');
+        if (attempt.status !== 'SUCCEEDED')
+          resolutionAudit = previousHolderReceiptAudit(
+            destinationHolder(attempt.destination_snapshot, input.fundId),
+            fund.holder_user_id,
+            input.body.previousHolderTransferConfirmed,
+          );
         await client.query(
           `UPDATE payment_webhook_receipts SET review_reason=$2,reviewed_by_user_id=$3,
            reviewed_at=clock_timestamp() WHERE id=$1`,
@@ -560,7 +569,12 @@ export class PaymentRepository {
       from: fund.finance_version,
       to: nextFund.finance_version,
       correlation,
-      details: { operation_id: input.operationId, resolution: input.body.resolution },
+      details: {
+        operation_id: input.operationId,
+        resolution: input.body.resolution,
+        reason: input.body.reason,
+        ...resolutionAudit,
+      },
     });
     return {
       version: 1,
@@ -655,17 +669,30 @@ export class PaymentRepository {
     ).rows.map((row) => row.id);
   }
   async markStaleDispatches() {
-    await this.db.query(
-      `UPDATE payment_attempts SET needs_reconciliation=true,error_code='MOMO_CREATE_UNCERTAIN',
+    const candidates = (
+      await this.db.query<{ id: string }>(
+        `SELECT id FROM payment_attempts WHERE status='PENDING' AND NOT needs_reconciliation
+       AND ((provider_payload->>'phase'='CREATE_DISPATCH' AND updated_at<clock_timestamp()-interval '45 seconds') OR expires_at<=clock_timestamp())
+       ORDER BY updated_at,id LIMIT 100`,
+      )
+    ).rows;
+    for (const candidate of candidates)
+      await this.db.withTransaction(async (client) => {
+        if (!(await this.lockAttemptFund(client, candidate.id))) return;
+        await client.query(
+          `UPDATE payment_attempts SET needs_reconciliation=true,error_code='MOMO_CREATE_UNCERTAIN',
        provider_payload=provider_payload||'{"phase":"QUERY_REQUIRED"}'::jsonb,updated_at=clock_timestamp()
-       WHERE status='PENDING' AND NOT needs_reconciliation
+       WHERE id=$1 AND status='PENDING' AND NOT needs_reconciliation
        AND provider_payload->>'phase'='CREATE_DISPATCH' AND updated_at<clock_timestamp()-interval '45 seconds'`,
-    );
-    await this.db.query(
-      `UPDATE payment_attempts SET needs_reconciliation=true,error_code='MOMO_IPN_TIMEOUT',
+          [candidate.id],
+        );
+        await client.query(
+          `UPDATE payment_attempts SET needs_reconciliation=true,error_code='MOMO_IPN_TIMEOUT',
        provider_payload=provider_payload||'{"phase":"QUERY_REQUIRED"}'::jsonb,updated_at=clock_timestamp()
-       WHERE status='PENDING' AND NOT needs_reconciliation AND expires_at<=clock_timestamp()`,
-    );
+       WHERE id=$1 AND status='PENDING' AND NOT needs_reconciliation AND expires_at<=clock_timestamp()`,
+          [candidate.id],
+        );
+      });
   }
   async claimDispatch(id: string) {
     return this.db.withTransaction(async (client) => {
@@ -693,43 +720,50 @@ export class PaymentRepository {
   }
   async completeDispatch(id: string, result: MomoCreateResult) {
     const state = classifyMomoResult(result.resultCode);
-    await this.db.query(
-      `UPDATE payment_attempts SET status=$2::varchar,
+    await this.db.withTransaction(async (client) => {
+      if (!(await this.lockAttemptFund(client, id))) return;
+      await client.query(
+        `UPDATE payment_attempts SET status=$2::varchar,
        needs_reconciliation=$3,error_code=$4,expires_at=CASE WHEN $2::varchar='PENDING' THEN clock_timestamp()+interval '15 minutes' ELSE expires_at END,
        provider_payload=provider_payload||$5::jsonb,updated_at=clock_timestamp()
        WHERE id=$1 AND status='PENDING'`,
-      [
-        id,
-        state === 'FAILED' ? 'FAILED' : 'PENDING',
-        state === 'PENDING' && result.resultCode !== 0,
-        result.resultCode === 0 ? null : `MOMO_${result.resultCode}`,
-        JSON.stringify({
-          phase:
-            result.resultCode === 0
-              ? 'AWAITING_IPN'
-              : state === 'PENDING'
-                ? 'QUERY_REQUIRED'
-                : 'CREATE_FAILED',
-          result_code: result.resultCode,
-          response_time: result.responseTime,
-          ...(result.paymentUrl ? { payment_url: result.paymentUrl } : {}),
-        }),
-      ],
-    );
+        [
+          id,
+          state === 'FAILED' ? 'FAILED' : 'PENDING',
+          state === 'PENDING' && result.resultCode !== 0,
+          result.resultCode === 0 ? null : `MOMO_${result.resultCode}`,
+          JSON.stringify({
+            phase:
+              result.resultCode === 0
+                ? 'AWAITING_IPN'
+                : state === 'PENDING'
+                  ? 'QUERY_REQUIRED'
+                  : 'CREATE_FAILED',
+            result_code: result.resultCode,
+            response_time: result.responseTime,
+            ...(result.paymentUrl ? { payment_url: result.paymentUrl } : {}),
+          }),
+        ],
+      );
+    });
   }
   async failDispatch(id: string) {
-    await this.db.query(
-      `UPDATE payment_attempts SET status='PENDING',needs_reconciliation=true,
+    await this.db.withTransaction(async (client) => {
+      if (!(await this.lockAttemptFund(client, id))) return;
+      await client.query(
+        `UPDATE payment_attempts SET status='PENDING',needs_reconciliation=true,
        error_code='MOMO_CREATE_UNCERTAIN',provider_payload=provider_payload||'{"phase":"QUERY_REQUIRED"}'::jsonb,
        updated_at=clock_timestamp() WHERE id=$1 AND status='PENDING'`,
-      [id],
-    );
+        [id],
+      );
+    });
   }
   async reconciliationCandidates() {
     return (
       await this.db.query<{ id: string }>(
         `SELECT id FROM payment_attempts WHERE provider='MOMO_SANDBOX' AND environment='SANDBOX'
          AND needs_reconciliation AND status<>'SUCCEEDED'
+         AND error_code IS DISTINCT FROM 'PREVIOUS_HOLDER_REVIEW_REQUIRED'
          AND updated_at<=clock_timestamp()-interval '30 seconds'
          ORDER BY updated_at,id LIMIT 20`,
       )
@@ -822,7 +856,14 @@ export class PaymentRepository {
       message: result.message,
       response_time: result.responseTime,
     };
-    const key = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+    // One review receipt per attempt, provider fact and reason: response time and message differ
+    // on every query and must not add another exception on each reconciliation pass.
+    const identity = Object.fromEntries(
+      Object.entries(payload).filter(([field]) => !['response_time', 'message'].includes(field)),
+    );
+    const key = createHash('sha256')
+      .update(JSON.stringify({ ...identity, reason }))
+      .digest('hex');
     await client.query(
       `INSERT INTO payment_webhook_receipts(provider,environment,dedupe_key,payment_attempt_id,
        signature_valid,received_amount,payload,processing_status,review_reason)
@@ -830,8 +871,12 @@ export class PaymentRepository {
        ON CONFLICT(provider,environment,dedupe_key) DO NOTHING`,
       [key, row.id, result.amount?.toString() ?? null, JSON.stringify(payload), reason],
     );
+    // Money that reached a previous Holder stays parked for the current Holder's decision;
+    // the worker skips that code, so it must survive the generic conflict label.
     await client.query(
-      'UPDATE payment_attempts SET needs_reconciliation=true,error_code=$2,updated_at=clock_timestamp() WHERE id=$1',
+      `UPDATE payment_attempts SET needs_reconciliation=true,
+       error_code=CASE WHEN error_code='PREVIOUS_HOLDER_REVIEW_REQUIRED' THEN error_code ELSE $2 END,
+       updated_at=clock_timestamp() WHERE id=$1`,
       [row.id, reason],
     );
   }
@@ -924,6 +969,7 @@ export class PaymentRepository {
       correlation: string;
       actor: string | null;
       system: string | null;
+      previousHolderTransferConfirmed?: true;
     },
   ) {
     if (!/^\d{1,40}$/.test(source.transactionId)) return false;
@@ -974,6 +1020,23 @@ export class PaymentRepository {
         if (source.receiptId) await this.completeWebhookReceipt(client, source.receiptId);
         return true;
       }
+    }
+    let previousHolderAudit: Record<string, unknown>;
+    try {
+      const previous = destinationHolder(row.destination_snapshot, row.fund_id);
+      previousHolderAudit = previousHolderReceiptAudit(
+        previous,
+        row.holder_user_id,
+        source.actor === row.holder_user_id && source.system === null
+          ? source.previousHolderTransferConfirmed
+          : undefined,
+      );
+    } catch {
+      await client.query(
+        `UPDATE payment_attempts SET needs_reconciliation=true,error_code='PREVIOUS_HOLDER_REVIEW_REQUIRED',updated_at=clock_timestamp() WHERE id=$1`,
+        [row.id],
+      );
+      return false;
     }
     if (
       duplicate ||
@@ -1047,7 +1110,11 @@ export class PaymentRepository {
       from: row.contribution_version,
       to: row.contribution_version + 1,
       correlation: source.correlation,
-      details: { payment_attempt_id: row.id, finance_version: financeVersion },
+      details: {
+        payment_attempt_id: row.id,
+        finance_version: financeVersion,
+        ...previousHolderAudit,
+      },
     });
     await client.query(
       `INSERT INTO outbox_events(event_id,event_type,schema_version,aggregate_id,aggregate_version,

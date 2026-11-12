@@ -4,8 +4,10 @@ import type { FundSetupContext } from '../domain/fund-setup';
 import {
   assertCanCreateRefund,
   planRefundAction,
+  refundConfirmer,
   RefundRuleError,
   type RefundState,
+  refundPayerUserId,
 } from '../domain/refund-management';
 import {
   assertCanSpend,
@@ -20,6 +22,7 @@ import type {
   RefundCreate,
   RefundPage,
   RefundReasonAction,
+  RefundVerifierAction,
 } from '../inputs/refund.input';
 import { refundCursor } from '../inputs/refund.input';
 import { FinanceReadError } from '../finance.errors';
@@ -30,6 +33,7 @@ export type RefundWriteCommand =
   | { scope: 'CREATE_REFUND'; fundId: string; body: RefundCreate }
   | {
       scope:
+        | 'ASSIGN_REFUND_VERIFIER'
         | 'REPORT_REFUND_PAID'
         | 'CONFIRM_REFUND_RECEIVED'
         | 'CONFIRM_REFUND_NONRECEIPT'
@@ -39,11 +43,12 @@ export type RefundWriteCommand =
         | 'REVERSE_REFUND';
       fundId: string;
       refundId: string;
-      body: RefundAction | RefundReasonAction;
+      body: RefundAction | RefundReasonAction | RefundVerifierAction;
     };
 export const isRefundWrite = (input: FundWrite): input is FundWrite & RefundWriteCommand =>
   [
     'CREATE_REFUND',
+    'ASSIGN_REFUND_VERIFIER',
     'REPORT_REFUND_PAID',
     'CONFIRM_REFUND_RECEIVED',
     'CONFIRM_REFUND_NONRECEIPT',
@@ -55,10 +60,14 @@ export const isRefundWrite = (input: FundWrite): input is FundWrite & RefundWrit
 
 const columns = `id,fund_id,member_user_id,amount::text,status,reason,requested_by_user_id,
 holder_reported_at,confirmed_by_user_id,confirmed_at,cancelled_at,created_at,updated_at,version,
-nonreceipt_confirmed_at,reversal_consented_at,reversal_requested_at,reversal_reason,cancelled_reason`;
+nonreceipt_confirmed_at,reversal_consented_at,reversal_requested_at,reversal_reason,cancelled_reason,
+verifier_user_id,verifier_assigned_by_user_id,verifier_holder_user_id,verifier_assigned_at,
+confirmation_mode,independent_verification,holder_reported_by_user_id`;
 const listColumns = `r.id,r.fund_id,r.member_user_id,r.amount::text,r.status,r.reason,r.requested_by_user_id,
 r.holder_reported_at,r.confirmed_by_user_id,r.confirmed_at,r.cancelled_at,r.created_at,r.updated_at,r.version,
-r.nonreceipt_confirmed_at,r.reversal_consented_at,r.reversal_requested_at,r.reversal_reason,r.cancelled_reason`;
+r.nonreceipt_confirmed_at,r.reversal_consented_at,r.reversal_requested_at,r.reversal_reason,r.cancelled_reason,
+r.verifier_user_id,r.verifier_assigned_by_user_id,r.verifier_holder_user_id,r.verifier_assigned_at,
+r.confirmation_mode,r.independent_verification,r.holder_reported_by_user_id`;
 type Client = Pick<DatabaseProvider, 'query'>;
 
 function state(row: RefundRow): RefundState {
@@ -73,6 +82,10 @@ function state(row: RefundRow): RefundState {
     reversalConsentedAt:
       row.reversal_consented_at === null ? null : new Date(row.reversal_consented_at),
     reversalReason: row.reversal_reason,
+    verifierUserId: row.verifier_user_id,
+    verifierAssignedByUserId: row.verifier_assigned_by_user_id,
+    verifierHolderUserId: row.verifier_holder_user_id,
+    holderReportedByUserId: row.holder_reported_by_user_id ?? null,
   };
 }
 async function lockedRefunds(client: Client, fundId: string) {
@@ -205,16 +218,29 @@ export class RefundRepository {
       if (!row) throw new FinanceReadError('RESOURCE_NOT_FOUND');
       fromVersion = row.version;
       planRefundAction(input.scope, input.body, state(row), context);
-      if (input.scope === 'REPORT_REFUND_PAID') {
+      if (input.scope === 'ASSIGN_REFUND_VERIFIER') {
+        const body = input.body as RefundVerifierAction;
+        row = (
+          await client.query<RefundRow>(
+            `UPDATE fund_refunds SET verifier_user_id=$2,verifier_assigned_by_user_id=$3,
+           verifier_holder_user_id=$4,verifier_assigned_at=clock_timestamp(),
+           version=version+1,updated_at=clock_timestamp() WHERE id=$1 RETURNING ${columns}`,
+            [row.id, body.verifierUserId, input.actor, refundPayerUserId(state(row), context)],
+          )
+        ).rows[0]!;
+        auditDetails = { verifier_user_id: body.verifierUserId };
+      } else if (input.scope === 'REPORT_REFUND_PAID') {
         row = (
           await client.query<RefundRow>(
             `UPDATE fund_refunds SET status='HOLDER_REPORTED',holder_reported_at=clock_timestamp(),
-           nonreceipt_confirmed_at=NULL,version=version+1,updated_at=clock_timestamp()
+           holder_reported_by_user_id=$2,nonreceipt_confirmed_at=NULL,
+           version=version+1,updated_at=clock_timestamp()
            WHERE id=$1 RETURNING ${columns}`,
-            [row.id],
+            [row.id, input.actor],
           )
         ).rows[0]!;
       } else if (input.scope === 'CONFIRM_REFUND_RECEIVED') {
+        const verification = refundConfirmer(state(row), context);
         const refunds = await lockedRefunds(client, input.fundId);
         try {
           balanceAfter = calculateBalanceAfterEntry(
@@ -254,12 +280,17 @@ export class RefundRepository {
         row = (
           await client.query<RefundRow>(
             `UPDATE fund_refunds SET status='CONFIRMED',confirmed_by_user_id=$2,
+           confirmation_mode=$3,independent_verification=$4,
            confirmed_at=clock_timestamp(),version=version+1,updated_at=clock_timestamp()
            WHERE id=$1 RETURNING ${columns}`,
-            [row.id, input.actor],
+            [row.id, input.actor, verification.mode, verification.independent],
           )
         ).rows[0]!;
-        auditDetails = { ledger_id: ledger.id };
+        auditDetails = {
+          ledger_id: ledger.id,
+          confirmation_mode: verification.mode,
+          independent_verification: verification.independent,
+        };
       } else if (input.scope === 'CONFIRM_REFUND_NONRECEIPT') {
         const body = input.body as RefundReasonAction;
         row = (

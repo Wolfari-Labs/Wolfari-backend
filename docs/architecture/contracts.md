@@ -66,7 +66,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 114 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125, Notification API126–131 và Price Watch API133–139   |
+| 123 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125/API162 + receipt/verifier/handover, Notification API126–131, Price Watch API133–139 |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -218,3 +218,7 @@ Holder review inbox adds optional int32 source_revision=5 to Finance.GetAutomati
 
 
 Finance.ListFundHistory adds the Gateway-only read for API162 (114 RPCs total). It projects current-member audit metadata with microsecond pagination and no raw audit details. See [Finance history](finance-history.md); Finance V003 adds its index and readiness gate. Existing events remain unchanged.
+
+## Finance integration gaps: 12 November 2026
+
+Nine additive Finance RPCs bring the catalog to 123; events stay at 19. `DownloadExpenseReceipt` is a Gateway-only expense-scoped receipt read (30 s deadline) that never exposes the storage key. `AssignRefundVerifier` lets the Owner name an independent verifier for a refund paid to the Owner/Holder; `RefundView` gains optional `reversal_reason` and verifier/confirmation fields 16–22. `ListHolderHandovers`, `GetHolderHandover`, `CreateHolderHandover`, `AcceptHolderHandover`, `RefreshHolderHandover`, `ConfirmHolderHandover` and `CancelHolderHandover` implement the two-party [Holder handover](finance-holder-handover.md); `ConfirmContributionReceivedRequest` and `ResolvePaymentExceptionRequest` gain the optional `previous_holder_transfer_confirmed` flag for money that reached the former Holder. Finance V004 (verifier columns) and V005 (`fund_holder_handovers`) extend the readiness gate. REST contracts: [expenses](../api/finance-expenses.openapi.json), [refunds](../api/finance-refunds.openapi.json) and [holder handovers](../api/finance-handovers.openapi.json). These contracts describe the backend; Web/mobile integration and SRS baseline reconciliation (v1.2 versus v2.3 QD09) remain separate decisions.

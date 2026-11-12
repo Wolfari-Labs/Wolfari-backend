@@ -41,6 +41,7 @@ export function parseReconcilePaymentAttemptInput(value: Record<string, unknown>
 export type ResolvePaymentExceptionInput = Readonly<{
   resolution: 'LINKED' | 'NO_FINANCIAL_EFFECT';
   linkedAttemptId?: string;
+  previousHolderTransferConfirmed?: true;
   reason: string;
   expectedFinanceVersion: number;
 }>;
@@ -52,9 +53,17 @@ export function parseResolvePaymentExceptionInput(
   const linked = value.linked_attempt_id;
   if (value.resolution === 'LINKED' ? typeof linked !== 'string' : linked !== undefined)
     throw new PaymentInputError('Invalid linked attempt');
+  if (
+    value.previous_holder_transfer_confirmed !== undefined &&
+    (value.previous_holder_transfer_confirmed !== true || value.resolution !== 'LINKED')
+  )
+    throw new PaymentInputError('Invalid previous Holder confirmation');
   return {
     resolution: value.resolution,
     ...(typeof linked === 'string' ? { linkedAttemptId: linked } : {}),
+    ...(value.previous_holder_transfer_confirmed === true
+      ? { previousHolderTransferConfirmed: true as const }
+      : {}),
     reason: text(value.reason, 1024, 'reason'),
     expectedFinanceVersion: version(value.expected_finance_version),
   };

@@ -83,6 +83,8 @@ import {
   type PaymentWriteCommand,
 } from './payment.repository';
 import { PaymentRuleError } from '../domain/payment-management';
+import { HandoverRepository, isHandoverWrite, type HandoverWriteCommand } from './handover.repository';
+import { handoverScopes } from '../domain/handover-management';
 
 export type FundWrite = {
   operationId: string;
@@ -91,6 +93,7 @@ export type FundWrite = {
   hash: string;
 } & (
   | ManualWrite
+  | HandoverWriteCommand
   | ContributionReversalWrite
   | ExpenseWriteCommand
   | FinancialNoteWriteCommand
@@ -126,6 +129,7 @@ export type StoredResult = {
   expense?: FinanceV1.ExpenseView;
   financialNote?: FinanceV1.FinancialNoteView;
   refund?: FinanceV1.RefundView;
+  handover?: FinanceV1.HolderHandoverView;
   closure?: FinanceV1.ClosureView;
   paymentAttempt?: FinanceV1.PaymentAttemptView;
   paymentException?: FinanceV1.PaymentExceptionView;
@@ -144,6 +148,7 @@ export type FundReceipt = {
 type Client = Pick<DatabaseProvider, 'query'>;
 export const fundCommandScope = (value: string) =>
   [
+    ...handoverScopes,
     'REPORT_TRANSFER',
     'CONFIRM_RECEIVED',
     'REJECT_TRANSFER',
@@ -160,6 +165,7 @@ export const fundCommandScope = (value: string) =>
     'UPDATE_FINANCIAL_NOTE',
     'DELETE_FINANCIAL_NOTE',
     'CREATE_REFUND',
+    'ASSIGN_REFUND_VERIFIER',
     'REPORT_REFUND_PAID',
     'CONFIRM_REFUND_RECEIVED',
     'CONFIRM_REFUND_NONRECEIPT',
@@ -467,6 +473,8 @@ export class FundCommandRepository {
             authority,
             correlation,
           );
+        } else if (isHandoverWrite(input)) {
+          response = await new HandoverRepository(client).execute(client,input,authority,correlation);
         } else if (isRefundWrite(input)) {
           response = await new RefundRepository(client).execute(
             client,

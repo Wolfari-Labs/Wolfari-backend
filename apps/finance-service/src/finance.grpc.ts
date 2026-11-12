@@ -28,6 +28,7 @@ import { RefundService } from './application/refund.service';
 import { ClosureService } from './application/closure.service';
 import { PaymentService } from './application/payment.service';
 import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
+import { HandoverService } from './application/handover.service';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -57,7 +58,118 @@ export class FinanceGrpcController {
     private readonly lifecycle?: LifecycleFinanceRepository,
     private readonly automationContext?: FinanceAutomationContextService,
     private readonly history?: FinanceHistoryService,
+    private readonly handovers?: HandoverService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'ListHolderHandovers')
+  listHolderHandovers(
+    request: FinanceV1.ListHolderHandoversRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ListHolderHandovers', metadata, call, (correlation, deadline) => {
+      if (!this.handovers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.handovers.list(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'GetHolderHandover')
+  getHolderHandover(
+    request: FinanceV1.GetHolderHandoverRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('GetHolderHandover', metadata, call, (correlation, deadline) => {
+      if (!this.handovers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.handovers.get(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'CreateHolderHandover')
+  createHolderHandover(
+    request: FinanceV1.CreateHolderHandoverRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('CreateHolderHandover', metadata, call, (correlation, deadline) => {
+      if (!this.handovers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.handovers.create(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'AcceptHolderHandover')
+  acceptHolderHandover(
+    request: FinanceV1.HolderHandoverActionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.handoverAction(
+      'AcceptHolderHandover',
+      'ACCEPT_HOLDER_HANDOVER',
+      request,
+      metadata,
+      call,
+    );
+  }
+  @GrpcMethod('FinanceService', 'RefreshHolderHandover')
+  refreshHolderHandover(
+    request: FinanceV1.HolderHandoverActionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.handoverAction(
+      'RefreshHolderHandover',
+      'REFRESH_HOLDER_HANDOVER',
+      request,
+      metadata,
+      call,
+    );
+  }
+  @GrpcMethod('FinanceService', 'ConfirmHolderHandover')
+  confirmHolderHandover(
+    request: FinanceV1.HolderHandoverActionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.handoverAction(
+      'ConfirmHolderHandover',
+      'CONFIRM_HOLDER_HANDOVER',
+      request,
+      metadata,
+      call,
+    );
+  }
+  @GrpcMethod('FinanceService', 'CancelHolderHandover')
+  cancelHolderHandover(
+    request: FinanceV1.HolderHandoverActionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.handoverAction(
+      'CancelHolderHandover',
+      'CANCEL_HOLDER_HANDOVER',
+      request,
+      metadata,
+      call,
+    );
+  }
+  private handoverAction(
+    method:
+      | 'AcceptHolderHandover'
+      | 'RefreshHolderHandover'
+      | 'ConfirmHolderHandover'
+      | 'CancelHolderHandover',
+    scope:
+      | 'ACCEPT_HOLDER_HANDOVER'
+      | 'REFRESH_HOLDER_HANDOVER'
+      | 'CONFIRM_HOLDER_HANDOVER'
+      | 'CANCEL_HOLDER_HANDOVER',
+    request: FinanceV1.HolderHandoverActionRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute(method, metadata, call, (correlation, deadline) => {
+      if (!this.handovers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.handovers.manage(scope, request, correlation, deadline);
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ListFundHistory')
   listFundHistory(
@@ -223,6 +335,20 @@ export class FinanceGrpcController {
       return this.refunds.create(request, correlation, deadline);
     });
   }
+  @GrpcMethod('FinanceService', 'AssignRefundVerifier')
+  assignRefundVerifier(
+    request: FinanceV1.AssignRefundVerifierRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.refundAction(
+      'AssignRefundVerifier',
+      'ASSIGN_REFUND_VERIFIER',
+      request,
+      metadata,
+      call,
+    );
+  }
   @GrpcMethod('FinanceService', 'ReportRefundPaid')
   reportRefundPaid(
     request: FinanceV1.ReportRefundPaidRequest,
@@ -297,6 +423,7 @@ export class FinanceGrpcController {
   }
   private refundAction(
     method:
+      | 'AssignRefundVerifier'
       | 'ReportRefundPaid'
       | 'ConfirmRefundReceived'
       | 'ConfirmRefundNonreceipt'
@@ -305,6 +432,7 @@ export class FinanceGrpcController {
       | 'ConsentRefundReversal'
       | 'ReverseRefund',
     scope:
+      | 'ASSIGN_REFUND_VERIFIER'
       | 'REPORT_REFUND_PAID'
       | 'CONFIRM_REFUND_RECEIVED'
       | 'CONFIRM_REFUND_NONRECEIPT'
@@ -313,6 +441,7 @@ export class FinanceGrpcController {
       | 'CONSENT_REFUND_REVERSAL'
       | 'REVERSE_REFUND',
     request:
+      | FinanceV1.AssignRefundVerifierRequest
       | FinanceV1.ReportRefundPaidRequest
       | FinanceV1.ConfirmRefundReceivedRequest
       | FinanceV1.ConfirmRefundNonreceiptRequest
@@ -624,6 +753,25 @@ export class FinanceGrpcController {
         if (!this.files) throw new FinanceReadError('SERVICE_UNAVAILABLE');
         return this.fileWork(call, deadline, (signal) =>
           this.files!.download(request, correlation, deadline, signal),
+        );
+      },
+      29000,
+    );
+  }
+  @GrpcMethod('FinanceService', 'DownloadExpenseReceipt')
+  downloadExpenseReceipt(
+    request: FinanceV1.DownloadExpenseReceiptRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute(
+      'DownloadExpenseReceipt',
+      metadata,
+      call,
+      (correlation, deadline) => {
+        if (!this.files) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        return this.fileWork(call, deadline, (signal) =>
+          this.files!.downloadExpense(request, correlation, deadline, signal),
         );
       },
       29000,

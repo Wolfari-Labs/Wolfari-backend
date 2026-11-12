@@ -5,6 +5,7 @@ describe('refund HTTP projection', () => {
   it('recognizes all API111-119 routes', () => {
     expect(refundRoute(`/api/v1/funds/${id}/refunds`)).toEqual({ kind: 'collection', fundId: id });
     for (const action of [
+      'assign-verifier',
       'report-paid',
       'confirm-received',
       'confirm-nonreceipt',
@@ -28,6 +29,11 @@ describe('refund HTTP projection', () => {
         amount: '9223372036854775807',
         status: 'PENDING',
         reason: 'Dư',
+        reversal_reason: 'Trả nhầm',
+        confirmed_by_user_id: id,
+        confirmed_at: { seconds: '1', nanos: 0 },
+        confirmation_mode: 'SELF_UNVERIFIED',
+        independent_verification: false,
         created_at: { seconds: '0', nanos: 0 },
         updated_at: { seconds: '0', nanos: 0 },
         version: 1,
@@ -37,6 +43,11 @@ describe('refund HTTP projection', () => {
       amount: '9223372036854775807',
       holder_reported_at: null,
       finance_version: 2,
+      reason: 'Dư',
+      reversal_reason: 'Trả nhầm',
+      independent_verification: false,
+      confirmation_mode: 'SELF_UNVERIFIED',
+      confirmed_by_user_id: id,
     });
   });
   it('rejects private or malformed response values', () => {

@@ -54,7 +54,8 @@ export function projectFundHistory(value: unknown, fundId: string, limit: number
       !/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(entity) ||
       (row.system_actor !== undefined &&
         !['MOMO_IPN', 'MOMO_RECONCILIATION'].includes(requiredString(row.system_actor))) ||
-      (row.reason !== undefined && (typeof row.reason !== 'string' || row.reason.length > 2000))
+      (row.reason !== undefined &&
+        (typeof row.reason !== 'string' || [...row.reason].length > 2000))
     )
       throw new Error('Invalid history record');
     return {

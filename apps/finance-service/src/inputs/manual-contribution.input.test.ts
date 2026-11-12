@@ -162,6 +162,27 @@ describe('API087–089 manual contribution body parser', () => {
       new ManualContributionInputError('reason'),
     );
   });
+  it('accepts only an explicit true previous-holder confirmation for confirm-received', () => {
+    expect(
+      parseManualContributionInput('CONFIRM_RECEIVED', {
+        ...versions,
+        previous_holder_transfer_confirmed: true,
+      }).command,
+    ).toMatchObject({ previousHolderTransferConfirmed: true });
+    for (const value of [false, 'true', 1, null])
+      expect(() =>
+        parseManualContributionInput('CONFIRM_RECEIVED', {
+          ...versions,
+          previous_holder_transfer_confirmed: value,
+        }),
+      ).toThrow(ManualContributionInputError);
+    expect(() =>
+      parseManualContributionInput('REPORT_TRANSFER', {
+        ...versions,
+        previous_holder_transfer_confirmed: true,
+      }),
+    ).toThrow(ManualContributionInputError);
+  });
 
   it.each([undefined, null, 123, true, {}, [], '', ' \n ', 'bad\u0000text'])(
     'rejects invalid reason or explicitly supplied evidence %#',

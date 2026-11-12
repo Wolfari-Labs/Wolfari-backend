@@ -30,6 +30,16 @@ const row: HistoryRow = {
 const input = { fund_id: fund, actor_user_id: actor };
 
 describe('Finance history projection and navigation', () => {
+  it('preserves accepted supplementary Unicode reasons without counting surrogate pairs twice', () => {
+    const reason = '😀'.repeat(1024);
+    expect(
+      historyResponse(
+        { ...row, reason, action: 'REQUEST_REFUND_REVERSAL', entity_type: 'Refund' },
+        fund,
+      ).reason,
+    ).toBe(reason);
+    expect(() => historyResponse({ ...row, reason: '😀'.repeat(2001) }, fund)).toThrow();
+  });
   it('retains microseconds, optional actor and existing version transition; excludes arbitrary details', () => {
     const result = historyResponse(
       { ...row, details: { bank: 'PRIVATE' }, token: 'PRIVATE' } as HistoryRow,

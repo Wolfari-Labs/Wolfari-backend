@@ -26,7 +26,7 @@ Status/migrate/inspect hỗ trợ `--service identity|trip|travel|finance|automa
 | finance_db    | finance_app    |                              18 |
 | automation_db | automation_app |                              14 |
 
-Có 57 bảng mô hình, 5 bảng lịch sử và 52 FK cùng database sau Trip V002, Finance V002 và Automation V006 (baseline V001 có 46 FK). Finance V002 thêm một bảng chứng từ và ba FK. Automation V002/V003/V005/V006 chỉ thêm cột hoặc index; V004 thêm hai bảng và hai FK cho alert/lifecycle. Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
+Có 58 bảng mô hình, 5 bảng lịch sử và 53 FK cùng database sau Trip V003, Finance V005 và Automation V006 (baseline V001 có 46 FK). Finance V002 thêm một bảng chứng từ và ba FK; Finance V004 chỉ thêm cột/CHECK kiểm chứng hoàn tiền; Finance V005 thêm bảng `fund_holder_handovers` và một FK tới `funds`. Automation V002/V003/V005/V006 chỉ thêm cột hoặc index; V004 thêm hai bảng và hai FK cho alert/lifecycle. Mỗi role chỉ kết nối DB sở hữu; Gateway/Worker không có DB nghiệp vụ.
 
 ## Hợp đồng runner
 
@@ -43,7 +43,7 @@ Trip V002 thêm liên kết acceptance cùng Trip, unique EMAIL/PENDING chuẩn 
 
 Automation V002 thêm `price_watches.owner_membership_id` và index phục vụ quyền theo đúng vòng đời membership. Nếu đã có watch legacy, migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED`; operator phải xác định membership đúng thay vì suy từ `user_id`. Automation V003 thêm `price_query_attempts.next_attempt_at` cùng partial index để tách lịch retry khỏi hạn lease. V004 thêm alert candidate có lease/dedupe và bảng revision lifecycle Trip. V005 thêm partial index inbox AVAILABLE/unread theo Self mà không đổi bảng hoặc FK. V006 thêm partial index cho ClosureCancelled/FinanceClosed trong inbox_events, không thay bảng/FK hay xóa lịch sử. Readiness Automation yêu cầu V001–V006. Xem [Price Watch Core](../architecture/price-watch-core.md) và [Notification Self Management](../architecture/notification-management.md).
 
-Finance V002 adds private receipt storage metadata; Finance readiness now requires V001, V002 and V003. V003 adds the audit-history keyset index without adding tables or foreign keys; see [Finance history](../architecture/finance-history.md). See [Finance receipts](../architecture/finance-receipts.md).
+Finance V002 adds private receipt storage metadata; Finance readiness now requires V001–V005. V003 adds the audit-history keyset index without adding tables or foreign keys; see [Finance history](../architecture/finance-history.md). See [Finance receipts](../architecture/finance-receipts.md). V004 adds nullable refund verifier/confirmation columns with CHECK constraints (historical rows stay NULL, never backfilled as verified); see [Finance refunds](../architecture/finance-refunds.md). V005 adds `fund_holder_handovers` with one partial unique index that allows a single NOMINATED/ACCEPTED workflow per Fund; see [Holder handover](../architecture/finance-holder-handover.md).
 
 Giữ V001 bất biến; thêm V002.sql, V003.sql ở service sở hữu. Mỗi file kiểm tra đúng DB, có BEGIN/COMMIT và INSERT schema_migrations cùng transaction. Thêm SHA-256 theo đường dẫn root vào manifest trong cùng thay đổi có review. .gitattributes giữ byte SQL khi checkout Windows/Linux. Lệnh cần chạy ngoài transaction phải dùng quy trình DBA riêng.
 

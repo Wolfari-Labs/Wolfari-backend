@@ -30,6 +30,12 @@ export const HISTORY_ACTIONS = [
   'UPDATE_FINANCIAL_NOTE',
   'DELETE_FINANCIAL_NOTE',
   'CREATE_REFUND',
+  'CREATE_HOLDER_HANDOVER',
+  'ACCEPT_HOLDER_HANDOVER',
+  'REFRESH_HOLDER_HANDOVER',
+  'CONFIRM_HOLDER_HANDOVER',
+  'CANCEL_HOLDER_HANDOVER',
+  'ASSIGN_REFUND_VERIFIER',
   'REPORT_REFUND_PAID',
   'CONFIRM_REFUND_RECEIVED',
   'CONFIRM_REFUND_NONRECEIPT',
@@ -146,7 +152,7 @@ export function historyResponse(row: HistoryRow, fundId: string): FinanceV1.Fund
     (row.system_actor !== null &&
       !['MOMO_IPN', 'MOMO_RECONCILIATION'].includes(row.system_actor)) ||
     row.reason_oversized !== false ||
-    (row.reason !== null && (typeof row.reason !== 'string' || row.reason.length > 2000)) ||
+    (row.reason !== null && (typeof row.reason !== 'string' || [...row.reason].length > 2000)) ||
     !historyInstant(row.occurred_at)
   )
     throw new Error('Invalid stored history');

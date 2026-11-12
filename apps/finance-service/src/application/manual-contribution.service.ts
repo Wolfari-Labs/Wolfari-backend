@@ -22,7 +22,8 @@ export class ManualContributionService {
   async run(
     scope: ManualWrite['scope'],
     request: FinanceV1.ReportContributionTransferRequest &
-      FinanceV1.RejectContributionTransferRequest,
+      FinanceV1.RejectContributionTransferRequest &
+      FinanceV1.ConfirmContributionReceivedRequest,
     correlation: string,
     deadline: number,
   ) {
@@ -38,6 +39,9 @@ export class ManualContributionService {
           ? {}
           : { evidence_object_key: request.evidence_object_key }),
         ...(request.reason === undefined ? {} : { reason: request.reason }),
+        ...(request.previous_holder_transfer_confirmed === undefined
+          ? {}
+          : { previous_holder_transfer_confirmed: request.previous_holder_transfer_confirmed }),
       });
     } catch (error) {
       if (error instanceof ManualContributionInputError)

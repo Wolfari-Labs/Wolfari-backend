@@ -19,6 +19,7 @@ service FinanceService {
   rpc RemindClosure(RemindClosureRequest) returns (RemindClosureResponse);
   rpc ListRefunds(ListRefundsRequest) returns (ListRefundsResponse);
   rpc CreateRefund(CreateRefundRequest) returns (CreateRefundResponse);
+  rpc AssignRefundVerifier(AssignRefundVerifierRequest) returns (AssignRefundVerifierResponse);
   rpc ReportRefundPaid(ReportRefundPaidRequest) returns (ReportRefundPaidResponse);
   rpc ConfirmRefundReceived(ConfirmRefundReceivedRequest) returns (ConfirmRefundReceivedResponse);
   rpc ConfirmRefundNonreceipt(ConfirmRefundNonreceiptRequest) returns (ConfirmRefundNonreceiptResponse);
@@ -46,6 +47,7 @@ service FinanceService {
   rpc ReverseContribution(ReverseContributionRequest) returns (ReverseContributionResponse);
   rpc UploadFinanceReceipt(UploadFinanceReceiptRequest) returns (UploadFinanceReceiptResponse);
   rpc DownloadFinanceReceipt(DownloadFinanceReceiptRequest) returns (DownloadFinanceReceiptResponse);
+  rpc DownloadExpenseReceipt(DownloadExpenseReceiptRequest) returns (DownloadExpenseReceiptResponse);
   rpc UpdateContributionRequest(UpdateContributionRequestRequest) returns (UpdateContributionRequestResponse);
   rpc UpdateContributionAmount(UpdateContributionAmountRequest) returns (UpdateContributionAmountResponse);
   rpc WaiveContribution(WaiveContributionRequest) returns (WaiveContributionResponse);
@@ -66,9 +68,91 @@ service FinanceService {
   rpc CancelOperationIfNotCommitted(CancelOperationIfNotCommittedRequest) returns (CancelOperationIfNotCommittedResponse);
   rpc GetExportSnapshot(GetExportSnapshotRequest) returns (GetExportSnapshotResponse);
   rpc GetAutomationContext(GetAutomationContextRequest) returns (GetAutomationContextResponse);
+  rpc ListHolderHandovers(ListHolderHandoversRequest) returns (ListHolderHandoversResponse);
+  rpc GetHolderHandover(GetHolderHandoverRequest) returns (GetHolderHandoverResponse);
+  rpc CreateHolderHandover(CreateHolderHandoverRequest) returns (CreateHolderHandoverResponse);
+  rpc AcceptHolderHandover(AcceptHolderHandoverRequest) returns (AcceptHolderHandoverResponse);
+  rpc RefreshHolderHandover(RefreshHolderHandoverRequest) returns (RefreshHolderHandoverResponse);
+  rpc ConfirmHolderHandover(ConfirmHolderHandoverRequest) returns (ConfirmHolderHandoverResponse);
+  rpc CancelHolderHandover(CancelHolderHandoverRequest) returns (CancelHolderHandoverResponse);
 }
 
 // Public Member audit metadata only; raw details and provider data are excluded.
+// Handover snapshots are business data; no bank credentials or receipt storage keys.
+message HolderHandoverSnapshot {
+  string current_balance = 1;
+  string reserved_refund = 2;
+  string available_balance = 3;
+  string ledger_sequence = 4;
+  repeated string pending_contribution_ids = 5;
+  repeated string pending_refund_ids = 6;
+  repeated string pending_expense_ids = 7;
+  repeated string pending_payment_ids = 8;
+  repeated string payment_destination_ids = 9;
+  string fingerprint = 10;
+  repeated string pending_payment_exception_ids = 11;
+}
+message HolderHandoverView {
+  string id = 1;
+  string fund_id = 2;
+  string old_holder_user_id = 3;
+  string new_holder_user_id = 4;
+  string nominated_by_user_id = 5;
+  string status = 6;
+  int32 version = 7;
+  int32 finance_version = 8;
+  optional int32 snapshot_finance_version = 9;
+  HolderHandoverSnapshot snapshot = 10;
+  bool snapshot_stale = 11;
+  google.protobuf.Timestamp accepted_at = 12;
+  google.protobuf.Timestamp old_holder_confirmed_at = 13;
+  google.protobuf.Timestamp new_holder_confirmed_at = 14;
+  google.protobuf.Timestamp completed_at = 15;
+  google.protobuf.Timestamp cancelled_at = 16;
+  optional string cancellation_reason = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+message ListHolderHandoversRequest { string actor_user_id = 1; string fund_id = 2; }
+message ListHolderHandoversResponse { repeated HolderHandoverView items = 1; }
+message GetHolderHandoverRequest { string actor_user_id = 1; string handover_id = 2; }
+message GetHolderHandoverResponse { HolderHandoverView handover = 1; }
+message CreateHolderHandoverRequest {
+  string actor_user_id = 1; string operation_id = 2; string fund_id = 3;
+  string new_holder_user_id = 4; int32 expected_finance_version = 5;
+}
+message HolderHandoverActionRequest {
+  string actor_user_id = 1; string operation_id = 2; string handover_id = 3;
+  int32 expected_version = 4; int32 expected_finance_version = 5;
+  optional int32 expected_snapshot_finance_version = 6; optional string reason = 7;
+}
+message HolderHandoverCommandResponse {
+  oneof result { HolderHandoverView handover = 1; wolfari.common.v1.Operation operation = 2; }
+}
+message AcceptHolderHandoverRequest {
+  string actor_user_id = 1; string operation_id = 2; string handover_id = 3;
+  int32 expected_version = 4; int32 expected_finance_version = 5;
+}
+message RefreshHolderHandoverRequest {
+  string actor_user_id = 1; string operation_id = 2; string handover_id = 3;
+  int32 expected_version = 4; int32 expected_finance_version = 5;
+}
+message ConfirmHolderHandoverRequest {
+  string actor_user_id = 1; string operation_id = 2; string handover_id = 3;
+  int32 expected_version = 4; int32 expected_finance_version = 5;
+  int32 expected_snapshot_finance_version = 6;
+}
+message CancelHolderHandoverRequest {
+  string actor_user_id = 1; string operation_id = 2; string handover_id = 3;
+  int32 expected_version = 4; int32 expected_finance_version = 5;
+  string reason = 7;
+}
+message CreateHolderHandoverResponse { oneof result { HolderHandoverView handover = 1; wolfari.common.v1.Operation operation = 2; } }
+message AcceptHolderHandoverResponse { oneof result { HolderHandoverView handover = 1; wolfari.common.v1.Operation operation = 2; } }
+message RefreshHolderHandoverResponse { oneof result { HolderHandoverView handover = 1; wolfari.common.v1.Operation operation = 2; } }
+message ConfirmHolderHandoverResponse { oneof result { HolderHandoverView handover = 1; wolfari.common.v1.Operation operation = 2; } }
+message CancelHolderHandoverResponse { oneof result { HolderHandoverView handover = 1; wolfari.common.v1.Operation operation = 2; } }
+
 message FundAuditEntry {
   string id = 1;
   string fund_id = 2;
@@ -174,6 +258,7 @@ message ResolvePaymentExceptionRequest {
   optional string linked_attempt_id = 5;
   string reason = 6;
   int32 expected_finance_version = 7;
+  optional bool previous_holder_transfer_confirmed = 8;
 }
 message ResolvePaymentExceptionResponse {
   oneof result {
@@ -258,7 +343,23 @@ message RefundView {
   google.protobuf.Timestamp updated_at = 13;
   int32 version = 14;
   int32 finance_version = 15;
+  optional string reversal_reason = 16;
+  optional string verifier_user_id = 17;
+  optional string verifier_assigned_by_user_id = 18;
+  google.protobuf.Timestamp verifier_assigned_at = 19;
+  optional string confirmed_by_user_id = 20;
+  optional string confirmation_mode = 21;
+  optional bool independent_verification = 22;
 }
+message AssignRefundVerifierRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string refund_id = 3;
+  string verifier_user_id = 4;
+  int32 expected_version = 5;
+  int32 expected_finance_version = 6;
+}
+message AssignRefundVerifierResponse { oneof result { RefundView refund = 1; wolfari.common.v1.Operation operation = 2; } }
 message ListRefundsRequest {
   string actor_user_id = 1;
   string fund_id = 2;
@@ -1023,6 +1124,17 @@ message DownloadFinanceReceiptRequest {
   string fund_id = 2;
   string object_key = 3;
 }
+message DownloadExpenseReceiptRequest {
+  string expense_id = 1;
+  string actor_user_id = 2;
+}
+message DownloadExpenseReceiptResponse {
+  string expense_id = 1;
+  string fund_id = 2;
+  string mime_type = 3;
+  int32 size_bytes = 4;
+  bytes content = 5;
+}
 message DownloadFinanceReceiptResponse {
   string object_key = 1;
   string mime_type = 2;
@@ -1051,6 +1163,7 @@ message ConfirmContributionReceivedRequest {
   string contribution_id = 3;
   int32 expected_version = 4;
   int32 expected_finance_version = 5;
+  optional bool previous_holder_transfer_confirmed = 6;
 }
 message ConfirmContributionReceivedResponse {
   oneof result {
