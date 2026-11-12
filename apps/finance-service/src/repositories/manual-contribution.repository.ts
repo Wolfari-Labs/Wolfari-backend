@@ -14,6 +14,7 @@ import {
 } from '../projections/contribution-response';
 import type { ReceiptRepository } from '../receipts/receipt.repository';
 import type { FundWrite, StoredResult } from './fund-command.repository';
+import { destinationHolder, previousHolderReceiptAudit } from '../domain/destination-holder';
 
 export type ManualWrite = {
   scope: 'REPORT_TRANSFER' | 'CONFIRM_RECEIVED' | 'REJECT_TRANSFER';
@@ -59,9 +60,10 @@ export class ManualContributionRepository {
         ContributionReadRow & {
           status: ContributionStatus;
           transfer_evidence_object_key: string | null;
+          destination_snapshot: unknown;
         }
       >(
-        `SELECT ${columns},transfer_evidence_object_key FROM contributions WHERE id=$1 AND fund_id=$2 AND request_id=$3 FOR UPDATE`,
+        `SELECT ${columns},transfer_evidence_object_key,destination_snapshot FROM contributions WHERE id=$1 AND fund_id=$2 AND request_id=$3 FOR UPDATE`,
         [input.contributionId, input.fundId, input.requestId],
       )
     ).rows[0];
@@ -76,6 +78,14 @@ export class ManualContributionRepository {
     if (input.body.command.action !== input.scope) throw new FinanceReadError('VALIDATION_FAILED');
     if (request.status !== 'OPEN' || authority.tripArchived)
       throw new FinanceReadError('STATE_CONFLICT');
+    const previousHolderAudit =
+      input.body.command.action === 'CONFIRM_RECEIVED'
+        ? previousHolderReceiptAudit(
+            destinationHolder(row.destination_snapshot, input.fundId),
+            fund.holder_user_id,
+            input.body.command.previousHolderTransferConfirmed,
+          )
+        : {};
     const attempts = (
       await client.query<{ status: string; needs_reconciliation: boolean }>(
         'SELECT status,needs_reconciliation FROM payment_attempts WHERE contribution_id=$1 ORDER BY id FOR UPDATE',
@@ -188,6 +198,7 @@ export class ManualContributionRepository {
         JSON.stringify({
           operation_id: input.operationId,
           finance_version: financeVersion,
+          ...previousHolderAudit,
           ...(effect.rejectionReason === null ? {} : { reason: effect.rejectionReason }),
         }),
       ],

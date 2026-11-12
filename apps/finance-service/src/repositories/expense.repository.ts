@@ -1,4 +1,5 @@
 import { DatabaseProvider } from '@wolfari/database';
+import { assertNoHandover } from './handover-guards';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { FundSetupContext } from '../domain/fund-setup';
 import {
@@ -172,6 +173,14 @@ export class ExpenseRepository {
       )
     ).rows[0];
     if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    if (
+      input.scope === 'CREATE_EXPENSE' ||
+      input.scope === 'SUBMIT_EXPENSE' ||
+      (input.scope === 'UPDATE_EXPENSE' &&
+        'amount' in input.body &&
+        input.body.amount !== undefined)
+    )
+      await assertNoHandover(client, input.fundId, true);
     const context = {
       ...authority,
       financeVersion: fund.finance_version,

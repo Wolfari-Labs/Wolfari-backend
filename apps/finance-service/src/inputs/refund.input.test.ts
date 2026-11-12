@@ -4,6 +4,7 @@ import {
   parseRefundAction,
   parseRefundPage,
   parseRefundReasonAction,
+  parseRefundVerifierAction,
   refundCursor,
 } from './refund.input';
 
@@ -11,6 +12,29 @@ const fund = '10000000-0000-4000-8000-000000000001';
 const member = '10000000-0000-4000-8000-000000000002';
 const refund = '10000000-0000-4000-8000-000000000003';
 describe('refund input', () => {
+  it('requires an explicit valid verifier and both optimistic versions', () => {
+    expect(
+      parseRefundVerifierAction({
+        verifier_user_id: member,
+        expected_version: 2,
+        expected_finance_version: 5,
+      }),
+    ).toEqual({ verifierUserId: member, expectedVersion: 2, expectedFinanceVersion: 5 });
+    for (const patch of [
+      { verifier_user_id: 'bad' },
+      { expected_version: 0 },
+      { expected_finance_version: undefined },
+      { actor_user_id: member },
+    ])
+      expect(() =>
+        parseRefundVerifierAction({
+          verifier_user_id: member,
+          expected_version: 2,
+          expected_finance_version: 5,
+          ...patch,
+        }),
+      ).toThrow();
+  });
   it('normalizes exact int64 money, UUID and reason', () => {
     expect(
       parseCreateRefund({

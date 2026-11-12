@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Finance Refund API",
-    "version": "1.0.0",
-    "description": "API111-119 for reserving and paying shared-fund refunds. A refund changes the ledger only when the recipient confirms receipt; reversal requires a Holder request and recipient consent."
+    "version": "1.1.0",
+    "description": "API111-119 and verifier assignment for shared-fund refunds. The recipient confirms normal refunds. A refund to the Holder requires the distinct Owner, or an assigned active Member when Owner is Holder. Single-member self confirmation is explicitly marked unverified. Reversal requires a Holder request and recipient consent bound to reversal_reason."
   },
   "paths": {
     "/api/v1/funds/{fund_id}/refunds": {
@@ -39,6 +39,25 @@
         }
       }
     },
+    "/api/v1/refunds/{refund_id}/assign-verifier": {
+      "post": {
+        "summary": "Owner assigns an independent verifier for an unpaid refund to Owner/Holder",
+        "parameters": [
+          { "$ref": "#/components/parameters/RefundId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AssignVerifierInput" } }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Refund" },
+          "202": { "$ref": "#/components/responses/Operation" }
+        }
+      }
+    },
     "/api/v1/refunds/{refund_id}/report-paid": {
       "post": {
         "summary": "API113 Holder reports payment",
@@ -55,7 +74,7 @@
     },
     "/api/v1/refunds/{refund_id}/confirm-received": {
       "post": {
-        "summary": "API114 recipient confirms receipt",
+        "summary": "API114 authorized recipient or independent verifier confirms receipt",
         "parameters": [
           { "$ref": "#/components/parameters/RefundId" },
           { "$ref": "#/components/parameters/IdempotencyKey" }
@@ -209,6 +228,16 @@
       }
     },
     "schemas": {
+      "AssignVerifierInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["verifier_user_id", "expected_version", "expected_finance_version"],
+        "properties": {
+          "verifier_user_id": { "$ref": "#/components/schemas/Uuid" },
+          "expected_version": { "$ref": "#/components/schemas/Version" },
+          "expected_finance_version": { "$ref": "#/components/schemas/Version" }
+        }
+      },
       "Uuid": { "type": "string", "format": "uuid" },
       "Money": { "type": "string", "pattern": "^[1-9][0-9]*$", "maxLength": 19 },
       "Version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
@@ -273,6 +302,21 @@
           "amount": { "$ref": "#/components/schemas/Money" },
           "status": { "$ref": "#/components/schemas/RefundStatus" },
           "reason": { "type": "string" },
+          "reversal_reason": { "type": "string", "nullable": true, "maxLength": 1024 },
+          "verifier_user_id": { "type": "string", "format": "uuid", "nullable": true },
+          "verifier_assigned_by_user_id": { "type": "string", "format": "uuid", "nullable": true },
+          "verifier_assigned_at": { "type": "string", "format": "date-time", "nullable": true },
+          "confirmed_by_user_id": { "type": "string", "format": "uuid", "nullable": true },
+          "confirmation_mode": {
+            "type": "string",
+            "nullable": true,
+            "enum": ["RECIPIENT", "OWNER", "ASSIGNED_MEMBER", "SELF_UNVERIFIED", null]
+          },
+          "independent_verification": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Null before confirmation or for legacy rows; false for single-member self confirmation."
+          },
           "holder_reported_at": { "type": "string", "format": "date-time", "nullable": true },
           "confirmed_at": { "type": "string", "format": "date-time", "nullable": true },
           "nonreceipt_confirmed_at": { "type": "string", "format": "date-time", "nullable": true },

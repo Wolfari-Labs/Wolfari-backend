@@ -21,6 +21,7 @@ import {
 
 type Request = IncomingMessage & { originalUrl?: string; body?: unknown };
 type Action =
+  | 'assign-verifier'
   | 'report-paid'
   | 'confirm-received'
   | 'confirm-nonreceipt'
@@ -35,7 +36,7 @@ export function refundRoute(path: string): RefundRoute | undefined {
   const collection = /^\/api\/v1\/funds\/([^/]+)\/refunds$/.exec(path);
   if (collection) return { kind: 'collection', fundId: collection[1]! };
   const item =
-    /^\/api\/v1\/refunds\/([^/]+)\/(report-paid|confirm-received|confirm-nonreceipt|cancel|request-reversal|consent-reversal|reverse)$/.exec(
+    /^\/api\/v1\/refunds\/([^/]+)\/(assign-verifier|report-paid|confirm-received|confirm-nonreceipt|cancel|request-reversal|consent-reversal|reverse)$/.exec(
       path,
     );
   return item ? { kind: 'item', refundId: item[1]!, action: item[2] as Action } : undefined;
@@ -66,6 +67,7 @@ const reason = (value: unknown) => {
 };
 const nullableTimestamp = (value: unknown) =>
   value === undefined || value === null ? null : timestampToIso(value);
+const nullableIdentifier = (value: unknown) => (value == null ? null : identifier(value));
 export function projectRefund(value: unknown) {
   const row = responseRecord(value);
   if (
@@ -77,6 +79,30 @@ export function projectRefund(value: unknown) {
   const amount = requiredString(row.amount);
   if (!/^[1-9]\d*$/.test(amount) || amount.length > 19 || BigInt(amount) > 9223372036854775807n)
     throw new Error('Invalid refund amount');
+  if (row.reversal_reason != null) {
+    try {
+      reason(row.reversal_reason);
+    } catch {
+      throw new Error('Invalid stored refund reversal reason');
+    }
+  }
+  if (row.independent_verification != null && typeof row.independent_verification !== 'boolean')
+    throw new Error('Invalid refund verification');
+  if (
+    row.confirmation_mode != null &&
+    !['RECIPIENT', 'OWNER', 'ASSIGNED_MEMBER', 'SELF_UNVERIFIED'].includes(
+      String(row.confirmation_mode),
+    )
+  )
+    throw new Error('Invalid refund confirmation mode');
+  if (
+    (row.confirmation_mode == null) !== (row.independent_verification == null) ||
+    (row.confirmation_mode != null &&
+      (row.confirmed_by_user_id == null ||
+        row.confirmed_at == null ||
+        row.independent_verification !== (row.confirmation_mode !== 'SELF_UNVERIFIED')))
+  )
+    throw new Error('Inconsistent refund verification');
   return {
     id: identifier(row.id),
     fund_id: identifier(row.fund_id),
@@ -84,6 +110,13 @@ export function projectRefund(value: unknown) {
     amount,
     status: String(row.status),
     reason: requiredString(row.reason),
+    reversal_reason: row.reversal_reason ?? null,
+    verifier_user_id: nullableIdentifier(row.verifier_user_id),
+    verifier_assigned_by_user_id: nullableIdentifier(row.verifier_assigned_by_user_id),
+    verifier_assigned_at: nullableTimestamp(row.verifier_assigned_at),
+    confirmed_by_user_id: nullableIdentifier(row.confirmed_by_user_id),
+    confirmation_mode: row.confirmation_mode ?? null,
+    independent_verification: row.independent_verification ?? null,
     holder_reported_at: nullableTimestamp(row.holder_reported_at),
     confirmed_at: nullableTimestamp(row.confirmed_at),
     nonreceipt_confirmed_at: nullableTimestamp(row.nonreceipt_confirmed_at),
@@ -175,8 +208,14 @@ export async function handleRefund(
       const withReason =
         route.kind === 'item' &&
         ['confirm-nonreceipt', 'cancel', 'request-reversal', 'reverse'].includes(route.action);
-      validateAction(body, withReason);
+      if (route.kind === 'item' && route.action === 'assign-verifier') {
+        onlyKeys(body, ['verifier_user_id', 'expected_version', 'expected_finance_version']);
+        if (!uuid.test(String(body.verifier_user_id))) throw new RequestError('Invalid verifier');
+        version(body.expected_version);
+        version(body.expected_finance_version);
+      } else validateAction(body, withReason);
       const methods: Record<Action, Parameters<FinanceClient['call']>[0]> = {
+        'assign-verifier': 'AssignRefundVerifier',
         'report-paid': 'ReportRefundPaid',
         'confirm-received': 'ConfirmRefundReceived',
         'confirm-nonreceipt': 'ConfirmRefundNonreceipt',

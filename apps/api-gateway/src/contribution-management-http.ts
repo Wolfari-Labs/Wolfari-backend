@@ -74,7 +74,7 @@ export async function handleContributionManagement(
       route.rpc === 'ReportContributionTransfer'
         ? ['evidence_object_key']
         : route.rpc === 'ConfirmContributionReceived'
-          ? []
+          ? ['previous_holder_transfer_confirmed']
           : route.rpc === 'UpdateContributionRequest'
             ? ['title', 'due_at', 'note']
             : route.rpc === 'UpdateContributionAmount'
@@ -87,7 +87,12 @@ export async function handleContributionManagement(
     )
       throw new RequestError('Empty patch');
     for (const key of fields.filter((key) => Object.hasOwn(body, key)))
-      if (typeof body[key] !== 'string') throw new RequestError('Invalid field');
+      if (
+        key === 'previous_holder_transfer_confirmed'
+          ? body[key] !== true
+          : typeof body[key] !== 'string'
+      )
+        throw new RequestError('Invalid field');
     for (const key of ['expected_version', 'expected_finance_version'])
       if (!Number.isInteger(body[key]) || Number(body[key]) < 1 || Number(body[key]) > 2147483647)
         throw new RequestError('Invalid version');

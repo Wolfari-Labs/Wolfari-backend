@@ -9,19 +9,17 @@ const id = '10000000-0000-4000-8000-000000000001',
   holder = '20000000-0000-4000-8000-000000000001';
 function setup() {
   const db = {
-    query: vi
-      .fn()
-      .mockResolvedValue({
-        rows: [
-          {
-            fund_id: id,
-            request_id: id,
-            trip_id: id,
-            member_user_id: id,
-            transfer_evidence_object_key: 'current',
-          },
-        ],
-      }),
+    query: vi.fn().mockResolvedValue({
+      rows: [
+        {
+          fund_id: id,
+          request_id: id,
+          trip_id: id,
+          member_user_id: id,
+          transfer_evidence_object_key: 'current',
+        },
+      ],
+    }),
   };
   const queries = { getFund: vi.fn().mockResolvedValue({ fund: { holder_user_id: holder } }) };
   const commands = { run: vi.fn().mockResolvedValue({ contribution: {} }) };
@@ -42,6 +40,30 @@ const request = {
   expected_finance_version: 2,
 };
 describe('Manual contribution application', () => {
+  it('threads the previous Holder assertion through the guarded command body', async () => {
+    const s = setup();
+    await s.service.run(
+      'CONFIRM_RECEIVED',
+      { ...request, actor_user_id: holder, previous_holder_transfer_confirmed: true },
+      id,
+      Date.now() + 2000,
+    );
+    expect(s.commands.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: {
+          command: {
+            action: 'CONFIRM_RECEIVED',
+            expectedVersion: 1,
+            expectedFinanceVersion: 2,
+            previousHolderTransferConfirmed: true,
+          },
+        },
+      }),
+      id,
+      expect.any(Number),
+      expect.any(Function),
+    );
+  });
   it.each(['CONFIRM_RECEIVED', 'REJECT_TRANSFER'] as const)(
     'requires current Holder for %s, before the guard',
     async (scope) => {

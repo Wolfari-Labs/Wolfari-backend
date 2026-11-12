@@ -45,7 +45,146 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
-/** Public Member audit metadata only; raw details and provider data are excluded. */
+/**
+ * Public Member audit metadata only; raw details and provider data are excluded.
+ * Handover snapshots are business data; no bank credentials or receipt storage keys.
+ */
+export interface HolderHandoverSnapshot {
+  current_balance?: string | undefined;
+  reserved_refund?: string | undefined;
+  available_balance?: string | undefined;
+  ledger_sequence?: string | undefined;
+  pending_contribution_ids?: string[] | undefined;
+  pending_refund_ids?: string[] | undefined;
+  pending_expense_ids?: string[] | undefined;
+  pending_payment_ids?: string[] | undefined;
+  payment_destination_ids?: string[] | undefined;
+  fingerprint?: string | undefined;
+  pending_payment_exception_ids?: string[] | undefined;
+}
+
+export interface HolderHandoverView {
+  id?: string | undefined;
+  fund_id?: string | undefined;
+  old_holder_user_id?: string | undefined;
+  new_holder_user_id?: string | undefined;
+  nominated_by_user_id?: string | undefined;
+  status?: string | undefined;
+  version?: number | undefined;
+  finance_version?: number | undefined;
+  snapshot_finance_version?: number | undefined;
+  snapshot?: HolderHandoverSnapshot | undefined;
+  snapshot_stale?: boolean | undefined;
+  accepted_at?: Timestamp | undefined;
+  old_holder_confirmed_at?: Timestamp | undefined;
+  new_holder_confirmed_at?: Timestamp | undefined;
+  completed_at?: Timestamp | undefined;
+  cancelled_at?: Timestamp | undefined;
+  cancellation_reason?: string | undefined;
+  created_at?: Timestamp | undefined;
+  updated_at?: Timestamp | undefined;
+}
+
+export interface ListHolderHandoversRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+}
+
+export interface ListHolderHandoversResponse {
+  items?: HolderHandoverView[] | undefined;
+}
+
+export interface GetHolderHandoverRequest {
+  actor_user_id?: string | undefined;
+  handover_id?: string | undefined;
+}
+
+export interface GetHolderHandoverResponse {
+  handover?: HolderHandoverView | undefined;
+}
+
+export interface CreateHolderHandoverRequest {
+  actor_user_id?: string | undefined;
+  operation_id?: string | undefined;
+  fund_id?: string | undefined;
+  new_holder_user_id?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface HolderHandoverActionRequest {
+  actor_user_id?: string | undefined;
+  operation_id?: string | undefined;
+  handover_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  expected_snapshot_finance_version?: number | undefined;
+  reason?: string | undefined;
+}
+
+export interface HolderHandoverCommandResponse {
+  handover?: HolderHandoverView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface AcceptHolderHandoverRequest {
+  actor_user_id?: string | undefined;
+  operation_id?: string | undefined;
+  handover_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface RefreshHolderHandoverRequest {
+  actor_user_id?: string | undefined;
+  operation_id?: string | undefined;
+  handover_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ConfirmHolderHandoverRequest {
+  actor_user_id?: string | undefined;
+  operation_id?: string | undefined;
+  handover_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  expected_snapshot_finance_version?: number | undefined;
+}
+
+export interface CancelHolderHandoverRequest {
+  actor_user_id?: string | undefined;
+  operation_id?: string | undefined;
+  handover_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+  reason?: string | undefined;
+}
+
+export interface CreateHolderHandoverResponse {
+  handover?: HolderHandoverView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface AcceptHolderHandoverResponse {
+  handover?: HolderHandoverView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface RefreshHolderHandoverResponse {
+  handover?: HolderHandoverView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface ConfirmHolderHandoverResponse {
+  handover?: HolderHandoverView | undefined;
+  operation?: Operation | undefined;
+}
+
+export interface CancelHolderHandoverResponse {
+  handover?: HolderHandoverView | undefined;
+  operation?: Operation | undefined;
+}
+
 export interface FundAuditEntry {
   id?: string | undefined;
   fund_id?: string | undefined;
@@ -171,6 +310,7 @@ export interface ResolvePaymentExceptionRequest {
   linked_attempt_id?: string | undefined;
   reason?: string | undefined;
   expected_finance_version?: number | undefined;
+  previous_holder_transfer_confirmed?: boolean | undefined;
 }
 
 export interface ResolvePaymentExceptionResponse {
@@ -284,6 +424,27 @@ export interface RefundView {
   updated_at?: Timestamp | undefined;
   version?: number | undefined;
   finance_version?: number | undefined;
+  reversal_reason?: string | undefined;
+  verifier_user_id?: string | undefined;
+  verifier_assigned_by_user_id?: string | undefined;
+  verifier_assigned_at?: Timestamp | undefined;
+  confirmed_by_user_id?: string | undefined;
+  confirmation_mode?: string | undefined;
+  independent_verification?: boolean | undefined;
+}
+
+export interface AssignRefundVerifierRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  refund_id?: string | undefined;
+  verifier_user_id?: string | undefined;
+  expected_version?: number | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface AssignRefundVerifierResponse {
+  refund?: RefundView | undefined;
+  operation?: Operation | undefined;
 }
 
 export interface ListRefundsRequest {
@@ -1129,6 +1290,19 @@ export interface DownloadFinanceReceiptRequest {
   object_key?: string | undefined;
 }
 
+export interface DownloadExpenseReceiptRequest {
+  expense_id?: string | undefined;
+  actor_user_id?: string | undefined;
+}
+
+export interface DownloadExpenseReceiptResponse {
+  expense_id?: string | undefined;
+  fund_id?: string | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+  content?: Uint8Array | undefined;
+}
+
 export interface DownloadFinanceReceiptResponse {
   object_key?: string | undefined;
   mime_type?: string | undefined;
@@ -1156,6 +1330,7 @@ export interface ConfirmContributionReceivedRequest {
   contribution_id?: string | undefined;
   expected_version?: number | undefined;
   expected_finance_version?: number | undefined;
+  previous_holder_transfer_confirmed?: boolean | undefined;
 }
 
 export interface ConfirmContributionReceivedResponse {
@@ -1259,6 +1434,11 @@ export interface FinanceServiceClient {
 
   createRefund(request: CreateRefundRequest, metadata?: Metadata): Observable<CreateRefundResponse>;
 
+  assignRefundVerifier(
+    request: AssignRefundVerifierRequest,
+    metadata?: Metadata,
+  ): Observable<AssignRefundVerifierResponse>;
+
   reportRefundPaid(request: ReportRefundPaidRequest, metadata?: Metadata): Observable<ReportRefundPaidResponse>;
 
   confirmRefundReceived(
@@ -1355,6 +1535,11 @@ export interface FinanceServiceClient {
     metadata?: Metadata,
   ): Observable<DownloadFinanceReceiptResponse>;
 
+  downloadExpenseReceipt(
+    request: DownloadExpenseReceiptRequest,
+    metadata?: Metadata,
+  ): Observable<DownloadExpenseReceiptResponse>;
+
   updateContributionRequest(
     request: UpdateContributionRequestRequest,
     metadata?: Metadata,
@@ -1430,6 +1615,38 @@ export interface FinanceServiceClient {
     request: GetAutomationContextRequest,
     metadata?: Metadata,
   ): Observable<GetAutomationContextResponse>;
+
+  listHolderHandovers(
+    request: ListHolderHandoversRequest,
+    metadata?: Metadata,
+  ): Observable<ListHolderHandoversResponse>;
+
+  getHolderHandover(request: GetHolderHandoverRequest, metadata?: Metadata): Observable<GetHolderHandoverResponse>;
+
+  createHolderHandover(
+    request: CreateHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Observable<CreateHolderHandoverResponse>;
+
+  acceptHolderHandover(
+    request: AcceptHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Observable<AcceptHolderHandoverResponse>;
+
+  refreshHolderHandover(
+    request: RefreshHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Observable<RefreshHolderHandoverResponse>;
+
+  confirmHolderHandover(
+    request: ConfirmHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Observable<ConfirmHolderHandoverResponse>;
+
+  cancelHolderHandover(
+    request: CancelHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Observable<CancelHolderHandoverResponse>;
 }
 
 export interface FinanceServiceController {
@@ -1513,6 +1730,11 @@ export interface FinanceServiceController {
     request: CreateRefundRequest,
     metadata?: Metadata,
   ): Promise<CreateRefundResponse> | Observable<CreateRefundResponse> | CreateRefundResponse;
+
+  assignRefundVerifier(
+    request: AssignRefundVerifierRequest,
+    metadata?: Metadata,
+  ): Promise<AssignRefundVerifierResponse> | Observable<AssignRefundVerifierResponse> | AssignRefundVerifierResponse;
 
   reportRefundPaid(
     request: ReportRefundPaidRequest,
@@ -1664,6 +1886,14 @@ export interface FinanceServiceController {
     | Observable<DownloadFinanceReceiptResponse>
     | DownloadFinanceReceiptResponse;
 
+  downloadExpenseReceipt(
+    request: DownloadExpenseReceiptRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<DownloadExpenseReceiptResponse>
+    | Observable<DownloadExpenseReceiptResponse>
+    | DownloadExpenseReceiptResponse;
+
   updateContributionRequest(
     request: UpdateContributionRequestRequest,
     metadata?: Metadata,
@@ -1790,6 +2020,41 @@ export interface FinanceServiceController {
     request: GetAutomationContextRequest,
     metadata?: Metadata,
   ): Promise<GetAutomationContextResponse> | Observable<GetAutomationContextResponse> | GetAutomationContextResponse;
+
+  listHolderHandovers(
+    request: ListHolderHandoversRequest,
+    metadata?: Metadata,
+  ): Promise<ListHolderHandoversResponse> | Observable<ListHolderHandoversResponse> | ListHolderHandoversResponse;
+
+  getHolderHandover(
+    request: GetHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Promise<GetHolderHandoverResponse> | Observable<GetHolderHandoverResponse> | GetHolderHandoverResponse;
+
+  createHolderHandover(
+    request: CreateHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Promise<CreateHolderHandoverResponse> | Observable<CreateHolderHandoverResponse> | CreateHolderHandoverResponse;
+
+  acceptHolderHandover(
+    request: AcceptHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Promise<AcceptHolderHandoverResponse> | Observable<AcceptHolderHandoverResponse> | AcceptHolderHandoverResponse;
+
+  refreshHolderHandover(
+    request: RefreshHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Promise<RefreshHolderHandoverResponse> | Observable<RefreshHolderHandoverResponse> | RefreshHolderHandoverResponse;
+
+  confirmHolderHandover(
+    request: ConfirmHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Promise<ConfirmHolderHandoverResponse> | Observable<ConfirmHolderHandoverResponse> | ConfirmHolderHandoverResponse;
+
+  cancelHolderHandover(
+    request: CancelHolderHandoverRequest,
+    metadata?: Metadata,
+  ): Promise<CancelHolderHandoverResponse> | Observable<CancelHolderHandoverResponse> | CancelHolderHandoverResponse;
 }
 
 export function FinanceServiceControllerMethods() {
@@ -1810,6 +2075,7 @@ export function FinanceServiceControllerMethods() {
       "remindClosure",
       "listRefunds",
       "createRefund",
+      "assignRefundVerifier",
       "reportRefundPaid",
       "confirmRefundReceived",
       "confirmRefundNonreceipt",
@@ -1837,6 +2103,7 @@ export function FinanceServiceControllerMethods() {
       "reverseContribution",
       "uploadFinanceReceipt",
       "downloadFinanceReceipt",
+      "downloadExpenseReceipt",
       "updateContributionRequest",
       "updateContributionAmount",
       "waiveContribution",
@@ -1857,6 +2124,13 @@ export function FinanceServiceControllerMethods() {
       "cancelOperationIfNotCommitted",
       "getExportSnapshot",
       "getAutomationContext",
+      "listHolderHandovers",
+      "getHolderHandover",
+      "createHolderHandover",
+      "acceptHolderHandover",
+      "refreshHolderHandover",
+      "confirmHolderHandover",
+      "cancelHolderHandover",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

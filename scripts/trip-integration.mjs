@@ -33,6 +33,7 @@ const instructionsOnly = process.argv.includes('--finance-instructions');
 const expensesOnly = process.argv.includes('--finance-expenses');
 const notesOnly = process.argv.includes('--finance-notes');
 const refundsOnly = process.argv.includes('--finance-refunds');
+const handoversOnly = process.argv.includes('--finance-handovers');
 const closuresOnly = process.argv.includes('--finance-closures');
 const paymentsOnly = process.argv.includes('--finance-payments');
 const lifecycleOnly = process.argv.includes('--finance-lifecycle');
@@ -49,6 +50,7 @@ const financeReadMode =
   expensesOnly ||
   notesOnly ||
   refundsOnly ||
+  handoversOnly ||
   closuresOnly ||
   paymentsOnly ||
   lifecycleOnly ||
@@ -626,6 +628,7 @@ async function main() {
       expensesOnly,
       notesOnly,
       refundsOnly,
+      handoversOnly,
       closuresOnly,
       paymentsOnly,
       lifecycleOnly,

@@ -17,6 +17,7 @@ export type RefundCreate = {
 };
 export type RefundAction = { expectedVersion: number; expectedFinanceVersion: number };
 export type RefundReasonAction = RefundAction & { reason: string };
+export type RefundVerifierAction = RefundAction & { verifierUserId: string };
 export type RefundPage = {
   fundId: string;
   limit: number;
@@ -74,6 +75,14 @@ export function parseRefundReasonAction(input: unknown): RefundReasonAction {
   const body = record(input, ['reason', 'expected_version', 'expected_finance_version']);
   return {
     reason: text(body.reason),
+    expectedVersion: version(body.expected_version),
+    expectedFinanceVersion: version(body.expected_finance_version),
+  };
+}
+export function parseRefundVerifierAction(input: unknown): RefundVerifierAction {
+  const body = record(input, ['verifier_user_id', 'expected_version', 'expected_finance_version']);
+  return {
+    verifierUserId: readUuid(body.verifier_user_id),
     expectedVersion: version(body.expected_version),
     expectedFinanceVersion: version(body.expected_finance_version),
   };

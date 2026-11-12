@@ -41,11 +41,15 @@ import { PaymentProcessor } from './application/payment-processor';
 import { PaymentRepository } from './repositories/payment.repository';
 import { MomoSandboxProvider } from './providers/momo-sandbox.provider';
 import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
+import { HandoverRepository } from './repositories/handover.repository';
+import { HandoverService } from './application/handover.service';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
   controllers: [FinanceGrpcController, FinanceDependenciesController],
   providers: [
+    HandoverRepository,
+    HandoverService,
     FinanceHistoryRepository,
     FinanceHistoryService,
     FinanceOutboxRepository,

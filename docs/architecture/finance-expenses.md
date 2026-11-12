@@ -22,7 +22,7 @@ Owner chỉ được confirm, reject hoặc reverse khi chính Owner cũng là H
 
 Amount là chuỗi VND nguyên dương trong giới hạn int64. Title tối đa 200 ký tự, category 80, payment method 30 và reason 1024; chuỗi không được chứa NUL. Dữ liệu `paid_at` và `payment_method` Holder gửi ở API102 là dữ liệu có thẩm quyền và ghi đè metadata nháp. `paid_by_user_id` và `confirmed_by_user_id` đều là Holder thực hiện xác nhận; `confirmed_at` lấy theo giờ server.
 
-Receipt không bắt buộc. Response chỉ trả `receipt_available`, không trả `receipt_object_key`. File mới phải do actor upload trong cùng Fund, ở trạng thái READY và được storage xác minh trước transaction. Thay hoặc clear receipt chỉ áp dụng khi DRAFT; binding cũ được giữ để bảo toàn lịch sử. API104 giữ nguyên payment metadata và receipt của Expense gốc.
+Receipt không bắt buộc. Response chỉ trả `receipt_available`, không trả `receipt_object_key`; thành viên hiện tại đọc chứng từ đã gắn bằng `GET /api/v1/expenses/{expense_id}/receipt` (Finance tự tìm file, trả 404 khi không có hoặc không đủ quyền, không lộ key). File mới phải do actor upload trong cùng Fund, ở trạng thái READY và được storage xác minh trước transaction. Thay hoặc clear receipt chỉ áp dụng khi DRAFT; binding cũ được giữ để bảo toàn lịch sử. API104 giữ nguyên payment metadata và receipt của Expense gốc.
 
 ## Ledger và available balance
 

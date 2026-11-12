@@ -1,0 +1,560 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Finance Holder Handover API",
+    "version": "1.0.0",
+    "description": "SRS v1.2 FR-FIN-06 Fund Holder handover. The Owner nominates an active member, the nominee accepts, both parties confirm the same valid Finance snapshot and the Holder changes once in one transaction. A changed Finance version or provider state invalidates confirmations; refresh-snapshot captures the current figures again. Cancellation keeps the current Holder. Wolfari records acknowledgements; it moves no money."
+  },
+  "paths": {
+    "/api/v1/funds/{fund_id}/holder-handovers": {
+      "get": {
+        "summary": "List the latest handover workflows of a Fund (current readable member)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FundId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/HandoverList"
+          }
+        }
+      },
+      "post": {
+        "summary": "Owner nominates a different active member as the next Holder",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FundId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHandoverInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Handover"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
+        }
+      }
+    },
+    "/api/v1/holder-handovers/{handover_id}": {
+      "get": {
+        "summary": "Read one handover workflow (current readable member)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HandoverId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Handover"
+          }
+        }
+      }
+    },
+    "/api/v1/holder-handovers/{handover_id}/accept": {
+      "post": {
+        "summary": "Nominated successor accepts and captures the first snapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HandoverId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Action"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Handover"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
+        }
+      }
+    },
+    "/api/v1/holder-handovers/{handover_id}/refresh-snapshot": {
+      "post": {
+        "summary": "Owner or either party captures a fresh snapshot and clears both confirmations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HandoverId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Action"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Handover"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
+        }
+      }
+    },
+    "/api/v1/holder-handovers/{handover_id}/confirm": {
+      "post": {
+        "summary": "Old or new Holder confirms the current valid snapshot; the second confirmation transfers the Holder",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HandoverId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Handover"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
+        }
+      }
+    },
+    "/api/v1/holder-handovers/{handover_id}/cancel": {
+      "post": {
+        "summary": "Owner or either party cancels before completion with a reason",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HandoverId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Handover"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "FundId": {
+        "name": "fund_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
+      },
+      "HandoverId": {
+        "name": "handover_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
+      }
+    },
+    "requestBodies": {
+      "Action": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ActionInput"
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Handover": {
+        "description": "Current handover workflow",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HandoverEnvelope"
+            }
+          }
+        }
+      },
+      "HandoverList": {
+        "description": "Latest handover workflows of the Fund, newest first",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HandoverListEnvelope"
+            }
+          }
+        }
+      },
+      "Operation": {
+        "description": "Durable operation accepted for recovery",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OperationEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Uuid": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "Amount": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]*)$",
+        "maxLength": 19,
+        "description": "Non-negative integer VND as a string; int64 is never carried as a JSON number."
+      },
+      "Version": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647
+      },
+      "HandoverStatus": {
+        "type": "string",
+        "enum": ["NOMINATED", "ACCEPTED", "COMPLETED", "CANCELLED"]
+      },
+      "UuidList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Uuid"
+        }
+      },
+      "HandoverSnapshot": {
+        "type": "object",
+        "nullable": true,
+        "description": "Null until the nominee accepts.",
+        "additionalProperties": false,
+        "required": [
+          "current_balance",
+          "reserved_refund",
+          "available_balance",
+          "ledger_sequence",
+          "fingerprint",
+          "pending_contribution_ids",
+          "pending_refund_ids",
+          "pending_expense_ids",
+          "pending_payment_ids",
+          "payment_destination_ids",
+          "pending_payment_exception_ids"
+        ],
+        "properties": {
+          "current_balance": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "reserved_refund": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "available_balance": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "ledger_sequence": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA-256 over the relevant record states; a change marks the snapshot stale even when the Finance version is unchanged."
+          },
+          "pending_contribution_ids": {
+            "$ref": "#/components/schemas/UuidList"
+          },
+          "pending_refund_ids": {
+            "$ref": "#/components/schemas/UuidList"
+          },
+          "pending_expense_ids": {
+            "$ref": "#/components/schemas/UuidList"
+          },
+          "pending_payment_ids": {
+            "$ref": "#/components/schemas/UuidList"
+          },
+          "payment_destination_ids": {
+            "$ref": "#/components/schemas/UuidList"
+          },
+          "pending_payment_exception_ids": {
+            "$ref": "#/components/schemas/UuidList"
+          }
+        }
+      },
+      "Handover": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fund_id",
+          "old_holder_user_id",
+          "new_holder_user_id",
+          "nominated_by_user_id",
+          "status",
+          "version",
+          "finance_version",
+          "snapshot_finance_version",
+          "snapshot",
+          "snapshot_stale",
+          "accepted_at",
+          "old_holder_confirmed_at",
+          "new_holder_confirmed_at",
+          "completed_at",
+          "cancelled_at",
+          "cancellation_reason",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "fund_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "old_holder_user_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "new_holder_user_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "nominated_by_user_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HandoverStatus"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "finance_version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "snapshot_finance_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "nullable": true
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/HandoverSnapshot"
+          },
+          "snapshot_stale": {
+            "type": "boolean",
+            "description": "True while ACCEPTED and the Finance version or fingerprint differs from the snapshot; both confirmation timestamps are then hidden."
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "old_holder_confirmed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "new_holder_confirmed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancelled_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "maxLength": 1024,
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateHandoverInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["new_holder_user_id", "expected_finance_version"],
+        "properties": {
+          "new_holder_user_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "expected_finance_version": {
+            "$ref": "#/components/schemas/Version"
+          }
+        }
+      },
+      "ActionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version"],
+        "properties": {
+          "expected_version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "expected_finance_version": {
+            "$ref": "#/components/schemas/Version"
+          }
+        }
+      },
+      "ConfirmInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version",
+          "expected_finance_version",
+          "expected_snapshot_finance_version"
+        ],
+        "properties": {
+          "expected_version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "expected_finance_version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "expected_snapshot_finance_version": {
+            "$ref": "#/components/schemas/Version"
+          }
+        }
+      },
+      "CancelInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_version", "expected_finance_version", "reason"],
+        "properties": {
+          "expected_version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "expected_finance_version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["correlation_id"],
+        "properties": {
+          "correlation_id": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "HandoverEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Handover"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "HandoverListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "$ref": "#/components/schemas/Handover"
+                }
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "OperationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      }
+    }
+  }
+}

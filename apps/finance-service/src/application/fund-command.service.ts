@@ -41,8 +41,10 @@ import { isFinancialNoteWrite } from '../repositories/financial-note.repository'
 import { isRefundWrite } from '../repositories/refund.repository';
 import { isClosureWrite } from '../repositories/closure.repository';
 import { isPaymentWrite } from '../repositories/payment.repository';
+import { isHandoverWrite } from '../repositories/handover.repository';
 
-type CommandResponse = FinanceV1.EnableFundResponse &
+type CommandResponse = FinanceV1.HolderHandoverCommandResponse &
+  FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
   FinanceV1.CreateContributionRequestResponse &
   FinanceV1.UpdateContributionAmountResponse &
@@ -59,6 +61,7 @@ type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.UpdateFinancialNoteResponse &
   FinanceV1.DeleteFinancialNoteResponse &
   FinanceV1.CreateRefundResponse &
+  FinanceV1.AssignRefundVerifierResponse &
   FinanceV1.ReportRefundPaidResponse &
   FinanceV1.ConfirmRefundReceivedResponse &
   FinanceV1.ConfirmRefundNonreceiptResponse &
@@ -402,6 +405,19 @@ export class FundCommandService {
         throw new Error('Invalid Payment attempt result');
       return { payment_attempt: row };
     }
+    if (isHandoverWrite(input)) {
+      await this.queries.authorizeFundRead(input.fundId, input.actor, correlation, deadline);
+      const row = saved.response.handover;
+      if (
+        !row ||
+        row.fund_id !== input.fundId ||
+        ('handoverId' in input && row.id !== input.handoverId)
+      )
+        throw new Error('Invalid handover receipt');
+      // Historical acknowledgements are readable to their original actor after role transfer.
+      // New commands still obtain a fresh Trip guard and evaluate current authority.
+      return { handover: row };
+    }
     if (isClosureWrite(input)) {
       const role = await this.queries.authorizeFundRead(
         input.fundId,
@@ -447,17 +463,18 @@ export class FundCommandService {
         !row.finance_version
       )
         throw new Error('Invalid refund result');
-      const ownerScopes = ['CREATE_REFUND', 'CANCEL_REFUND'];
+      const ownerScopes = ['CREATE_REFUND', 'CANCEL_REFUND', 'ASSIGN_REFUND_VERIFIER'];
       const holderScopes = ['REPORT_REFUND_PAID', 'REQUEST_REFUND_REVERSAL', 'REVERSE_REFUND'];
-      const recipientScopes = [
-        'CONFIRM_REFUND_RECEIVED',
-        'CONFIRM_REFUND_NONRECEIPT',
-        'CONSENT_REFUND_REVERSAL',
-      ];
+      const recipientScopes = ['CONFIRM_REFUND_NONRECEIPT', 'CONSENT_REFUND_REVERSAL'];
       if (
         (ownerScopes.includes(input.scope) &&
           role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER) ||
         (holderScopes.includes(input.scope) && current.fund?.holder_user_id !== input.actor) ||
+        // A completed confirmation is immutable. Replaying its receipt only
+        // requires current Fund read access and the original confirming actor;
+        // the write path rechecks the current verifier under the Fund lock.
+        (input.scope === 'CONFIRM_REFUND_RECEIVED' &&
+          (row.confirmed_by_user_id ?? row.member_user_id) !== input.actor) ||
         (recipientScopes.includes(input.scope) && row.member_user_id !== input.actor)
       )
         throw new FinanceReadError('PERMISSION_DENIED');
