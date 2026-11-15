@@ -61,15 +61,16 @@ export async function demonstrateFund({ actors, fundBase, getFund, destinationId
   const instructionPath = path(first.id, 'vietqr');
   const instruction = await read(instructionPath, member);
   assert.equal(instruction.contribution_id, first.id);
-  assert.equal(instruction.environment, 'TEST');
+  assert.equal(instruction.environment, 'LIVE');
   assert.equal(instruction.currency, 'VND');
   assert.equal(instruction.amount, first.amount);
   assert.equal(instruction.bank_bin, '970436');
   assert.match(instruction.reference, /^[0-9A-Z]{25}$/);
-  const qr = new URL(instruction.qr_url);
-  assert.equal(qr.origin, 'https://img.vietqr.io');
-  assert.equal(qr.searchParams.get('amount'), first.amount);
-  assert.equal(qr.searchParams.get('addInfo'), instruction.reference);
+  assert.equal(instruction.qr_url, undefined);
+  assert.ok(instruction.qr_payload.startsWith('000201010212'));
+  assert.ok(instruction.qr_payload.includes('0006970436'));
+  assert.ok(instruction.qr_payload.includes(instruction.reference));
+  assert.ok(instruction.qr_svg.startsWith('<svg '));
   for (const other of [owner, holder, actors.outsider]) {
     await api(instructionPath, 'GET', undefined, other, undefined, [404]);
   }

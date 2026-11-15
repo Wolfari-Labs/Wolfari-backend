@@ -218,3 +218,7 @@ Holder review inbox adds optional int32 source_revision=5 to Finance.GetAutomati
 
 
 Finance.ListFundHistory adds the Gateway-only read for API162 (114 RPCs total). It projects current-member audit metadata with microsecond pagination and no raw audit details. See [Finance history](finance-history.md); Finance V003 adds its index and readiness gate. Existing events remain unchanged.
+
+## VietQR thật và danh mục ngân hàng: 12 November 2026
+
+`PaymentInstruction` gains `bank_name` (12), `qr_payload` (13) and `qr_svg` (14); `qr_url` (9) stays for wire compatibility and is always empty because no outside image provider is used. `environment` is `LIVE`. No RPC, event or migration changes; the NAPAS payload builder/reader and the bank directory live in `@wolfari/common` and are served by the Gateway at `GET /api/v1/finance/banks` (REST inventory 112 entries). See [payment instructions](finance-payment-instructions.md).

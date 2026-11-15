@@ -1,59 +1,58 @@
-# API086 — Hướng dẫn chuyển khoản TEST
+# API086 — Hướng dẫn chuyển khoản VietQR
 
 `GET /api/v1/contributions/{id}/vietqr` qua Gateway/session → Finance gRPC
 `GetPaymentInstruction`. Chỉ Self đang là thành viên; Owner/Holder không có quyền
-xem thay qua endpoint này. Người ngoài hoặc khoản không tồn tại trả404.
+xem thay qua endpoint này. Người ngoài hoặc khoản không tồn tại trả 404.
 
 Trip active, Fund/request OPEN, contribution PENDING. Trip trả thêm optional
-`finance_closure_locked` trong GetAccessContextResponse: true chặn409, thiếu trường
-thì503. Không tạo operation cho GET. Kiểm quyền Trip và SELECT Finance là hai
+`finance_closure_locked` trong GetAccessContextResponse: true chặn 409, thiếu trường
+thì 503. Không tạo operation cho GET. Kiểm quyền Trip và SELECT Finance là hai
 thời điểm, không khóa xuyên service; writer vẫn phải kiểm guard lúc ghi.
 
 TRANSFER_REPORTED/CONFIRMED/WAIVED/CANCELLED/REVERSED không phát hướng dẫn mới.
 Attempt CREATED/PENDING/SUCCEEDED hoặc needs_reconciliation, ledger thu đã có,
-Holder hiện tại khác snapshot cũng chặn409. Reject về PENDING cho xem lại.
-Không phát MoMo deeplink; MOMO_SANDBOX trả409 tới khi triển khai API090/provider.
+Holder hiện tại khác snapshot cũng chặn 409. Reject về PENDING cho xem lại.
+Không phát MoMo deeplink; MOMO_SANDBOX trả 409 tới khi triển khai API090/provider.
 
-## Dữ liệu và quyền riêng tư
+## Mã QR chuẩn NAPAS sinh tại backend
 
-Đích từ snapshot v1 của khoản đã phát hành; thay đổi/tắt/default destination không
-đổi tài khoản của khoản cũ. Muốn đổi đích phải xử lý khoản cũ và phát hành khoản
-mới qua nghiệp vụ quản lý. Số tiền từ contribution hiện tại (API082 có thể sửa
-trước khi báo chuyển), luôn decimal string. Reference là toàn bộ UUID biểu diễn
-base36, uppercase/padding25; không cắt hash hoặc nhúng tên người/chuyến.
+Finance tự sinh payload VietQR (EMVCo merchant-presented, dịch vụ `QRIBFTTA`, khởi tạo
+động `01=12`) từ snapshot đích của khoản góp: BIN ngân hàng, số tài khoản, số tiền VND và
+nội dung chuyển khoản = `reference` (25 ký tự base36 từ UUID khoản góp). CRC-16/CCITT-FALSE
+được tính và kiểm lại; bộ sinh/đọc dùng chung trong `@wolfari/common` (`vietqr-payload.ts`)
+và khớp với bộ đọc của ứng dụng mobile. Không gọi provider ngoài, không gửi tài khoản hay số
+tiền ra ngoài hệ thống. `qr_svg` là SVG tối giản (một rect nền, một path) do Finance render
+bằng thư viện `qrcode`; Gateway chỉ công bố khi payload giải mã ra đúng `bank_bin`,
+`account_number`, `amount`, `reference` và SVG đúng hình dạng đã quy định. Client nhúng
+SVG như ảnh hoặc cho sao chép `qr_payload`; không cần thư viện QR phía client.
 
-SQL đọc rõ từng cột và kiểm scope; public contribution/list/event không chứa
-snapshot. GET không ghi balance/version/ledger/audit/outbox/receipt/operation.
-Response200 whitelist riêng, `Cache-Control: private, no-store`,
-`Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`.
+`environment=LIVE`: đây là tài khoản thật của Holder, quét bằng ứng dụng ngân hàng là chuyển
+tiền thật. Luồng thực tế: người góp quét mã, giữ nguyên số tiền và nội dung; sau khi chuyển
+bấm Báo đã chuyển (API087); Holder đối chiếu `reference` trên sao kê rồi xác nhận (API088).
+Wolfari không thấy tiền về và không xác nhận tự động; nhận biết tiền về qua webhook ngân
+hàng của bên thứ ba là đề xuất riêng, chưa triển khai.
 
-## QuickLink thử nghiệm
+## Danh mục ngân hàng và kiểm tra đích nhận
 
-Backend tạo URL host cố định `https://img.vietqr.io`, template `compact2.svg`,
-encode tham số bằng URLSearchParams; không gọi Generate API và không cần API key.
-Danh mục code/BIN được lấy từ API công khai ngày22/10/2026, giữ trong
-`src/domain/vietqr-banks.ts`. Phải review/làm mới trước triển khai; code/BIN không
-biết trả409, không đoán. Không gọi ngoài trên mỗi GET.
+`GET /api/v1/finance/banks` trả các ngân hàng NAPAS hỗ trợ chuyển khoản VietQR (`code`,
+`bin`, `name`, `short_name`), cần session. Danh mục lấy từ API công khai
+api.vietqr.io/v2/banks ngày 12/11/2026, lưu tĩnh trong `@wolfari/common`
+(`vietqr-banks.ts`), không gọi runtime và chỉ làm mới có review. Tạo/sửa đích (API070,
+API074, API076) chấp nhận `bank_code` là code (không phân biệt hoa thường) hoặc BIN và lưu
+code chuẩn; số tài khoản bỏ khoảng trắng và phải là 1–19 chữ/số. Sai trả 400 với
+`destination.bank_code` hoặc `destination.account_number` ngay lúc tạo, không đợi tới lúc
+mở QR. Đích tạo trước khi có kiểm tra này mà mang code lạ hoặc ngân hàng không hỗ trợ chuyển
+khoản: API086 trả 409; Owner sửa đích rồi phát hành khoản mới.
 
-QuickLink giới hạn account chữ/số1..19, amount dương tối đa13 chữ số. Schema
-Finance hiện rộng hơn: không tự cắt/làm tròn/bỏ amount để vừa QR, không tương thích
-trả409. Snapshot sai schema/fund/version/kiểu dữ liệu trả503. Giới hạn tạo ảnh
-không phải hạn mức giao dịch ngân hàng. Tên người nhận là giá trị Holder khai/xác
-nhận, chưa được xác minh bởi ngân hàng.
+## Giới hạn và kiểm thử
 
-**UI bắt buộc hiển thị TEST và warning.** Khi tải ảnh, thông tin tài khoản, số tiền,
-reference và tên được gửi tới Casso trong URL. Dùng `referrerpolicy="no-referrer"`
-trên ảnh, không ghi URL vào analytics/log, không chia sẻ công khai. URL/ảnh đã lấy
-có thể lưu/quét lại; khóa endpoint không thu hồi được mã cũ. Nhãn TEST không tạo
-sandbox ngân hàng: tài khoản thật vẫn có thể nhận tiền thật. Demo dùng dữ liệu
-trình diễn và dừng trước thao tác chuyển tiền.
+Giới hạn do NAPAS/EMVCo: số tiền tối đa 13 chữ số, tài khoản tối đa 19 ký tự chữ/số, nội
+dung tối đa 25 ký tự ASCII; vượt quá trả 409, không cắt hay làm tròn. Tên người nhận là giá
+trị Holder khai/xác nhận, chưa được ngân hàng xác minh. QR không chứng minh thanh toán.
+Kiểm thử: unit cho payload/CRC (vector thật từ ca Android AND04), parser round-trip, SVG
+đối chiếu từng module với encoder, projection Gateway; integration
+`node scripts/trip-integration.mjs --finance-instructions`. Quét bằng ứng dụng ngân hàng
+thật là bước nghiệm thu thủ công riêng.
 
-QR không tự báo chuyển hoặc xác nhận thu. Luồng API087–089 và đối chiếu đủ số tiền
-vẫn áp dụng. Kiểm thử URL/HTTP bằng fixture không chứng minh app ngân hàng đã quét
-đúng; kiểm tra quét thủ công là bước nghiệm thu riêng, không chuyển tiền thật.
-
-Nguồn: [QuickLink](https://www.vietqr.io/qr-dong),
-[danh mục bank](https://www.vietqr.io/api-bank),
-[thông báo cập nhật](https://www.vietqr.io/thong-bao-cap-nhat).
-VietQR.io là Payment Kit của Casso. Tạo QR local là hướng xem xét riêng sau bản
-thử nghiệm, chưa thêm SDK hoặc tự mở tích hợp ngân hàng production.
+Nguồn định dạng: đặc tả VietQR của NAPAS (EMVCo QRCPS-MPM) và bộ đọc mobile
+`src/features/payments/model/payment-qr.ts`.

@@ -1102,9 +1102,14 @@ message PaymentInstruction {
   string bank_code = 6;
   string bank_bin = 7;
   string account_number = 8;
+  // qr_url (9) is kept for wire compatibility and is always empty: no external image provider.
   string qr_url = 9;
   string environment = 10;
   string warning = 11;
+  string bank_name = 12;
+  // NAPAS VietQR QRIBFTTA payload (printable ASCII with CRC) and its plain SVG rendering.
+  string qr_payload = 13;
+  string qr_svg = 14;
 }
 message GetPaymentInstructionResponse {
   PaymentInstruction instruction = 1;

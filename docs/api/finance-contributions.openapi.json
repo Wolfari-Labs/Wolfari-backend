@@ -1644,8 +1644,8 @@
     "/api/v1/contributions/{contribution_id}/vietqr": {
       "get": {
         "operationId": "getPaymentInstruction",
-        "summary": "API086 Self TEST VietQR instruction",
-        "description": "Only PENDING, OPEN Fund/request, active Trip/membership and explicit unlocked closure context. Owner/Holder have no Self override. No writes. Existing downloaded QR cannot be revoked. MoMo is unsupported here. UI must show TEST/warning and load images with no-referrer. TEST is not a bank sandbox: never use real accounts for demonstrations.",
+        "summary": "API086 Self VietQR transfer instruction",
+        "description": "Only PENDING, OPEN Fund/request, active Trip/membership and explicit unlocked closure context. Owner/Holder have no Self override. No writes and no outside provider: Finance generates the NAPAS VietQR payload and its SVG from the destination snapshot of this contribution. A bank app scanning the QR prepares a real transfer to the Holder; Wolfari never sees the money move, so the member still reports the transfer and the Holder confirms it. MoMo destinations and banks outside the NAPAS transfer directory return 409.",
         "parameters": [
           {
             "name": "contribution_id",
@@ -1709,7 +1709,7 @@
             }
           },
           "200": {
-            "description": "Private TEST instruction; showing a QR does not prove payment.",
+            "description": "Private instruction; showing or scanning the QR does not prove payment.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -2405,8 +2405,10 @@
           "recipient_name",
           "bank_code",
           "bank_bin",
+          "bank_name",
           "account_number",
-          "qr_url",
+          "qr_payload",
+          "qr_svg",
           "environment",
           "warning"
         ],
@@ -2425,32 +2427,50 @@
           },
           "reference": {
             "type": "string",
-            "pattern": "^[A-Z0-9]{25}$"
+            "pattern": "^[A-Z0-9]{25}$",
+            "description": "Transfer content (addInfo) the bank statement will show; derived from the contribution ID."
           },
           "recipient_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 150
           },
           "bank_code": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9 -]{0,29}$",
+            "description": "Canonical VietQR code from GET /api/v1/finance/banks."
           },
           "bank_bin": {
             "type": "string",
             "pattern": "^[0-9]{6}$"
           },
+          "bank_name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Short display name of the bank."
+          },
           "account_number": {
             "type": "string",
             "pattern": "^[A-Za-z0-9]{1,19}$"
           },
-          "qr_url": {
+          "qr_payload": {
             "type": "string",
-            "format": "uri"
+            "pattern": "^000201[\\x20-\\x7e]{20,500}6304[0-9A-F]{4}$",
+            "description": "NAPAS VietQR QRIBFTTA payload with CRC-16/CCITT-FALSE; encodes exactly bank_bin, account_number, amount and reference. A bank app scanning it prepares a real transfer."
+          },
+          "qr_svg": {
+            "type": "string",
+            "maxLength": 65536,
+            "pattern": "^<svg [^<]*><rect [^<]*/><path [^<]*/></svg>$",
+            "description": "Self-contained SVG of the QR (one rect, one path; no scripts, text or external references). Embed as an image."
           },
           "environment": {
             "type": "string",
-            "enum": ["TEST"]
+            "enum": ["LIVE"],
+            "description": "Real bank account of the Holder: scanning transfers real money."
           },
           "warning": {
-            "type": "string"
+            "type": "string",
+            "description": "Vietnamese notice to show next to the QR."
           }
         }
       }

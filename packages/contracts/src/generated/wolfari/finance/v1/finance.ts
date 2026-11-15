@@ -1204,10 +1204,19 @@ export interface PaymentInstruction {
   recipient_name?: string | undefined;
   bank_code?: string | undefined;
   bank_bin?: string | undefined;
-  account_number?: string | undefined;
+  account_number?:
+    | string
+    | undefined;
+  /** qr_url (9) is kept for wire compatibility and is always empty: no external image provider. */
   qr_url?: string | undefined;
   environment?: string | undefined;
   warning?: string | undefined;
+  bank_name?:
+    | string
+    | undefined;
+  /** NAPAS VietQR QRIBFTTA payload (printable ASCII with CRC) and its plain SVG rendering. */
+  qr_payload?: string | undefined;
+  qr_svg?: string | undefined;
 }
 
 export interface GetPaymentInstructionResponse {
