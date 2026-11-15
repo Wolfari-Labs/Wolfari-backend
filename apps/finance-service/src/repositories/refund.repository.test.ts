@@ -118,6 +118,73 @@ describe('refund repository', () => {
       '200000',
       9,
     ]);
+    expect(
+      calls.find((x) => x.sql.includes("UPDATE fund_refunds SET status='CONFIRMED'"))?.values,
+    ).toEqual([refundId, recipient, 'RECIPIENT', true]);
+  });
+  it('persists an independent assignment with Owner and Holder scope without ledger writes', async () => {
+    const calls: { sql: string; values?: unknown[] }[] = [];
+    const client = {
+      query: vi.fn(async (sql: string, values?: unknown[]) => {
+        calls.push({ sql, values });
+        if (sql.startsWith('SELECT status,finance_version'))
+          return {
+            rows: [
+              {
+                status: 'OPEN',
+                finance_version: 8,
+                holder_user_id: owner,
+                current_balance: '300000',
+              },
+            ],
+            rowCount: 1,
+          };
+        if (sql.startsWith('SELECT id,fund_id,member_user_id'))
+          return { rows: [{ ...base, member_user_id: owner }], rowCount: 1 };
+        if (sql.includes('SET verifier_user_id'))
+          return {
+            rows: [
+              {
+                ...base,
+                member_user_id: owner,
+                verifier_user_id: recipient,
+                verifier_assigned_by_user_id: owner,
+                verifier_holder_user_id: owner,
+                verifier_assigned_at: now,
+                version: 3,
+              },
+            ],
+            rowCount: 1,
+          };
+        return { rows: [], rowCount: 1 };
+      }),
+    };
+    const result = await new RefundRepository(client as never).execute(
+      client as never,
+      {
+        ...command(owner),
+        scope: 'ASSIGN_REFUND_VERIFIER',
+        body: { verifierUserId: recipient, expectedVersion: 2, expectedFinanceVersion: 8 },
+      },
+      authority(owner),
+      ledgerId,
+    );
+    expect(result.refund).toMatchObject({
+      verifier_user_id: recipient,
+      verifier_assigned_by_user_id: owner,
+      version: 3,
+      finance_version: 9,
+    });
+    expect(calls.find((x) => x.sql.includes('SET verifier_user_id'))?.values).toEqual([
+      refundId,
+      recipient,
+      owner,
+      owner,
+    ]);
+    expect(calls.some((x) => x.sql.includes('INSERT INTO fund_transactions'))).toBe(false);
+    expect(calls.find((x) => x.sql.includes('INSERT INTO finance_audit_logs'))?.values?.[2]).toBe(
+      'ASSIGN_REFUND_VERIFIER',
+    );
   });
   it('does not move money when recipient confirms nonreceipt', async () => {
     const statements: string[] = [];

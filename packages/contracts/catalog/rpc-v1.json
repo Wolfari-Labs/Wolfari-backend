@@ -1,5 +1,77 @@
 [
   {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "DownloadExpenseReceipt",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 30000,
+    "source": "BE-01 expense-scoped private receipt download"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "AssignRefundVerifier",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN05 independent refund verifier"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ListHolderHandovers",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN06 holder handover"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetHolderHandover",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN06 holder handover"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CreateHolderHandover",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN06 holder handover"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "AcceptHolderHandover",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN06 holder handover"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "RefreshHolderHandover",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN06 holder handover"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ConfirmHolderHandover",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN06 holder handover"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "CancelHolderHandover",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SRS1.2 FR-FIN06 holder handover"
+  },
+  {
     "package": "wolfari.trip.v1",
     "service": "TripService",
     "method": "GetPlanPolicy",

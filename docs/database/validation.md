@@ -2,6 +2,10 @@
 
 Các số liệu dưới đây là bằng chứng theo ngày chạy, không phải trạng thái kiểm thử của mọi HEAD mới. Bộ tài liệu chính thức hiện hành đã chốt ngày 02/10/2026 tại [danh mục tài liệu](../README.md).
 
+## Finance integration gaps verification, 12 November 2026
+
+On main7b59158 plus the Finance integration-gap change (refund verifier V004, Holder handover V005), the isolated database suite passes 49 groups: fresh install and rerun of all migrations, 58 model tables plus 5 migration-history tables and 53 same-database foreign keys, the V004 verifier assignment/confirmation CHECK constraints, the V005 single-active-handover partial unique index with snapshot and two-party confirmation constraints, and the existing Trip, Automation, repository, cross-database denial, readiness and outage/recovery checks. Finance readiness now rejects missing V004/V005. Manifests stay byte-identical. The test project was cleaned; no development/shared database was migrated.
+
 ## Finance history verification, 29 October 2026
 
 On main37a4b57 plus the Finance history change, the isolated database suite passes 29 groups. Finance V003 adds the `(fund_id, occurred_at DESC, id DESC)` audit index; readiness rejects missing V003. Counts stay at 57 model tables, 5 migration-history tables and 52 same-database foreign keys. Fresh migrations, checksum validation, rerun, constraints, cross-database denial and outage/recovery checks pass. Test resources were torn down; no development/shared database was migrated. See [Finance history](../architecture/finance-history.md) for the API and rollout limits.

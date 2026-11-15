@@ -291,9 +291,20 @@ export async function handlePayment(
       method = 'ReconcilePaymentAttempt';
       payload = { ...body, payment_attempt_id: id };
     } else {
-      onlyKeys(body, ['resolution', 'linked_attempt_id', 'reason', 'expected_finance_version']);
+      onlyKeys(body, [
+        'resolution',
+        'linked_attempt_id',
+        'reason',
+        'expected_finance_version',
+        'previous_holder_transfer_confirmed',
+      ]);
       if (body.resolution !== 'LINKED' && body.resolution !== 'NO_FINANCIAL_EFFECT')
         throw new RequestError('Invalid resolution');
+      if (
+        Object.hasOwn(body, 'previous_holder_transfer_confirmed') &&
+        (body.previous_holder_transfer_confirmed !== true || body.resolution !== 'LINKED')
+      )
+        throw new RequestError('Invalid previous Holder confirmation');
       if (
         (body.resolution === 'LINKED' &&
           (typeof body.linked_attempt_id !== 'string' || !uuid.test(body.linked_attempt_id))) ||

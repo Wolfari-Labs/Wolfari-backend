@@ -10,7 +10,7 @@ const document = JSON.parse(
 );
 describe('Refund OpenAPI', () => {
   it('documents API111-119 and resolves every local reference', () => {
-    expect(Object.keys(document.paths)).toHaveLength(8);
+    expect(Object.keys(document.paths)).toHaveLength(9);
     const walk = (value: unknown): void => {
       if (!value || typeof value !== 'object') return;
       if ('$ref' in value) {
@@ -45,7 +45,11 @@ describe('Refund OpenAPI', () => {
       finance_version: 3,
     });
     expect(validate(value), JSON.stringify(validate.errors)).toBe(true);
-    expect(validate({ ...value, reversal_reason: 'private' })).toBe(false);
+    expect(validate({ ...value, reversal_reason: 'Lý do đảo có thể đọc lại' })).toBe(true);
+    expect(validate({ ...value, requested_by_user_id: id })).toBe(false);
+    expect(
+      validate({ ...value, independent_verification: false, confirmation_mode: 'SELF_UNVERIFIED' }),
+    ).toBe(true);
   });
   it('accepts only the documented create and reason-action inputs', () => {
     const ajv = new Ajv({ strict: false, allErrors: true });
@@ -62,6 +66,13 @@ describe('Refund OpenAPI', () => {
       }),
     ).toBe(true);
     const reason = schema('ReasonActionInput');
+    const verifier = schema('AssignVerifierInput');
+    expect(
+      verifier({ verifier_user_id: id, expected_version: 2, expected_finance_version: 3 }),
+    ).toBe(true);
+    expect(
+      verifier({ verifier_user_id: 'bad', expected_version: 2, expected_finance_version: 3 }),
+    ).toBe(false);
     expect(reason({ reason: 'Chưa nhận', expected_version: 2, expected_finance_version: 3 })).toBe(
       true,
     );

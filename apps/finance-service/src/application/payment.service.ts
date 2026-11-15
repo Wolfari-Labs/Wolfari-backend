@@ -177,6 +177,7 @@ export class PaymentService {
       parseResolvePaymentExceptionInput({
         resolution: request.resolution,
         linked_attempt_id: request.linked_attempt_id,
+        previous_holder_transfer_confirmed: request.previous_holder_transfer_confirmed,
         reason: request.reason,
         expected_finance_version: request.expected_finance_version,
       }),

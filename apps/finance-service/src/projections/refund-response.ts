@@ -9,6 +9,7 @@ export type RefundRow = {
   reason: string;
   requested_by_user_id: string;
   holder_reported_at: Date | string | null;
+  holder_reported_by_user_id?: string | null;
   confirmed_by_user_id: string | null;
   confirmed_at: Date | string | null;
   cancelled_at: Date | string | null;
@@ -20,6 +21,12 @@ export type RefundRow = {
   reversal_requested_at: Date | string | null;
   reversal_reason: string | null;
   cancelled_reason: string | null;
+  verifier_user_id?: string | null;
+  verifier_assigned_by_user_id?: string | null;
+  verifier_holder_user_id?: string | null;
+  verifier_assigned_at?: Date | string | null;
+  confirmation_mode?: string | null;
+  independent_verification?: boolean | null;
 };
 function timestamp(value: Date | string) {
   const ms = new Date(value).getTime();
@@ -37,6 +44,13 @@ export function refundResponse(row: RefundRow, financeVersion: number): FinanceV
     amount: row.amount,
     status: row.status,
     reason: row.reason,
+    reversal_reason: row.reversal_reason ?? undefined,
+    verifier_user_id: row.verifier_user_id ?? undefined,
+    verifier_assigned_by_user_id: row.verifier_assigned_by_user_id ?? undefined,
+    verifier_assigned_at: optionalTimestamp(row.verifier_assigned_at ?? null),
+    confirmed_by_user_id: row.confirmed_by_user_id ?? undefined,
+    confirmation_mode: row.confirmation_mode ?? undefined,
+    independent_verification: row.independent_verification ?? undefined,
     holder_reported_at: optionalTimestamp(row.holder_reported_at),
     confirmed_at: optionalTimestamp(row.confirmed_at),
     nonreceipt_confirmed_at: optionalTimestamp(row.nonreceipt_confirmed_at),

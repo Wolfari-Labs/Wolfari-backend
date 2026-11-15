@@ -115,6 +115,60 @@ export class ReceiptService {
       this.cleaning = false;
     }
   }
+
+  downloadExpense(
+    input: { expense_id?: string; actor_user_id?: string },
+    correlation: string,
+    deadline: number,
+    signal: AbortSignal = new AbortController().signal,
+  ) {
+    return this.bounded(async () => {
+      if (signal.aborted || Date.now() >= deadline)
+        throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      const expenseId = readUuid(input.expense_id),
+        actor = readUuid(input.actor_user_id);
+      const fund = await this.files.expenseFund(expenseId);
+      await this.auth.authorizeFundRead(
+        fund,
+        actor,
+        correlation,
+        Math.min(deadline, Date.now() + 1800),
+      );
+      const file = await this.files.readableExpense(fund, expenseId);
+      let content: Buffer;
+      try {
+        content = await this.storage.withSignal(signal, () => this.storage.read(file));
+      } catch (error) {
+        // A READY, bound attachment whose object is gone is lost data: hide it from the member
+        // but record it (without the storage key). Bucket/connectivity failures stay retryable 503.
+        if (['NoSuchKey', 'NoSuchObject'].includes(String((error as { code?: unknown })?.code))) {
+          this.logger.warn(
+            `EXPENSE_RECEIPT_OBJECT_MISSING expense=${expenseId} fund=${fund} correlation=${correlation}`,
+          );
+          throw new FinanceReadError('RESOURCE_NOT_FOUND');
+        }
+        throw error;
+      }
+      if (signal.aborted || Date.now() >= deadline)
+        throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      await this.auth.authorizeFundRead(
+        fund,
+        actor,
+        correlation,
+        Math.min(deadline, Date.now() + 1800),
+      );
+      // Storage IO is outside the database transaction: recheck replacement/deletion before serving.
+      const current = await this.files.readableExpense(fund, expenseId);
+      if (current.object_key !== file.object_key) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+      return {
+        expense_id: expenseId,
+        fund_id: fund,
+        mime_type: file.mime_type,
+        size_bytes: file.size_bytes,
+        content,
+      };
+    });
+  }
   /** Internal preflight for business writers, before their SQL transaction.
    * Does not replace the business Trip guard or bind's locked state/ownership check.
    */

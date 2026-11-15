@@ -640,9 +640,28 @@ describe('Contribution management Gateway', () => {
 describe('Manual contribution Gateway', () => {
   const headers = { 'content-type': 'application/json', 'idempotency-key': id };
   const versions = { expected_version: 1, expected_finance_version: 2 };
+  it.each([false, 'true', 1, null])(
+    'rejects non-affirmative previous Holder attestation %j before RPC',
+    async (flag) => {
+      const s = setup();
+      const result = await s.invoke(`/api/v1/contributions/${id}/confirm-received`, {
+        method: 'POST',
+        headers,
+        body: { ...versions, previous_holder_transfer_confirmed: flag },
+      });
+      expect(result.code).toBe(400);
+      expect(s.client.call).not.toHaveBeenCalled();
+    },
+  );
   it.each([
     ['report-transfer', 'ReportContributionTransfer', 'TRANSFER_REPORTED', {}],
     ['confirm-received', 'ConfirmContributionReceived', 'CONFIRMED', {}],
+    [
+      'confirm-received',
+      'ConfirmContributionReceived',
+      'CONFIRMED',
+      { previous_holder_transfer_confirmed: true },
+    ],
     ['reject-transfer', 'RejectContributionTransfer', 'PENDING', { reason: 'not received' }],
     ['reverse', 'ReverseContribution', 'REVERSED', { reason: 'recorded twice' }],
   ] as const)(
@@ -672,7 +691,12 @@ describe('Manual contribution Gateway', () => {
       expect(JSON.stringify(r.body)).not.toContain('PRIVATE');
       expect(s.client.call).toHaveBeenCalledWith(
         rpc,
-        expect.objectContaining({ actor_user_id: actor, contribution_id: id, operation_id: id }),
+        expect.objectContaining({
+          actor_user_id: actor,
+          contribution_id: id,
+          operation_id: id,
+          ...fields,
+        }),
         expect.any(String),
       );
     },
@@ -695,6 +719,56 @@ describe('Manual contribution Gateway', () => {
 });
 
 describe('Payment instruction Gateway', () => {
+  it('forwards only literal true previous-holder acknowledgement when resolving a linked payment', async () => {
+    const s = setup();
+    const body = {
+      resolution: 'LINKED',
+      linked_attempt_id: id,
+      reason: 'Previous Holder transferred the money',
+      expected_finance_version: 2,
+    };
+    const options = {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': id },
+    };
+    for (const flag of [false, 'true', 1, null]) {
+      expect(
+        (
+          await s.invoke(`/api/v1/payment-exceptions/${id}/resolve`, {
+            ...options,
+            body: { ...body, previous_holder_transfer_confirmed: flag },
+          })
+        ).code,
+      ).toBe(400);
+    }
+    expect(s.client.call).not.toHaveBeenCalled();
+    s.client.call.mockResolvedValue({
+      payment_exception: {
+        id,
+        payment_attempt_id: id,
+        processing_status: 'PROCESSED',
+        review_reason: 'Holder verified previous transfer',
+        received_at: { seconds: '1', nanos: 0 },
+      },
+    } as never);
+    expect(
+      (
+        await s.invoke(`/api/v1/payment-exceptions/${id}/resolve`, {
+          ...options,
+          body: { ...body, previous_holder_transfer_confirmed: true },
+        })
+      ).code,
+    ).toBe(200);
+    expect(s.client.call).toHaveBeenCalledWith(
+      'ResolvePaymentException',
+      expect.objectContaining({
+        previous_holder_transfer_confirmed: true,
+        actor_user_id: actor,
+        reason: body.reason,
+      }),
+      expect.any(String),
+    );
+  });
   it('routes an authenticated read, rejects query injection and keeps private headers', async () => {
     const s = setup();
     const data = {

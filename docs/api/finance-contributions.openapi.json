@@ -2360,6 +2360,11 @@
         "additionalProperties": false,
         "required": ["expected_version", "expected_finance_version"],
         "properties": {
+          "previous_holder_transfer_confirmed": {
+            "type": "boolean",
+            "enum": [true],
+            "description": "Required as true when the immutable contribution destination belongs to a previous Holder. Only the current Holder may attest that the previous Holder transferred the money to them. Omit for unchanged Holder. False and non-boolean values are rejected; this assertion is audited."
+          },
           "expected_version": {
             "type": "integer",
             "minimum": 1,
