@@ -42,6 +42,17 @@ const request = {
   created_at: { seconds: '1792000000', nanos: 0 },
 };
 describe('Finance API078â€“084 OpenAPI', () => {
+  it('documents strict affirmative acknowledgement when confirming money received from a previous Holder', () => {
+    const validate = ajv.compile({
+      $ref: '#/components/schemas/ConfirmContributionReceivedInput',
+      components: spec.components,
+    });
+    const base = { expected_version: 1, expected_finance_version: 2 };
+    expect(validate(base)).toBe(true);
+    expect(validate({ ...base, previous_holder_transfer_confirmed: true })).toBe(true);
+    for (const flag of [false, 'true', 1, null])
+      expect(validate({ ...base, previous_holder_transfer_confirmed: flag })).toBe(false);
+  });
   it('resolves every local reference and compiles all documented response schemas', () => {
     const walk = (value: unknown): void => {
       if (!value || typeof value !== 'object') return;

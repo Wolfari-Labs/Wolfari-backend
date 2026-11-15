@@ -7,6 +7,29 @@ import {
 } from './payment.input';
 
 describe('Payment input', () => {
+  it('requires literal true only on LINKED for previous-holder transfer attestation', () => {
+    const value = {
+      resolution: 'LINKED',
+      linked_attempt_id: 'attempt',
+      reason: 'verified',
+      expected_finance_version: 4,
+    };
+    expect(
+      parseResolvePaymentExceptionInput({ ...value, previous_holder_transfer_confirmed: true }),
+    ).toMatchObject({ previousHolderTransferConfirmed: true });
+    for (const flag of [false, 'true', 1, null])
+      expect(() =>
+        parseResolvePaymentExceptionInput({ ...value, previous_holder_transfer_confirmed: flag }),
+      ).toThrow();
+    expect(() =>
+      parseResolvePaymentExceptionInput({
+        resolution: 'NO_FINANCIAL_EFFECT',
+        reason: 'verified',
+        expected_finance_version: 4,
+        previous_holder_transfer_confirmed: true,
+      }),
+    ).toThrow();
+  });
   it('parses exact versioned payment intent and binds exception cursors to a Fund', () => {
     expect(
       parseCreatePaymentAttemptInput({

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
 import { createHash, randomUUID } from 'node:crypto';
+import { assertNoHandover } from './handover-guards';
 import type { FinanceV1 } from '@wolfari/contracts/grpc';
 import type { FundSetupContext } from '../domain/fund-setup';
 import {
@@ -255,6 +256,7 @@ export class ClosureRepository {
     try {
       if (input.scope === 'CREATE_CLOSURE') {
         assertCreateClosure(input.body.expectedFinanceVersion, base);
+        await assertNoHandover(client, fund.id);
         const check = await this.blockers(client, fund.id);
         if (
           BigInt(fund.current_balance) !== 0n ||

@@ -1,4 +1,5 @@
 import { handlePaymentInstruction } from './payment-instruction-http';
+import { handoverRoute, handleHandover } from './handover-http';
 import { BANK_DIRECTORY_PATH, handleBankDirectory } from './bank-directory-http';
 import { expenseRoute, handleExpense } from './expense-http';
 import { financialNoteRoute, handleFinancialNote } from './financial-note-http';
@@ -144,11 +145,15 @@ export class FinanceProxy {
       /^\/api\/v1\/expenses(?:\/|$)/.test(path) ||
       /^\/api\/v1\/notes(?:\/|$)/.test(path) ||
       /^\/api\/v1\/refunds(?:\/|$)/.test(path) ||
+      /^\/api\/v1\/holder-handovers(?:\/|$)/.test(path) ||
       /^\/api\/v1\/closures(?:\/|$)/.test(path)
     );
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const handover = handoverRoute(url.pathname);
+    if (handover)
+      return handleHandover(request, response, url, handover, this.validateSession, this.client);
     if (url.pathname === BANK_DIRECTORY_PATH)
       return handleBankDirectory(request, response, url, this.validateSession);
     const history = /^\/api\/v1\/funds\/([^/]+)\/history$/.exec(url.pathname);

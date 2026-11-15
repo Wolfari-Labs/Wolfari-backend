@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { projectExpense } from '../../../apps/api-gateway/src/expense-http';
+import { receiptRoute } from '../../../apps/api-gateway/src/finance-receipt-http';
 
 const spec = JSON.parse(
   readFileSync(resolve(process.cwd(), 'docs/api/finance-expenses.openapi.json'), 'utf8'),
@@ -27,7 +28,7 @@ describe('Finance API096-104 OpenAPI', () => {
       for (const child of Object.values(value)) walk(child);
     };
     walk(spec);
-    expect(Object.keys(spec.paths)).toHaveLength(7);
+    expect(Object.keys(spec.paths)).toHaveLength(8);
     for (const name of [
       'CreateExpenseInput',
       'UpdateExpenseInput',
@@ -41,6 +42,21 @@ describe('Finance API096-104 OpenAPI', () => {
       expect(() =>
         ajv.compile({ $ref: `#/components/schemas/${name}`, components: spec.components }),
       ).not.toThrow();
+  });
+
+  it('publishes a binary expense receipt read without requiring private storage identity', () => {
+    const operation = spec.paths['/api/v1/expenses/{expense_id}/receipt'].get;
+    expect(operation.parameters).toEqual([{ $ref: '#/components/parameters/ExpenseId' }]);
+    expect(Object.keys(operation.responses['200'].content)).toEqual([
+      'image/jpeg',
+      'image/png',
+      'application/pdf',
+    ]);
+    expect(operation.requestBody).toBeUndefined();
+    expect(receiptRoute(`/api/v1/expenses/${id}/receipt`)).toEqual({
+      kind: 'expense',
+      expenseId: id,
+    });
   });
 
   it('matches the actual public projection and rejects private object keys', () => {

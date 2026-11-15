@@ -236,6 +236,11 @@
         "additionalProperties": false,
         "required": ["resolution", "linked_attempt_id", "reason", "expected_finance_version"],
         "properties": {
+          "previous_holder_transfer_confirmed": {
+            "type": "boolean",
+            "enum": [true],
+            "description": "Current Holder's explicit attestation that money sent to the immutable previous-Holder destination has been handed over. Required for settlement when Holders differ; audited with previous/current Holder IDs. Automatic provider success cannot make this assertion."
+          },
           "resolution": { "type": "string", "enum": ["LINKED"] },
           "linked_attempt_id": { "$ref": "#/components/schemas/Uuid" },
           "reason": { "type": "string", "minLength": 1, "maxLength": 1024 },

@@ -2,11 +2,33 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Finance Expenses",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "API096-104 for shared-activity expenses. Draft, submit and withdraw do not move Fund money; Holder confirmation creates one OUT ledger entry, rejection creates none, and reversal creates one linked IN entry."
   },
   "security": [{ "bearerAuth": [] }],
   "paths": {
+    "/api/v1/expenses/{expense_id}/receipt": {
+      "get": {
+        "operationId": "downloadExpenseReceipt",
+        "summary": "Download the current expense receipt",
+        "description": "Current Trip members can resolve a receipt using only the expense ID after reload or on another device. Rechecks membership and current non-deleted expense attachment. Returns private, no-store binary data; never exposes a storage object key. Supports JPEG, PNG and PDF up to 10 MiB. Missing expense, attachment or storage object and unauthorized Trip scope are hidden as 404. A replaced or cleared attachment is not returned by this endpoint. The legacy key-based endpoint retains its existing historical-file policy.",
+        "parameters": [{ "$ref": "#/components/parameters/ExpenseId" }],
+        "responses": {
+          "200": {
+            "description": "Receipt bytes with Content-Disposition: attachment, X-Content-Type-Options: nosniff and Cache-Control: private, no-store.",
+            "content": {
+              "image/jpeg": { "schema": { "type": "string", "format": "binary" } },
+              "image/png": { "schema": { "type": "string", "format": "binary" } },
+              "application/pdf": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
     "/api/v1/funds/{fund_id}/expenses": {
       "get": {
         "operationId": "listExpenses",

@@ -12,7 +12,7 @@ type ExpectedVersions = Readonly<{ expectedVersion: number; expectedFinanceVersi
 export type ManualContributionCommand = ExpectedVersions &
   (
     | Readonly<{ action: 'REPORT_TRANSFER' }>
-    | Readonly<{ action: 'CONFIRM_RECEIVED' }>
+    | Readonly<{ action: 'CONFIRM_RECEIVED'; previousHolderTransferConfirmed?: true }>
     | Readonly<{ action: 'REJECT_TRANSFER'; reason: string }>
   );
 

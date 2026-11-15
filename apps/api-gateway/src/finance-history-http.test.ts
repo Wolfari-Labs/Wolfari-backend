@@ -50,6 +50,19 @@ function setup() {
 }
 
 describe('API162 Gateway', () => {
+  it('keeps valid Unicode reversal reasons through the HTTP projection', () => {
+    const reason = '😀'.repeat(1024);
+    expect(
+      projectFundHistory(
+        { items: [{ ...entry, action: 'REQUEST_REFUND_REVERSAL', reason }] },
+        fund,
+        20,
+      ).items[0]?.reason,
+    ).toBe(reason);
+    expect(() =>
+      projectFundHistory({ items: [{ ...entry, reason: '😀'.repeat(2001) }] }, fund, 20),
+    ).toThrow();
+  });
   it('uses validated session identity, preserves microseconds and emits a private whitelist', async () => {
     const s = setup();
     s.client.call.mockResolvedValueOnce({

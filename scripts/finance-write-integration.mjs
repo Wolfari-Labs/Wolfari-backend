@@ -11,6 +11,7 @@ import { runContributionReversalTests } from './finance-contribution-reversal-in
 import { runExpenseDraftTests } from './finance-expense-integration.mjs';
 import { runFinancialNoteTests } from './finance-notes-integration.mjs';
 import { runRefundTests } from './finance-refund-integration.mjs';
+import { runHandoverTests } from './finance-handover-integration.mjs';
 import { runClosureTests } from './finance-closure-integration.mjs';
 import { runPaymentTests } from './finance-payment-integration.mjs';
 import { runFinanceLifecycleTests } from './finance-lifecycle-integration.mjs';
@@ -113,6 +114,23 @@ export async function runFinanceWriteTests(h) {
     });
     return post(path, body, user, key);
   };
+  if (h.handoversOnly) {
+    try {
+      await runHandoverTests(h, {
+        newTrip,
+        write,
+        enableBody,
+        financeDb,
+        repo,
+        tripClient,
+        fundCommandHash,
+      });
+      return { forbidden: [owner.access, holder.access, outsider.access] };
+    } finally {
+      tripClient.onApplicationShutdown();
+      rpcClient.close();
+    }
+  }
   if (h.lifecycleOnly) {
     try {
       await runFinanceLifecycleTests(h, { newTrip, write, enableBody, rpc });
@@ -709,6 +727,15 @@ export async function runFinanceWriteTests(h) {
       enableBody,
     });
     await runFinancialNoteTests(h, { newTrip, write, enableBody });
+    await runHandoverTests(h, {
+      newTrip,
+      write,
+      enableBody,
+      financeDb,
+      repo,
+      tripClient,
+      fundCommandHash,
+    });
     await runRefundTests(h, {
       newTrip,
       write,

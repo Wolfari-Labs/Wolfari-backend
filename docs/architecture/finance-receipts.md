@@ -19,6 +19,7 @@ decisions are settled. The API description is in
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `POST /api/v1/funds/{fund_id}/receipts`                        | One multipart field `file`; returns 201 with `data: {object_key,mime_type,size_bytes}` and correlation metadata. |
 | `GET /api/v1/funds/{fund_id}/receipts/download?object_key=...` | Returns binary content with attachment disposition, `private, no-store` and `nosniff`.                           |
+| `GET /api/v1/expenses/{expense_id}/receipt`                    | Resolves the current attachment of an existing expense server-side for current members; same headers and limits. |
 
 Both require an Identity session and current Trip membership. Cookie uploads use the
 existing Gateway CSRF check. Actor identity comes from the session, never form/query
