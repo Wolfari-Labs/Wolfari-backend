@@ -439,3 +439,7 @@ race, rollback sau demote, quyền replay và phục hồi cho ba command cấu 
 unit test không thay thế bằng chứng SQL/concurrency. Archive-vs-enable end-to-end
 vẫn cần bổ sung khi Archive có runtime; không coi việc sửa archived_at trong fixture
 là đã nghiệm thu API Archive.
+
+## Danh mục ngân hàng và kiểm tra đích VietQR — 12/11/2026
+
+`GET /api/v1/finance/banks` trả danh mục NAPAS hỗ trợ chuyển khoản (tĩnh, trong `@wolfari/common`). API070/074/076 nhận `bank_code` là code (không phân biệt hoa thường) hoặc BIN của danh mục và lưu code chuẩn; `account_number` bỏ khoảng trắng và phải là 1–19 chữ/số theo giới hạn NAPAS. Sai trả 400 với `destination.bank_code`/`destination.account_number` ngay lúc tạo. Chi tiết và luồng QR thật ở [payment instructions](finance-payment-instructions.md).

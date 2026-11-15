@@ -1,3 +1,4 @@
+import { findVietQrBank, VIETQR_ACCOUNT } from '@wolfari/common';
 import { assertVndAmount } from './money';
 
 /** Input configuration only: not a stored destination, confirmation or payment snapshot. */
@@ -90,7 +91,12 @@ export function assertValidFundDestination(destination: FundDestination): void {
   switch (destination.destinationType) {
     case 'VIETQR':
       assertDestinationText(destination.bankCode, 'destination.bank_code', 30);
+      // Only NAPAS members that accept account transfers; unknown codes fail here, not at QR time.
+      if (!findVietQrBank(destination.bankCode)?.transfer_supported)
+        throw new FundSetupValidationError('destination.bank_code');
       assertDestinationText(destination.accountNumber, 'destination.account_number', 80);
+      if (!VIETQR_ACCOUNT.test(destination.accountNumber))
+        throw new FundSetupValidationError('destination.account_number');
       assertDestinationText(destination.accountName, 'destination.account_name', 150);
       return;
     case 'MOMO_SANDBOX':

@@ -62,7 +62,7 @@ describe('Demo 1 executable REST contracts', () => {
     }
     expect(count).toBe(6);
   });
-  it('reaches authentication for all eight documented Fund operations (no service/network call)', async () => {
+  it('reaches authentication for all nine documented Fund operations (no service/network call)', async () => {
     let count = 0;
     for (const [path, item] of Object.entries(specs[1].paths)) {
       for (const method of Object.keys(item as object).filter((key) =>
@@ -99,7 +99,7 @@ describe('Demo 1 executable REST contracts', () => {
         count++;
       }
     }
-    expect(count).toBe(8);
+    expect(count).toBe(9);
   });
   it('validates current Gateway Activity/Plan and error envelopes including nulls', () => {
     const activity = {

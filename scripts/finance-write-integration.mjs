@@ -78,7 +78,7 @@ export async function runFinanceWriteTests(h) {
   };
   const destination = {
     destination_type: 'VIETQR',
-    bank_code: 'TEST',
+    bank_code: 'VCB',
     account_number: '000987654321',
     account_name: 'PRIVATE WRITE HOLDER',
     is_default: true,

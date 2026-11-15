@@ -20,7 +20,7 @@ const row = {
   active: true,
   version: 2,
   confirmed_by_holder_at: null,
-  bank_code: 'TEST',
+  bank_code: 'VCB',
   account_number: '00123',
   account_name: 'PRIVATE',
   momo_phone: 'DO NOT EXPOSE',

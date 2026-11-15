@@ -1,5 +1,6 @@
+import { buildVietQrPayload, findVietQrBank, VietQrPayloadError } from '@wolfari/common';
 import { FinanceReadError, UUID } from '../finance.errors';
-import { VIETQR_BANKS } from './vietqr-banks';
+import { renderQrSvg } from './qr-svg';
 
 export interface PaymentInstructionRow {
   id: string;
@@ -32,7 +33,15 @@ function text(value: unknown): string {
   return value;
 }
 
-/** An instruction is a point-in-time read, never proof of a transfer. */
+export const INSTRUCTION_WARNING =
+  'Quét mã bằng ứng dụng ngân hàng và giữ nguyên số tiền, nội dung chuyển khoản. ' +
+  'Wolfari không tự thấy tiền về: sau khi chuyển, bấm Báo đã chuyển để người giữ quỹ đối chiếu và xác nhận.';
+
+/**
+ * An instruction is a point-in-time read, never proof of a transfer. The QR is a standard NAPAS
+ * VietQR account-transfer code built locally from the destination snapshot of this contribution;
+ * no provider is contacted and nothing about the member or the Holder leaves the platform.
+ */
 export function paymentInstruction(row: PaymentInstructionRow) {
   if (
     row.status !== 'PENDING' ||
@@ -63,30 +72,40 @@ export function paymentInstruction(row: PaymentInstructionRow) {
   const bankCode = text(recipient.bank_code);
   const account = text(recipient.account_number);
   const name = text(recipient.account_name);
-  const bank = VIETQR_BANKS.find((b) => b.code === bankCode.toUpperCase() || b.bin === bankCode);
-  // These are QuickLink limits, not limits on the existing Money/account schema.
-  if (!bank || !/^[a-zA-Z0-9]{1,19}$/.test(account) || row.amount.length > 13 || name.length > 150)
-    return conflict();
+  // Destinations written before directory validation may carry unknown codes: fail closed.
+  const bank = findVietQrBank(bankCode);
+  if (!bank || !bank.transfer_supported || [...name].length > 150) return conflict();
   const reference = BigInt(`0x${row.id.replaceAll('-', '')}`)
     .toString(36)
     .toUpperCase()
     .padStart(25, '0');
-  const url = new URL(`https://img.vietqr.io/image/${bank.bin}-${account}-compact2.svg`);
-  url.searchParams.set('amount', row.amount);
-  url.searchParams.set('addInfo', reference);
-  url.searchParams.set('accountName', name);
+  let payload: string;
+  try {
+    payload = buildVietQrPayload({
+      bankBin: bank.bin,
+      accountNumber: account,
+      amount: row.amount,
+      addInfo: reference,
+    });
+  } catch (error) {
+    // Account or amount outside what NAPAS encodes: the member needs a corrected destination.
+    if (error instanceof VietQrPayloadError) return conflict();
+    throw error;
+  }
   return {
     contribution_id: row.id,
     amount: row.amount,
     currency: 'VND',
     reference,
     recipient_name: name,
-    bank_code: bankCode,
+    bank_code: bank.code,
     bank_bin: bank.bin,
+    bank_name: bank.short_name,
     account_number: account,
-    qr_url: url.toString(),
-    environment: 'TEST',
-    warning:
-      'TEST ONLY. QR does not prove payment. Loading the QR sends recipient and transfer details to Casso. A real bank account can receive real money even when this screen says TEST.',
+    qr_payload: payload,
+    qr_svg: renderQrSvg(payload, 'VietQR'),
+    qr_url: '',
+    environment: 'LIVE',
+    warning: INSTRUCTION_WARNING,
   };
 }
