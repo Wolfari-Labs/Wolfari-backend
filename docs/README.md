@@ -61,6 +61,8 @@ Phụ lục sau baseline: [Demo 1 v1.0](architecture/demo-1-addendum-v1.0.md), [
 
 ## Kiểm chứng theo snapshot và lịch sử
 
+- [Main sync 16/11/2026](history/main-sync-2026-11-16.md): merge trial + main, conflict resolutions, current local verification and remaining deploy gates.
+
 Giữ nguyên kết quả, ngày, SHA và giới hạn trong các báo cáo. PASS local không thay CI, live Backend/provider, kiểm tra thủ công hoặc production.
 
 - [Database](database/validation.md), [Identity](architecture/identity-validation.md), [Trip core](architecture/trip-core-validation.md).

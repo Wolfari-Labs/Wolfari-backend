@@ -400,9 +400,9 @@ liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn 
   `corepack pnpm db:migrate --service finance` để nâng database phát triển.
 - `corepack pnpm finance:test` kiểm tra toàn bộ Finance hiện có trong database/MinIO cô lập.
 
-## API086 TEST payment instruction
+## API086 VietQR payment instruction
 
-GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable reference. No money/state writes or bank verification. External QuickLink SVG is TEST-only and discloses transfer details to Casso when loaded. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).
+GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable 25-character reference. Finance generates the NAPAS payload and SVG locally; Gateway validates their consistency and returns `environment=LIVE`. This read does not move money, verify the bank account or confirm receipt. The trial Web displays text details and the LIVE warning without loading provider URLs or embedding QR SVG. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).
 
 ## Payment Sandbox API090–095
 
