@@ -194,6 +194,11 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/finance/banks",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/funds/{id}/holder-handovers",
       "document": "finance-handovers.openapi.json"
     },
@@ -614,13 +619,14 @@
     }
   ],
   "sources": {
+    "bank-directory-http.ts": "434cdaa8647b4cdc8eec07926bbd4d7d189a9b8931f8c9653df2dd9a57e1b75e",
     "bank-webhook-http.ts": "cb66ad1e2f0639b8b9e32f8109f1cf93d71480bbade8833c61021d874936a10b",
     "closure-http.ts": "4b33519f1171da5257d7dcef51cef0bb2dadbd0674098ac4680a32539557e74b",
     "contribution-management-http.ts": "6173449cc59358a7a8d40c7e226facd45b2ea2e632cf1503751ed0eaa296a400",
     "contribution-request-http.ts": "a9826e6602fa0f62e361741874d7d65ed50e2daf27eeb0784c7616d09d0af77b",
     "expense-http.ts": "f11c8b19eb5519e72abae6a0490ceeb3ca6b90a73c73eb05e93e32b527261d43",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
-    "finance-proxy.ts": "cfb837bfc57b74a650b0ed0bef05699378652fd72632ac2f774063cf96db4ae8",
+    "finance-proxy.ts": "65ca4c3ba0a979b59da258c362c616472591bd26186436929d2582da073623df",
     "finance-receipt-http.ts": "e0a0dad0176c073e5bd80f6d69a4fcc88d9705453912ff1a51fdb59633870c15",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "d73ca9835758ee88277af07779db1909ef31f2d4b23c0f93f941affae8006fd8",
@@ -629,7 +635,7 @@
     "membership-proxy.ts": "dc907460ee56e0b4427dd3c40e2c15749fa6afe7719ecea1d8e6e0c8f689af9b",
     "notification-proxy.ts": "fdf5b40a624f8d5f0e3f81bc1e98ea3b15d6493558f8751cd4dd5f49281d67a1",
     "payment-http.ts": "d76ea13233ffcc3c434e8f568b8b1ca0e2a46d6feeff34d9867e27d274f68125",
-    "payment-instruction-http.ts": "003535cf5ec6effb1dd6e9d5ad9d4510f2171eef7003ee2864aa49d6001949ac",
+    "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
     "plan-proxy.ts": "71f6653f0ddbc75857649e308339921c65cf27ad07ff5e2bcfe553aecb600a08",
     "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",

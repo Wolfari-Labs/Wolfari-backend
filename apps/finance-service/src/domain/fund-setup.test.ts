@@ -17,7 +17,7 @@ const holder = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const member = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const bank: FundDestination = Object.freeze({
   destinationType: 'VIETQR',
-  bankCode: 'TEST',
+  bankCode: 'VCB',
   accountNumber: '000123456',
   accountName: 'NGUYEN VAN A',
   isDefault: true,
@@ -204,8 +204,6 @@ describe('Fund setup domain', () => {
 
 describe('Fund destination values', () => {
   it.each([
-    { base: bank, key: 'bankCode', field: 'bank_code', max: 30 },
-    { base: bank, key: 'accountNumber', field: 'account_number', max: 80 },
     { base: bank, key: 'accountName', field: 'account_name', max: 150 },
     { base: momo, key: 'momoPhone', field: 'momo_phone', max: 30 },
   ])('validates $field text and PostgreSQL character limit', ({ base, key, field, max }) => {
@@ -225,6 +223,25 @@ describe('Fund destination values', () => {
         assertValidFundDestination({ ...base, [key]: value } as FundDestination),
       ).toThrow(new FundSetupValidationError(`destination.${field}`));
     }
+  });
+
+  it('accepts only NAPAS transfer banks and account identifiers a bank app can pay', () => {
+    for (const bankCode of ['VCB', 'vcb', '970436', 'MB', 'ACB'])
+      expect(() =>
+        assertValidFundDestination({ ...bank, bankCode } as FundDestination),
+      ).not.toThrow();
+    for (const bankCode of ['TEST', 'Vietcombank', '970436 ', '😀', '', ' ', null, 12])
+      expect(() => assertValidFundDestination({ ...bank, bankCode } as FundDestination)).toThrow(
+        new FundSetupValidationError('destination.bank_code'),
+      );
+    for (const accountNumber of ['1', 'A1b2', '1'.repeat(19)])
+      expect(() =>
+        assertValidFundDestination({ ...bank, accountNumber } as FundDestination),
+      ).not.toThrow();
+    for (const accountNumber of ['0011 0123', '1'.repeat(20), 'số', '', null, 1])
+      expect(() =>
+        assertValidFundDestination({ ...bank, accountNumber } as FundDestination),
+      ).toThrow(new FundSetupValidationError('destination.account_number'));
   });
 
   it.each(['isDefault', 'active'])('requires boolean %s without coercion', (key) => {

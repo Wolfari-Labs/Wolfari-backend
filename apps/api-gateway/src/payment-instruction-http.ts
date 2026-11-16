@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { parseVietQrPayload, QR_SVG_MAX_BYTES, QR_SVG_SHAPE } from '@wolfari/common';
 import type { FinanceClient } from './finance-client';
 import {
   authenticate,
@@ -12,6 +13,10 @@ import {
   type SessionValidator,
 } from './trip-http';
 
+/**
+ * Publishes only a self-consistent instruction: the QR payload must decode to exactly the bank,
+ * account, amount and reference shown as text, and the SVG must be Finance's plain rendering.
+ */
 export function projectPaymentInstruction(value: unknown, id: string) {
   const r = responseRecord(value);
   const data = Object.fromEntries(
@@ -23,8 +28,10 @@ export function projectPaymentInstruction(value: unknown, id: string) {
       'recipient_name',
       'bank_code',
       'bank_bin',
+      'bank_name',
       'account_number',
-      'qr_url',
+      'qr_payload',
+      'qr_svg',
       'environment',
       'warning',
     ].map((key) => [key, requiredString(r[key])]),
@@ -32,20 +39,27 @@ export function projectPaymentInstruction(value: unknown, id: string) {
   if (
     data.contribution_id !== id ||
     data.currency !== 'VND' ||
-    data.environment !== 'TEST' ||
+    data.environment !== 'LIVE' ||
     !/^[1-9]\d{0,12}$/.test(data.amount!) ||
     !/^[0-9A-Z]{25}$/.test(data.reference!) ||
     !/^\d{6}$/.test(data.bank_bin!) ||
+    !/^[A-Za-z0-9][A-Za-z0-9 -]{0,29}$/.test(data.bank_code!) ||
+    [...data.bank_name!].length > 100 ||
+    [...data.recipient_name!].length > 150 ||
     !/^[a-zA-Z0-9]{1,19}$/.test(data.account_number!)
   )
     throw new Error('Invalid instruction');
-  const expected = new URL(
-    `https://img.vietqr.io/image/${data.bank_bin}-${data.account_number}-compact2.svg`,
-  );
-  expected.searchParams.set('amount', data.amount!);
-  expected.searchParams.set('addInfo', data.reference!);
-  expected.searchParams.set('accountName', data.recipient_name!);
-  if (data.qr_url !== expected.toString()) throw new Error('Invalid instruction URL');
+  const transfer = parseVietQrPayload(data.qr_payload!);
+  if (
+    !transfer ||
+    transfer.bankBin !== data.bank_bin ||
+    transfer.accountNumber !== data.account_number ||
+    transfer.amount !== data.amount ||
+    transfer.addInfo !== data.reference
+  )
+    throw new Error('Invalid instruction payload');
+  if (Buffer.byteLength(data.qr_svg!) > QR_SVG_MAX_BYTES || !QR_SVG_SHAPE.test(data.qr_svg!))
+    throw new Error('Invalid instruction QR');
   return data;
 }
 
