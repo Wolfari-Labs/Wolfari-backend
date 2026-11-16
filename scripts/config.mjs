@@ -187,7 +187,14 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MOMO_REDIRECT_URL',
     'MOMO_IPN_URL',
   ];
-  const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET', 'TRAVEL_GRPC_PORT', 'GATEWAY_TRAVEL_SECRET', 'PLACE_SELECTION_SECRET', 'GEOAPIFY_API_KEY'];
+  const travelKeys = [
+    'TRIP_GRPC_TARGET',
+    'TRAVEL_TRIP_SECRET',
+    'TRAVEL_GRPC_PORT',
+    'GATEWAY_TRAVEL_SECRET',
+    'PLACE_SELECTION_SECRET',
+    'GEOAPIFY_API_KEY',
+  ];
   const allowed = [
     'NODE_ENV',
     'WOLFARI_ISOLATED_ENV',

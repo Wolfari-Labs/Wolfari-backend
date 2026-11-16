@@ -1819,7 +1819,17 @@ async function main() {
     users: { owner, member, outsider },
   });
 
-  await runLocationScenarios({request,query,bearer,tripBody,pass,owner,member,outsider,secret:tripValues.PLACE_SELECTION_SECRET});
+  await runLocationScenarios({
+    request,
+    query,
+    bearer,
+    tripBody,
+    pass,
+    owner,
+    member,
+    outsider,
+    secret: tripValues.PLACE_SELECTION_SECRET,
+  });
 
   await query('identity', 'UPDATE refresh_sessions SET revoked_at=now() WHERE user_id=$1', [
     outsider.id,
