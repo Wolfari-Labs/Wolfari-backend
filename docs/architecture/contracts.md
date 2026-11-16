@@ -226,3 +226,7 @@ Nine additive Finance RPCs bring the catalog to 123; events stay at 19. `Downloa
 ## VietQR thật và danh mục ngân hàng: 12 November 2026
 
 `PaymentInstruction` gains `bank_name` (12), `qr_payload` (13) and `qr_svg` (14); `qr_url` (9) stays for wire compatibility and is always empty because no outside image provider is used. `environment` is `LIVE`. No RPC, event or migration changes; the NAPAS payload builder/reader and the bank directory live in `@wolfari/common` and are served by the Gateway at `GET /api/v1/finance/banks` (REST inventory 121 entries). See [payment instructions](finance-payment-instructions.md).
+
+## Bank transfer webhook: 12 November 2026
+
+`Finance.ReceiveBankTransfer` (Gateway-only, after provider signature verification) and `Finance.ListBankTransfers` (Owner/Holder read) bring the catalog to 125 RPCs; events unchanged. Finance V006 adds `bank_transfer_receipts`. REST: `POST /api/v1/webhooks/bank/sepay`, `GET /api/v1/funds/{fundId}/bank-transfers` ([OpenAPI](../api/finance-bank-transfers.openapi.json)). See [bank transfers](finance-bank-transfers.md).

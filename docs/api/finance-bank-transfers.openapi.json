@@ -1,0 +1,216 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Finance Bank Transfers",
+    "version": "1.0.0",
+    "description": "Incoming bank transfers reported by a bank-aggregation provider (SePay). A verified transfer whose content carries the API086 reference of a payable contribution, for the exact amount, on the instructed account, confirms that contribution automatically (one ledger IN, system actor). Everything else is kept for the Holder as UNMATCHED / NEEDS_REVIEW / IGNORED; no money is moved by Wolfari."
+  },
+  "paths": {
+    "/api/v1/webhooks/bank/{provider}": {
+      "post": {
+        "summary": "Provider webhook (SePay): one incoming or outgoing transfer",
+        "description": "Unauthenticated endpoint protected by the provider signature: HMAC-SHA256 over `timestamp.rawBody` in `X-Sepay-Signature: sha256=<hex>` with `X-Sepay-Timestamp` (unix seconds, ±300 s), or `Authorization: Apikey <key>`. Replays of the same provider transaction id return the stored outcome. Rate-limited per source. Returns 503 until a secret is configured.",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "enum": ["sepay"] }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SepayTransaction" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored (and settled when matched). SePay requires success=true.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WebhookAck" } }
+            }
+          },
+          "400": {
+            "description": "Malformed payload",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WebhookFailure" } }
+            }
+          },
+          "401": {
+            "description": "Invalid signature or expired timestamp",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WebhookFailure" } }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this source",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WebhookFailure" } }
+            }
+          },
+          "503": {
+            "description": "Webhook not configured or Finance unavailable; the provider should retry"
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/bank-transfers": {
+      "get": {
+        "summary": "Owner/Holder: transfers reported for this Fund's receiving accounts",
+        "parameters": [{ "$ref": "#/components/parameters/FundId" }],
+        "responses": {
+          "200": {
+            "description": "Latest 100 receipts, newest first, account masked.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BankTransferListEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "FundId": {
+        "name": "fund_id",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      }
+    },
+    "schemas": {
+      "Uuid": { "type": "string", "format": "uuid" },
+      "Money": { "type": "string", "pattern": "^[1-9][0-9]{0,18}$" },
+      "SepayTransaction": {
+        "type": "object",
+        "description": "SePay webhook payload. Unknown fields are ignored.",
+        "required": ["id", "transferType", "transferAmount", "accountNumber", "content"],
+        "properties": {
+          "id": { "type": "integer", "description": "SePay transaction id (dedupe key)" },
+          "gateway": { "type": "string" },
+          "transactionDate": { "type": "string", "example": "2026-11-12 20:15:00" },
+          "accountNumber": { "type": "string" },
+          "subAccount": { "type": "string", "nullable": true },
+          "code": { "type": "string", "nullable": true },
+          "content": {
+            "type": "string",
+            "description": "Transfer description; must contain the API086 reference to match"
+          },
+          "transferType": { "type": "string", "enum": ["in", "out"] },
+          "transferAmount": { "type": "integer", "minimum": 1 },
+          "accumulated": { "type": "integer" },
+          "referenceCode": { "type": "string", "nullable": true },
+          "description": { "type": "string" }
+        }
+      },
+      "WebhookAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "receipt_id", "status"],
+        "properties": {
+          "success": { "type": "boolean", "enum": [true] },
+          "receipt_id": { "$ref": "#/components/schemas/Uuid" },
+          "status": { "$ref": "#/components/schemas/ProcessingStatus" }
+        }
+      },
+      "WebhookFailure": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "message"],
+        "properties": {
+          "success": { "type": "boolean", "enum": [false] },
+          "message": { "type": "string" }
+        }
+      },
+      "ProcessingStatus": {
+        "type": "string",
+        "enum": ["MATCHED", "UNMATCHED", "NEEDS_REVIEW", "IGNORED"]
+      },
+      "ReviewReason": {
+        "type": "string",
+        "nullable": true,
+        "enum": [
+          "OUTGOING",
+          "NO_REFERENCE",
+          "UNKNOWN_REFERENCE",
+          "MULTIPLE_REFERENCES",
+          "ACCOUNT_MISMATCH",
+          "AMOUNT_MISMATCH",
+          "CONTRIBUTION_NOT_PAYABLE",
+          "ALREADY_CONFIRMED",
+          "FUND_NOT_OPEN",
+          "VERSION_LIMIT",
+          null
+        ]
+      },
+      "BankTransfer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "provider",
+          "provider_transaction_id",
+          "transfer_type",
+          "amount",
+          "content",
+          "account_number_masked",
+          "bank_gateway",
+          "processing_status",
+          "contribution_id",
+          "review_reason",
+          "transaction_at",
+          "received_at",
+          "processed_at"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "provider": { "type": "string", "enum": ["SEPAY"] },
+          "provider_transaction_id": { "type": "string" },
+          "transfer_type": { "type": "string", "enum": ["IN", "OUT"] },
+          "amount": { "$ref": "#/components/schemas/Money" },
+          "content": { "type": "string", "maxLength": 501 },
+          "account_number_masked": {
+            "type": "string",
+            "description": "Only the last four characters are visible."
+          },
+          "bank_gateway": { "type": "string" },
+          "processing_status": { "$ref": "#/components/schemas/ProcessingStatus" },
+          "contribution_id": { "type": "string", "format": "uuid", "nullable": true },
+          "review_reason": { "$ref": "#/components/schemas/ReviewReason" },
+          "transaction_at": { "type": "string", "format": "date-time", "nullable": true },
+          "received_at": { "type": "string", "format": "date-time" },
+          "processed_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["correlation_id"],
+        "properties": { "correlation_id": { "$ref": "#/components/schemas/Uuid" } }
+      },
+      "BankTransferListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "maxItems": 100,
+                "items": { "$ref": "#/components/schemas/BankTransfer" }
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      }
+    }
+  }
+}
