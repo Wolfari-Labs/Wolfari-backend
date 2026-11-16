@@ -43,6 +43,8 @@ import { MomoSandboxProvider } from './providers/momo-sandbox.provider';
 import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
 import { HandoverRepository } from './repositories/handover.repository';
 import { HandoverService } from './application/handover.service';
+import { BankTransferRepository } from './repositories/bank-transfer.repository';
+import { BankTransferService } from './application/bank-transfer.service';
 
 @Module({
   imports: [InfrastructureModule.forApp('finance-service'), DatabaseModule.forService('finance')],
@@ -50,6 +52,8 @@ import { HandoverService } from './application/handover.service';
   providers: [
     HandoverRepository,
     HandoverService,
+    BankTransferRepository,
+    BankTransferService,
     FinanceHistoryRepository,
     FinanceHistoryService,
     FinanceOutboxRepository,

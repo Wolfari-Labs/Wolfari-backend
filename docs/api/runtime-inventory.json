@@ -3,6 +3,16 @@
   "scope": "Reviewed OpenAPI inventory and Gateway routing-source fingerprints; executable Plan/Fund coverage in demo1-openapi.test.ts. Not proof that all target SRS APIs exist.",
   "operations": [
     {
+      "method": "POST",
+      "path": "/api/v1/webhooks/bank/{id}",
+      "document": "finance-bank-transfers.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/bank-transfers",
+      "document": "finance-bank-transfers.openapi.json"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/funds/{id}/closures",
       "document": "finance-closures.openapi.json"
@@ -604,12 +614,13 @@
     }
   ],
   "sources": {
+    "bank-webhook-http.ts": "cb66ad1e2f0639b8b9e32f8109f1cf93d71480bbade8833c61021d874936a10b",
     "closure-http.ts": "4b33519f1171da5257d7dcef51cef0bb2dadbd0674098ac4680a32539557e74b",
     "contribution-management-http.ts": "6173449cc59358a7a8d40c7e226facd45b2ea2e632cf1503751ed0eaa296a400",
     "contribution-request-http.ts": "a9826e6602fa0f62e361741874d7d65ed50e2daf27eeb0784c7616d09d0af77b",
     "expense-http.ts": "f11c8b19eb5519e72abae6a0490ceeb3ca6b90a73c73eb05e93e32b527261d43",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
-    "finance-proxy.ts": "cb0df9610fb3fe0fd05e2495e8ee49f6cc59e6f56bb53b0b60fa3c677037aaed",
+    "finance-proxy.ts": "cfb837bfc57b74a650b0ed0bef05699378652fd72632ac2f774063cf96db4ae8",
     "finance-receipt-http.ts": "e0a0dad0176c073e5bd80f6d69a4fcc88d9705453912ff1a51fdb59633870c15",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "d73ca9835758ee88277af07779db1909ef31f2d4b23c0f93f941affae8006fd8",

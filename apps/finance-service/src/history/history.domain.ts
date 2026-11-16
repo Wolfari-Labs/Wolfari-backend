@@ -51,6 +51,7 @@ export const HISTORY_ACTIONS = [
   'RECONCILE_PAYMENT_ATTEMPT',
   'RESOLVE_PAYMENT_EXCEPTION',
   'CONFIRM_PROVIDER_PAYMENT',
+  'CONFIRM_BANK_TRANSFER',
   'LEAVE_MEMBER',
   'REMOVE_MEMBER',
 ] as const;
@@ -150,7 +151,7 @@ export function historyResponse(row: HistoryRow, fundId: string): FinanceV1.Fund
     !HISTORY_ACTIONS.some((action) => action === row.action) ||
     !/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(row.entity_type) ||
     (row.system_actor !== null &&
-      !['MOMO_IPN', 'MOMO_RECONCILIATION'].includes(row.system_actor)) ||
+      !['MOMO_IPN', 'MOMO_RECONCILIATION', 'BANK_WEBHOOK:SEPAY'].includes(row.system_actor)) ||
     row.reason_oversized !== false ||
     (row.reason !== null && (typeof row.reason !== 'string' || [...row.reason].length > 2000)) ||
     !historyInstant(row.occurred_at)
