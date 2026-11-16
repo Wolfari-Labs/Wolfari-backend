@@ -12,6 +12,7 @@ import {
 import { fail } from '../trip-common';
 import { PlanService, type MutationResult } from './plan.service';
 import type { ActivityView, PlanView } from './plan.projection';
+import { DressCodeService, type DressCodeResult, type DressCodeView } from './dress-code.service';
 
 const source = {
   MANUAL: TripV1.EntitySource.ENTITY_SOURCE_MANUAL,
@@ -26,6 +27,11 @@ const scope = {
   TRIP: TripV1.DressScope.DRESS_SCOPE_TRIP,
   DAY: TripV1.DressScope.DRESS_SCOPE_DAY,
   ACTIVITY: TripV1.DressScope.DRESS_SCOPE_ACTIVITY,
+};
+const scopeName: Partial<Record<TripV1.DressScope, keyof typeof scope>> = {
+  [TripV1.DressScope.DRESS_SCOPE_TRIP]: 'TRIP',
+  [TripV1.DressScope.DRESS_SCOPE_DAY]: 'DAY',
+  [TripV1.DressScope.DRESS_SCOPE_ACTIVITY]: 'ACTIVITY',
 };
 const optionalTime = (value: string | null) =>
   value === null ? undefined : protobufTimestamp(value);
@@ -55,6 +61,24 @@ function activity(value: ActivityView): TripV1.PlanActivity {
     source: source[value.source],
   };
 }
+function dressCode(row: DressCodeView): TripV1.PlanDressCode {
+  return {
+    ...row,
+    scope_type: scope[row.scope_type],
+    plan_date: row.plan_date ?? undefined,
+    activity_id: row.activity_id ?? undefined,
+    description: row.description ?? undefined,
+    public_description: row.public_description ?? undefined,
+    source: source[row.source],
+  };
+}
+function dressCodeResult(result: DressCodeResult): TripV1.CreateDressCodeResponse {
+  if (!result.dress_code) throw new Error('Missing dress code outcome');
+  return {
+    dress_code: dressCode(result.dress_code),
+    export_revision: result.version.export_revision,
+  };
+}
 function plan(value: PlanView): TripV1.Plan {
   return {
     ...value,
@@ -71,15 +95,7 @@ function plan(value: PlanView): TripV1.Plan {
       metadata_json: JSON.stringify(metadata),
       opening_hours_json: opening_hours === null ? undefined : JSON.stringify(opening_hours),
     })),
-    dress_codes: value.dress_codes.map((row) => ({
-      ...row,
-      scope_type: scope[row.scope_type],
-      plan_date: row.plan_date ?? undefined,
-      activity_id: row.activity_id ?? undefined,
-      description: row.description ?? undefined,
-      public_description: row.public_description ?? undefined,
-      source: source[row.source],
-    })),
+    dress_codes: value.dress_codes.map(dressCode),
     packing_items: value.packing_items.map((row) => ({
       ...row,
       unit: row.unit ?? undefined,
@@ -118,6 +134,7 @@ export class PlanGrpcHandlers {
   constructor(
     private readonly plans: PlanService,
     private readonly config: ConfigService,
+    private readonly dressCodes: DressCodeService,
   ) {}
   private call<T>(
     method: string,
@@ -225,5 +242,54 @@ export class PlanGrpcHandlers {
         }),
       ),
     );
+  }
+  createDressCode(
+    request: TripV1.CreateDressCodeRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.CreateDressCodeResponse> {
+    return this.call('CreateDressCode', metadata, async (id) => {
+      const fields: Record<string, unknown> = {
+        scope_type: scopeName[request.scope_type ?? TripV1.DressScope.DRESS_SCOPE_UNSPECIFIED],
+        label: request.label,
+      };
+      for (const key of ['description', 'public_description', 'plan_date', 'activity_id'] as const)
+        if (request[key] !== undefined) fields[key] = request[key];
+      return dressCodeResult(
+        await this.dressCodes.createDressCode({ ...base(request, id), fields }),
+      );
+    });
+  }
+  updateDressCode(
+    request: TripV1.UpdateDressCodeRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.UpdateDressCodeResponse> {
+    return this.call('UpdateDressCode', metadata, async (id) => {
+      const fields: Record<string, unknown> = {};
+      // An unknown enum number becomes undefined and is rejected by field validation.
+      if (request.scope_type !== undefined) fields.scope_type = scopeName[request.scope_type];
+      if (request.label !== undefined) fields.label = request.label;
+      for (const key of ['description', 'public_description', 'plan_date', 'activity_id'] as const)
+        if (request[key] !== undefined) fields[key] = patchValue(request[key]!);
+      return dressCodeResult(
+        await this.dressCodes.updateDressCode({
+          ...base(request, id),
+          dressCodeId: request.dress_code_id,
+          fields,
+        }),
+      );
+    });
+  }
+  deleteDressCode(
+    request: TripV1.DeleteDressCodeRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.DeleteDressCodeResponse> {
+    return this.call('DeleteDressCode', metadata, async (id) => ({
+      version: (
+        await this.dressCodes.deleteDressCode({
+          ...base(request, id),
+          dressCodeId: request.dress_code_id,
+        })
+      ).version,
+    }));
   }
 }

@@ -440,6 +440,30 @@
     "source": "DDL/API/Event v1.0 API044"
   },
   {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "CreateDressCode",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API051"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "UpdateDressCode",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API052"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "DeleteDressCode",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "DDL/API/Event v1.1 API053"
+  },
+  {
     "package": "wolfari.automation.v1",
     "service": "AutomationService",
     "method": "GetNotificationPreferences",

@@ -230,3 +230,7 @@ Nine additive Finance RPCs bring the catalog to 123; events stay at 19. `Downloa
 ## Bank transfer webhook: 12 November 2026
 
 `Finance.ReceiveBankTransfer` (Gateway-only, after provider signature verification) and `Finance.ListBankTransfers` (Owner/Holder read) bring the catalog to 125 RPCs; events unchanged. Finance V006 adds `bank_transfer_receipts`. REST: `POST /api/v1/webhooks/bank/sepay`, `GET /api/v1/funds/{fundId}/bank-transfers` ([OpenAPI](../api/finance-bank-transfers.openapi.json)). See [bank transfers](finance-bank-transfers.md).
+
+## Dress code writes: 16 November 2026
+
+`Trip.CreateDressCode`, `Trip.UpdateDressCode` and `Trip.DeleteDressCode` (Gateway-only, API051–053) bring the catalog to 128 RPCs; `PlanUpdated` already carried `DRESS_CODE` changes, so events and migrations are unchanged. REST adds `GET|POST /api/v1/trips/{trip_id}/dress-codes` and `PATCH|DELETE /api/v1/trips/{trip_id}/dress-codes/{dress_code_id}`; the Plan response gains `capabilities.dress_codes_write`. See [trip-dress-codes.md](trip-dress-codes.md).

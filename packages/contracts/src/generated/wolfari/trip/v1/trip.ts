@@ -688,6 +688,59 @@ export interface SetActivityCompletionResponse {
   export_revision?: number | undefined;
 }
 
+/** FR-PL03 / API051-053. Exactly one scope: TRIP (no date/activity), DAY (plan_date) or ACTIVITY (activity_id). */
+export interface CreateDressCodeRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  scope_type?: DressScope | undefined;
+  label?: string | undefined;
+  description?: string | undefined;
+  public_description?:
+    | string
+    | undefined;
+  /** YYYY-MM-DD in the Trip timezone. */
+  plan_date?: string | undefined;
+  activity_id?: string | undefined;
+}
+
+export interface CreateDressCodeResponse {
+  dress_code?: PlanDressCode | undefined;
+  export_revision?: number | undefined;
+}
+
+export interface UpdateDressCodeRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  dress_code_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  scope_type?: DressScope | undefined;
+  label?: string | undefined;
+  description?: StringPatch | undefined;
+  public_description?: StringPatch | undefined;
+  plan_date?: StringPatch | undefined;
+  activity_id?: StringPatch | undefined;
+}
+
+export interface UpdateDressCodeResponse {
+  dress_code?: PlanDressCode | undefined;
+  export_revision?: number | undefined;
+}
+
+export interface DeleteDressCodeRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  dress_code_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+}
+
+export interface DeleteDressCodeResponse {
+  version?: PlanVersion | undefined;
+}
+
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
@@ -768,6 +821,12 @@ export interface TripServiceClient {
     request: SetActivityCompletionRequest,
     metadata?: Metadata,
   ): Observable<SetActivityCompletionResponse>;
+
+  createDressCode(request: CreateDressCodeRequest, metadata?: Metadata): Observable<CreateDressCodeResponse>;
+
+  updateDressCode(request: UpdateDressCodeRequest, metadata?: Metadata): Observable<UpdateDressCodeResponse>;
+
+  deleteDressCode(request: DeleteDressCodeRequest, metadata?: Metadata): Observable<DeleteDressCodeResponse>;
 }
 
 export interface TripServiceController {
@@ -926,6 +985,21 @@ export interface TripServiceController {
     request: SetActivityCompletionRequest,
     metadata?: Metadata,
   ): Promise<SetActivityCompletionResponse> | Observable<SetActivityCompletionResponse> | SetActivityCompletionResponse;
+
+  createDressCode(
+    request: CreateDressCodeRequest,
+    metadata?: Metadata,
+  ): Promise<CreateDressCodeResponse> | Observable<CreateDressCodeResponse> | CreateDressCodeResponse;
+
+  updateDressCode(
+    request: UpdateDressCodeRequest,
+    metadata?: Metadata,
+  ): Promise<UpdateDressCodeResponse> | Observable<UpdateDressCodeResponse> | UpdateDressCodeResponse;
+
+  deleteDressCode(
+    request: DeleteDressCodeRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteDressCodeResponse> | Observable<DeleteDressCodeResponse> | DeleteDressCodeResponse;
 }
 
 export function TripServiceControllerMethods() {
@@ -961,6 +1035,9 @@ export function TripServiceControllerMethods() {
       "deleteActivity",
       "reorderActivities",
       "setActivityCompletion",
+      "createDressCode",
+      "updateDressCode",
+      "deleteDressCode",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
