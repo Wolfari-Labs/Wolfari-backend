@@ -7,8 +7,35 @@ export type FinanceReadErrorCode =
   | 'VERSION_CONFLICT'
   | 'IDEMPOTENCY_CONFLICT'
   | 'FINANCE_OBLIGATION_BLOCKED';
+/**
+ * Machine-readable sub-reason for a 409 STATE_CONFLICT, returned as error.details.reason.
+ * The HTTP status and top-level code stay unchanged; clients may branch on the reason
+ * and must treat an absent or unknown reason as a generic conflict.
+ */
+export const FINANCE_CONFLICT_REASONS = [
+  'FUND_NOT_OPEN',
+  'CLOSURE_PENDING',
+  'FUND_ALREADY_EXISTS',
+  'HOLDER_NOT_ACTIVE',
+  'MEMBER_NOT_ACTIVE',
+  'TRIP_ARCHIVED',
+  'INSUFFICIENT_AVAILABLE_BALANCE',
+  'HANDOVER_IN_PROGRESS',
+  'INVALID_TRANSITION',
+] as const;
+export type FinanceConflictReason = (typeof FINANCE_CONFLICT_REASONS)[number];
+export function isFinanceConflictReason(value: unknown): value is FinanceConflictReason {
+  return FINANCE_CONFLICT_REASONS.includes(value as FinanceConflictReason);
+}
+/** A Fund that is not OPEN is either waiting for closure confirmations or already closed. */
+export function fundNotOpenReason(status: string): FinanceConflictReason {
+  return status === 'CLOSING' ? 'CLOSURE_PENDING' : 'FUND_NOT_OPEN';
+}
 export class FinanceReadError extends Error {
-  constructor(public readonly code: FinanceReadErrorCode) {
+  constructor(
+    public readonly code: FinanceReadErrorCode,
+    public readonly reason?: FinanceConflictReason,
+  ) {
     super(code);
     this.name = 'FinanceReadError';
   }

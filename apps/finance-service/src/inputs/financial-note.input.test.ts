@@ -11,3 +11,22 @@ describe('financial note inputs',()=>{
   it('requires a mutable PATCH field',()=>expect(()=>parseUpdateFinancialNote({expected_version:1,expected_finance_version:1})).toThrow());
   it('scopes microsecond cursors to the fund',()=>{const cursor=financialNoteCursor({fundId:fund},{at:'2026-10-22T01:02:03.123456Z',id:'22222222-2222-4222-8222-222222222222'});expect(parseFinancialNotePage({fund_id:fund,cursor}).after?.at).toContain('123456');expect(()=>parseFinancialNotePage({fund_id:'33333333-3333-4333-8333-333333333333',cursor})).toThrow();});
 });
+
+describe('financial note description limit', () => {
+  it('accepts 2000 characters after trimming and rejects 2001', () => {
+    expect(
+      parseCreateFinancialNote({ description: ` ${'d'.repeat(2000)} `, expected_finance_version: 1 })
+        .description,
+    ).toBe('d'.repeat(2000));
+    expect(() =>
+      parseCreateFinancialNote({ description: 'd'.repeat(2001), expected_finance_version: 1 }),
+    ).toThrow();
+    expect(() =>
+      parseUpdateFinancialNote({
+        description: 'd'.repeat(2001),
+        expected_version: 1,
+        expected_finance_version: 1,
+      }),
+    ).toThrow();
+  });
+});

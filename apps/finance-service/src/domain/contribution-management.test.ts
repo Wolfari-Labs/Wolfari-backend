@@ -138,3 +138,18 @@ describe('Contribution management policy and inputs', () => {
     ).toThrow();
   });
 });
+
+describe('contribution management free-text limits', () => {
+  it('caps notes at 2000 and waive/cancel reasons at 1024 characters', () => {
+    expect(parse('UPDATE_CONTRIBUTION_REQUEST', { ...versions, note: 'n'.repeat(2000) }).note).toBe(
+      'n'.repeat(2000),
+    );
+    expect(() =>
+      parse('UPDATE_CONTRIBUTION_REQUEST', { ...versions, note: 'n'.repeat(2001) }),
+    ).toThrow();
+    for (const scope of ['WAIVE_CONTRIBUTION', 'CANCEL_CONTRIBUTION'] as const) {
+      expect(parse(scope, { ...versions, reason: 'r'.repeat(1024) }).reason).toBe('r'.repeat(1024));
+      expect(() => parse(scope, { ...versions, reason: 'r'.repeat(1025) })).toThrow();
+    }
+  });
+});

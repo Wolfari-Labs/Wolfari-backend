@@ -135,6 +135,14 @@ export async function runFinanceHistoryTests(h) {
         randomUUID(),
       ],
     );
+  // The refund view hides cancelled_reason; history must not reveal it through the audit row.
+  const cancelledRefundAudit = randomUUID();
+  await query(
+    'finance',
+    `INSERT INTO finance_audit_logs(id,fund_id,actor_user_id,action,entity_type,entity_id,from_version,to_version,reason,occurred_at,correlation_id)
+    VALUES($1,$2,$3,'CANCEL_REFUND','Refund',$4,1,2,$5,'2026-10-29T11:00:00Z',$6)`,
+    [cancelledRefundAudit, f.id, owner.id, randomUUID(), privateValue, randomUUID()],
+  );
   for (const action of ['ADMIN_SUPPORT_READ', 'FUTURE_UNKNOWN'])
     await query(
       'finance',
@@ -161,7 +169,10 @@ export async function runFinanceHistoryTests(h) {
   assert.deepEqual(seen.slice(0, 3), [ids[2], ids[1], ids[0]]);
   assert.equal(new Set(seen).size, seen.length);
   const all = (await get()).body.data.items;
-  assert.equal(all.length, 4);
+  assert.equal(all.length, 5);
+  const cancelled = all.find((item) => item.id === cancelledRefundAudit);
+  assert.equal(cancelled.action, 'CANCEL_REFUND');
+  assert.equal(cancelled.reason, null);
   assert.equal(all.find((item) => item.id === ids[0]).reason, 'Lý do điều chỉnh');
   assert.equal(all.find((item) => item.id === ids[1]).reason, 'Lý do đã lưu');
   assert(!JSON.stringify(all).includes(privateValue));

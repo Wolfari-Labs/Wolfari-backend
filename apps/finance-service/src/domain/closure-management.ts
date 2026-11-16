@@ -1,3 +1,4 @@
+import { fundNotOpenReason, type FinanceConflictReason } from '../finance.errors';
 import type { FundSetupContext } from './fund-setup';
 
 export type ClosureAuthority = FundSetupContext & {
@@ -9,19 +10,21 @@ export type ClosureAuthority = FundSetupContext & {
 };
 
 export class ClosureRuleError extends Error {
-  constructor(public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT') {
+  constructor(
+    public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT',
+    public readonly reason?: FinanceConflictReason,
+  ) {
     super(code);
   }
 }
 export function assertCreateClosure(expectedFinanceVersion: number, authority: ClosureAuthority) {
   if (authority.actorUserId !== authority.ownerUserId)
     throw new ClosureRuleError('PERMISSION_DENIED');
-  if (
-    authority.tripArchived ||
-    authority.fundStatus !== 'OPEN' ||
-    !authority.activeMemberUserIds.has(authority.holderUserId)
-  )
-    throw new ClosureRuleError('STATE_CONFLICT');
+  if (authority.tripArchived) throw new ClosureRuleError('STATE_CONFLICT', 'TRIP_ARCHIVED');
+  if (authority.fundStatus !== 'OPEN')
+    throw new ClosureRuleError('STATE_CONFLICT', fundNotOpenReason(authority.fundStatus));
+  if (!authority.activeMemberUserIds.has(authority.holderUserId))
+    throw new ClosureRuleError('STATE_CONFLICT', 'HOLDER_NOT_ACTIVE');
   if (authority.financeVersion !== expectedFinanceVersion)
     throw new ClosureRuleError('VERSION_CONFLICT');
 }

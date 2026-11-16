@@ -328,8 +328,9 @@ export class ExpenseRepository {
             BigInt(row.amount),
           );
         } catch (error) {
-          if (error instanceof InsufficientAvailableBalanceError || error instanceof RangeError)
-            throw new FinanceReadError('STATE_CONFLICT');
+          if (error instanceof InsufficientAvailableBalanceError)
+            throw new FinanceReadError('STATE_CONFLICT', 'INSUFFICIENT_AVAILABLE_BALANCE');
+          if (error instanceof RangeError) throw new FinanceReadError('STATE_CONFLICT');
           throw error;
         }
         const sequence = await nextLedgerSequence(client, input.fundId);
@@ -413,11 +414,9 @@ export class ExpenseRepository {
           );
           balanceAfter = effect.balanceAfter;
         } catch (error) {
-          if (
-            error instanceof LedgerReversalNotAllowedError ||
-            error instanceof InsufficientAvailableBalanceError ||
-            error instanceof RangeError
-          )
+          if (error instanceof InsufficientAvailableBalanceError)
+            throw new FinanceReadError('STATE_CONFLICT', 'INSUFFICIENT_AVAILABLE_BALANCE');
+          if (error instanceof LedgerReversalNotAllowedError || error instanceof RangeError)
             throw new FinanceReadError('STATE_CONFLICT');
           throw error;
         }
@@ -493,5 +492,7 @@ export class ExpenseRepository {
 }
 
 export function mapExpenseRuleError(error: unknown) {
-  return error instanceof ExpenseRuleError ? new FinanceReadError(error.code) : undefined;
+  return error instanceof ExpenseRuleError
+    ? new FinanceReadError(error.code, error.reason)
+    : undefined;
 }

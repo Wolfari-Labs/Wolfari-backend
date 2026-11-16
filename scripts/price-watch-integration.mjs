@@ -406,4 +406,51 @@ export async function runPriceWatchTests({
   await channel.close();
   await connection.close();
   pass('TripReopened does not auto-resume; the creator resumes explicitly');
+
+  const capOwner = await account('Price Watch Cap Owner');
+  const capTrip = await createTrip(capOwner, 'Price Watch Cap');
+  const capped = [];
+  for (let index = 0; index < 20; index += 1) {
+    const key = randomUUID();
+    const created = await createWatch(capTrip, capOwner, key, {
+      ...body,
+      threshold_price: String(1_000_000 + index),
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    capped.push({ key, watch: created.body.data, threshold: String(1_000_000 + index) });
+  }
+  const overLimit = await createWatch(capTrip, capOwner, randomUUID(), {
+    ...body,
+    threshold_price: '2000000',
+  });
+  assert.equal(overLimit.status, 429);
+  assert.equal(overLimit.body.error.code, 'RESOURCE_EXHAUSTED');
+  assert.equal(overLimit.body.error.details?.reason, 'MEMBER_ACTIVE_WATCH_LIMIT');
+  const cappedReplay = await createWatch(capTrip, capOwner, capped[0].key, {
+    ...body,
+    threshold_price: capped[0].threshold,
+  });
+  assert.equal(cappedReplay.status, 201, 'a replay at the cap returns the stored watch');
+  assert.equal(cappedReplay.body.data.id, capped[0].watch.id);
+  const capPaused = await request(
+    `/api/v1/price-watches/${capped[0].watch.id}/pause`,
+    'POST',
+    { expected_version: capped[0].watch.version },
+    bearer(capOwner),
+  );
+  assert.equal(capPaused.status, 200);
+  const refill = await createWatch(capTrip, capOwner, randomUUID(), {
+    ...body,
+    threshold_price: '2000001',
+  });
+  assert.equal(refill.status, 201, 'pausing frees one active slot');
+  const blockedResume = await request(
+    `/api/v1/price-watches/${capped[0].watch.id}/resume`,
+    'POST',
+    { expected_version: capPaused.body.data.version },
+    bearer(capOwner),
+  );
+  assert.equal(blockedResume.status, 429);
+  assert.equal(blockedResume.body.error.details?.reason, 'MEMBER_ACTIVE_WATCH_LIMIT');
+  pass('active watches are capped at 20 per membership (429); replays and pausing stay allowed');
 }

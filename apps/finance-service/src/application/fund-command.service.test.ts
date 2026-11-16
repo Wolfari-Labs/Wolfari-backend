@@ -305,3 +305,75 @@ describe('Manual command replay coordination', () => {
     expect(s.repo.execute).not.toHaveBeenCalled();
   });
 });
+
+describe('time-relative validation in the command coordinator', () => {
+  const future = new Date(Date.now() + 86_400_000);
+  const input = {
+    scope: 'CONFIRM_EXPENSE' as const,
+    operationId: id,
+    actor: id,
+    tripId: id,
+    fundId: id,
+    expenseId: id,
+    body: { paidAt: future, paymentMethod: 'CASH', expectedVersion: 2, expectedFinanceVersion: 3 },
+  };
+  it('rejects a new command before storage preparation or the Trip guard', async () => {
+    const s = setup(),
+      prepare = vi.fn();
+    await expect(s.service.run(input, id, Date.now() + 2000, prepare)).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+    expect(prepare).not.toHaveBeenCalled();
+    expect(s.trip.call).not.toHaveBeenCalled();
+    expect(s.repo.execute).not.toHaveBeenCalled();
+  });
+  it('lets a stored replay complete without re-checking the clock', async () => {
+    const s = setup();
+    s.repo.find.mockResolvedValue({ ...s.row, command_scope: 'CONFIRM_EXPENSE' } as never);
+    await s.service.run(input, id, Date.now() + 2000).catch((error: { code?: string }) => {
+      expect(error.code).not.toBe('VALIDATION_FAILED');
+    });
+    expect(s.trip.call).toHaveBeenCalledWith(
+      'CompleteOperation',
+      expect.anything(),
+      id,
+      expect.any(Number),
+    );
+  });
+});
+
+describe('stored rejection sub-reason', () => {
+  it('replays a REJECTED receipt with its stored conflict reason', async () => {
+    const s = setup();
+    s.repo.find.mockResolvedValue({
+      ...s.row,
+      status: 'REJECTED',
+      response: { version: 1, tripId: id, error: 'STATE_CONFLICT', reason: 'HANDOVER_IN_PROGRESS' },
+    } as never);
+    s.trip.call.mockResolvedValue({ operation: { operation_id: id, trip_id: id, state: 4 } });
+    await expect(
+      s.service.run(
+        { scope: 'ENABLE_FUND', operationId: id, actor: id, tripId: id, body: {} } as never,
+        id,
+        Date.now() + 2000,
+      ),
+    ).rejects.toMatchObject({ code: 'STATE_CONFLICT', reason: 'HANDOVER_IN_PROGRESS' });
+  });
+  it('drops an unknown stored reason instead of forwarding it', async () => {
+    const s = setup();
+    s.repo.find.mockResolvedValue({
+      ...s.row,
+      status: 'REJECTED',
+      response: { version: 1, tripId: id, error: 'STATE_CONFLICT', reason: 'SOMETHING_ELSE' },
+    } as never);
+    s.trip.call.mockResolvedValue({ operation: { operation_id: id, trip_id: id, state: 4 } });
+    const error = await s.service
+      .run(
+        { scope: 'ENABLE_FUND', operationId: id, actor: id, tripId: id, body: {} } as never,
+        id,
+        Date.now() + 2000,
+      )
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'STATE_CONFLICT', reason: undefined });
+  });
+});

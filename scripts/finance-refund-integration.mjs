@@ -83,6 +83,8 @@ export async function runRefundTests(h, helpers) {
     owner,
   );
   assert.equal(over.status, 409);
+  assert.equal(over.body.error.code, 'STATE_CONFLICT');
+  assert.equal(over.body.error.details?.reason, 'INSUFFICIENT_AVAILABLE_BALANCE');
   const list = await request(`${collection}?limit=2`, 'GET', undefined, bearer(outsider));
   assert.equal(list.status, 200);
   assert.equal(list.body.data.items.length, 2);

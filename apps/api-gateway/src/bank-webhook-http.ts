@@ -250,9 +250,11 @@ export async function handleBankTransfers(
       { actor_user_id: auth.actorUserId, fund_id: fundId.toLowerCase() },
       auth.correlationId,
     );
-    if (!Array.isArray(result.items)) throw new Error('Invalid bank transfer list');
+    // proto-loader omits an empty repeated field (arrays: false): missing means no rows.
+    const rawItems = result.items ?? [];
+    if (!Array.isArray(rawItems)) throw new Error('Invalid bank transfer list');
     return json(response, 200, {
-      data: { items: result.items.map(projectBankTransfer) },
+      data: { items: rawItems.map(projectBankTransfer) },
       meta: { correlation_id: auth.correlationId },
     });
   } catch (error) {

@@ -1287,6 +1287,13 @@
               "details": {
                 "type": "object",
                 "nullable": true,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": ["FUND_NOT_OPEN", "CLOSURE_PENDING", "FUND_ALREADY_EXISTS", "HOLDER_NOT_ACTIVE", "MEMBER_NOT_ACTIVE", "TRIP_ARCHIVED", "INSUFFICIENT_AVAILABLE_BALANCE", "HANDOVER_IN_PROGRESS", "INVALID_TRANSITION"],
+                    "description": "Optional sub-reason for 409 STATE_CONFLICT; the HTTP status and code are unchanged. Clients must treat an absent or unrecognized reason as a generic conflict."
+                  }
+                },
                 "additionalProperties": {
                   "type": "integer"
                 }
@@ -1554,7 +1561,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 30,
-                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+                "description": "Vietnamese mobile number for the MoMo wallet: 10 digits starting 03/05/07/08/09. Spaces, dots, dashes and a +84 or 84 prefix are accepted on write and stored as 0XXXXXXXXX; other values return 400 with field momo_phone."
               },
               "active": {
                 "type": "boolean"
@@ -1676,7 +1683,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 30,
-                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+                "description": "Vietnamese mobile number for the MoMo wallet: 10 digits starting 03/05/07/08/09. Spaces, dots, dashes and a +84 or 84 prefix are accepted on write and stored as 0XXXXXXXXX; other values return 400 with field momo_phone."
               },
               "active": {
                 "type": "boolean"
@@ -1724,7 +1731,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 30,
-            "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+            "description": "Vietnamese mobile number for the MoMo wallet: 10 digits starting 03/05/07/08/09. Spaces, dots, dashes and a +84 or 84 prefix are accepted on write and stored as 0XXXXXXXXX; other values return 400 with field momo_phone."
           },
           "active": {
             "type": "boolean"

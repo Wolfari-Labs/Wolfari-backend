@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHash, randomUUID } from 'node:crypto';
 import { FundQueryService } from '../application/fund-query.service';
 import { FinanceReadError, readUuid } from '../finance.errors';
@@ -6,9 +7,20 @@ import { ReceiptRepository } from './receipt.repository';
 import { ReceiptStorage } from './receipt-storage';
 import { RECEIPT_KEY, validateReceipt } from './receipt-validation';
 
+/** Concurrent receipt operations per pool; FINANCE_RECEIPT_CONCURRENCY overrides (1–64). */
+export const DEFAULT_RECEIPT_CONCURRENCY = 8;
+export function receiptConcurrency(value: unknown): number {
+  const parsed = typeof value === 'string' && /^\d{1,2}$/.test(value.trim()) ? Number(value) : NaN;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 64
+    ? parsed
+    : DEFAULT_RECEIPT_CONCURRENCY;
+}
+
 @Injectable()
 export class ReceiptService {
-  private active = 0;
+  // Separate pools: slow uploads/downloads must not starve attachment checks inside commands.
+  private readonly active = { transfer: 0, attach: 0 };
+  private readonly limit: number;
   private cleaning = false;
   private timer?: NodeJS.Timeout;
   private readonly logger = new Logger('ReceiptService');
@@ -16,14 +28,17 @@ export class ReceiptService {
     private readonly auth: FundQueryService,
     private readonly files: ReceiptRepository,
     private readonly storage: ReceiptStorage,
-  ) {}
-  private async bounded<T>(work: () => Promise<T>) {
-    if (this.active >= 2) throw new FinanceReadError('SERVICE_UNAVAILABLE');
-    this.active++;
+    @Optional() config?: ConfigService,
+  ) {
+    this.limit = receiptConcurrency(config?.get<string>('FINANCE_RECEIPT_CONCURRENCY'));
+  }
+  private async bounded<T>(work: () => Promise<T>, pool: 'transfer' | 'attach' = 'transfer') {
+    if (this.active[pool] >= this.limit) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+    this.active[pool]++;
     try {
       return await work();
     } finally {
-      this.active--;
+      this.active[pool]--;
     }
   }
   upload(
@@ -201,7 +216,7 @@ export class ReceiptService {
       await this.storage.withSignal(signal, () => this.storage.verify(file));
       if (signal.aborted) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return file;
-    });
+    }, 'attach');
   }
   onModuleInit() {
     this.timer = setInterval(

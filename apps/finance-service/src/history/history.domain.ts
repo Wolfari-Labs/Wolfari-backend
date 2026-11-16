@@ -62,6 +62,9 @@ export type HistoryPage = {
   limit: number;
   before?: { at: string; id: string };
 };
+/** Actions whose stored reason is private to the entity's own view and omitted from history. */
+const HIDDEN_REASON_ACTIONS: ReadonlySet<string> = new Set(['CANCEL_REFUND']);
+
 export type HistoryRow = {
   id: string;
   fund_id: string;
@@ -168,7 +171,8 @@ export function historyResponse(row: HistoryRow, fundId: string): FinanceV1.Fund
     entity_id: row.entity_id === null ? undefined : id(row.entity_id),
     from_version: version(row.from_version),
     to_version: version(row.to_version),
-    reason: row.reason ?? undefined,
+    // The refund view never exposes cancelled_reason; history must not reveal it either.
+    reason: HIDDEN_REASON_ACTIONS.has(row.action) ? undefined : (row.reason ?? undefined),
     correlation_id: id(row.correlation_id),
     occurred_at: {
       seconds: String(Math.floor(milliseconds / 1000)),

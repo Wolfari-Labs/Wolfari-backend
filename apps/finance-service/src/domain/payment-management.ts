@@ -1,3 +1,4 @@
+import { fundNotOpenReason, type FinanceConflictReason } from '../finance.errors';
 export type PaymentAuthority = Readonly<{
   actorUserId: string;
   memberUserId: string;
@@ -14,6 +15,7 @@ export class PaymentRuleError extends Error {
   constructor(
     public readonly code:
       'VALIDATION_FAILED' | 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT',
+    public readonly reason?: FinanceConflictReason,
   ) {
     super(code);
   }
@@ -33,12 +35,10 @@ export function assertCanCreatePaymentAttempt(
     input.expectedFinanceVersion !== context.financeVersion
   )
     throw new PaymentRuleError('VERSION_CONFLICT');
-  if (
-    context.fundStatus !== 'OPEN' ||
-    context.requestStatus !== 'OPEN' ||
-    context.contributionStatus !== 'PENDING'
-  )
-    throw new PaymentRuleError('STATE_CONFLICT');
+  if (context.fundStatus !== 'OPEN')
+    throw new PaymentRuleError('STATE_CONFLICT', fundNotOpenReason(context.fundStatus));
+  if (context.requestStatus !== 'OPEN' || context.contributionStatus !== 'PENDING')
+    throw new PaymentRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
 }
 
 export function assertHolderPaymentAction(
@@ -48,7 +48,8 @@ export function assertHolderPaymentAction(
   fundStatus: string,
 ) {
   if (actor !== holder || !active.has(actor)) throw new PaymentRuleError('PERMISSION_DENIED');
-  if (fundStatus !== 'OPEN') throw new PaymentRuleError('STATE_CONFLICT');
+  if (fundStatus !== 'OPEN')
+    throw new PaymentRuleError('STATE_CONFLICT', fundNotOpenReason(fundStatus));
 }
 
 export function classifyMomoResult(resultCode: number): 'SUCCEEDED' | 'PENDING' | 'FAILED' {

@@ -335,14 +335,17 @@ export async function runExpenseDraftTests(h, helpers) {
     400,
   );
 
-  const removed = await mutate(
-    item,
-    'DELETE',
-    { expected_version: 5, expected_finance_version: financeVersion },
-    owner,
-  );
+  const removeKey = randomUUID();
+  const removeBody = { expected_version: 5, expected_finance_version: financeVersion };
+  const removed = await mutate(item, 'DELETE', removeBody, owner, removeKey);
   assert.equal(removed.status, 200);
   assert.equal(removed.body.data.state, 'SUCCEEDED');
+  // Retrying the same DELETE returns its stored receipt; a new key sees the expense as gone.
+  const removedReplay = await mutate(item, 'DELETE', removeBody, owner, removeKey);
+  assert.equal(removedReplay.status, 200, JSON.stringify(removedReplay.body));
+  assert.equal(removedReplay.body.data.state, 'SUCCEEDED');
+  assert.equal(removedReplay.body.data.operation_id, removed.body.data.operation_id);
+  assert.equal((await mutate(item, 'DELETE', removeBody, owner)).status, 404);
   financeVersion += 1;
   assert.equal((await downloadReceipt(firstReceipt, owner)).status, 404);
   assert.equal((await downloadReceipt(replacementReceipt, owner)).status, 404);
@@ -438,6 +441,23 @@ export async function runExpenseDraftTests(h, helpers) {
       )
     ).status,
     403,
+  );
+  assert.equal(
+    (
+      await mutate(
+        `${secondItem}/confirm`,
+        'POST',
+        {
+          paid_at: new Date(Date.now() + 86_400_000).toISOString(),
+          payment_method: 'BANK_TRANSFER',
+          expected_version: 2,
+          expected_finance_version: financeVersion,
+        },
+        holder,
+      )
+    ).status,
+    400,
+    'a payment cannot be recorded as made in the future',
   );
   const confirmKey = randomUUID();
   const confirmed = await mutate(

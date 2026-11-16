@@ -40,7 +40,7 @@ describe('Payment domain rules', () => {
     ).not.toThrow();
     expect(() =>
       assertHolderPaymentAction(holder, holder, context.activeMemberUserIds, 'CLOSING'),
-    ).toThrow(new PaymentRuleError('STATE_CONFLICT'));
+    ).toThrow(new PaymentRuleError('STATE_CONFLICT', 'CLOSURE_PENDING'));
     expect(classifyMomoResult(0)).toBe('SUCCEEDED');
     expect(classifyMomoResult(9000)).toBe('PENDING');
     expect(classifyMomoResult(1000)).toBe('PENDING');

@@ -1,3 +1,4 @@
+import { fundNotOpenReason, type FinanceConflictReason } from '../finance.errors';
 import type { FundSetupContext } from './fund-setup';
 import type {
   RefundAction,
@@ -37,15 +38,19 @@ export type RefundContext = FundSetupContext & {
   financeVersion: number;
 };
 export class RefundRuleError extends Error {
-  constructor(public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT') {
+  constructor(
+    public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT',
+    public readonly reason?: FinanceConflictReason,
+  ) {
     super(code);
   }
 }
 function base(expectedFinanceVersion: number, context: RefundContext) {
   if (expectedFinanceVersion !== context.financeVersion)
     throw new RefundRuleError('VERSION_CONFLICT');
-  if (context.fundStatus !== 'OPEN' || context.financeVersion === 2147483647)
-    throw new RefundRuleError('STATE_CONFLICT');
+  if (context.fundStatus !== 'OPEN')
+    throw new RefundRuleError('STATE_CONFLICT', fundNotOpenReason(context.fundStatus));
+  if (context.financeVersion === 2147483647) throw new RefundRuleError('STATE_CONFLICT');
   if (!context.activeMemberUserIds.has(context.actorUserId))
     throw new RefundRuleError('PERMISSION_DENIED');
 }
@@ -53,7 +58,7 @@ export function assertCanCreateRefund(body: RefundCreate, context: RefundContext
   base(body.expectedFinanceVersion, context);
   if (context.actorUserId !== context.ownerUserId) throw new RefundRuleError('PERMISSION_DENIED');
   if (!context.activeMemberUserIds.has(body.memberUserId))
-    throw new RefundRuleError('STATE_CONFLICT');
+    throw new RefundRuleError('STATE_CONFLICT', 'MEMBER_NOT_ACTIVE');
 }
 export type RefundConfirmationMode = 'RECIPIENT' | 'OWNER' | 'ASSIGNED_MEMBER' | 'SELF_UNVERIFIED';
 /**
@@ -127,7 +132,8 @@ export function planRefundAction(
     }
     case 'REPORT_REFUND_PAID':
       if (!holder) throw new RefundRuleError('PERMISSION_DENIED');
-      if (state.status !== 'PENDING') throw new RefundRuleError('STATE_CONFLICT');
+      if (state.status !== 'PENDING')
+        throw new RefundRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
       return;
     case 'CONFIRM_REFUND_RECEIVED':
       // Only the recipient, the Owner or the assigned verifier can ever confirm; anyone else is
@@ -138,14 +144,15 @@ export function planRefundAction(
         )
       )
         throw new RefundRuleError('PERMISSION_DENIED');
-      if (state.status !== 'HOLDER_REPORTED') throw new RefundRuleError('STATE_CONFLICT');
+      if (state.status !== 'HOLDER_REPORTED')
+        throw new RefundRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
       if (context.actorUserId !== refundConfirmer(state, context).userId)
         throw new RefundRuleError('PERMISSION_DENIED');
       return;
     case 'CONFIRM_REFUND_NONRECEIPT':
       if (!recipient) throw new RefundRuleError('PERMISSION_DENIED');
       if (state.status !== 'HOLDER_REPORTED' || state.nonreceiptConfirmedAt)
-        throw new RefundRuleError('STATE_CONFLICT');
+        throw new RefundRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
       return;
     case 'CANCEL_REFUND':
       if (!owner) throw new RefundRuleError('PERMISSION_DENIED');
@@ -153,17 +160,17 @@ export function planRefundAction(
         state.status !== 'PENDING' &&
         !(state.status === 'HOLDER_REPORTED' && state.nonreceiptConfirmedAt)
       )
-        throw new RefundRuleError('STATE_CONFLICT');
+        throw new RefundRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
       return;
     case 'REQUEST_REFUND_REVERSAL':
       if (!holder) throw new RefundRuleError('PERMISSION_DENIED');
       if (state.status !== 'CONFIRMED' || state.reversalRequestedAt)
-        throw new RefundRuleError('STATE_CONFLICT');
+        throw new RefundRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
       return;
     case 'CONSENT_REFUND_REVERSAL':
       if (!recipient) throw new RefundRuleError('PERMISSION_DENIED');
       if (state.status !== 'CONFIRMED' || !state.reversalRequestedAt || state.reversalConsentedAt)
-        throw new RefundRuleError('STATE_CONFLICT');
+        throw new RefundRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
       return;
     case 'REVERSE_REFUND': {
       if (!holder) throw new RefundRuleError('PERMISSION_DENIED');

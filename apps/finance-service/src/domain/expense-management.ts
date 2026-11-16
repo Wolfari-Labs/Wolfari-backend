@@ -1,3 +1,4 @@
+import { fundNotOpenReason, type FinanceConflictReason } from '../finance.errors';
 import type { FundSetupContext } from './fund-setup';
 import type {
   ExpenseAction,
@@ -33,13 +34,17 @@ export type ExpenseState = {
   paymentMethod: string | null;
 };
 export class ExpenseRuleError extends Error {
-  constructor(public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT') {
+  constructor(
+    public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT',
+    public readonly reason?: FinanceConflictReason,
+  ) {
     super(code);
   }
 }
 function base(expectedFinanceVersion: number, financeVersion: number, fundStatus: string) {
   if (expectedFinanceVersion !== financeVersion) throw new ExpenseRuleError('VERSION_CONFLICT');
-  if (fundStatus !== 'OPEN') throw new ExpenseRuleError('STATE_CONFLICT');
+  if (fundStatus !== 'OPEN')
+    throw new ExpenseRuleError('STATE_CONFLICT', fundNotOpenReason(fundStatus));
   if (financeVersion === 2147483647) throw new ExpenseRuleError('STATE_CONFLICT');
 }
 function actor(scope: ExpenseDraftMutationScope, state: ExpenseState, authority: FundSetupContext) {
@@ -71,10 +76,11 @@ export function planExpenseMutation(
   if (body.expectedVersion !== state.version) throw new ExpenseRuleError('VERSION_CONFLICT');
   actor(scope, state, context);
   if (scope === 'WITHDRAW_EXPENSE') {
-    if (state.status !== 'SUBMITTED') throw new ExpenseRuleError('STATE_CONFLICT');
+    if (state.status !== 'SUBMITTED')
+      throw new ExpenseRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
     return { changed: true, status: 'DRAFT' as const };
   }
-  if (state.status !== 'DRAFT') throw new ExpenseRuleError('STATE_CONFLICT');
+  if (state.status !== 'DRAFT') throw new ExpenseRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
   if (scope === 'DELETE_EXPENSE') return { changed: true, status: 'DRAFT' as const };
   if (scope === 'SUBMIT_EXPENSE') return { changed: true, status: 'SUBMITTED' as const };
   const patch = body as ExpensePatch;
@@ -103,9 +109,11 @@ export function planExpenseSettlement(
   )
     throw new ExpenseRuleError('PERMISSION_DENIED');
   if (scope === 'REVERSE_EXPENSE') {
-    if (state.status !== 'CONFIRMED') throw new ExpenseRuleError('STATE_CONFLICT');
+    if (state.status !== 'CONFIRMED')
+      throw new ExpenseRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
     return { status: 'REVERSED' as const };
   }
-  if (state.status !== 'SUBMITTED') throw new ExpenseRuleError('STATE_CONFLICT');
+  if (state.status !== 'SUBMITTED')
+    throw new ExpenseRuleError('STATE_CONFLICT', 'INVALID_TRANSITION');
   return { status: scope === 'CONFIRM_EXPENSE' ? ('CONFIRMED' as const) : ('REJECTED' as const) };
 }

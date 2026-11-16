@@ -89,12 +89,15 @@ export class ExpenseService {
     const actor = readUuid(request.actor_user_id);
     const expenseId = readUuid(request.expense_id);
     const found = (
-      await this.db.query<{ fund_id: string }>(
-        'SELECT fund_id FROM fund_expenses WHERE id=$1 AND deleted_at IS NULL',
+      await this.db.query<{ fund_id: string; deleted: boolean }>(
+        'SELECT fund_id,deleted_at IS NOT NULL AS deleted FROM fund_expenses WHERE id=$1',
         [expenseId],
       )
     ).rows[0];
-    if (!found) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    // A deleted expense stays reachable only to replay this operation's stored receipt
+    // (e.g. retrying DELETE with the same Idempotency-Key); run() still verifies actor and hash.
+    if (!found || (found.deleted && !(await this.commands.hasReceipt(operationId))))
+      throw new FinanceReadError('RESOURCE_NOT_FOUND');
     const body = (() => {
       if (scope === 'UPDATE_EXPENSE') {
         const update = request as FinanceV1.UpdateExpenseRequest;
