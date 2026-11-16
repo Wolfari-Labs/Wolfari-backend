@@ -154,6 +154,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   ];
   const financeKeys = [
     'FINANCE_OUTBOX_ENABLED',
+    'FINANCE_RECEIPT_CONCURRENCY',
     'RABBITMQ_URL',
     'AUTOMATION_FINANCE_SECRET',
     'MINIO_ENDPOINT',

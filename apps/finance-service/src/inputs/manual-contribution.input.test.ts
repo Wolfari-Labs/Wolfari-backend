@@ -314,3 +314,21 @@ describe('manual input composed with contribution domain rules', () => {
     ).toThrow(ContributionStateConflictError);
   });
 });
+
+describe('API087–089 free-text limits', () => {
+  it('caps reject reasons and evidence keys at 1024 characters', () => {
+    expect(
+      parseManualContributionInput('REJECT_TRANSFER', { ...versions, reason: 'x'.repeat(1024) })
+        .command,
+    ).toMatchObject({ reason: 'x'.repeat(1024) });
+    expect(() =>
+      parseManualContributionInput('REJECT_TRANSFER', { ...versions, reason: 'x'.repeat(1025) }),
+    ).toThrow(ManualContributionInputError);
+    expect(() =>
+      parseManualContributionInput('REPORT_TRANSFER', {
+        ...versions,
+        evidence_object_key: 'k'.repeat(1025),
+      }),
+    ).toThrow(ManualContributionInputError);
+  });
+});

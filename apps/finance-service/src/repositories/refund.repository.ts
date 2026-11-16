@@ -191,8 +191,9 @@ export class RefundRepository {
           input.body.amount,
         );
       } catch (error) {
-        if (error instanceof InsufficientAvailableBalanceError || error instanceof RangeError)
-          throw new FinanceReadError('STATE_CONFLICT');
+        if (error instanceof InsufficientAvailableBalanceError)
+          throw new FinanceReadError('STATE_CONFLICT', 'INSUFFICIENT_AVAILABLE_BALANCE');
+        if (error instanceof RangeError) throw new FinanceReadError('STATE_CONFLICT');
         throw error;
       }
       row = (
@@ -374,11 +375,9 @@ export class RefundRepository {
           );
           balanceAfter = effect.balanceAfter;
         } catch (error) {
-          if (
-            error instanceof LedgerReversalNotAllowedError ||
-            error instanceof InsufficientAvailableBalanceError ||
-            error instanceof RangeError
-          )
+          if (error instanceof InsufficientAvailableBalanceError)
+            throw new FinanceReadError('STATE_CONFLICT', 'INSUFFICIENT_AVAILABLE_BALANCE');
+          if (error instanceof LedgerReversalNotAllowedError || error instanceof RangeError)
             throw new FinanceReadError('STATE_CONFLICT');
           throw error;
         }
@@ -450,5 +449,7 @@ export class RefundRepository {
 }
 
 export function mapRefundRuleError(error: unknown) {
-  return error instanceof RefundRuleError ? new FinanceReadError(error.code) : undefined;
+  return error instanceof RefundRuleError
+    ? new FinanceReadError(error.code, error.reason)
+    : undefined;
 }

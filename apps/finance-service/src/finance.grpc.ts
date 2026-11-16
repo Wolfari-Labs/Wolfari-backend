@@ -716,7 +716,11 @@ export class FinanceGrpcController {
           IDEMPOTENCY_CONFLICT: status.ALREADY_EXISTS,
           FINANCE_OBLIGATION_BLOCKED: status.FAILED_PRECONDITION,
         }[code],
-        message: JSON.stringify({ code, details: null }),
+        message: JSON.stringify({
+          code,
+          details:
+            error instanceof FinanceReadError && error.reason ? { reason: error.reason } : null,
+        }),
       });
     }
   }

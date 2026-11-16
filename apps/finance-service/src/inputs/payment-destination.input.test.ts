@@ -17,7 +17,7 @@ const bank = {
 };
 const momo = {
   destination_type: 'MOMO_SANDBOX',
-  momo_phone: '00111',
+  momo_phone: '0901234567',
   is_default: false,
   active: true,
 };
@@ -37,7 +37,7 @@ describe('API074/075/076 destination body parsing', () => {
       expectedFinanceVersion: 7,
     });
     expect(create({ ...momo, expected_finance_version: 7 }).destination).toMatchObject({
-      momoPhone: '00111',
+      momoPhone: '0901234567',
     });
     expect(() => create({ destination: bank, expected_finance_version: 7 })).toThrow(
       PaymentDestinationInputError,
@@ -127,7 +127,6 @@ describe('API074/075/076 destination body parsing', () => {
     ['bank_code', 30],
     ['account_number', 80],
     ['account_name', 150],
-    ['momo_phone', 30],
   ] as const)('validates Unicode bounds and blank/NUL/null for %s', (field, max) => {
     expect(() => update({ ...versions, [field]: '𠮷'.repeat(max) })).not.toThrow();
     for (const value of ['𠮷'.repeat(max + 1), '', '  ', '\u0000', null, undefined, 123]) {
@@ -139,7 +138,11 @@ describe('API074/075/076 destination body parsing', () => {
     expect(() => create({ ...momo, account_number: '001', expected_finance_version: 7 })).toThrow();
   });
   it('does not treat a syntactically valid provider change as an allowed domain transition', () => {
-    const command = update({ ...versions, destination_type: 'MOMO_SANDBOX', momo_phone: '00111' });
+    const command = update({
+      ...versions,
+      destination_type: 'MOMO_SANDBOX',
+      momo_phone: '0901234567',
+    });
     const destination = create({ ...bank, expected_finance_version: 7 }).destination;
     const context = {
       actorUserId: 'owner',
@@ -170,4 +173,31 @@ describe('API074/075/076 destination body parsing', () => {
       ),
     ).toThrow('Actor cannot');
   });
+});
+
+describe('MoMo phone format on new destination writes', () => {
+  it.each([
+    ['0901234567', '0901234567'],
+    ['090 123 4567', '0901234567'],
+    ['090.123.4567', '0901234567'],
+    ['+84901234567', '0901234567'],
+    ['84 90 123 4567', '0901234567'],
+    ['0391234567', '0391234567'],
+  ])('normalizes %s to %s', (input, stored) => {
+    expect(
+      create({ ...momo, momo_phone: input, expected_finance_version: 7 }).destination,
+    ).toMatchObject({ momoPhone: stored });
+    expect(update({ ...versions, momo_phone: input }).patch).toEqual({ momoPhone: stored });
+  });
+  it.each(['00111', '0123', '0201234567', '090123456', '09012345678', '+1 415 555 0100', 'abc'])(
+    'rejects %s with the momo_phone field',
+    (input) => {
+      expect(() => create({ ...momo, momo_phone: input, expected_finance_version: 7 })).toThrow(
+        new PaymentDestinationInputError('momo_phone'),
+      );
+      expect(() => update({ ...versions, momo_phone: input })).toThrow(
+        new PaymentDestinationInputError('momo_phone'),
+      );
+    },
+  );
 });

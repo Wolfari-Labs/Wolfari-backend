@@ -54,7 +54,13 @@ function version(body: Record<string, unknown>, field: string): number {
 }
 
 function text(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.trim().length === 0 || value.includes('\u0000')) {
+  // Reasons and private object keys share the 1024-character cap used by the other Finance actions.
+  if (
+    typeof value !== 'string' ||
+    value.trim().length === 0 ||
+    value.includes('\u0000') ||
+    [...value].length > 1024
+  ) {
     return invalid(field);
   }
   return value;

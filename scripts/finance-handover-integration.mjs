@@ -109,7 +109,9 @@ export async function runHandoverTests(h, helpers) {
     payment_method: 'CASH',
     expected_finance_version: row.finance_version,
   };
-  assert.equal((await mutate(`/api/v1/funds/${fundId}/expenses`, expense, holder)).status, 409);
+  const blockedExpense = await mutate(`/api/v1/funds/${fundId}/expenses`, expense, holder);
+  assert.equal(blockedExpense.status, 409);
+  assert.equal(blockedExpense.body.error.details?.reason, 'HANDOVER_IN_PROGRESS');
   assert.equal(
     (
       await query('finance', 'SELECT count(*)::int n FROM fund_expenses WHERE fund_id=$1', [fundId])

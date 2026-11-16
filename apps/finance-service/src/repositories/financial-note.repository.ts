@@ -57,4 +57,4 @@ export class FinancialNoteRepository {
     return {version:1,tripId:input.tripId,financialNote:financialNoteResponse(row,financeVersion)};
   }
 }
-export function mapFinancialNoteRuleError(error:unknown) { return error instanceof FinancialNoteRuleError?new FinanceReadError(error.code):undefined; }
+export function mapFinancialNoteRuleError(error:unknown) { return error instanceof FinancialNoteRuleError?new FinanceReadError(error.code,error.reason):undefined; }

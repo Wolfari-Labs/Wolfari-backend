@@ -623,7 +623,7 @@
     "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "65d18e5bf312500b6ba155e22bc6fd737098ba0eed31838506e7061d2cc11101",
-    "trip-http.ts": "2459aeba43239285b50093e9ff93f46e0706e03f5415eb90e29b86bc6feeb246",
+    "trip-http.ts": "7da7c8dca9405e391d857d31efe1cf326b0c27ebce7dd4b5f213a7afe6bc93d1",
     "trip-proxy.ts": "33c71118e4489cebd1fcbd18ae953340e2b451933a513c5d697abe59b914e0e5"
   }
 }

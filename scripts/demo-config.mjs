@@ -77,10 +77,14 @@ export function appOverrides() {
   Object.assign(result['finance-service'], {
     FINANCE_GRPC_PORT: '13204',
     MOMO_SANDBOX_MODE: 'disabled',
+    // Demo shows Finance in-app notices: Finance publishes its outbox to the demo RabbitMQ and
+    // Automation consumes it into each member's inbox (covered by the Finance notification suite).
+    FINANCE_OUTBOX_ENABLED: 'true',
   });
   Object.assign(result['automation-service'], {
     AUTOMATION_GRPC_PORT: '13205',
     PRICE_WATCH_WORKER_ENABLED: 'true',
+    AUTOMATION_FINANCE_NOTIFICATION_ENABLED: 'true',
   });
   return result;
 }

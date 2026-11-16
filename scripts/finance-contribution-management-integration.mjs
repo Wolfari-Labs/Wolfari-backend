@@ -40,7 +40,7 @@ export async function runContributionManagementTests(h, helpers) {
   const create = async () => {
     const result = await write(`/api/v1/funds/${fundId}/contribution-requests`, {
       title: 'Shared meals',
-      due_at: '2026-10-20T00:00:00Z',
+      due_at: '2099-10-20T00:00:00Z',
       contributions: [member, holder].map((user) => ({
         member_user_id: user.id,
         amount: '300000',

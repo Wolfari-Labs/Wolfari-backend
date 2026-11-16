@@ -805,3 +805,19 @@ describe('Payment instruction Gateway', () => {
     expect((await s.invoke(path)).code).toBe(503);
   });
 });
+
+describe('Empty Finance lists (proto omits empty repeated fields)', () => {
+  it.each([
+    ['expenses', 'ListExpenses'],
+    ['refunds', 'ListRefunds'],
+    ['closures', 'ListClosures'],
+    ['holder-handovers', 'ListHolderHandovers'],
+    ['payment-exceptions', 'ListPaymentExceptions'],
+  ])('GET /funds/{id}/%s returns 200 with no rows instead of 503', async (endpoint, method) => {
+    const s = setup();
+    s.client.call.mockImplementation(async (name: string) => (name === method ? {} : { fund }));
+    const r = await s.invoke(`/api/v1/funds/${id}/${endpoint}`);
+    expect(r.code).toBe(200);
+    expect(r.body).toMatchObject({ data: { items: [] } });
+  });
+});

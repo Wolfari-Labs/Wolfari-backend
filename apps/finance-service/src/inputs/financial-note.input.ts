@@ -20,6 +20,9 @@ export type FinancialNotePage = {
   after?: { at: string; id: string };
 };
 
+/** financial_notes.description is unbounded text; the API boundary caps it. */
+export const FINANCIAL_NOTE_DESCRIPTION_MAX = 2000;
+
 const invalid = (): never => {
   throw new FinanceReadError('VALIDATION_FAILED');
 };
@@ -31,7 +34,7 @@ function record(value: unknown, allowed: readonly string[]) {
 function description(value: unknown) {
   if (typeof value !== 'string' || value.includes('\u0000')) return invalid();
   const result = value.trim();
-  if (!result) return invalid();
+  if (!result || [...result].length > FINANCIAL_NOTE_DESCRIPTION_MAX) return invalid();
   return result;
 }
 function amount(value: unknown): bigint | null {

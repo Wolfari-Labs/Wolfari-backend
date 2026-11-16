@@ -278,7 +278,6 @@ describe('DestinationWrite within enable', () => {
     { base: bank, key: 'bank_code', max: 30 },
     { base: bank, key: 'account_number', max: 80 },
     { base: bank, key: 'account_name', max: 150 },
-    { base: momo, key: 'momo_phone', max: 30 },
   ])('validates destination $key without truncation or value disclosure', ({ base, key, max }) => {
     expect(() =>
       parseEnableFundInput({ ...enable, destination: { ...base, [key]: '😀'.repeat(max) } }),
@@ -370,5 +369,18 @@ describe('parsed commands still require domain checks', () => {
     expect(() => assertCanUpdateFundBudget(command, { ...trusted, fundStatus: 'CLOSED' })).toThrow(
       new FundSetupConflictError('FUND_NOT_OPEN'),
     );
+  });
+});
+
+describe('API070 MoMo phone format', () => {
+  it('stores the national form and reports the nested field on bad input', () => {
+    expect(
+      parseEnableFundInput({ ...enable, destination: { ...momo, momo_phone: '+84 912 345 678' } })
+        .destination,
+    ).toMatchObject({ momoPhone: '0912345678' });
+    for (const momo_phone of ['00111', '0123456789', '😀'.repeat(10)])
+      expect(() =>
+        parseEnableFundInput({ ...enable, destination: { ...momo, momo_phone } }),
+      ).toThrow(new FundSetupInputError('destination.momo_phone'));
   });
 });

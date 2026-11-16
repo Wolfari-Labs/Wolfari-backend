@@ -5,12 +5,15 @@ export type PriceWatchErrorCode =
   | 'VERSION_CONFLICT'
   | 'STATE_CONFLICT'
   | 'IDEMPOTENCY_CONFLICT'
+  | 'RESOURCE_EXHAUSTED'
   | 'SERVICE_UNAVAILABLE';
+
+export type PriceWatchErrorDetails = { current_version?: number; reason?: string };
 
 export class PriceWatchError extends Error {
   constructor(
     public readonly code: PriceWatchErrorCode,
-    public readonly details: { current_version?: number } | null = null,
+    public readonly details: PriceWatchErrorDetails | null = null,
   ) {
     super(code);
   }
@@ -18,7 +21,7 @@ export class PriceWatchError extends Error {
 
 export function priceWatchFail(
   code: PriceWatchErrorCode,
-  details: { current_version?: number } | null = null,
+  details: PriceWatchErrorDetails | null = null,
 ): never {
   throw new PriceWatchError(code, details);
 }

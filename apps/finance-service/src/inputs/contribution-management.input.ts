@@ -1,5 +1,7 @@
 import {
   contributionInstant,
+  CONTRIBUTION_NOTE_MAX,
+  CONTRIBUTION_REASON_MAX,
   ContributionRequestInputError,
 } from './create-contribution-request.input';
 import { parsePositiveVndAmount } from '../domain/money';
@@ -65,7 +67,8 @@ export function parseContributionManagementInput(
         typeof value !== 'string' ||
         value.includes('\0') ||
         (key !== 'note' && !value.trim()) ||
-        (key === 'title' && [...value].length > 200)
+        [...value].length >
+          (key === 'title' ? 200 : key === 'note' ? CONTRIBUTION_NOTE_MAX : CONTRIBUTION_REASON_MAX)
       )
         return invalid(key);
       result[key as 'title' | 'note' | 'reason'] = value;

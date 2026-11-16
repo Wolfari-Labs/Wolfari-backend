@@ -184,3 +184,20 @@ describe('Finance history SQL boundary', () => {
     expect(s.pool.connect).not.toHaveBeenCalled();
   });
 });
+
+describe('history reason visibility', () => {
+  it('omits the refund cancellation reason, matching the refund view', () => {
+    expect(
+      historyResponse(
+        { ...row, reason: 'PRIVATE_CANCEL_REASON', action: 'CANCEL_REFUND', entity_type: 'Refund' },
+        fund,
+      ).reason,
+    ).toBeUndefined();
+    expect(
+      historyResponse(
+        { ...row, reason: 'Lý do đảo', action: 'REQUEST_REFUND_REVERSAL', entity_type: 'Refund' },
+        fund,
+      ).reason,
+    ).toBe('Lý do đảo');
+  });
+});
