@@ -46,12 +46,19 @@ export interface Place {
   address?: string | undefined;
   coordinates?: Coordinate | undefined;
   opening_hours?: OpeningPeriod[] | undefined;
+  selection_token?: string | undefined;
+  categories?: string[] | undefined;
+  attribution?: string | undefined;
 }
 
 export interface SearchPlacesRequest {
   query?: string | undefined;
   coordinates?: Coordinate | undefined;
   radius_m?: number | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  category?: string | undefined;
+  geocode?: boolean | undefined;
 }
 
 export interface SearchPlacesResponse {

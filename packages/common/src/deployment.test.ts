@@ -22,6 +22,39 @@ const request = (peer: string, ip?: string) =>
   }) as unknown as IncomingMessage;
 afterEach(() => vi.unstubAllEnvs());
 describe('single host deployment boundary', () => {
+  it('permits only verified configured cached-price production worker', () => {
+    const enabled = {
+      ...base,
+      PRICE_WATCH_WORKER_ENABLED: 'true',
+      PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE',
+      TRAVELPAYOUTS_TOKEN: 'test-only',
+      TRAVELPAYOUTS_VND_VERIFIED: 'true',
+      DATABASE_URL: 'postgres://automation_app:password@127.0.0.1:5432/automation_db',
+      IDENTITY_GRPC_TARGET: '127.0.0.1:3201',
+      TRIP_GRPC_TARGET: '127.0.0.1:3202',
+      AUTOMATION_IDENTITY_SECRET: 'a'.repeat(64),
+      AUTOMATION_TRIP_SECRET: 'b'.repeat(64),
+      GATEWAY_AUTOMATION_SECRET: 'c'.repeat(64),
+      AUTOMATION_CURSOR_SECRET: 'd'.repeat(64),
+      RABBITMQ_URL: 'amqp://app:password@127.0.0.1:5672',
+      SMTP_HOST: 'smtp.example.com',
+      SMTP_PORT: '587',
+      SMTP_USER: 'test',
+      SMTP_PASSWORD: 'test',
+      SMTP_FROM: 'Wolfari <no-reply@example.com>',
+      SMTP_REQUIRE_TLS: 'true',
+      AUTOMATION_FINANCE_NOTIFICATION_ENABLED: 'false',
+    };
+    expect(() => validateDeploymentEnvironment(enabled, 'automation-service')).not.toThrow();
+    for (const override of [
+      { PRICE_WATCH_PROVIDER: 'MOCK_FLIGHT' },
+      { TRAVELPAYOUTS_TOKEN: '' },
+      { TRAVELPAYOUTS_VND_VERIFIED: 'false' },
+    ])
+      expect(() =>
+        validateDeploymentEnvironment({ ...enabled, ...override }, 'automation-service'),
+      ).toThrow('PRICE_WATCH_PROVIDER');
+  });
   it('requires explicit production profile and isolated config', () => {
     expect(productionTransportBlocked({ NODE_ENV: 'production' })).toBe(true);
     expect(productionTransportBlocked(base)).toBe(false);

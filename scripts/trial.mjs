@@ -86,6 +86,8 @@ export async function initTrial(directory) {
         SMTP_REQUIRE_TLS: 'true',
         SMTP_FROM: 'Wolfari <no-reply@wolfari.thepiece.io.vn>',
         PRICE_WATCH_WORKER_ENABLED: 'false',
+        PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE',
+        TRAVELPAYOUTS_VND_VERIFIED: 'false',
         AUTOMATION_FINANCE_NOTIFICATION_ENABLED: 'false',
       });
     if (['identity-service', 'finance-service'].includes(app.name)) {
@@ -205,6 +207,11 @@ export async function checkTrial(directory) {
       throw new Error('MINIO_ROOT_CREDENTIALS_FORBIDDEN');
     configs.set(app.name, values);
   }
+  const gateway = configs.get('api-gateway'), travel = configs.get('travel-intelligence-service'), trip = configs.get('trip-workspace-service');
+  if (gateway.GATEWAY_TRAVEL_SECRET || travel.GATEWAY_TRAVEL_SECRET || travel.PLACE_SELECTION_SECRET || trip.PLACE_SELECTION_SECRET) {
+    if (!gateway.GATEWAY_TRAVEL_SECRET || gateway.GATEWAY_TRAVEL_SECRET!==travel.GATEWAY_TRAVEL_SECRET || !travel.PLACE_SELECTION_SECRET || travel.PLACE_SELECTION_SECRET!==trip.PLACE_SELECTION_SECRET || !travel.TRAVEL_GRPC_PORT || !gateway.TRAVEL_GRPC_TARGET)
+      throw new Error('PLACES_CONFIG_PAIR_INCOMPLETE');
+  }
   if (new Set(paired.values()).size !== paired.size)
     throw new Error('SERVICE_SECRETS_MUST_BE_INDEPENDENT');
   if (new Set(ports).size !== ports.length) throw new Error('TRIAL_PORT_COLLISION');
@@ -214,6 +221,7 @@ export async function checkTrial(directory) {
     for (const [prefix, appName] of Object.entries({
       IDENTITY: 'identity-service',
       TRIP: 'trip-workspace-service',
+      TRAVEL: 'travel-intelligence-service',
       FINANCE: 'finance-service',
       AUTOMATION: 'automation-service',
     })) {

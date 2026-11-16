@@ -20,6 +20,7 @@ import { checkPriceWatchWorkerRepository } from '../apps/automation-service/test
 import { checkPriceAlertRepository } from '../apps/automation-service/tests/database/price-alert-repository.integration.mjs';
 import { checkNotificationRepository } from '../apps/automation-service/tests/database/notification-repository.integration.mjs';
 import { checkPriceWatchConcurrency } from './price-watch-concurrency.integration.mjs';
+import {checkPlacesCache,checkCachedPriceAlerts} from './provider-cache-integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -478,7 +479,7 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 4, 18, 14];
+  const counts = [8, 18, 5, 18, 15];
   let fks = 0;
   for (const [index, service] of services.entries())
     await db(service, async (client) => {
@@ -495,16 +496,16 @@ async function main() {
       assert.deepEqual(
         await history(client, files[service]),
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003']
+            ? ['V001', 'V002', 'V003', 'V004']
             : service === 'finance'
               ? ['V001', 'V002', 'V003']
-              : ['V001'],
+              : service==='travel' ? ['V001','V002'] : ['V001'],
       );
     });
   assert.equal(fks, 52);
-  pass('57 bảng mô hình + 5 lịch sử, 52 FK');
+  pass('59 bảng mô hình + 5 lịch sử, 52 FK');
   await db('trip', async (client) => {
     await client.query(
       await readFile(
@@ -538,6 +539,9 @@ async function main() {
   );
   stage = 'price-alert-repository';
   await db('automation', checkPriceAlertRepository);
+  await db('travel',checkPlacesCache);
+  await db('automation',checkCachedPriceAlerts);
+  pass('provider adapters: real cache DB TTL/stale + cached VND stale suppression, fresh alert and observation dedup (HTTP mock only)');
   pass('Automation PriceAlertRepository: rule, cooldown, lease, notification and lifecycle');
   await db('automation', checkNotificationRepository);
   pass('Automation NotificationRepository: preference, device isolation, inbox and read state');
@@ -616,8 +620,8 @@ async function main() {
     migrate('travel', databaseUrl(env, 'travel'), [
       ...files.travel,
       {
-        version: 'V002',
-        sql: "BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('V002'); COMMIT;",
+        version: 'V003',
+        sql: "BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('V003'); COMMIT;",
       },
     ]),
     (error) => error.code === '22012',
@@ -627,7 +631,7 @@ async function main() {
       (await client.query("SELECT to_regclass('public.rollback_probe') AS name")).rows[0].name,
       null,
     );
-    assert.deepEqual(await history(client, files.travel), ['V001']);
+    assert.deepEqual(await history(client, files.travel), ['V001','V002']);
     await client.query("INSERT INTO schema_migrations(version) VALUES('V999')");
     try {
       await assert.rejects(history(client, files.travel), /UNKNOWN_OR_INVALID/);

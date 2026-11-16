@@ -5,14 +5,24 @@ export const PRICE_WATCH_RETRY_DELAYS_MS = [10_000, 30_000, 120_000, 300_000, 90
 export const PRICE_WATCH_MAX_PROVIDER_CALLS = PRICE_WATCH_RETRY_DELAYS_MS.length + 1;
 
 const signedInt64Max = 9_223_372_036_854_775_807n;
-const metadataKeys = new Set(['provider_fare_id', 'carrier_code', 'fare_class', 'baggage_summary']);
+const metadataKeys = new Set([
+  'provider_fare_id',
+  'carrier_code',
+  'fare_class',
+  'baggage_summary',
+  'provider_found_at',
+  'provider_expires_at',
+  'data_kind',
+  'source_freshness',
+]);
 
 export type PriceProviderResult =
   | {
       kind: 'SUCCESS';
+      fetched_at?: string;
       price: string;
       currency: 'VND';
-      provider: 'MOCK_FLIGHT';
+      provider: 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE';
       fare_metadata: Record<string, string | null>;
     }
   | { kind: 'NO_RESULT' };
@@ -27,9 +37,10 @@ export interface ClaimedPriceAttempt {
 }
 
 export interface ValidPriceObservation {
+  fetched_at?: string;
   price: string;
   currency: 'VND';
-  provider: 'MOCK_FLIGHT';
+  provider: 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE';
   fare_metadata: Record<string, string | null>;
 }
 
@@ -69,7 +80,7 @@ export function validateProviderResult(value: PriceProviderResult): ValidPriceOb
   if (
     price > signedInt64Max ||
     value.currency !== 'VND' ||
-    value.provider !== 'MOCK_FLIGHT' ||
+    !['MOCK_FLIGHT', 'TRAVELPAYOUTS_CACHE'].includes(value.provider) ||
     !value.fare_metadata ||
     Array.isArray(value.fare_metadata)
   )
@@ -84,11 +95,33 @@ export function validateProviderResult(value: PriceProviderResult): ValidPriceOb
     metadata[key] = item;
   }
   return {
+    ...(value.fetched_at ? { fetched_at: new Date(value.fetched_at).toISOString() } : {}),
     price: price.toString(),
     currency: 'VND',
-    provider: 'MOCK_FLIGHT',
+    provider: value.provider,
     fare_metadata: metadata,
   };
+}
+
+export function referencePriceFresh(
+  provider: string,
+  metadata: Record<string, unknown>,
+  now = Date.now(),
+): boolean {
+  if (provider === 'MOCK_FLIGHT') return true;
+  if (provider !== 'TRAVELPAYOUTS_CACHE' || metadata.data_kind !== 'CACHED_REFERENCE') return false;
+  const found =
+    typeof metadata.provider_found_at === 'string' ? Date.parse(metadata.provider_found_at) : NaN;
+  const expiry =
+    typeof metadata.provider_expires_at === 'string'
+      ? Date.parse(metadata.provider_expires_at)
+      : null;
+  return (
+    Number.isFinite(found) &&
+    found <= now &&
+    now - found <= 48 * 3600000 &&
+    (expiry === null || (Number.isFinite(expiry) && expiry > now))
+  );
 }
 
 export function safeProviderFailure(error: unknown): PriceProviderFailure {

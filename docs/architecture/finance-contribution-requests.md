@@ -219,3 +219,23 @@ Trip guard, worker recovery, Finance GetOperationResult/Cancel và CLI retry dù
 cùng bốn command mới. Kiểm thử quản lý nối sau API078–080 trong `finance:test`, có
 SQL fixtures cho report/provider/ledger vì các writer đó chưa thuộc phạm vi này.
 Xem [OpenAPI078–084](../api/finance-contributions.openapi.json) để thử bằng Postman.
+
+## Phản hồi từ chối Demo 1
+
+Phụ lục được phê duyệt ngày 28/10/2026, gộp từ `demo-1-rejection-feedback.md`.
+`ContributionView.rejected_reason` (protobuf optional field 15) → REST
+`Contribution.rejected_reason` (string nullable) trả lý do Holder từ chối gần nhất
+trong response command, trang contributions và children của contribution requests.
+Quyền đọc không đổi; không mở route/quyền mới và không trả destination snapshot,
+bank details hoặc evidence key.
+
+Giữ lý do sau report lại/confirm để không mất lịch sử phản hồi. UI ghi “Lý do từ
+chối gần nhất”, không suy trạng thái hiện tại từ field này. Receipt bất biến cũ
+thiếu field trả null; không lấy live row để dựng receipt lịch sử. Không thay event
+payload. Mobile cũ có thể bỏ qua field additive; decoder Mobile chưa nghiệm thu.
+
+SRS: giữ nghiệp vụ reject, bổ sung truy vết FIN-04 xem lại phản hồi sau reload.
+ERD/migration: không đổi vì `contributions.rejected_reason` đã có từ V001.
+DDL/API/Event: phụ lục bổ sung projection đọc, giữ DOCX gốc. OpenAPI/Protobuf
+không thay input/version/idempotency. Kiểm thử liên quan gồm projection, protobuf
+và live đọc lại; reject không tăng balance hoặc ledger.

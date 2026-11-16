@@ -1,4 +1,5 @@
 import { PlanProxy } from './plan-proxy';
+import { PlacesProxy } from './places-proxy';
 import { MembershipProxy } from './membership-proxy';
 import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -28,6 +29,9 @@ export class GatewayRouter implements OnApplicationShutdown {
   private readonly plan = new PlanProxy((accessToken, correlationId) =>
     this.identity.validateSession(accessToken, correlationId),
   );
+  private readonly places = new PlacesProxy((token, correlation) =>
+    this.identity.validateSession(token, correlation),
+  );
   private readonly priceWatches = new PriceWatchProxy((accessToken, correlationId) =>
     this.identity.validateSession(accessToken, correlationId),
   );
@@ -36,6 +40,7 @@ export class GatewayRouter implements OnApplicationShutdown {
   );
 
   handle(request: IncomingMessage & { originalUrl?: string }, response: ServerResponse) {
+    if (this.places.matches(request)) return this.places.handle(request, response);
     if (this.notifications.matches(request)) return this.notifications.handle(request, response);
     if (this.priceWatches.matches(request)) return this.priceWatches.handle(request, response);
     if (this.finance.matches(request)) return this.finance.handle(request, response);
@@ -47,6 +52,7 @@ export class GatewayRouter implements OnApplicationShutdown {
   }
 
   onApplicationShutdown() {
+    this.places.close();
     this.notifications.close();
     this.priceWatches.close();
     this.finance.close();

@@ -10,6 +10,21 @@ import { root, apps, initEnvironment, appEnvironment } from './config.mjs';
 import { migrationFiles } from './migrations.mjs';
 
 describe('development configuration', () => {
+  it('isolates provider credentials and paired map secrets', () => {
+    const owners: Record<string, string[]> = {
+      GEOAPIFY_API_KEY: ['travel-intelligence-service'],
+      TRAVELPAYOUTS_TOKEN: ['automation-service'],
+      PLACE_SELECTION_SECRET: ['trip-workspace-service', 'travel-intelligence-service'],
+      GATEWAY_TRAVEL_SECRET: ['api-gateway', 'travel-intelligence-service'],
+    };
+    for (const app of apps)
+      for (const [key, names] of Object.entries(owners)) {
+        expect(appEnvironment(app, { [key]: 'private-test' }, {})[key]).toBe(
+          names.includes(app.name) ? 'private-test' : undefined,
+        );
+        expect(appEnvironment(app, {}, { [key]: 'inherited-private' })).not.toHaveProperty(key);
+      }
+  });
   it('isolates the opt-in Finance inbox flag and strips inherited activation', () => {
     const key = 'AUTOMATION_FINANCE_NOTIFICATION_ENABLED';
     for (const app of apps) {
@@ -225,12 +240,14 @@ describe('development configuration', () => {
         (await migrationFiles(service)).map((file: { version: string }) => file.version),
       ).toEqual(
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003']
+            ? ['V001', 'V002', 'V003', 'V004']
             : service === 'finance'
               ? ['V001', 'V002', 'V003']
-              : ['V001'],
+              : service === 'travel'
+                ? ['V001', 'V002']
+                : ['V001'],
       );
     }
   });

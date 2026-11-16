@@ -4,6 +4,7 @@ import { runFinanceAutomationContextTests } from './finance-automation-context-i
 import { runFinanceWriteTests } from './finance-write-integration.mjs';
 import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
+import { runLocationScenarios } from './locations-integration.mjs';
 import { runDemo1Acceptance } from './demo1-acceptance.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
 import { runMembershipTests } from './trip-members-integration.mjs';
@@ -358,6 +359,7 @@ async function main() {
     EXPORT_IDENTITY_SECRET: secrets.EXPORT_IDENTITY_SECRET,
   });
   const tripValues = {
+    PLACE_SELECTION_SECRET: randomBytes(32).toString('hex'),
     ...(financeReadMode
       ? { FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`, TRIP_FINANCE_SECRET: financeSecret }
       : {}),
@@ -1795,6 +1797,8 @@ async function main() {
     pass,
     users: { owner, member, editor: admin, outsider },
   });
+
+  await runLocationScenarios({request,query,bearer,tripBody,pass,owner,member,outsider,secret:tripValues.PLACE_SELECTION_SECRET});
 
   await query('identity', 'UPDATE refresh_sessions SET revoked_at=now() WHERE user_id=$1', [
     outsider.id,

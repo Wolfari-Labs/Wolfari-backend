@@ -1,48 +1,70 @@
 # Tài liệu Wolfari
 
-## Phụ lục demo1 — 28/10/2026
+Chọn tài liệu theo mục đích bên dưới. Hướng dẫn vận hành, thiết kế chức năng và báo cáo kiểm chứng có vai trò khác nhau; số liệu theo ngày/SHA không phải trạng thái của HEAD hiện tại.
 
-- [Backend v1.0](architecture/demo-1-addendum-v1.0.md): day-only/Trip V003, policy read, membership names và vận hành. Giữ checksum ba DOCX; hợp nhất phụ lục vào bản baseline kế tiếp.
-- [Bàn giao Web](architecture/demo-1-web-handoff.md), [kiểm chứng Backend](architecture/demo-1-backend-validation.md).
-- OpenAPI mới: [Plan API039–044](api/plan.openapi.json), [Fund API070–077](api/finance-fund.openapi.json), [inventory](api/runtime-inventory.json).
-- Ghi chú Trip-side/Finance fixture phía dưới thuộc mốc cũ. Finance và nghĩa vụ membership đã có runtime và integration thật riêng; fixture vẫn chỉ là fixture.
+## Bắt đầu và vận hành
 
-Bộ dưới đây đã được người yêu cầu chốt ngày **02/10/2026** và là baseline tài liệu hiện hành. Phê duyệt này không xác nhận toàn bộ runtime, CI, AT/NFR hay production đã đạt; những chính sách được ghi còn mở vẫn cần quyết định riêng.
+- [README repository](../README.md): cài đặt và các lệnh kiểm tra chính.
+- [Cấu trúc và ranh giới repository](architecture/repository-bootstrap.md).
+- [Môi trường development](architecture/development-environment.md): cấu hình, cổng, health check và xử lý lỗi.
+- [Demo Web + Backend local](architecture/local-demo.md) và [runbook nghiệm thu](architecture/local-demo-acceptance.md).
+- [Single-host trial](../deployment/README.md) và [kiểm chứng triển khai](../deployment/VERIFICATION.md).
+- [Database/migration](database/README.md), [ERD](erd/), [Protobuf/event](architecture/contracts.md).
 
-## Bộ chính thức
+## Baseline chính thức
 
-| Tài liệu                                                                      | Vai trò                                                                |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [SRS v2.3](Wolfari_SRS_v2.3_ChinhThuc.docx)                                   | Yêu cầu, quyền, lifecycle, NFR/AT và trạng thái từng FR tại mốc review |
-| [ERD Database v1.2](Wolfari_ERD_Database_v1.2_ChinhThuc.docx)                 | Data dictionary, constraints/index, ownership và Trip V002             |
-| [DDL/API/Event v1.1](Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx) | Catalog REST/RPC/event, phân biệt thiết kế mục tiêu và handler đã có   |
+Bộ được chốt ngày 02/10/2026; phê duyệt tài liệu không xác nhận runtime, CI, AT/NFR hay production đã đạt.
 
-[Checksum DOCX](SHA256SUMS.txt) và [hồ sơ chốt phiên bản](releases/2026-10-02-documentation-baseline.md). Không dùng các DOCX phiên bản cũ hoặc bản dự thảo làm baseline song song.
+| Tài liệu                                                                      | Vai trò                                          |
+| ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| [SRS v2.3](Wolfari_SRS_v2.3_ChinhThuc.docx)                                   | Yêu cầu, quyền, lifecycle và NFR/AT              |
+| [ERD Database v1.2](Wolfari_ERD_Database_v1.2_ChinhThuc.docx)                 | Dữ liệu, constraints/index và ownership          |
+| [DDL/API/Event v1.1](Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx) | Catalog thiết kế và phạm vi handler tại mốc chốt |
 
-## Triển khai và tích hợp
+[Checksum DOCX](SHA256SUMS.txt), [hồ sơ chốt](releases/2026-10-02-documentation-baseline.md) và [baseline thiết kế](architecture/design-baseline.md). Migration thực thi nằm tại `apps/<service>/migrations`; không dùng hình ERD/DOCX thay SQL.
 
-- [Finance history API162](architecture/finance-history.md): lịch sử audit cho Member hiện tại, phân trang và giới hạn dữ liệu công khai.
+Phụ lục sau baseline: [Demo 1 v1.0](architecture/demo-1-addendum-v1.0.md), [bàn giao Web](architecture/demo-1-web-handoff.md) và [phản hồi từ chối đóng góp](architecture/finance-contribution-requests.md#phản-hồi-từ-chối-demo-1). Giữ ba DOCX/checksum cho đến lần cập nhật baseline được phê duyệt.
 
-- [Demo Web local độc lập](architecture/local-demo.md), [nghiệm thu demo](architecture/local-demo-acceptance.md): Docker infrastructure, native Backend/Web, dữ liệu riêng và không thay baseline SRS/ERD.
+## Thiết kế chức năng
 
-- [Membership lifecycle](architecture/trip-member-lifecycle.md), [handoff/runbook và tiến độ Hà](architecture/trip-member-lifecycle-handoff.md), [validation](architecture/trip-member-lifecycle-validation.md). Nhánh Trip-side; Finance/consumer E2E chưa hoàn thành.
+### Identity, Trip và Planning
 
-- [Baseline kiến trúc](architecture/design-baseline.md), [cấu trúc repo](architecture/repository-bootstrap.md), [môi trường local](architecture/development-environment.md).
-- [Database/migration](database/README.md), [Mermaid ERD](erd/), [Protobuf và event](architecture/contracts.md).
-- [Identity](architecture/identity-phase1.md), [Trip core](architecture/trip-core.md), [Plan access](architecture/trip-plan-access-control.md), [Invitations](architecture/trip-invitations.md).
-- [Price Watch Core, Worker và Alert H1–H3](architecture/price-watch-core.md) quản lý API133–139, slot/lease/retry, observation mock, rule alert và lifecycle; provider thật thuộc mốc sau.
-- [Notification Self Management I1](architecture/notification-management.md) quản lý API126–131 cho preference, device và inbox Self; push sender và Reminder thuộc mốc sau.
-- [Finance inbox](architecture/finance-notification-inbox.md): `ContributionRequested`/`ClosureRequested`/`ContributionUpdated` (Holder review) → inbox sau kiểm tra Finance/Identity, giao dịch chống trùng và retry/DLQ. Closure có giới hạn 24 giờ/người/phiên; Holder review chống trùng theo contribution revision; ClosureCancelled/FinanceClosed lưu chặn tạo thông báo sau khi nguồn kết thúc. Mặc định tắt; push/email và scheduler vẫn chưa triển khai.
-- OpenAPI runtime: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Invitations](api/trip-invitations.openapi.json), [Notification](api/notification.openapi.yaml), [Price Watch](api/price-watch.openapi.yaml).
-- Bàn giao: [Plan access cho Planning](architecture/trip-plan-access-control-handoff.md), [Invitations](architecture/trip-invitations-handoff.md).
-- Contract thực thi ở [packages/contracts](../packages/contracts/README.md); migration ở `apps/<service>/migrations`. Không dùng hình ERD hoặc DOCX thay migration.
+- [Identity](architecture/identity-phase1.md).
+- [Trip core](architecture/trip-core.md), [Plan access control](architecture/trip-plan-access-control.md) và [hướng dẫn tích hợp Planning](architecture/trip-plan-access-control-handoff.md).
+- [Invitations và vận hành email](architecture/trip-invitations.md).
+- [Membership lifecycle](architecture/trip-member-lifecycle.md) và [runbook recovery/tích hợp](architecture/trip-member-lifecycle-handoff.md).
 
-## Kiểm chứng và lịch sử
+### Finance
 
-- [Database](database/validation.md), [Identity](architecture/identity-validation.md), [Trip core](architecture/trip-core-validation.md), [Plan access](architecture/trip-plan-access-control-validation.md), [Invitations](architecture/trip-invitations-validation.md) giữ bằng chứng theo ngày/SHA; không coi số liệu cũ là kết quả HEAD mới.
-- [Price Watch H1–H3](architecture/price-watch-validation.md) ghi bằng chứng unit, contract, PostgreSQL, RabbitMQ, E2E và các giới hạn kiểm thử ngày 22/10/2026.
-- [Notification I1](architecture/notification-management.md) và [validation](architecture/notification-management-validation.md) ghi thiết kế, bằng chứng API126–131 và giới hạn ngày 22/10/2026.
-- [Hồ sơ đồng bộ 80 mục và 15 chỉnh sửa](history/documentation-update-2026-10-02.md) là lịch sử trước khi chốt, không phải hướng dẫn sửa lại bản chính thức.
-- [Nguồn cũ và cách khôi phục](history/README.md). Tài liệu lịch sử và manifest bundle không phải đầu vào runtime.
+- [Tổng quan service](../apps/finance-service/README.md), [Fund setup](architecture/finance-fund-setup.md).
+- [Contribution requests/reads/management](architecture/finance-contribution-requests.md), [manual contributions](architecture/finance-manual-contributions.md), [reversal](architecture/finance-contribution-reversal.md).
+- [Payment instructions](architecture/finance-payment-instructions.md), [payments](architecture/finance-payments.md), [receipts](architecture/finance-receipts.md).
+- [Expenses](architecture/finance-expenses.md), [financial notes](architecture/finance-notes.md), [refunds](architecture/finance-refunds.md).
+- [Closures](architecture/finance-closures.md), [membership obligations](architecture/finance-member-lifecycle.md), [history](architecture/finance-history.md).
+- [Automation context](architecture/finance-automation-context.md), [outbox](architecture/finance-outbox.md), [notification inbox](architecture/finance-notification-inbox.md).
 
-Sequence/state diagrams, giao diện và các FR chưa có handler vẫn là phần cần hoàn thiện. Việc bỏ thư mục placeholder rỗng không thay đổi phạm vi sản phẩm.
+### Automation
+
+- [Tổng quan service](../apps/automation-service/README.md).
+- [Price Watch Core/Worker/Alert](architecture/price-watch-core.md).
+- [Notification self management](architecture/notification-management.md) và [account eligibility](architecture/notification-account-eligibility.md).
+
+## API và contract
+
+- [REST runtime inventory](api/runtime-inventory.json): tra cứu route/handler; có khai báo không có nghĩa provider/live flow đã nghiệm thu.
+- Identity/Trip: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Plan](api/plan.openapi.json), [Invitations](api/trip-invitations.openapi.json), [Membership](api/trip-member-lifecycle.openapi.json).
+- Finance: [Fund](api/finance-fund.openapi.json), [Contributions](api/finance-contributions.openapi.json), [Payments](api/finance-payments.openapi.json), [Receipts](api/finance-receipts.openapi.json), [Expenses](api/finance-expenses.openapi.json), [Notes](api/finance-notes.openapi.json), [Refunds](api/finance-refunds.openapi.json), [Closures](api/finance-closures.openapi.json), [History](api/finance-history.openapi.json).
+- Travel/Automation: [Places](api/places.openapi.json), [Price Watch](api/price-watch.openapi.yaml), [Notification](api/notification.openapi.yaml).
+- [Postman Finance/Price Watch](api/finance-price-watch.postman_collection.json), [workspace contracts](../packages/contracts/README.md).
+
+## Kiểm chứng theo snapshot và lịch sử
+
+Giữ nguyên kết quả, ngày, SHA và giới hạn trong các báo cáo. PASS local không thay CI, live Backend/provider, kiểm tra thủ công hoặc production.
+
+- [Database](database/validation.md), [Identity](architecture/identity-validation.md), [Trip core](architecture/trip-core-validation.md).
+- [Plan access](architecture/trip-plan-access-control-validation.md), [Invitations](architecture/trip-invitations-validation.md), [Membership lifecycle](architecture/trip-member-lifecycle-validation.md).
+- [Price Watch](architecture/price-watch-validation.md), [Notification](architecture/notification-management-validation.md).
+- [Demo 1 Backend](architecture/demo-1-backend-validation.md), [Web + Backend readiness 02–03/11/2026](architecture/demo-readiness-runtime.md).
+- [Hồ sơ đồng bộ 01–02/10/2026](history/documentation-update-2026-10-02.md), [nguồn cũ và cách khôi phục](history/README.md).
+
+Không xóa migration, manifest, contract sinh tự động, DOCX hoặc bằng chứng kiểm chứng chỉ vì ít được mở. Không commit `.env`, credentials, raw log nhạy cảm hoặc dữ liệu demo.

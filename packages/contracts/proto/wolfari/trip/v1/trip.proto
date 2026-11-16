@@ -5,6 +5,8 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service TripService {
+  rpc SaveSelectedLocation(SaveSelectedLocationRequest) returns (LocationMutationResponse);
+  rpc DeleteSelectedLocation(DeleteSelectedLocationRequest) returns (LocationMutationResponse);
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc LeaveTrip(LeaveTripRequest) returns (LeaveTripResponse);
   rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
@@ -35,6 +37,29 @@ service TripService {
   rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
   rpc ReorderActivities(ReorderActivitiesRequest) returns (ReorderActivitiesResponse);
   rpc SetActivityCompletion(SetActivityCompletionRequest) returns (SetActivityCompletionResponse);
+}
+
+message SaveSelectedLocationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  int32 expected_plan_version = 4;
+  optional string selection_token = 5;
+  optional string name = 6;
+  optional string address = 7;
+  optional double latitude = 8;
+  optional double longitude = 9;
+}
+message DeleteSelectedLocationRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  int32 expected_plan_version = 4;
+  string location_id = 5;
+}
+message LocationMutationResponse {
+  string location_id = 1;
+  PlanVersion version = 2;
 }
 
 enum TripLifecycle {

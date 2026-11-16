@@ -1,6 +1,6 @@
 # Cấu trúc kho mã nguồn Wolfari
 
-Wolfari là pnpm monorepo gồm 7 ứng dụng NestJS. Ngoài hạ tầng local, migration runner, database provider và health check, đã có Identity đợt 1, Trip core, Plan access và Invitations/email. Các service còn lại giữ cấu trúc cho phần nghiệp vụ chưa triển khai; không xóa scaffold chỉ vì chưa có runtime đầy đủ.
+Wolfari là pnpm monorepo gồm 7 ứng dụng NestJS. Trang này mô tả cấu trúc và ownership; hướng dẫn chạy nằm tại [môi trường development](development-environment.md). Giữ scaffold service thuộc kiến trúc dù chưa có đầy đủ nghiệp vụ.
 
 ## Cấu trúc và ranh giới
 
@@ -20,51 +20,22 @@ Wolfari là pnpm monorepo gồm 7 ứng dụng NestJS. Ngoài hạ tầng local,
 
 Mỗi service nghiệp vụ chỉ kết nối database của chính nó bằng role `<service>_app`. Không dùng FK, JOIN, trigger hoặc transaction xuyên database. Gateway và Export Worker không nhận credential database.
 
-## Khởi tạo local
+## Quy ước artifact
 
-Yêu cầu Node.js 24, Docker Desktop/Compose và Corepack.
+- Mã ứng dụng và migration riêng: `apps/<service>/src`, `apps/<service>/migrations/VNNN.sql`.
+- Protobuf/event schema/catalog và mã sinh: `packages/contracts`; không sửa mã sinh bằng tay.
+- SQL DBA dùng chung: `infrastructure/postgres`; bootstrap Compose chỉ tạo role/database khi volume trống.
+- Tài liệu chính thức, ERD và manifest: `docs`; xem [danh mục](../README.md).
+- CLI và harness kiểm thử: `scripts`; dữ liệu/cấu hình demo riêng tại `.local`, không commit.
+- Profile triển khai thử: `deployment`; xem [runbook](../../deployment/README.md).
 
-```sh
-corepack pnpm install --frozen-lockfile
-corepack pnpm env:init
-corepack pnpm infra:up
-corepack pnpm infra:check
-corepack pnpm db:migrate
-corepack pnpm db:status
-corepack pnpm dev
-```
+Migration quản lý transaction và lịch sử; runner kiểm tra checksum, khóa theo session và gửi nguyên file SQL. Không sửa migration đã áp dụng. App không tự migrate lúc khởi động. Xem [database/migration](../database/README.md).
 
-Ở terminal khác chạy `corepack pnpm dev:check`. Dùng `Ctrl+C` để launcher đóng cả 7 tiến trình con. Dùng `corepack pnpm infra:down` để dừng container và giữ dữ liệu.
+## Hướng dẫn liên quan
 
-`env:init` không ghi đè cấu hình đã có. Root `.env` chỉ dành cho Compose/tooling; mỗi app đọc `apps/<app>/.env`. Launcher lọc các credential database không thuộc app trước khi tạo tiến trình.
+- [Cài đặt, môi trường, health check và xử lý lỗi](development-environment.md).
+- [Demo Web + Backend cô lập](local-demo.md).
+- [Baseline và ranh giới thiết kế](design-baseline.md).
+- [Protobuf và event contract](contracts.md).
 
-PostgreSQL bootstrap chỉ tạo role/database khi volume trống và không tự chạy migration. Nếu đổi secret trong `.env` sau khi volume đã được tạo, `infra:check` sẽ dừng với lỗi xác thực; công cụ không tự đổi password hoặc xóa volume.
-
-## Health check
-
-Cả 7 ứng dụng có `GET /health/live`. Năm service nghiệp vụ có thêm `GET /health/ready`, xác minh:
-
-1. truy vấn PostgreSQL hoàn tất trong ngân sách thời gian;
-2. database và role đúng với service;
-3. Migration bắt buộc có trong `schema_migrations`: V001 cho mọi service, thêm V002 cho Trip.
-
-Gateway readiness kiểm tra Identity/Trip. RabbitMQ đã dùng cho outbox/email và MinIO cho avatar; `infra:check` kiểm tra hạ tầng, các endpoint dependency cung cấp trạng thái runtime tương ứng. Chi tiết và giới hạn xem [development-environment.md](development-environment.md).
-
-## Migration và kiểm thử
-
-Migration nằm tại `apps/<service>/migrations/VNNN.sql`, tự quản lý transaction và ghi lịch sử. Runner khóa theo session, kiểm tra checksum và gửi nguyên file SQL; không tách câu lệnh theo dấu chấm phẩy.
-
-```sh
-corepack pnpm db:migrate
-corepack pnpm db:inspect
-corepack pnpm db:test
-corepack pnpm lint
-corepack pnpm test
-corepack pnpm build
-```
-
-Xem [hướng dẫn database](../database/README.md) và [kết quả kiểm tra](../database/validation.md).
-
-## Thiết kế hiện hành
-
-Nguồn chính thức là SRS v2.3, ERD v1.2 và DDL/API/Event v1.1, đã chốt ngày 02/10/2026; xem [danh mục tài liệu](../README.md). V001 và Trip V002 là schema thực thi, không phải bằng chứng toàn bộ nghiệp vụ đã hoàn thành. Protobuf nằm tại `packages/contracts/proto/wolfari`, event schema/catalog tại `packages/contracts/schemas` và `packages/contracts/catalog`; các thư mục placeholder cũ đã bỏ. Sequence/state diagram vẫn là đầu việc chưa hoàn thành, không được coi là đã có chỉ vì từng tồn tại thư mục rỗng.
+Baseline chính thức: SRS v2.3, ERD v1.2, DDL/API/Event v1.1. Schema/contract và thư mục scaffold không chứng minh nghiệp vụ đã hoàn thành; báo cáo validation chỉ áp dụng cho snapshot được ghi.

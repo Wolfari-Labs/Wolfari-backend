@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(GEOAPIFY_|TRAVELPAYOUTS_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -101,6 +101,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'IDENTITY_REGISTRATION_ALLOWLIST',
   ];
   const tripKeys = [
+    'PLACE_SELECTION_SECRET',
     'TRIP_MEMBERSHIP_LIFECYCLE_ENABLED',
     'FINANCE_GRPC_TARGET',
     'TRIP_FINANCE_SECRET',
@@ -117,6 +118,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRIP_GRPC_PORT',
   ];
   const gatewayKeys = [
+    'GATEWAY_TRAVEL_SECRET',
+    'TRAVEL_GRPC_TARGET',
     'FINANCE_GRPC_TARGET',
     'GATEWAY_FINANCE_SECRET',
     'IDENTITY_HTTP_URL',
@@ -134,6 +137,9 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
   ];
   const automationKeys = [
+    'PRICE_WATCH_PROVIDER',
+    'TRAVELPAYOUTS_TOKEN',
+    'TRAVELPAYOUTS_VND_VERIFIED',
     'AUTOMATION_FINANCE_NOTIFICATION_ENABLED',
     'AUTOMATION_FINANCE_SECRET',
     'FINANCE_GRPC_TARGET',
@@ -178,7 +184,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MOMO_REDIRECT_URL',
     'MOMO_IPN_URL',
   ];
-  const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET'];
+  const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET', 'TRAVEL_GRPC_PORT', 'GATEWAY_TRAVEL_SECRET', 'PLACE_SELECTION_SECRET', 'GEOAPIFY_API_KEY'];
   const allowed = [
     'NODE_ENV',
     'WOLFARI_ISOLATED_ENV',
@@ -240,6 +246,8 @@ export async function initEnvironment(
     MAILPIT_UI_PORT: '8025',
     GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+    GATEWAY_TRAVEL_SECRET: randomBytes(32).toString('hex'),
+    PLACE_SELECTION_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
     AUTOMATION_FINANCE_SECRET: randomBytes(32).toString('hex'),
@@ -305,6 +313,7 @@ export async function initEnvironment(
         : app.name === 'trip-workspace-service'
           ? {
               TRIP_GRPC_PORT: '3202',
+              PLACE_SELECTION_SECRET: shared.PLACE_SELECTION_SECRET,
               TRIP_INVITATION_TOKEN_KEY: shared.TRIP_INVITATION_TOKEN_KEY,
               TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'false',
               FINANCE_GRPC_TARGET: '127.0.0.1:3204',
@@ -327,6 +336,8 @@ export async function initEnvironment(
                 FINANCE_HTTP_URL: `http://127.0.0.1:${appPort(target, 'finance-service', 'FINANCE_PORT', 3104)}`,
                 AUTOMATION_HTTP_URL: `http://127.0.0.1:${appPort(target, 'automation-service', 'AUTOMATION_PORT', 3105)}`,
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
+                TRAVEL_GRPC_TARGET: '127.0.0.1:3203',
+                GATEWAY_TRAVEL_SECRET: shared.GATEWAY_TRAVEL_SECRET,
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
                 AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',
                 GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
@@ -371,6 +382,9 @@ export async function initEnvironment(
                   }
                 : app.name === 'travel-intelligence-service'
                   ? {
+                      TRAVEL_GRPC_PORT: '3203',
+                      GATEWAY_TRAVEL_SECRET: shared.GATEWAY_TRAVEL_SECRET,
+                      PLACE_SELECTION_SECRET: shared.PLACE_SELECTION_SECRET,
                       TRIP_GRPC_TARGET: '127.0.0.1:3202',
                       TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
                     }

@@ -340,7 +340,7 @@ trả destination snapshot/evidence. Bổ sung demo1 ngày 28/10/2026 trả
 `rejected_reason` nullable trong contribution và children của request: lý do Holder
 từ chối gần nhất, vẫn giữ sau report lại/confirm. Quyền đọc không đổi. Receipt cũ
 thiếu field trả null, không lấy live row thay receipt lịch sử. Xem
-[phụ lục phản hồi từ chối](../../docs/architecture/demo-1-rejection-feedback.md).
+[phản hồi từ chối](../../docs/architecture/finance-contribution-requests.md#phản-hồi-từ-chối-demo-1).
 GET không ghi dữ liệu. Response078 mới lưu
 allocations/version tại commit vào receipt; replay cũ giữ shape metadata cũ, không
 đọc dữ liệu live để bổ sung. Chi tiết và giới hạn transport ở architecture liên kết

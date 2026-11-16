@@ -36,11 +36,18 @@ message Place {
   string address = 3;
   wolfari.common.v1.Coordinate coordinates = 4;
   repeated wolfari.trip.v1.OpeningPeriod opening_hours = 5;
+  string selection_token = 6;
+  repeated string categories = 7;
+  string attribution = 8;
 }
 message SearchPlacesRequest {
   string query = 1;
   wolfari.common.v1.Coordinate coordinates = 2;
   optional double radius_m = 3;
+  string actor_user_id = 4;
+  string trip_id = 5;
+  string category = 6;
+  bool geocode = 7;
 }
 message SearchPlacesResponse {
   repeated Place data = 1;

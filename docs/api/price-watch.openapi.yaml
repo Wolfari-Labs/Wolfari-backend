@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Wolfari Price Watch API
   version: 1.0.0
-  description: API133–139. H1 manages watches and reads observations; provider polling starts in H2.
+  description: API133–139. H1 manages watches and reads observations; cached provider supports one-way economy, one adult, VND only. Cache is reference data, not a booking quote.
 servers:
   - url: http://127.0.0.1:3000/api/v1
 security:
@@ -59,7 +59,7 @@ components:
           departure_at,
         ]
       properties:
-        provider: { type: string, enum: [MOCK_FLIGHT] }
+        provider: { type: string, enum: [MOCK_FLIGHT, TRAVELPAYOUTS_CACHE] }
         origin: { type: string, pattern: '^[A-Za-z]{3}$' }
         destination: { type: string, pattern: '^[A-Za-z]{3}$' }
         departure_date: { type: string, format: date }
@@ -81,7 +81,7 @@ components:
       minProperties: 2
       properties:
         expected_version: { type: integer, minimum: 1, maximum: 2147483647 }
-        provider: { type: string, enum: [MOCK_FLIGHT] }
+        provider: { type: string, enum: [MOCK_FLIGHT, TRAVELPAYOUTS_CACHE] }
         origin: { type: string, pattern: '^[A-Za-z]{3}$' }
         destination: { type: string, pattern: '^[A-Za-z]{3}$' }
         departure_date: { type: string, format: date }
@@ -117,7 +117,7 @@ components:
           departure_at,
         ]
       properties:
-        provider: { type: string, enum: [MOCK_FLIGHT] }
+        provider: { type: string, enum: [MOCK_FLIGHT, TRAVELPAYOUTS_CACHE] }
         transport_type: { type: string, enum: [FLIGHT] }
         origin: { type: string }
         destination: { type: string }
@@ -228,8 +228,23 @@ components:
           properties:
             correlation_id: { type: string, format: uuid }
             next_cursor: { type: [string, 'null'] }
-            stale: { type: boolean, description: Historical prices exist and the most recent provider check failed. }
-            last_error: { type: [string, 'null'], description: Safe provider error code or null after a successful check. }
+            stale:
+              {
+                type: boolean,
+                description: Historical prices exist and the most recent provider check failed.,
+              }
+            last_error:
+              {
+                type: [string, 'null'],
+                description: Safe provider error code or null after a successful check.,
+              }
+            last_checked_at: { type: [string, 'null'], format: date-time }
+            next_check_at: { type: [string, 'null'], format: date-time }
+            last_check_status:
+              {
+                type: [string, 'null'],
+                enum: [PENDING, RUNNING, SUCCEEDED, NO_RESULT, FAILED, null],
+              }
     Error:
       type: object
       required: [error, meta]

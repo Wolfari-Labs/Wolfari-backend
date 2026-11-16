@@ -277,7 +277,13 @@ export class PriceWatchProxy {
             correlation_id: auth.correlationId,
             next_cursor: optionalString(result.next_cursor),
             ...(parsed.kind === 'observations'
-              ? { stale: result.stale === true, last_error: optionalString(result.last_error) }
+              ? {
+                  stale: result.stale === true,
+                  last_error: optionalString(result.last_error),
+                  last_checked_at: optionalString(result.last_checked_at),
+                  next_check_at: optionalString(result.next_check_at),
+                  last_check_status: optionalString(result.last_check_status),
+                }
               : {}),
           },
         });

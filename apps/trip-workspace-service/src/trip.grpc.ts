@@ -1,4 +1,5 @@
 import { PlanGrpcHandlers } from './planning/plan.grpc';
+import { LocationService } from './planning/location.service';
 import { LifecycleService } from './operations/lifecycle.service';
 import { MemberProfilesService } from './membership/member-profiles.service';
 import { FinanceOperationService } from './operations/finance-operation.service';
@@ -136,7 +137,17 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly lifecycle: LifecycleService,
     private readonly financeOperations: FinanceOperationService,
     private readonly memberProfiles: MemberProfilesService,
+    private readonly locations: LocationService,
   ) {}
+
+  saveSelectedLocation(request: TripV1.SaveSelectedLocationRequest, metadata?: Metadata) {
+    const id = this.authorize('SaveSelectedLocation', metadata);
+    return this.execute(() => this.locations.mutate(request, false, id));
+  }
+  deleteSelectedLocation(request: TripV1.DeleteSelectedLocationRequest, metadata?: Metadata) {
+    const id = this.authorize('DeleteSelectedLocation', metadata);
+    return this.execute(() => this.locations.mutate(request, true, id));
+  }
 
   private authorize(method: string, metadata?: Metadata): string {
     return authorizeTripCall(this.config, method, metadata);

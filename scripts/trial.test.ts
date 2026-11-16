@@ -34,6 +34,27 @@ describe('trial configuration tooling', () => {
     );
     const configs = await checkTrial(path);
     expect(configs.size).toBe(7);
+    const beforeProvider = await readFile(automationPath, 'utf8');
+    const enabledProvider = beforeProvider.replace(
+      'PRICE_WATCH_WORKER_ENABLED="false"',
+      'PRICE_WATCH_WORKER_ENABLED="true"',
+    );
+    await writeFile(automationPath, enabledProvider);
+    await expect(checkTrial(path)).rejects.toThrow('PRICE_WATCH_PROVIDER');
+    const validProvider = enabledProvider
+      .replace('TRAVELPAYOUTS_TOKEN=""', 'TRAVELPAYOUTS_TOKEN="unit-only-token"')
+      .replace('TRAVELPAYOUTS_VND_VERIFIED="false"', 'TRAVELPAYOUTS_VND_VERIFIED="true"');
+    await writeFile(automationPath, validProvider);
+    await expect(checkTrial(path)).resolves.toBeInstanceOf(Map);
+    await writeFile(
+      automationPath,
+      validProvider.replace(
+        'PRICE_WATCH_PROVIDER="TRAVELPAYOUTS_CACHE"',
+        'PRICE_WATCH_PROVIDER="MOCK_FLIGHT"',
+      ),
+    );
+    await expect(checkTrial(path)).rejects.toThrow('PRICE_WATCH_PROVIDER');
+    await writeFile(automationPath, beforeProvider);
     expect(configs.get('identity-service').MINIO_ACCESS_KEY).toBe('wolfari_identity');
     const rootEnv = await readFile(join(path, '.env'), 'utf8');
     expect(rootEnv).not.toContain('IDENTITY_ACCESS_PRIVATE_KEY');

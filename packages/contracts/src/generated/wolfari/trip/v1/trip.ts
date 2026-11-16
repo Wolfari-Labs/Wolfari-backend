@@ -60,6 +60,31 @@ export enum DressScope {
   UNRECOGNIZED = -1,
 }
 
+export interface SaveSelectedLocationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  selection_token?: string | undefined;
+  name?: string | undefined;
+  address?: string | undefined;
+  latitude?: number | undefined;
+  longitude?: number | undefined;
+}
+
+export interface DeleteSelectedLocationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  location_id?: string | undefined;
+}
+
+export interface LocationMutationResponse {
+  location_id?: string | undefined;
+  version?: PlanVersion | undefined;
+}
+
 /** A message field supplies outer presence; the oneof preserves set-versus-clear. */
 export interface StringPatch {
   value?: string | undefined;
@@ -691,6 +716,13 @@ export interface SetActivityCompletionResponse {
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
+  saveSelectedLocation(request: SaveSelectedLocationRequest, metadata?: Metadata): Observable<LocationMutationResponse>;
+
+  deleteSelectedLocation(
+    request: DeleteSelectedLocationRequest,
+    metadata?: Metadata,
+  ): Observable<LocationMutationResponse>;
+
   listMembers(request: ListMembersRequest, metadata?: Metadata): Observable<ListMembersResponse>;
 
   leaveTrip(request: LeaveTripRequest, metadata?: Metadata): Observable<LeaveTripResponse>;
@@ -771,6 +803,16 @@ export interface TripServiceClient {
 }
 
 export interface TripServiceController {
+  saveSelectedLocation(
+    request: SaveSelectedLocationRequest,
+    metadata?: Metadata,
+  ): Promise<LocationMutationResponse> | Observable<LocationMutationResponse> | LocationMutationResponse;
+
+  deleteSelectedLocation(
+    request: DeleteSelectedLocationRequest,
+    metadata?: Metadata,
+  ): Promise<LocationMutationResponse> | Observable<LocationMutationResponse> | LocationMutationResponse;
+
   listMembers(
     request: ListMembersRequest,
     metadata?: Metadata,
@@ -931,6 +973,8 @@ export interface TripServiceController {
 export function TripServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "saveSelectedLocation",
+      "deleteSelectedLocation",
       "listMembers",
       "leaveTrip",
       "removeMember",

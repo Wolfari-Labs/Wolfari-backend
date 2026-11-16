@@ -1,69 +1,13 @@
 # Wolfari Backend
 
-> Bản nghiệm thu localhost ngày 02/11/2026 dùng nhánh `feat/demo-1-readiness-backend`, nguồn `feat/demo-1-backend` đã hợp nhất `origin/main`; Web tương thích là `feat/demo-1-readiness-web`. Chỉ Web + Backend, không Mobile/production. Xem [runbook local](docs/architecture/local-demo.md), [readiness Web–Backend](../Wolfari-web/docs/demo-readiness-validation.md) và [phụ lục runtime](docs/architecture/demo-readiness-runtime.md). Các số liệu lịch sử bên dưới không thay thế log hiện hành.
-
-```powershell
-# Nâng cấu hình additive, giữ secrets và dữ liệu cũ
-corepack pnpm demo:init
-corepack pnpm demo:start
-# Terminal khác, sau khi Backend đã chạy
-corepack pnpm demo:check
-corepack pnpm demo:accounts
-# API thật bằng hạ tầng/dữ liệu cô lập
-corepack pnpm demo:acceptance
-```
-
-`demo:accounts` đọc email từ journal và trạng thái Identity READ ONLY, không in/đặt lại mật khẩu. Credentials nằm trong `.local/demo/seed.json`, không đưa vào Git/log. Nếu journal còn nhưng DB thiếu account, kết quả `MISSING` không phải bằng chứng password sai; không reset/reseed để né kiểm tra. Nếu chưa seed, xem [local-demo](docs/architecture/local-demo.md). Docker chạy **hạ tầng**; Backend/Web vẫn native Node, chưa có image production.
-
 [![CI](https://github.com/thepiece27/Wolfari/actions/workflows/contracts.yml/badge.svg)](https://github.com/thepiece27/Wolfari/actions/workflows/contracts.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Wolfari là nền tảng lập kế hoạch chuyến đi cho cá nhân và nhóm nhỏ. Sản phẩm hướng tới việc cùng xây dựng lịch trình, lưu địa điểm, quản lý quỹ, nhận nhắc việc và xuất kế hoạch.
+Backend cho nền tảng lập kế hoạch chuyến đi cá nhân/nhóm: tài khoản, Trip/Plan, lời mời, quỹ, thông báo và theo dõi giá. Monorepo dùng pnpm, NestJS, PostgreSQL, gRPC và RabbitMQ.
 
-Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 ứng dụng NestJS, hạ tầng local, migration PostgreSQL, contract Protobuf/event v1, **Identity đợt 1**, **Trip core**, **Finance API070–125**, **Notification Self Management I1** và **Price Watch H1–H3**. Bản readiness đã giữ cả Demo 1 và Finance outbox/inbox từ `main`; catalog hợp nhất có **113 RPC** và generated contracts đã tái sinh/check. Finance outbox/inbox notification chỉ bật trong acceptance stack khi đã provisioned consumer bindings; cờ demo cá nhân vẫn mặc định tắt. `MOCK_FLIGHT` chỉ là provider thử.
+## Bắt đầu
 
-> Đã có runtime Identity, Trip/Plan/Invitations, Finance API070–125 và nghĩa vụ membership, Notification I1, Price Watch H1–H3. Nhánh tích hợp đã qua kiểm tra local ngày 25/10/2026: 1.442 unit test, 28 nhóm database và các bộ Finance/Price Watch/Notification; xem [kết quả và giới hạn](docs/architecture/design-baseline.md#trạng-thái-triển-khai). Chưa nghiệm thu toàn bộ MVP. `MOCK_FLIGHT` chỉ là dữ liệu thử, MoMo chỉ cấu hình Sandbox; provider giá thật, push/FCM, Reminder API132, export và Finance notification delivery còn thiếu. Membership lifecycle vẫn mặc định tắt cho production. Baseline chính thức là SRS v2.3/ERD v1.2/DDL API Event v1.1; schema gồm năm V001, Trip/Finance V002 và Automation V002–V006.
-
-Mốc bổ sung ngày 28/10/2026: [Finance inbox](docs/architecture/finance-notification-inbox.md) tạo thông báo in-app từ `ContributionRequested`, `ClosureRequested` và `ContributionUpdated` (Holder review), kiểm tra Finance/Identity hiện tại và chống trùng. Closure chỉ gửi cho người chưa xác nhận, tối đa một thông báo/người/phiên trong 24 giờ. Holder chỉ nhận một thông báo mỗi revision báo chuyển, kể cả khi request được sửa metadata. Consumer mặc định tắt. Mốc ngày 29/10 bổ sung ClosureCancelled/FinanceClosed để chặn tạo thông báo từ nguồn đã kết thúc; giữ lịch sử inbox. Push/email và scheduler Reminder vẫn chưa triển khai. Chạy `corepack pnpm finance:notification:test` để kiểm thử môi trường cô lập.
-
-## Kiến trúc
-
-| Thành phần                  | Vai trò                                           |   Cổng |
-| --------------------------- | ------------------------------------------------- | -----: |
-| API Gateway/BFF             | Điểm vào REST/HTTPS, không sở hữu database        | `3000` |
-| Identity Service            | Tài khoản và định danh, sở hữu `identity_db`      | `3101` |
-| Trip Workspace Service      | Không gian lịch trình, sở hữu `trip_db`           | `3102` |
-| Travel Intelligence Service | Dữ liệu và phân tích điểm đến, sở hữu `travel_db` | `3103` |
-| Finance Service             | Quỹ và giao dịch chuyến đi, sở hữu `finance_db`   | `3104` |
-| Automation Service          | Nhắc việc và tự động hóa, sở hữu `automation_db`  | `3105` |
-| Export Worker               | Tác vụ xuất file, không sở hữu database           | `3106` |
-
-Hạ tầng local chạy bằng Docker Compose:
-
-- PostgreSQL: 5 database riêng, mỗi service nghiệp vụ sở hữu một database;
-- RabbitMQ: nền tảng cho sự kiện bất đồng bộ;
-- MinIO: lưu trữ nội dung file;
-- Mailpit: nhận email xác minh/đặt lại mật khẩu trong local tại `http://127.0.0.1:8025`;
-- `@wolfari/common`, `@wolfari/database` và `@wolfari/contracts`: các package dùng chung.
-
-Mỗi service nghiệp vụ chỉ truy cập database của mình. Không dùng foreign key, JOIN, trigger hoặc transaction xuyên database. Chi tiết ranh giới và quyết định kiến trúc nằm trong [baseline thiết kế](docs/architecture/design-baseline.md).
-
-## Yêu cầu
-
-- Node.js `24.x`;
-- Docker Desktop có Docker Compose;
-- Corepack;
-- pnpm `10.34.5` được pin trong `package.json`.
-
-## Demo Web với backend thật
-
-Môi trường riêng `wolfari-demo` giữ nguyên cấu hình và dữ liệu development. Tại Backend chạy `corepack pnpm demo:init`, sau đó `corepack pnpm demo:start`. Terminal Backend khác chạy `corepack pnpm demo:check` và `corepack pnpm demo:accounts`. Seed chỉ dùng khi chủ động tạo bộ mẫu lần đầu, không chạy để tìm/reset password. Tại Web cạnh bên chạy `corepack pnpm demo:build` rồi `corepack pnpm demo:preview`, mở http://localhost:5273/login?returnTo=%2Ftrips.
-
-Tài khoản và mật khẩu sinh riêng nằm trong `.local/demo/seed.json`; không commit file này. `demo:stop` dừng demo và giữ dữ liệu. [Runbook đầy đủ](docs/architecture/local-demo.md) mô tả bản build/preview, reset có kiểm tra ownership, cổng và các API chưa có Web. [Nghiệm thu](docs/architecture/local-demo-acceptance.md) phân biệt backend thật, fixture và provider mô phỏng.
-
-## Khởi động development hiện có
-
-Từ thư mục gốc repository:
+Yêu cầu Node.js 24.x, Corepack, pnpm theo `package.json` và Docker Desktop/Compose. Chạy tại thư mục gốc:
 
 ```sh
 corepack pnpm install --frozen-lockfile
@@ -75,127 +19,59 @@ corepack pnpm db:status
 corepack pnpm dev
 ```
 
-Mở terminal khác để kiểm tra 7 ứng dụng:
+Ở terminal khác chạy `corepack pnpm dev:check`. `env:init` giữ cấu hình đã có; root `.env` dành cho tooling/Compose, mỗi app đọc `apps/<app>/.env`. Không commit secrets. Ctrl+C dừng app; `corepack pnpm infra:down` dừng hạ tầng và giữ volume. Chi tiết cổng, health check và xử lý lỗi: [môi trường development](docs/architecture/development-environment.md).
+
+## Demo và triển khai thử
+
+Demo dùng cấu hình/dữ liệu riêng, không thay môi trường development:
 
 ```sh
-corepack pnpm dev:check
+corepack pnpm demo:init
+corepack pnpm demo:start
+# Terminal khác, sau khi Backend đã chạy
+corepack pnpm demo:check
+corepack pnpm demo:accounts
 ```
 
-`env:init` tạo root `.env` cho Compose và file `.env` riêng cho từng app. Các file đã tồn tại không bị ghi đè; secret không được in ra terminal. Dùng `Ctrl+C` để dừng launcher và `corepack pnpm infra:down` để dừng container mà vẫn giữ named volume.
+`demo:accounts` chỉ đọc trạng thái tài khoản, không đặt lại/in mật khẩu. Credentials mẫu nằm trong `.local/demo/seed.json`; không reset/reseed để xử lý tài khoản `MISSING`. `demo:stop` giữ dữ liệu.
 
-## Health check
+- [Runbook demo Web + Backend](docs/architecture/local-demo.md): seed có chủ đích, build/preview Web và vận hành.
+- [Nghiệm thu demo](docs/architecture/local-demo-acceptance.md): API thật, fixture và provider mô phỏng.
+- [Single-host trial](deployment/README.md): cấu hình triển khai riêng và [giới hạn kiểm chứng](deployment/VERIFICATION.md). Không dùng cấu hình development để suy ra production đã an toàn.
 
-Tất cả ứng dụng cung cấp:
+## Cấu trúc
 
-```text
-GET /health/live
-```
+| Thư mục                                    | Trách nhiệm                                           |
+| ------------------------------------------ | ----------------------------------------------------- |
+| `apps/api-gateway`                         | REST/BFF, không sở hữu database                       |
+| `apps/identity-service`                    | Tài khoản, phiên và hồ sơ                             |
+| `apps/trip-workspace-service`              | Trip, membership, lời mời và Plan                     |
+| `apps/travel-intelligence-service`         | Dữ liệu địa điểm và Travel                            |
+| `apps/finance-service`                     | Quỹ, đóng góp, thu/chi và lịch sử                     |
+| `apps/automation-service`                  | Email, thông báo và Price Watch                       |
+| `apps/export-worker`                       | Khung worker xuất file, không sở hữu database         |
+| `packages/common`, `database`, `contracts` | Tiện ích kỹ thuật, truy cập DB và contract dùng chung |
+| `scripts`, `infrastructure`, `deployment`  | CLI/test harness, hạ tầng local và triển khai thử     |
 
-Năm service nghiệp vụ và Gateway bổ sung:
+Năm business service sở hữu năm database riêng; không FK, JOIN hoặc transaction xuyên database. Xem [ranh giới repository](docs/architecture/repository-bootstrap.md).
 
-```text
-GET /health/ready
-```
-
-Readiness của năm service kiểm tra đúng database/role và migration bắt buộc (`V001` cho mọi service, thêm `V002` cho Trip/Finance và `V002`–`V006` cho Automation); Gateway kiểm tra song song Identity và Trip. Trạng thái sẵn sàng trả `200`; lỗi dependency trả `503`. Response không chứa connection string hay lỗi SQL thô. Identity, Trip và Automation còn có `/health/dependencies` để xem tình trạng dependency nền, độc lập với liveness.
-
-## Lệnh phát triển
+## Kiểm tra trước khi bàn giao
 
 ```sh
-# Kiểm tra hạ tầng
-corepack pnpm infra:check
-
-# Migration và database
-corepack pnpm db:status
-corepack pnpm db:migrate
-corepack pnpm db:migrate --service identity
-corepack pnpm db:inspect
-corepack pnpm db:test
-corepack pnpm identity:test
-corepack pnpm trip:test
-corepack pnpm trip:invitations:test
-corepack pnpm price-watch:test
-corepack pnpm notification:test
-corepack pnpm finance:test
-corepack pnpm finance:payments:test
-corepack pnpm finance:closures:test
-corepack pnpm finance:lifecycle:test
-
-# Contract
-corepack pnpm contracts:lint
-corepack pnpm contracts:generate
-corepack pnpm contracts:check
-corepack pnpm contracts:test
-
-# Chất lượng mã nguồn
 corepack pnpm build
 corepack pnpm lint
 corepack pnpm test
+corepack pnpm contracts:lint
+corepack pnpm contracts:check
+corepack pnpm contracts:rest
 ```
 
-With `NODE_ENV=test`, applications ignore local `.env` files and use only the isolated test harness configuration. `db:test` generates its own service secrets and gRPC ports; it does not require `env:init`. Development startup still reads each app's `.env`.
+Build trước test vì workspace package được import từ `dist`. Các bộ integration như `db:test`, `identity:test`, `trip:test`, `finance:test`, `notification:test`, `price-watch:test` và `demo:acceptance` dùng hạ tầng cô lập; xem `package.json` và runbook chức năng trước khi chạy. Không trỏ test phá lỗi vào database người dùng.
 
-`db:test` tạo Compose project, cổng và volume thử nghiệm riêng rồi tự dọn khi hoàn tất. Không chạy fixture phá lỗi trên database local đang dùng để phát triển.
-`identity:test` cũng tạo Compose project riêng, kiểm thử REST/Gateway, RPC, email Mailpit, avatar và quyền truy cập, rồi dọn toàn bộ dữ liệu thử.
-`trip:test` tạo project riêng để kiểm thử transaction Trip + Owner, idempotency, optimistic concurrency, access context và quyền Plan theo policy qua Gateway/gRPC.
-`trip:invitations:test` bổ sung RabbitMQ/Mailpit riêng để kiểm thử vòng đời lời mời, rejoin, rollback, race, email, retry và ACK. Trip cần migration V002; baseline V001 được giữ nguyên.
-`price-watch:test` chạy Gateway, Identity, Trip, Automation, PostgreSQL và RabbitMQ riêng để kiểm thử API133–139, quyền Trip, chống lặp, version, query group dùng chung, observation H2, alert H3 và archive/reopen lifecycle. Price Watch dùng schema đến V004; Automation hiện yêu cầu thêm V005 của Notification và V006 index terminal inbox. Adapter mock không gọi mạng và test chỉ kiểm tra notification in-app `AVAILABLE`, không gửi push/email.
-`notification:test` chạy API126–131 qua Gateway/Identity/Trip/Automation và PostgreSQL: preference version hóa, cách ly device token, inbox/cursor, che quyền Trip và read idempotent. Test không gọi FCM hoặc gửi push.
+## Tài liệu và phạm vi
 
-## Tài liệu
+[Danh mục tài liệu](docs/README.md) là điểm vào duy nhất cho thiết kế, OpenAPI, hướng dẫn và bằng chứng lịch sử. SRS v2.3, ERD v1.2 và DDL/API/Event v1.1 là baseline chính thức; các phụ lục bổ sung không tự thay thế DOCX.
 
-- [Danh mục tài liệu chính thức và phạm vi sử dụng](docs/README.md)
-- [Cấu trúc repository](docs/architecture/repository-bootstrap.md)
-- [Môi trường phát triển](docs/architecture/development-environment.md)
-- [Baseline thiết kế](docs/architecture/design-baseline.md)
-- [Protobuf và event contract](docs/architecture/contracts.md)
-- [Identity đợt 1 và hướng dẫn web/mobile](docs/architecture/identity-phase1.md)
-- [OpenAPI Identity](docs/api/identity.openapi.yaml)
-- [Kết quả kiểm tra Identity](docs/architecture/identity-validation.md)
-- [Trip core và phân quyền](docs/architecture/trip-core.md)
-- [OpenAPI Trip core](docs/api/trip-core.openapi.yaml)
-- [Kết quả kiểm tra Trip core](docs/architecture/trip-core-validation.md)
-- [Trip Plan access control](docs/architecture/trip-plan-access-control.md)
-- [Trip invitations và email](docs/architecture/trip-invitations.md)
-- [OpenAPI invitations](docs/api/trip-invitations.openapi.json)
-- [Kiểm chứng invitations](docs/architecture/trip-invitations-validation.md)
-- [Bàn giao invitations](docs/architecture/trip-invitations-handoff.md)
-- [Bàn giao Plan access cho Planning](docs/architecture/trip-plan-access-control-handoff.md)
-- [Kết quả kiểm tra Trip Plan access](docs/architecture/trip-plan-access-control-validation.md)
-- [Price Watch Core, Worker và Alert H1–H3](docs/architecture/price-watch-core.md)
-- [OpenAPI Price Watch](docs/api/price-watch.openapi.yaml)
-- [Kết quả kiểm tra Price Watch H1–H3](docs/architecture/price-watch-validation.md)
-- [Finance Fund và recovery](docs/architecture/finance-fund-setup.md)
-- [Finance MoMo Sandbox](docs/architecture/finance-payments.md)
-- [Finance Closure](docs/architecture/finance-closures.md)
-- [Finance membership obligations](docs/architecture/finance-member-lifecycle.md)
-- [Notification Self Management I1](docs/architecture/notification-management.md)
-- [OpenAPI Notification](docs/api/notification.openapi.yaml)
-- [Kết quả kiểm tra Notification I1](docs/architecture/notification-management-validation.md)
-- [Database và migration](docs/database/README.md)
-- [Kết quả kiểm tra database](docs/database/validation.md)
-- [SRS v2.3 chính thức](docs/Wolfari_SRS_v2.3_ChinhThuc.docx)
-- [ERD v1.2 chính thức](docs/Wolfari_ERD_Database_v1.2_ChinhThuc.docx)
-- [DDL/API/Event Specification v1.1 chính thức](docs/Wolfari_DDL_API_Event_Specification_v1.1_ChinhThuc.docx)
+Mã nguồn/contract có mặt không đồng nghĩa đã nghiệm thu toàn bộ MVP. Các báo cáo có ngày/SHA chỉ chứng minh snapshot được ghi; local test, CI, provider thật và production là các gate riêng. Không dùng số liệu test cũ làm trạng thái của HEAD mới.
 
-Bộ chính thức thay các DOCX cũ và bản dự thảo trong cây làm việc. Xem [hồ sơ chốt phiên bản](docs/releases/2026-10-02-documentation-baseline.md) về thay đổi, kiểm tra và cách tra cứu bản cũ trong Git; [hồ sơ đồng bộ](docs/history/documentation-update-2026-10-02.md) giữ chi tiết 80 mục và 15 chỉnh sửa bổ sung. Các chính sách ghi chưa chốt vẫn cần quyết định riêng. V001 là baseline kỹ thuật, Trip V002 là migration nâng cấp; schema/contract không chứng minh toàn bộ nghiệp vụ đã triển khai.
-
-## Trạng thái phạm vi
-
-- [x] Workspace 7 ứng dụng NestJS và hạ tầng local tái lập.
-- [x] Migration runner cho 5 database và database provider dùng chung.
-- [x] Liveness/readiness và kiểm thử tích hợp nền tảng.
-- [x] Protobuf/event contract v1, mã sinh, validator và kiểm tra tương thích.
-- [x] Identity đợt 1: email auth, hồ sơ, phiên, avatar và gửi email local.
-- [x] Trip core: tạo Trip + Owner, đọc theo membership và Owner sửa metadata có kiểm tra revision.
-- [x] Trip Plan access: access context, ba policy và danh sách selected Plan Editor.
-- [x] Trip invitations local: EMAIL/LINK, accept/decline/revoke/resend, email qua outbox và SMTP; xem validation để phân biệt local/CI/production.
-- [x] Đồng bộ và chốt SRS v2.3, ERD v1.2, DDL/API/Event v1.1; kiểm tra nội dung, cấu trúc và bố cục.
-- [ ] Quyết định riêng các chính sách còn mở được ghi trong bộ đã chốt, đặc biệt retention 30/90 ngày.
-- [ ] Các module nghiệp vụ khác, runtime event/RPC đầy đủ và giao diện sản phẩm.
-
-## Đóng góp và giấy phép
-
-Trước khi mở pull request, chạy `corepack pnpm lint`, `corepack pnpm test`, `corepack pnpm build` và các kiểm thử tích hợp liên quan. Khi thay đổi schema hoặc contract, hãy cập nhật tài liệu thiết kế và mã sinh tương ứng.
-
-Wolfari được phát hành theo [MIT License](LICENSE). Repository: [thepiece27/Wolfari](https://github.com/thepiece27/Wolfari).
+Phát hành theo [MIT License](LICENSE).
