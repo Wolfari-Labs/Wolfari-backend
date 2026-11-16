@@ -4,6 +4,7 @@ import { runFinanceAutomationContextTests } from './finance-automation-context-i
 import { runFinanceWriteTests } from './finance-write-integration.mjs';
 import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
+import { runDressCodeScenarios } from './dress-code-integration.mjs';
 import { runDemo1Acceptance } from './demo1-acceptance.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
 import { runMembershipTests } from './trip-members-integration.mjs';
@@ -1806,6 +1807,14 @@ async function main() {
     tripBody,
     pass,
     users: { owner, member, editor: admin, outsider },
+  });
+  await runDressCodeScenarios({
+    request,
+    query,
+    bearer,
+    tripBody,
+    pass,
+    users: { owner, member, outsider },
   });
 
   await query('identity', 'UPDATE refresh_sessions SET revoked_at=now() WHERE user_id=$1', [

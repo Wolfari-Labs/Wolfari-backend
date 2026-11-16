@@ -5,6 +5,7 @@ import { LifecycleFinanceClient } from './operations/lifecycle-finance.client';
 import { LifecycleService } from './operations/lifecycle.service';
 import { FinanceOperationService } from './operations/finance-operation.service';
 import { PlanGrpcHandlers } from './planning/plan.grpc';
+import { DressCodeService } from './planning/dress-code.service';
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
@@ -29,6 +30,7 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     FinanceOperationService,
     TripService,
     PlanService,
+    DressCodeService,
     PlanGrpcHandlers,
     TripAccessService,
     TripPlanAccessService,

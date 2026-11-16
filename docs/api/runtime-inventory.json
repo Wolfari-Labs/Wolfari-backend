@@ -493,6 +493,26 @@
       "document": "plan.openapi.json"
     },
     {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/dress-codes",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/dress-codes",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}/dress-codes/{id}",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}/dress-codes/{id}",
+      "document": "plan.openapi.json"
+    },
+    {
       "method": "POST",
       "path": "/api/v1/trips/{id}/price-watches",
       "document": "price-watch.openapi.yaml"
@@ -636,7 +656,7 @@
     "notification-proxy.ts": "fdf5b40a624f8d5f0e3f81bc1e98ea3b15d6493558f8751cd4dd5f49281d67a1",
     "payment-http.ts": "e36d12ce5249aeebd599a281c1bf713c371d051e5971a243f1135c4cb11c1adc",
     "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
-    "plan-proxy.ts": "71f6653f0ddbc75857649e308339921c65cf27ad07ff5e2bcfe553aecb600a08",
+    "plan-proxy.ts": "d7216f8a954a6677f86d6073680a73c42ca4b4ba91bc164559fbf9a4537f2489",
     "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
