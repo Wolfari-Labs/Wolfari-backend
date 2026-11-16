@@ -78,6 +78,29 @@ export class ReceiptRepository {
     return result.rows[0];
   }
 
+  async expenseFund(expenseId: string): Promise<string> {
+    const result = await this.db.query<{ fund_id: string }>(
+      'SELECT fund_id FROM fund_expenses WHERE id=$1 AND deleted_at IS NULL',
+      [expenseId],
+    );
+    if (!result.rows[0]) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    return result.rows[0].fund_id;
+  }
+
+  /** Only the current attachment can be resolved by expense ID, never an older bound file. */
+  async readableExpense(fund: string, expenseId: string): Promise<FinanceFile> {
+    const result = await this.db.query<FinanceFile>(
+      `SELECT ff.* FROM fund_expenses e
+       JOIN finance_files ff ON ff.object_key=e.receipt_object_key AND ff.expense_id=e.id
+         AND ff.fund_id=e.fund_id AND ff.contribution_id IS NULL
+       WHERE e.id=$1 AND e.fund_id=$2 AND e.deleted_at IS NULL
+         AND ff.state='READY' AND ff.bound_at IS NOT NULL`,
+      [expenseId, fund],
+    );
+    if (!result.rows[0]) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    return result.rows[0];
+  }
+
   /** Internal business writer: caller holds Fund lock and Trip mutation guard.
    * Object must first be verified by ReceiptStorage.verify; no storage RPC inside this transaction.
    * Lock order is Fund -> file; READY is rechecked here against the cleanup claimant.

@@ -141,6 +141,12 @@ export class LifecycleFinanceRepository {
       ).rows[0];
       let blocked = false;
       if (fund) {
+        const handovers = await client.query(
+          `SELECT id FROM fund_holder_handovers WHERE fund_id=$1
+           AND status IN ('NOMINATED','ACCEPTED')
+           AND (old_holder_user_id=$2 OR new_holder_user_id=$2)`,
+          [fund.id, input.targetUserId],
+        );
         const closures = await client.query<{ id: string }>(
           `SELECT id FROM finance_closures
            WHERE fund_id=$1 AND status='PENDING_CONFIRMATIONS' ORDER BY id FOR UPDATE`,
@@ -219,6 +225,7 @@ export class LifecycleFinanceRepository {
           fundStatus: fund.status,
           targetIsHolder: fund.holder_user_id === input.targetUserId,
           closurePending: Boolean(closures.rowCount),
+          handoverPending: handovers.rows.length > 0,
           hasTransferReported: contributions.some((row) => row.status === 'TRANSFER_REPORTED'),
           hasBlockingPayment,
           hasBlockingRefund: refunds.some(

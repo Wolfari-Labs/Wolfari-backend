@@ -170,6 +170,8 @@ function grpcStatus(error: PriceWatchError | NotificationError): status {
       return status.FAILED_PRECONDITION;
     case 'IDEMPOTENCY_CONFLICT':
       return status.ALREADY_EXISTS;
+    case 'RESOURCE_EXHAUSTED':
+      return status.RESOURCE_EXHAUSTED;
     case 'SERVICE_UNAVAILABLE':
       return status.UNAVAILABLE;
   }

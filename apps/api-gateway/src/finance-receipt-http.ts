@@ -15,8 +15,13 @@ import {
 const LIMIT = 10 * 1024 * 1024;
 const MIMES = ['image/jpeg', 'image/png', 'application/pdf'];
 const KEY = /^funds\/[0-9a-f-]{36}\/receipts\/[0-9a-f-]{36}-[0-9a-f]{64}\.(jpg|png|pdf)$/;
-export function receiptRoute(path: string) {
-  return /^\/api\/v1\/funds\/([^/]+)\/receipts(\/download)?$/.exec(path);
+export type ReceiptRoute =
+  { kind: 'upload' | 'download'; fundId: string } | { kind: 'expense'; expenseId: string };
+export function receiptRoute(path: string): ReceiptRoute | undefined {
+  const expense = /^\/api\/v1\/expenses\/([^/]+)\/receipt$/.exec(path);
+  if (expense) return { kind: 'expense', expenseId: expense[1]! };
+  const fund = /^\/api\/v1\/funds\/([^/]+)\/receipts(\/download)?$/.exec(path);
+  if (fund) return { kind: fund[2] ? 'download' : 'upload', fundId: fund[1]! };
 }
 
 export function receiptMultipart(
@@ -101,13 +106,9 @@ export class FinanceReceiptHttp {
       process.env.GATEWAY_FINANCE_SECRET ?? '',
     ),
   ) {}
-  async handle(
-    request: IncomingMessage,
-    response: ServerResponse,
-    url: URL,
-    route: RegExpExecArray,
-  ) {
-    const upload = !route[2];
+  async handle(request: IncomingMessage, response: ServerResponse, url: URL, route: ReceiptRoute) {
+    const upload = route.kind === 'upload';
+    const expense = route.kind === 'expense';
     if (request.method !== (upload ? 'POST' : 'GET'))
       return fail(response, 404, 'RESOURCE_NOT_FOUND');
     if (this.active >= 2) return fail(response, 503, 'SERVICE_UNAVAILABLE');
@@ -119,14 +120,14 @@ export class FinanceReceiptHttp {
     try {
       const auth = await authenticate(request, response, this.validateSession, upload);
       if (!auth) return;
-      if (!uuid.test(route[1]!)) throw new RequestError('Invalid Fund');
-      const fund = route[1]!.toLowerCase();
-      ensureQuery(url, upload ? [] : ['object_key']);
+      const rawId = expense ? route.expenseId : route.fundId;
+      if (!uuid.test(rawId)) throw new RequestError('Invalid receipt scope');
+      const id = rawId.toLowerCase();
+      ensureQuery(url, route.kind === 'download' ? ['object_key'] : []);
       const key = url.searchParams.get('object_key');
       if (
         !upload &&
-        (!key ||
-          !KEY.test(key) ||
+        ((route.kind === 'download' && (!key || !KEY.test(key))) ||
           request.headers['transfer-encoding'] ||
           (request.headers['content-length'] !== undefined &&
             request.headers['content-length'] !== '0'))
@@ -134,17 +135,27 @@ export class FinanceReceiptHttp {
         throw new RequestError('Invalid download');
       const body = upload
         ? await receiptMultipart(request, cancellation.signal)
-        : { object_key: key };
+        : expense
+          ? { expense_id: id }
+          : { object_key: key };
       const result = await this.client.callFile(
-        upload ? 'UploadFinanceReceipt' : 'DownloadFinanceReceipt',
-        { ...body, fund_id: fund, actor_user_id: auth.actorUserId },
+        upload
+          ? 'UploadFinanceReceipt'
+          : expense
+            ? 'DownloadExpenseReceipt'
+            : 'DownloadFinanceReceipt',
+        { ...body, ...(!expense ? { fund_id: id } : {}), actor_user_id: auth.actorUserId },
         auth.correlationId,
         cancellation.signal,
       );
       if (
-        typeof result.object_key !== 'string' ||
-        !KEY.test(result.object_key) ||
-        !result.object_key.startsWith(`funds/${fund}/receipts/`) ||
+        (expense
+          ? result.expense_id !== id ||
+            typeof result.fund_id !== 'string' ||
+            !uuid.test(result.fund_id)
+          : typeof result.object_key !== 'string' ||
+            !KEY.test(result.object_key) ||
+            !result.object_key.startsWith(`funds/${id}/receipts/`)) ||
         !MIMES.includes(String(result.mime_type)) ||
         !Number.isInteger(result.size_bytes) ||
         Number(result.size_bytes) < 1 ||
@@ -161,7 +172,7 @@ export class FinanceReceiptHttp {
           meta: { correlation_id: auth.correlationId },
         });
       if (
-        result.object_key !== key ||
+        (!expense && result.object_key !== key) ||
         !Buffer.isBuffer(result.content) ||
         result.content.length !== result.size_bytes
       )

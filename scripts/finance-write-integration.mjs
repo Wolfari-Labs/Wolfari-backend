@@ -11,6 +11,8 @@ import { runContributionReversalTests } from './finance-contribution-reversal-in
 import { runExpenseDraftTests } from './finance-expense-integration.mjs';
 import { runFinancialNoteTests } from './finance-notes-integration.mjs';
 import { runRefundTests } from './finance-refund-integration.mjs';
+import { runHandoverTests } from './finance-handover-integration.mjs';
+import { runBankWebhookTests } from './finance-bank-webhook-integration.mjs';
 import { runClosureTests } from './finance-closure-integration.mjs';
 import { runPaymentTests } from './finance-payment-integration.mjs';
 import { runFinanceLifecycleTests } from './finance-lifecycle-integration.mjs';
@@ -77,7 +79,7 @@ export async function runFinanceWriteTests(h) {
   };
   const destination = {
     destination_type: 'VIETQR',
-    bank_code: 'TEST',
+    bank_code: 'VCB',
     account_number: '000987654321',
     account_name: 'PRIVATE WRITE HOLDER',
     is_default: true,
@@ -113,6 +115,32 @@ export async function runFinanceWriteTests(h) {
     });
     return post(path, body, user, key);
   };
+  if (h.bankWebhookOnly) {
+    try {
+      await runBankWebhookTests(h, { newTrip, write, enableBody });
+      return { forbidden: [owner.access, holder.access, outsider.access] };
+    } finally {
+      tripClient.onApplicationShutdown();
+      rpcClient.close();
+    }
+  }
+  if (h.handoversOnly) {
+    try {
+      await runHandoverTests(h, {
+        newTrip,
+        write,
+        enableBody,
+        financeDb,
+        repo,
+        tripClient,
+        fundCommandHash,
+      });
+      return { forbidden: [owner.access, holder.access, outsider.access] };
+    } finally {
+      tripClient.onApplicationShutdown();
+      rpcClient.close();
+    }
+  }
   if (h.lifecycleOnly) {
     try {
       await runFinanceLifecycleTests(h, { newTrip, write, enableBody, rpc });
@@ -709,6 +737,16 @@ export async function runFinanceWriteTests(h) {
       enableBody,
     });
     await runFinancialNoteTests(h, { newTrip, write, enableBody });
+    await runHandoverTests(h, {
+      newTrip,
+      write,
+      enableBody,
+      financeDb,
+      repo,
+      tripClient,
+      fundCommandHash,
+    });
+    await runBankWebhookTests(h, { newTrip, write, enableBody });
     await runRefundTests(h, {
       newTrip,
       write,

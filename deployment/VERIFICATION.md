@@ -1,5 +1,7 @@
 # Single-host trial verification — 2026-11-11
 
+> Historical evidence only. Main sync on 2026-11-16 imports Finance handover/bank transfer and Dress Code while preserving trial/Places. The counts and approvals below apply only to the original snapshot; rerun local gates for the merged pair. Public provider delivery, Linux systemd and encrypted off-host restore remain separate release gates.
+
 Scope: local preparation only. Branch `feat/single-host-trial-deploy`, base `7b59158`. No commit/push/cloud/DNS/secrets/personal demo data changes.
 
 ## Evidence

@@ -7,6 +7,7 @@ import {
   parseRefundAction,
   parseRefundPage,
   parseRefundReasonAction,
+  parseRefundVerifierAction,
 } from '../inputs/refund.input';
 import { refundResponse } from '../projections/refund-response';
 import { RefundRepository, type RefundWriteCommand } from '../repositories/refund.repository';
@@ -14,6 +15,7 @@ import { FundCommandService } from './fund-command.service';
 import { FundQueryService } from './fund-query.service';
 
 type ManageRequest =
+  | FinanceV1.AssignRefundVerifierRequest
   | FinanceV1.ReportRefundPaidRequest
   | FinanceV1.ConfirmRefundReceivedRequest
   | FinanceV1.ConfirmRefundNonreceiptRequest
@@ -78,16 +80,23 @@ export class RefundService {
       'REQUEST_REFUND_REVERSAL',
       'REVERSE_REFUND',
     ].includes(scope);
-    const body = reason
-      ? parseRefundReasonAction({
-          reason: (request as { reason?: string }).reason,
-          expected_version: request.expected_version,
-          expected_finance_version: request.expected_finance_version,
-        })
-      : parseRefundAction({
-          expected_version: request.expected_version,
-          expected_finance_version: request.expected_finance_version,
-        });
+    const body =
+      scope === 'ASSIGN_REFUND_VERIFIER'
+        ? parseRefundVerifierAction({
+            verifier_user_id: (request as FinanceV1.AssignRefundVerifierRequest).verifier_user_id,
+            expected_version: request.expected_version,
+            expected_finance_version: request.expected_finance_version,
+          })
+        : reason
+          ? parseRefundReasonAction({
+              reason: (request as { reason?: string }).reason,
+              expected_version: request.expected_version,
+              expected_finance_version: request.expected_finance_version,
+            })
+          : parseRefundAction({
+              expected_version: request.expected_version,
+              expected_finance_version: request.expected_finance_version,
+            });
     return this.run(
       { scope, fundId: found.fund_id, refundId, body } as RefundWriteCommand,
       readUuid(request.operation_id),

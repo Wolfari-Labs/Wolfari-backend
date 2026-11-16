@@ -206,8 +206,9 @@ export async function handleExpense(
         { actor_user_id: auth.actorUserId, fund_id: id, limit, cursor, status },
         auth.correlationId,
       );
-      if (!Array.isArray(result.items)) throw new Error('Invalid expense list');
-      const items = result.items.map(projectExpense);
+      const rawItems = result.items ?? [];
+      if (!Array.isArray(rawItems)) throw new Error('Invalid expense list');
+      const items = rawItems.map(projectExpense);
       if (items.some((item) => item.fund_id !== id)) throw new Error('Expense scope mismatch');
       const next = result.next_cursor;
       if (next !== undefined && (typeof next !== 'string' || !next || next.length > 1024))

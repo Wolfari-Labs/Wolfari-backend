@@ -33,6 +33,7 @@ import {
   FinanceReadError,
   loopbackTarget,
   readUuid,
+  isFinanceConflictReason,
   type FinanceReadErrorCode,
 } from '../finance.errors';
 import { isManualWrite } from '../repositories/manual-contribution.repository';
@@ -42,8 +43,11 @@ import { isFinancialNoteWrite } from '../repositories/financial-note.repository'
 import { isRefundWrite } from '../repositories/refund.repository';
 import { isClosureWrite } from '../repositories/closure.repository';
 import { isPaymentWrite } from '../repositories/payment.repository';
+import { isHandoverWrite } from '../repositories/handover.repository';
+import { assertCommandTiming, CommandTimingError } from '../domain/command-timing';
 
-type CommandResponse = FinanceV1.EnableFundResponse &
+type CommandResponse = FinanceV1.HolderHandoverCommandResponse &
+  FinanceV1.EnableFundResponse &
   FinanceV1.ConfirmPaymentDestinationResponse &
   FinanceV1.CreateContributionRequestResponse &
   FinanceV1.UpdateContributionAmountResponse &
@@ -60,6 +64,7 @@ type CommandResponse = FinanceV1.EnableFundResponse &
   FinanceV1.UpdateFinancialNoteResponse &
   FinanceV1.DeleteFinancialNoteResponse &
   FinanceV1.CreateRefundResponse &
+  FinanceV1.AssignRefundVerifierResponse &
   FinanceV1.ReportRefundPaidResponse &
   FinanceV1.ConfirmRefundReceivedResponse &
   FinanceV1.ConfirmRefundNonreceiptResponse &
@@ -308,6 +313,10 @@ export class FundCommandService {
       throw error;
     }
   }
+  /** True when this operation already has a stored receipt, i.e. the call is an idempotent replay. */
+  async hasReceipt(operationId: string): Promise<boolean> {
+    return (await this.repo.find(operationId)) !== undefined;
+  }
   /** Shared durable command coordinator; callers must parse inputs and resolve Fund scope first. */
   async run(
     command: UnhashedWrite,
@@ -323,6 +332,13 @@ export class FundCommandService {
     let saved = await this.repo.find(operationId);
     if (saved) this.repo.verify(saved, input);
     else {
+      // Time-relative input rules apply to new commands only; a stored replay keeps its result.
+      try {
+        assertCommandTiming(input);
+      } catch (error) {
+        if (error instanceof CommandTimingError) throw new FinanceReadError('VALIDATION_FAILED');
+        throw error;
+      }
       // External storage verification happens before the guard/SQL write and is skipped on replay.
       await prepare?.();
       if (prepare && Date.now() >= deadline) throw new FinanceReadError('SERVICE_UNAVAILABLE');
@@ -375,7 +391,10 @@ export class FundCommandService {
       return pending();
     }
     if (saved.status !== 'COMMITTED')
-      throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
+      throw new FinanceReadError(
+        saved.response.error ?? 'STATE_CONFLICT',
+        isFinanceConflictReason(saved.response.reason) ? saved.response.reason : undefined,
+      );
     if (isPaymentWrite(input)) {
       const current = await this.queries.getFund(
         { trip_id: input.tripId, actor_user_id: input.actor },
@@ -402,6 +421,19 @@ export class FundCommandService {
       if (!row || row.contribution_id !== input.contributionId)
         throw new Error('Invalid Payment attempt result');
       return { payment_attempt: row };
+    }
+    if (isHandoverWrite(input)) {
+      await this.queries.authorizeFundRead(input.fundId, input.actor, correlation, deadline);
+      const row = saved.response.handover;
+      if (
+        !row ||
+        row.fund_id !== input.fundId ||
+        ('handoverId' in input && row.id !== input.handoverId)
+      )
+        throw new Error('Invalid handover receipt');
+      // Historical acknowledgements are readable to their original actor after role transfer.
+      // New commands still obtain a fresh Trip guard and evaluate current authority.
+      return { handover: row };
     }
     if (isClosureWrite(input)) {
       const role = await this.queries.authorizeFundRead(
@@ -448,17 +480,18 @@ export class FundCommandService {
         !row.finance_version
       )
         throw new Error('Invalid refund result');
-      const ownerScopes = ['CREATE_REFUND', 'CANCEL_REFUND'];
+      const ownerScopes = ['CREATE_REFUND', 'CANCEL_REFUND', 'ASSIGN_REFUND_VERIFIER'];
       const holderScopes = ['REPORT_REFUND_PAID', 'REQUEST_REFUND_REVERSAL', 'REVERSE_REFUND'];
-      const recipientScopes = [
-        'CONFIRM_REFUND_RECEIVED',
-        'CONFIRM_REFUND_NONRECEIPT',
-        'CONSENT_REFUND_REVERSAL',
-      ];
+      const recipientScopes = ['CONFIRM_REFUND_NONRECEIPT', 'CONSENT_REFUND_REVERSAL'];
       if (
         (ownerScopes.includes(input.scope) &&
           role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER) ||
         (holderScopes.includes(input.scope) && current.fund?.holder_user_id !== input.actor) ||
+        // A completed confirmation is immutable. Replaying its receipt only
+        // requires current Fund read access and the original confirming actor;
+        // the write path rechecks the current verifier under the Fund lock.
+        (input.scope === 'CONFIRM_REFUND_RECEIVED' &&
+          (row.confirmed_by_user_id ?? row.member_user_id) !== input.actor) ||
         (recipientScopes.includes(input.scope) && row.member_user_id !== input.actor)
       )
         throw new FinanceReadError('PERMISSION_DENIED');

@@ -53,8 +53,15 @@ export async function runFinancialNoteTests(h, helpers) {
   assert.equal(page.status, 200, JSON.stringify(page.body));
   assert.equal(page.status, 200);
   assert.equal(page.body.data.items[0].id, noteId);
-  const removed = await mutate(item, 'DELETE', { expected_version: 2, expected_finance_version: updated.body.data.finance_version }, owner);
+  const removeKey = randomUUID();
+  const removeBody = { expected_version: 2, expected_finance_version: updated.body.data.finance_version };
+  const removed = await mutate(item, 'DELETE', removeBody, owner, removeKey);
   assert.equal(removed.status, 200);
+  // Retrying the same DELETE returns its stored receipt; a new key sees the note as gone.
+  const removedReplay = await mutate(item, 'DELETE', removeBody, owner, removeKey);
+  assert.equal(removedReplay.status, 200, JSON.stringify(removedReplay.body));
+  assert.equal(removedReplay.body.data.operation_id, removed.body.data.operation_id);
+  assert.equal((await mutate(item, 'DELETE', removeBody, owner)).status, 404);
   let empty;
   await waitFor(async () => {
     empty = await request(collection, 'GET', undefined, bearer(holder));

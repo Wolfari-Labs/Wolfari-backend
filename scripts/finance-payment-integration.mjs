@@ -270,4 +270,340 @@ export async function runPaymentTests(h, helpers) {
   );
   assert.equal(reconcile.status, 202, JSON.stringify(reconcile.body));
   pass('API092/094/095 keeps bad signatures private, exposes review safely and blocks member exit');
+  await runPreviousHolderPaymentTests(h, helpers);
+}
+
+async function runPreviousHolderPaymentTests(h, helpers) {
+  const { request, query, bearer, waitFor, pass } = h;
+  const { owner, holder, member } = h.actors;
+  const { newTrip, write } = helpers;
+  const mutate = async (path, body, user, key = randomUUID()) => {
+    const invoke = () => request(path, 'POST', body, { ...bearer(user), 'idempotency-key': key });
+    const first = await invoke();
+    if (first.status !== 202 || !first.body?.data?.operation_id) return first;
+    await waitFor(async () => {
+      const r = await request(`/api/v1/operations/${key}`, 'GET', undefined, bearer(user));
+      return r.status === 200 && ['SUCCEEDED', 'FAILED'].includes(r.body.data.state);
+    });
+    return invoke();
+  };
+  const tripId = await newTrip();
+  await query(
+    'trip',
+    "INSERT INTO trip_members(trip_id,user_id,role,joined_at) VALUES($1,$2,'MEMBER',now())",
+    [tripId, member.id],
+  );
+  const enabled = await write(`/api/v1/trips/${tripId}/fund`, {
+    holder_user_id: holder.id,
+    currency: 'VND',
+    destination: {
+      destination_type: 'MOMO_SANDBOX',
+      momo_phone: '0900000000',
+      is_default: true,
+      active: true,
+    },
+  });
+  assert.equal(enabled.status, 201);
+  const fundId = enabled.body.data.id;
+  const fundVersion = async () =>
+    (await query('finance', 'SELECT finance_version FROM funds WHERE id=$1', [fundId]))[0]
+      .finance_version;
+  const destination = (
+    await query('finance', 'SELECT id,version FROM payment_destinations WHERE fund_id=$1', [fundId])
+  )[0];
+  assert.equal(
+    (
+      await write(
+        `/api/v1/funds/${fundId}/destinations/${destination.id}/confirm`,
+        { expected_version: destination.version, expected_finance_version: await fundVersion() },
+        holder,
+      )
+    ).status,
+    200,
+  );
+  const issue = async (amount) => {
+    const r = await write(`/api/v1/funds/${fundId}/contribution-requests`, {
+      title: 'Previous Holder receipt',
+      contributions: [
+        { member_user_id: member.id, amount: String(amount), destination_id: destination.id },
+      ],
+      expected_finance_version: await fundVersion(),
+    });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    return r.body.data.contributions[0];
+  };
+  const attemptFor = async (c) => {
+    const r = await mutate(
+      `/api/v1/contributions/${c.id}/payment-attempts`,
+      {
+        provider: 'MOMO_SANDBOX',
+        expected_version: c.version,
+        expected_finance_version: await fundVersion(),
+      },
+      member,
+    );
+    assert.equal(r.status, 202, JSON.stringify(r.body));
+    await waitFor(
+      async () =>
+        (
+          await query('finance', 'SELECT status FROM payment_attempts WHERE id=$1', [
+            r.body.data.id,
+          ])
+        )[0].status === 'PENDING',
+    );
+    return r.body.data;
+  };
+  const paidContribution = await issue(1500),
+    paid = await attemptFor(paidContribution);
+  const lateContribution = await issue(2500),
+    late = await attemptFor(lateContribution);
+  const manual = await issue(3500);
+  const sendSuccess = async (a, amount, transaction, responseTime = Date.now()) => {
+    const stored = (
+      await query('finance', 'SELECT client_request_id FROM payment_attempts WHERE id=$1', [a.id])
+    )[0];
+    const body = {
+      partnerCode: 'MOMO_TEST',
+      orderId: `WLF-${a.id}`,
+      requestId: stored.client_request_id,
+      amount,
+      orderInfo: `Wolfari contribution ${a.contribution_id}`,
+      orderType: 'momo_wallet',
+      transId: transaction,
+      resultCode: 0,
+      message: 'Successful.',
+      payType: 'qr',
+      responseTime,
+      extraData: '',
+    };
+    const raw = `accessKey=access&amount=${body.amount}&extraData=${body.extraData}&message=${body.message}&orderId=${body.orderId}&orderInfo=${body.orderInfo}&orderType=${body.orderType}&partnerCode=${body.partnerCode}&payType=${body.payType}&requestId=${body.requestId}&responseTime=${body.responseTime}&resultCode=${body.resultCode}&transId=${body.transId}`;
+    const r = await request('/api/v1/webhooks/momo', 'POST', {
+      ...body,
+      signature: createHmac('sha256', 'secret').update(raw).digest('hex'),
+    });
+    assert.equal(r.status, 204);
+  };
+  await sendSuccess(paid, 1500, 812345670);
+  await waitFor(
+    async () =>
+      (
+        await query('finance', 'SELECT status FROM contributions WHERE id=$1', [
+          paid.contribution_id,
+        ])
+      )[0].status === 'CONFIRMED',
+  );
+  const created = await mutate(
+    `/api/v1/funds/${fundId}/holder-handovers`,
+    { new_holder_user_id: owner.id, expected_finance_version: await fundVersion() },
+    owner,
+  );
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  let handover = created.body.data;
+  const action = async (name, user) => {
+    const r = await mutate(
+      `/api/v1/holder-handovers/${handover.id}/${name}`,
+      {
+        expected_version: handover.version,
+        expected_finance_version: handover.finance_version,
+        ...(name === 'confirm'
+          ? { expected_snapshot_finance_version: handover.snapshot_finance_version }
+          : {}),
+      },
+      user,
+    );
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    handover = r.body.data;
+  };
+  await action('accept', owner);
+  await action('confirm', holder);
+  await action('confirm', owner);
+  assert.equal(handover.status, 'COMPLETED');
+  assert.equal(
+    (await query('finance', 'SELECT holder_user_id FROM funds WHERE id=$1', [fundId]))[0]
+      .holder_user_id,
+    owner.id,
+  );
+  const ledgerCount = async (id) =>
+    (
+      await query(
+        'finance',
+        "SELECT count(*)::int n FROM fund_transactions WHERE contribution_id=$1 AND transaction_type='CONTRIBUTION'",
+        [id],
+      )
+    )[0].n;
+  const beforeReplay = await fundVersion();
+  await sendSuccess(paid, 1500, 812345670, Date.now() + 1);
+  await waitFor(
+    async () =>
+      (
+        await query(
+          'finance',
+          "SELECT count(*)::int n FROM payment_webhook_receipts WHERE payment_attempt_id=$1 AND processing_status='PROCESSED'",
+          [paid.id],
+        )
+      )[0].n === 2,
+  );
+  assert.equal(await ledgerCount(paid.contribution_id), 1);
+  assert.equal(await fundVersion(), beforeReplay);
+  pass(
+    'Provider success already posted remains an exact money/version no-op after real Holder handover',
+  );
+  const reported = await mutate(
+    `/api/v1/contributions/${manual.id}/report-transfer`,
+    { expected_version: manual.version, expected_finance_version: await fundVersion() },
+    member,
+  );
+  assert.equal(reported.status, 200, JSON.stringify(reported.body));
+  assert.equal(await ledgerCount(manual.id), 0);
+  const confirmBody = {
+    expected_version: reported.body.data.version,
+    expected_finance_version: await fundVersion(),
+  };
+  assert.equal(
+    (await mutate(`/api/v1/contributions/${manual.id}/confirm-received`, confirmBody, owner))
+      .status,
+    409,
+  );
+  assert.equal(
+    (
+      await mutate(
+        `/api/v1/contributions/${manual.id}/confirm-received`,
+        { ...confirmBody, previous_holder_transfer_confirmed: true },
+        holder,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await mutate(
+        `/api/v1/contributions/${manual.id}/confirm-received`,
+        { ...confirmBody, previous_holder_transfer_confirmed: false },
+        owner,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(await ledgerCount(manual.id), 0);
+  const manualKey = randomUUID(),
+    acknowledgedBody = { ...confirmBody, previous_holder_transfer_confirmed: true };
+  const acknowledged = await mutate(
+    `/api/v1/contributions/${manual.id}/confirm-received`,
+    acknowledgedBody,
+    owner,
+    manualKey,
+  );
+  assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+  assert.deepEqual(
+    (
+      await mutate(
+        `/api/v1/contributions/${manual.id}/confirm-received`,
+        acknowledgedBody,
+        owner,
+        manualKey,
+      )
+    ).body.data,
+    acknowledged.body.data,
+  );
+  assert.equal(await ledgerCount(manual.id), 1);
+  const audit = (
+    await query(
+      'finance',
+      "SELECT details FROM finance_audit_logs WHERE entity_id=$1 AND action='CONFIRM_RECEIVED'",
+      [manual.id],
+    )
+  )[0].details;
+  assert.equal(audit.previous_holder_transfer_confirmed, true);
+  assert.equal(audit.previous_holder_user_id, holder.id);
+  assert.equal(audit.current_holder_user_id, owner.id);
+  pass(
+    'Manual old-destination report has no ledger; current Holder must explicitly acknowledge transferred money and replay posts once',
+  );
+  const versionBeforeLate = await fundVersion();
+  await sendSuccess(late, 2500, 812345671);
+  const exception = await waitFor(
+    async () =>
+      (
+        await query(
+          'finance',
+          "SELECT id FROM payment_webhook_receipts WHERE payment_attempt_id=$1 AND processing_status='NEEDS_REVIEW'",
+          [late.id],
+        )
+      )[0],
+  );
+  assert.equal(await ledgerCount(late.contribution_id), 0);
+  assert.equal(await fundVersion(), versionBeforeLate);
+  assert.equal(
+    (
+      await query('finance', 'SELECT needs_reconciliation FROM payment_attempts WHERE id=$1', [
+        late.id,
+      ])
+    )[0].needs_reconciliation,
+    true,
+  );
+  const resolveBody = {
+    resolution: 'LINKED',
+    linked_attempt_id: late.id,
+    reason: 'Previous Holder transferred received money to current Holder',
+    expected_finance_version: await fundVersion(),
+  };
+  assert.equal(
+    (await mutate(`/api/v1/payment-exceptions/${exception.id}/resolve`, resolveBody, owner)).status,
+    409,
+  );
+  assert.equal(
+    (
+      await mutate(
+        `/api/v1/payment-exceptions/${exception.id}/resolve`,
+        { ...resolveBody, previous_holder_transfer_confirmed: true },
+        holder,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(await ledgerCount(late.contribution_id), 0);
+  const linkedKey = randomUUID(),
+    linkedBody = { ...resolveBody, previous_holder_transfer_confirmed: true };
+  const linked = await mutate(
+    `/api/v1/payment-exceptions/${exception.id}/resolve`,
+    linkedBody,
+    owner,
+    linkedKey,
+  );
+  assert.equal(linked.status, 200, JSON.stringify(linked.body));
+  assert.equal(linked.body.data.processing_status, 'PROCESSED');
+  assert.deepEqual(
+    (
+      await mutate(
+        `/api/v1/payment-exceptions/${exception.id}/resolve`,
+        linkedBody,
+        owner,
+        linkedKey,
+      )
+    ).body.data,
+    linked.body.data,
+  );
+  assert.equal(await ledgerCount(late.contribution_id), 1);
+  const resolutionAudit = (
+    await query(
+      'finance',
+      "SELECT details FROM finance_audit_logs WHERE entity_id=$1 AND action='RESOLVE_PAYMENT_EXCEPTION'",
+      [exception.id],
+    )
+  )[0].details;
+  assert.equal(resolutionAudit.previous_holder_transfer_confirmed, true);
+  assert.equal(resolutionAudit.previous_holder_user_id, holder.id);
+  assert.equal(resolutionAudit.current_holder_user_id, owner.id);
+  assert.equal(resolutionAudit.reason, resolveBody.reason);
+  assert.equal(
+    (
+      await query('finance', 'SELECT current_balance::text balance FROM funds WHERE id=$1', [
+        fundId,
+      ])
+    )[0].balance,
+    '7500',
+  );
+  pass(
+    'Late provider success to previous Holder becomes review with no ledger; explicit current-Holder LINKED settles once with private audit',
+  );
 }

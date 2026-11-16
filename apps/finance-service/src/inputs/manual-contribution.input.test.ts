@@ -162,6 +162,27 @@ describe('API087–089 manual contribution body parser', () => {
       new ManualContributionInputError('reason'),
     );
   });
+  it('accepts only an explicit true previous-holder confirmation for confirm-received', () => {
+    expect(
+      parseManualContributionInput('CONFIRM_RECEIVED', {
+        ...versions,
+        previous_holder_transfer_confirmed: true,
+      }).command,
+    ).toMatchObject({ previousHolderTransferConfirmed: true });
+    for (const value of [false, 'true', 1, null])
+      expect(() =>
+        parseManualContributionInput('CONFIRM_RECEIVED', {
+          ...versions,
+          previous_holder_transfer_confirmed: value,
+        }),
+      ).toThrow(ManualContributionInputError);
+    expect(() =>
+      parseManualContributionInput('REPORT_TRANSFER', {
+        ...versions,
+        previous_holder_transfer_confirmed: true,
+      }),
+    ).toThrow(ManualContributionInputError);
+  });
 
   it.each([undefined, null, 123, true, {}, [], '', ' \n ', 'bad\u0000text'])(
     'rejects invalid reason or explicitly supplied evidence %#',
@@ -291,5 +312,23 @@ describe('manual input composed with contribution domain rules', () => {
     expect(() =>
       planManualContributionTransition(command, { ...state, hasOriginalReceipt: true }),
     ).toThrow(ContributionStateConflictError);
+  });
+});
+
+describe('API087–089 free-text limits', () => {
+  it('caps reject reasons and evidence keys at 1024 characters', () => {
+    expect(
+      parseManualContributionInput('REJECT_TRANSFER', { ...versions, reason: 'x'.repeat(1024) })
+        .command,
+    ).toMatchObject({ reason: 'x'.repeat(1024) });
+    expect(() =>
+      parseManualContributionInput('REJECT_TRANSFER', { ...versions, reason: 'x'.repeat(1025) }),
+    ).toThrow(ManualContributionInputError);
+    expect(() =>
+      parseManualContributionInput('REPORT_TRANSFER', {
+        ...versions,
+        evidence_object_key: 'k'.repeat(1025),
+      }),
+    ).toThrow(ManualContributionInputError);
   });
 });

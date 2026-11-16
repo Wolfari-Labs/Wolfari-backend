@@ -81,6 +81,15 @@ describe('Payment Sandbox OpenAPI', () => {
     ).toBe(true);
     expect(schema('ReconcilePaymentAttemptInput')({ reason: 'Đối soát' })).toBe(true);
     const resolveInput = schema('ResolvePaymentExceptionInput');
+    const linked = {
+      resolution: 'LINKED',
+      linked_attempt_id: id,
+      reason: 'Previous Holder handed funds over',
+      expected_finance_version: 3,
+    };
+    expect(resolveInput({ ...linked, previous_holder_transfer_confirmed: true })).toBe(true);
+    for (const value of [false, 'true', 1, null])
+      expect(resolveInput({ ...linked, previous_holder_transfer_confirmed: value })).toBe(false);
     expect(
       resolveInput({
         resolution: 'LINKED',

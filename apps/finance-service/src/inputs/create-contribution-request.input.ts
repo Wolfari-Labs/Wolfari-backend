@@ -10,6 +10,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const INSTANT =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 
+/** Free-text limits; the columns are unbounded text, so the API boundary caps them. */
+export const CONTRIBUTION_NOTE_MAX = 2000;
+export const CONTRIBUTION_REASON_MAX = 1024;
+
 export class ContributionRequestInputError extends Error {
   constructor(public readonly field: string) {
     super(`Invalid contribution request field: ${field}`);
@@ -92,7 +96,12 @@ export function parseCreateContributionRequestInput(
   }
   let note: string | null = null;
   if (Object.hasOwn(body, 'note')) {
-    if (typeof body.note !== 'string') return invalid('note');
+    if (
+      typeof body.note !== 'string' ||
+      body.note.includes('\u0000') ||
+      [...body.note].length > CONTRIBUTION_NOTE_MAX
+    )
+      return invalid('note');
     note = body.note;
   }
   const dueAt = Object.hasOwn(body, 'due_at') ? contributionInstant(body.due_at) : null;

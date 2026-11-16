@@ -23,7 +23,7 @@ function allowedFields(action: ManualContributionCommand['action']): readonly st
     case 'REPORT_TRANSFER':
       return [...versions, 'evidence_object_key'];
     case 'CONFIRM_RECEIVED':
-      return versions;
+      return [...versions, 'previous_holder_transfer_confirmed'];
     case 'REJECT_TRANSFER':
       return [...versions, 'reason'];
     default:
@@ -54,7 +54,13 @@ function version(body: Record<string, unknown>, field: string): number {
 }
 
 function text(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.trim().length === 0 || value.includes('\u0000')) {
+  // Reasons and private object keys share the 1024-character cap used by the other Finance actions.
+  if (
+    typeof value !== 'string' ||
+    value.trim().length === 0 ||
+    value.includes('\u0000') ||
+    [...value].length > 1024
+  ) {
     return invalid(field);
   }
   return value;
@@ -86,7 +92,20 @@ export function parseManualContributionInput(
           : {}),
       };
     case 'CONFIRM_RECEIVED':
-      return { command: { action, ...versions } };
+      if (
+        Object.hasOwn(body, 'previous_holder_transfer_confirmed') &&
+        body.previous_holder_transfer_confirmed !== true
+      )
+        return invalid('previous_holder_transfer_confirmed');
+      return {
+        command: {
+          action,
+          ...versions,
+          ...(body.previous_holder_transfer_confirmed === true
+            ? { previousHolderTransferConfirmed: true as const }
+            : {}),
+        },
+      };
     case 'REJECT_TRANSFER':
       if (!Object.hasOwn(body, 'reason')) return invalid('reason');
       return { command: { action, ...versions, reason: text(body.reason, 'reason') } };

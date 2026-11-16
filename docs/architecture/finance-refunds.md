@@ -4,18 +4,23 @@ Refund là khoản hoàn lại phần tiền quỹ chưa dùng cho một thành 
 
 ## Quyền và trạng thái
 
-| Thao tác         | Quyền hiện tại   | Chuyển trạng thái                                                | Ledger                             |
-| ---------------- | ---------------- | ---------------------------------------------------------------- | ---------------------------------- |
-| Tạo Refund       | Owner            | mới → `PENDING`                                                  | không                              |
-| Báo đã trả       | Holder           | `PENDING` → `HOLDER_REPORTED`                                    | không                              |
-| Xác nhận đã nhận | chính người nhận | `HOLDER_REPORTED` → `CONFIRMED`                                  | một `REFUND OUT`                   |
-| Báo chưa nhận    | chính người nhận | giữ `HOLDER_REPORTED`                                            | không                              |
-| Hủy              | Owner            | `PENDING`, hoặc `HOLDER_REPORTED` đã báo chưa nhận → `CANCELLED` | không                              |
-| Yêu cầu hoàn tác | Holder           | giữ `CONFIRMED`, lưu lý do                                       | không                              |
-| Đồng ý hoàn tác  | chính người nhận | giữ `CONFIRMED`, khóa sự đồng ý với yêu cầu hiện hành            | không                              |
-| Hoàn tác         | Holder           | `CONFIRMED` → `REVERSED`                                         | một `REVERSAL IN` liên kết OUT gốc |
+| Thao tác            | Quyền hiện tại                                             | Chuyển trạng thái                                                | Ledger                             |
+| ------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------- |
+| Tạo Refund          | Owner                                                      | mới → `PENDING`                                                  | không                              |
+| Báo đã trả          | Holder                                                     | `PENDING` → `HOLDER_REPORTED`                                    | không                              |
+| Chỉ định kiểm chứng | Owner khi Owner = Holder = người nhận                      | giữ `PENDING` hoặc `HOLDER_REPORTED`, gắn Member khác            | không                              |
+| Xác nhận đã nhận    | người nhận hoặc người kiểm chứng độc lập theo quy tắc dưới | `HOLDER_REPORTED` → `CONFIRMED`                                  | một `REFUND OUT`                   |
+| Báo chưa nhận       | chính người nhận                                           | giữ `HOLDER_REPORTED`                                            | không                              |
+| Hủy                 | Owner                                                      | `PENDING`, hoặc `HOLDER_REPORTED` đã báo chưa nhận → `CANCELLED` | không                              |
+| Yêu cầu hoàn tác    | Holder                                                     | giữ `CONFIRMED`, lưu lý do                                       | không                              |
+| Đồng ý hoàn tác     | chính người nhận                                           | giữ `CONFIRMED`, khóa sự đồng ý với yêu cầu hiện hành            | không                              |
+| Hoàn tác            | Holder                                                     | `CONFIRMED` → `REVERSED`                                         | một `REVERSAL IN` liên kết OUT gốc |
 
 Mọi mutation yêu cầu Trip đang hoạt động, Fund `OPEN`, không có closure lock và actor còn là thành viên. Owner không thay quyền Holder hoặc người nhận nếu không đồng thời giữ vai trò tương ứng. Read cho phép thành viên hiện tại xem lịch sử khi Trip archived hoặc Fund closed; người đã rời nhóm và Trip đã xóa bị từ chối.
+
+Áp dụng yêu cầu kiểm chứng khoản hoàn tại SRS v1.2 FR-FIN-05/02 theo **người trả tiền**, không theo Holder hiện tại: người trả là Holder đã báo đã trả (`holder_reported_by_user_id`, ghi khi báo trả); với Refund chưa báo trả, người trả là Holder hiện tại. Nếu người nhận khác người trả, chính người nhận xác nhận. Nếu người nhận chính là người trả và Owner khác người trả, Owner xác nhận độc lập. Nếu Owner cũng là người trả, Owner dùng `POST /api/v1/refunds/{id}/assign-verifier` để chỉ định một Member đang hoạt động khác mình; chỉ Member đó được xác nhận. Bàn giao Holder sau khi đã báo trả không đổi người trả: Holder cũ không thể tự xác nhận khoản mình đã trả cho mình sau khi trao quỹ, và cũng không thể lấy tư cách Owner xác nhận thay người nhận khác. Việc chỉ định không cấp quyền Finance khác. Nhóm một người được tự xác nhận với `confirmation_mode=SELF_UNVERIFIED`, `independent_verification=false`.
+
+Backend kiểm lại Owner, người trả và membership tại thời điểm ghi, dưới khóa Fund. Assignment gắn với Owner và người trả lúc chỉ định; trong lúc người kiểm chứng đã rời nhóm hoặc Owner/người trả đã khác đi, assignment không dùng được (nếu đúng bối cảnh đó quay lại, ví dụ Member tái gia nhập, assignment lại hợp lệ vì vẫn độc lập với người trả). Assignment có versions/idempotency và có thể thay bằng một Member hợp lệ khác trước xác nhận. Người không phải người nhận, Owner hay người kiểm chứng nhận 403 khi gọi xác nhận; người có vai trò nhưng chưa đủ điều kiện nhận 409. Sau xác nhận lưu người xác nhận và chế độ kiểm chứng cùng ledger. Dữ liệu xác nhận trước migration V004 giữ `independent_verification=null` (không biết), không được gắn nhãn đã xác minh độc lập; V004 backfill `holder_reported_by_user_id` bằng Holder hiện hành vì trước V005 Fund chưa từng đổi Holder. Giới hạn đã biết: Owner có thể xóa thành viên còn lại rồi tự xác nhận ở chế độ SELF_UNVERIFIED (được gắn nhãn, không coi là độc lập); lifecycle không chặn người kiểm chứng rời nhóm. Quyền báo chưa nhận và đồng ý đảo vẫn thuộc người nhận; người kiểm chứng không được quyết định thay các quyền này.
 
 ## Giữ chỗ và số dư
 
@@ -33,10 +38,10 @@ Yêu cầu hoàn tác lưu lý do chuẩn hóa. API119 phải gửi đúng lý d
 
 ## Public response và giới hạn
 
-Response trả ID, thành viên nhận, amount chuỗi int64, status, lý do tạo, các mốc báo trả/xác nhận/chưa nhận/yêu cầu và đồng ý hoàn tác, `version` và `finance_version`. `requested_by_user_id`, `confirmed_by_user_id`, lý do hủy và lý do hoàn tác là dữ liệu audit nội bộ, không có trong public projection.
+Response trả ID, thành viên nhận, amount chuỗi int64, status, lý do tạo, các mốc báo trả/xác nhận/chưa nhận/yêu cầu và đồng ý hoàn tác, `version` và `finance_version`. Trả thêm `reversal_reason` để đọc đúng lý do yêu cầu đảo sau reload/đổi thiết bị, metadata verifier, `confirmed_by_user_id`, `confirmation_mode` và `independent_verification`. `requested_by_user_id` và lý do hủy vẫn không có trong public projection. Việc đọc lý do không bỏ kiểm consent/version; API đảo tiếp tục yêu cầu đúng lý do đã lưu.
 
 API không chuyển tiền, không gọi ngân hàng/MoMo, không đối soát tự động và không chứng minh Holder đã thực sự thanh toán. Việc đóng quỹ phải chờ mọi Refund hết `PENDING`/`HOLDER_REPORTED`; chỉ báo đã trả chưa đủ điều kiện đóng.
 
 - Contract HTTP: [finance-refunds.openapi.json](../api/finance-refunds.openapi.json)
 - Contract gRPC: `packages/contracts/proto/wolfari/finance/v1/finance.proto`
-- Schema dùng lại: `fund_refunds`, `fund_transactions`, `command_receipts`, `finance_audit_logs` trong Finance V001; không có migration mới.
+- Schema: Finance V004 bổ sung metadata kiểm chứng vào `fund_refunds`; ledger, command receipts và audit tiếp tục dùng bảng hiện hành. Đây là mở rộng yêu cầu so với baseline SRS2.3 trước đó, không đổi phần đóng góp.

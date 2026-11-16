@@ -3,7 +3,12 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import { planRoute, projectActivity, projectPlan } from '../../../apps/api-gateway/src/plan-proxy';
+import {
+  planRoute,
+  projectActivity,
+  projectDressCode,
+  projectPlan,
+} from '../../../apps/api-gateway/src/plan-proxy';
 import {
   FinanceProxy,
   projectFund,
@@ -48,7 +53,7 @@ describe('Demo 1 executable REST contracts', () => {
         components: spec.components,
       });
   });
-  it('maps all six documented Plan operations to the real router', () => {
+  it('maps all ten documented Plan and Dress code operations to the real router', () => {
     let count = 0;
     for (const [path, item] of Object.entries(specs[0].paths)) {
       for (const method of Object.keys(item as object).filter((key) =>
@@ -60,9 +65,9 @@ describe('Demo 1 executable REST contracts', () => {
         count++;
       }
     }
-    expect(count).toBe(6);
+    expect(count).toBe(10);
   });
-  it('reaches authentication for all eight documented Fund operations (no service/network call)', async () => {
+  it('reaches authentication for all nine documented Fund operations (no service/network call)', async () => {
     let count = 0;
     for (const [path, item] of Object.entries(specs[1].paths)) {
       for (const method of Object.keys(item as object).filter((key) =>
@@ -99,7 +104,7 @@ describe('Demo 1 executable REST contracts', () => {
         count++;
       }
     }
-    expect(count).toBe(8);
+    expect(count).toBe(9);
   });
   it('validates current Gateway Activity/Plan and error envelopes including nulls', () => {
     const activity = {
@@ -127,6 +132,29 @@ describe('Demo 1 executable REST contracts', () => {
         permissions: { can_read: true, can_edit: true, can_complete: true },
       }),
     );
+    const dress = {
+      id,
+      trip_id: id,
+      scope_type: 2,
+      plan_date: '2026-11-01',
+      label: 'Beachwear',
+      source: 1,
+      plan_version: 2,
+    };
+    check(0, 'DressCode', projectDressCode(dress));
+    check(0, 'DressCode', projectDressCode({ ...dress, scope_type: 1, plan_date: undefined }));
+    check(0, 'DressCodePage', { items: [projectDressCode(dress)], next_cursor: null });
+    check(0, 'CreateDressCode', {
+      expected_plan_version: 2,
+      scope_type: 'DAY',
+      plan_date: '2026-11-01',
+      activity_id: null,
+      label: 'Beachwear',
+      description: null,
+      public_description: null,
+    });
+    check(0, 'UpdateDressCode', { expected_plan_version: 2, scope_type: 'TRIP', plan_date: null });
+    check(0, 'DeleteDressCode', { expected_plan_version: 2 });
     for (const index of [0, 1])
       check(index, 'Error', {
         error: { code: 'SERVICE_UNAVAILABLE', message: 'Retry', details: null, retryable: true },

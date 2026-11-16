@@ -1,5 +1,13 @@
 # Protobuf và event contract Wolfari
 
+## Đồng bộ main — 16/11/2026
+
+Catalog hợp nhất có **130 RPC**: giữ Places/selected locations của trial và nhận Finance handover, bank transfers, Dress Code từ main `fdf83d6`. Generated TypeScript phải sinh lại bằng `contracts:generate`; không sửa tay để che drift.
+
+`SaveSelectedLocation` và `DeleteSelectedLocation` dùng response riêng theo tên RPC, cùng field numbers/types như `LocationMutationResponse` cũ. REST payload và protobuf wire fields không đổi; tên generated response thay đổi nên client gRPC của nhánh trial cần regenerate. Giữ message cũ để không xóa type đã có. Compatibility với remote main được kiểm riêng; đây không phải lời khẳng định source compatibility với trial cũ.
+
+Các số RPC, migration và kết quả trong các mục có ngày bên dưới là **lịch sử**, không phải tổng hiện tại. Migration hợp nhất: Identity V001, Trip V001–V004, Travel V001–V002, Finance V001–V006, Automation V001–V007. Giữ checksum migration đã áp dụng; không reset database.
+
 ## Cập nhật demo1 — 28/10/2026
 
 Catalog hiện có112 RPC, thêm `GetPlanPolicy` (ApiGateway→Trip), Membership optional `display_name=7` và Plan day-only fields. Không đổi event schema. Trip yêu cầu V003. [Phụ lục v1.0](demo-1-addendum-v1.0.md) ghi field numbers/null/omission/replay và ảnh hưởng Mobile. Các đợt bên dưới là lịch sử, không phải tổng kết runtime hiện tại.
@@ -66,7 +74,7 @@ nullable source IDs/actor/reason. Finance kiểm quyền hiện hành ở mọi 
 
 | Nội dung                             | Biểu diễn trong mã                               | Nguồn/quyết định                                                        |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| 114 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125, Notification API126–131 và Price Watch API133–139   |
+| 123 RPC                              | `packages/contracts/proto/wolfari/<service>/v1`  | Finance API070–125/API162 + receipt/verifier/handover, Notification API126–131, Price Watch API133–139 |
 | Context, snapshot, receipt, proposal | Protobuf message có kiểu cụ thể                  | Cụ thể hóa projection ở mục 6; không dùng JSON tự do                    |
 | ID, Money                            | `string`                                         | Tránh mất chính xác và thống nhất UUID trong DDL/V001                   |
 | Thời điểm                            | `google.protobuf.Timestamp`                      | Quyết định contract; loader giữ `seconds` dạng chuỗi                    |
@@ -218,3 +226,19 @@ Holder review inbox adds optional int32 source_revision=5 to Finance.GetAutomati
 
 
 Finance.ListFundHistory adds the Gateway-only read for API162 (114 RPCs total). It projects current-member audit metadata with microsecond pagination and no raw audit details. See [Finance history](finance-history.md); Finance V003 adds its index and readiness gate. Existing events remain unchanged.
+
+## Finance integration gaps: 12 November 2026
+
+Nine additive Finance RPCs bring the catalog to 123; events stay at 19. `DownloadExpenseReceipt` is a Gateway-only expense-scoped receipt read (30 s deadline) that never exposes the storage key. `AssignRefundVerifier` lets the Owner name an independent verifier for a refund paid to the Owner/Holder; `RefundView` gains optional `reversal_reason` and verifier/confirmation fields 16–22. `ListHolderHandovers`, `GetHolderHandover`, `CreateHolderHandover`, `AcceptHolderHandover`, `RefreshHolderHandover`, `ConfirmHolderHandover` and `CancelHolderHandover` implement the two-party [Holder handover](finance-holder-handover.md); `ConfirmContributionReceivedRequest` and `ResolvePaymentExceptionRequest` gain the optional `previous_holder_transfer_confirmed` flag for money that reached the former Holder. Finance V004 (verifier columns) and V005 (`fund_holder_handovers`) extend the readiness gate. REST contracts: [expenses](../api/finance-expenses.openapi.json), [refunds](../api/finance-refunds.openapi.json) and [holder handovers](../api/finance-handovers.openapi.json). These contracts describe the backend; Web/mobile integration and SRS baseline reconciliation (v1.2 versus v2.3 QD09) remain separate decisions.
+
+## VietQR thật và danh mục ngân hàng: 12 November 2026
+
+`PaymentInstruction` gains `bank_name` (12), `qr_payload` (13) and `qr_svg` (14); `qr_url` (9) stays for wire compatibility and is always empty because no outside image provider is used. `environment` is `LIVE`. No RPC, event or migration changes; the NAPAS payload builder/reader and the bank directory live in `@wolfari/common` and are served by the Gateway at `GET /api/v1/finance/banks` (REST inventory 121 entries). See [payment instructions](finance-payment-instructions.md).
+
+## Bank transfer webhook: 12 November 2026
+
+`Finance.ReceiveBankTransfer` (Gateway-only, after provider signature verification) and `Finance.ListBankTransfers` (Owner/Holder read) bring the catalog to 125 RPCs; events unchanged. Finance V006 adds `bank_transfer_receipts`. REST: `POST /api/v1/webhooks/bank/sepay`, `GET /api/v1/funds/{fundId}/bank-transfers` ([OpenAPI](../api/finance-bank-transfers.openapi.json)). See [bank transfers](finance-bank-transfers.md).
+
+## Dress code writes: 16 November 2026
+
+`Trip.CreateDressCode`, `Trip.UpdateDressCode` and `Trip.DeleteDressCode` (Gateway-only, API051–053) bring the catalog to 128 RPCs; `PlanUpdated` already carried `DRESS_CODE` changes, so events and migrations are unchanged. REST adds `GET|POST /api/v1/trips/{trip_id}/dress-codes` and `PATCH|DELETE /api/v1/trips/{trip_id}/dress-codes/{dress_code_id}`; the Plan response gains `capabilities.dress_codes_write`. See [trip-dress-codes.md](trip-dress-codes.md).

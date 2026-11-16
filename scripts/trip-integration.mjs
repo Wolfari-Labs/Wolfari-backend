@@ -5,6 +5,7 @@ import { runFinanceWriteTests } from './finance-write-integration.mjs';
 import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
 import { runLocationScenarios } from './locations-integration.mjs';
+import { runDressCodeScenarios } from './dress-code-integration.mjs';
 import { runDemo1Acceptance } from './demo1-acceptance.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
 import { runMembershipTests } from './trip-members-integration.mjs';
@@ -34,6 +35,8 @@ const instructionsOnly = process.argv.includes('--finance-instructions');
 const expensesOnly = process.argv.includes('--finance-expenses');
 const notesOnly = process.argv.includes('--finance-notes');
 const refundsOnly = process.argv.includes('--finance-refunds');
+const handoversOnly = process.argv.includes('--finance-handovers');
+const bankWebhookOnly = process.argv.includes('--finance-bank-webhook');
 const closuresOnly = process.argv.includes('--finance-closures');
 const paymentsOnly = process.argv.includes('--finance-payments');
 const lifecycleOnly = process.argv.includes('--finance-lifecycle');
@@ -50,6 +53,8 @@ const financeReadMode =
   expensesOnly ||
   notesOnly ||
   refundsOnly ||
+  handoversOnly ||
+  bankWebhookOnly ||
   closuresOnly ||
   paymentsOnly ||
   lifecycleOnly ||
@@ -225,6 +230,7 @@ const secrets = {
   TRAVEL_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   EXPORT_IDENTITY_SECRET: randomBytes(32).toString('hex'),
   GATEWAY_CSRF_KEY: randomBytes(32).toString('hex'),
+  BANK_WEBHOOK_SEPAY_SECRET: randomBytes(32).toString('hex'),
 };
 
 const password = 'Long-local-trip-test-password-42!';
@@ -454,6 +460,7 @@ async function main() {
     GATEWAY_CSRF_KEY: secrets.GATEWAY_CSRF_KEY,
     FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`,
     GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
+    BANK_WEBHOOK_SEPAY_SECRET: secrets.BANK_WEBHOOK_SEPAY_SECRET,
     WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
@@ -540,6 +547,7 @@ async function main() {
       pass,
       financeTarget: `127.0.0.1:${financePort}`,
       financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+      bankWebhookSecret: secrets.BANK_WEBHOOK_SEPAY_SECRET,
       whileTripStopped: async (work) => {
         await stop(tripProcess);
         try {
@@ -561,6 +569,7 @@ async function main() {
         actors: result.actors,
         financeTarget: `127.0.0.1:${financePort}`,
         financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+        bankWebhookSecret: secrets.BANK_WEBHOOK_SEPAY_SECRET,
         whileTripStopped: async (work) => {
           await stop(tripProcess);
           try {
@@ -623,11 +632,14 @@ async function main() {
       }
     }
     const writes = await runFinanceWriteTests({
+      bankWebhookSecret: secrets.BANK_WEBHOOK_SEPAY_SECRET,
       receiptsOnly,
       instructionsOnly,
       expensesOnly,
       notesOnly,
       refundsOnly,
+      handoversOnly,
+      bankWebhookOnly,
       closuresOnly,
       paymentsOnly,
       lifecycleOnly,
@@ -675,6 +687,7 @@ async function main() {
       actors: result.actors,
       financeTarget: `127.0.0.1:${financePort}`,
       financeSecret: secrets.GATEWAY_FINANCE_SECRET,
+      bankWebhookSecret: secrets.BANK_WEBHOOK_SEPAY_SECRET,
       whileTripStopped: async (work) => {
         await stop(tripProcess);
         try {
@@ -1796,6 +1809,14 @@ async function main() {
     tripBody,
     pass,
     users: { owner, member, editor: admin, outsider },
+  });
+  await runDressCodeScenarios({
+    request,
+    query,
+    bearer,
+    tripBody,
+    pass,
+    users: { owner, member, outsider },
   });
 
   await runLocationScenarios({request,query,bearer,tripBody,pass,owner,member,outsider,secret:tripValues.PLACE_SELECTION_SECRET});

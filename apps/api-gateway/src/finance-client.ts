@@ -16,10 +16,19 @@ export class FinanceClient {
   call(
     methodName:
       | 'ListFundHistory'
+      | 'ListHolderHandovers'
+      | 'GetHolderHandover'
+      | 'CreateHolderHandover'
+      | 'AcceptHolderHandover'
+      | 'RefreshHolderHandover'
+      | 'ConfirmHolderHandover'
+      | 'CancelHolderHandover'
       | 'CreatePaymentAttempt'
       | 'GetPaymentAttempt'
       | 'ReconcilePaymentAttempt'
       | 'ReceiveMomoWebhook'
+      | 'ReceiveBankTransfer'
+      | 'ListBankTransfers'
       | 'ListPaymentExceptions'
       | 'ResolvePaymentException'
       | 'ListClosures'
@@ -30,6 +39,7 @@ export class FinanceClient {
       | 'RemindClosure'
       | 'ListRefunds'
       | 'CreateRefund'
+      | 'AssignRefundVerifier'
       | 'ReportRefundPaid'
       | 'ConfirmRefundReceived'
       | 'ConfirmRefundNonreceipt'
@@ -99,7 +109,7 @@ export class FinanceClient {
     );
   }
   callFile(
-    methodName: 'UploadFinanceReceipt' | 'DownloadFinanceReceipt',
+    methodName: 'UploadFinanceReceipt' | 'DownloadFinanceReceipt' | 'DownloadExpenseReceipt',
     request: RpcMessage,
     correlation: string,
     signal: AbortSignal,

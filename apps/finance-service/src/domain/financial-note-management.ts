@@ -1,3 +1,4 @@
+import { fundNotOpenReason, type FinanceConflictReason } from '../finance.errors';
 import type { FundSetupContext } from './fund-setup';
 import type { FinancialNoteAction, FinancialNotePatch, FinancialNoteWrite } from '../inputs/financial-note.input';
 
@@ -9,17 +10,18 @@ export type FinancialNoteState = {
   version: number;
 };
 export class FinancialNoteRuleError extends Error {
-  constructor(public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT') { super(code); }
+  constructor(public readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT', public readonly reason?: FinanceConflictReason) { super(code); }
 }
 type Context = FundSetupContext & { financeVersion: number; fundStatus: string };
 function base(expected: number, context: Context) {
   if (expected !== context.financeVersion) throw new FinancialNoteRuleError('VERSION_CONFLICT');
-  if (context.fundStatus !== 'OPEN' || context.financeVersion === 2147483647) throw new FinancialNoteRuleError('STATE_CONFLICT');
+  if (context.fundStatus !== 'OPEN') throw new FinancialNoteRuleError('STATE_CONFLICT', fundNotOpenReason(context.fundStatus));
+  if (context.financeVersion === 2147483647) throw new FinancialNoteRuleError('STATE_CONFLICT');
   if (!context.activeMemberUserIds.has(context.actorUserId)) throw new FinancialNoteRuleError('PERMISSION_DENIED');
 }
 function validPayer(payer: string | null | undefined, context: Context) {
   if (payer !== undefined && payer !== null && !context.activeMemberUserIds.has(payer))
-    throw new FinancialNoteRuleError('STATE_CONFLICT');
+    throw new FinancialNoteRuleError('STATE_CONFLICT', 'MEMBER_NOT_ACTIVE');
 }
 export function assertCanCreateFinancialNote(body: FinancialNoteWrite, context: Context) {
   base(body.expectedFinanceVersion, context);

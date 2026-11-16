@@ -13,7 +13,7 @@ import {
 
 const configuration: FundDestination = Object.freeze({
   destinationType: 'VIETQR',
-  bankCode: 'TEST',
+  bankCode: 'VCB',
   accountNumber: '00123',
   accountName: 'TEST HOLDER',
   active: true,
@@ -140,7 +140,7 @@ describe('destination default and confirmation policy', () => {
     });
   });
   it.each([
-    { bankCode: 'OTHER' },
+    { bankCode: 'ACB' },
     { accountNumber: '00999' },
     { accountName: 'OTHER HOLDER' },
     { accountName: 'TEST HOLDER ' },
@@ -190,7 +190,7 @@ describe('destination default and confirmation policy', () => {
     { active: true },
     { isDefault: false },
     { destinationType: 'VIETQR' },
-    { bankCode: 'TEST', accountNumber: '00123', accountName: 'TEST HOLDER' },
+    { bankCode: 'VCB', accountNumber: '00123', accountName: 'TEST HOLDER' },
   ] satisfies DestinationPatch[])('makes unchanged values a no-op: %j', (patch) => {
     expect(edit(patch)).toMatchObject({
       changed: false,
@@ -228,7 +228,7 @@ describe('destination default and confirmation policy', () => {
       },
     };
     failsWith(
-      () => edit({ destinationType: 'VIETQR', bankCode: 'TEST' }, momo),
+      () => edit({ destinationType: 'VIETQR', bankCode: 'VCB' }, momo),
       'DESTINATION_TYPE_IMMUTABLE',
     );
     expect(state.configuration).toBe(configuration);

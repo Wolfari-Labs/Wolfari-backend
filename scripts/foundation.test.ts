@@ -16,6 +16,8 @@ describe('development configuration', () => {
       TRAVELPAYOUTS_TOKEN: ['automation-service'],
       PLACE_SELECTION_SECRET: ['trip-workspace-service', 'travel-intelligence-service'],
       GATEWAY_TRAVEL_SECRET: ['api-gateway', 'travel-intelligence-service'],
+      BANK_WEBHOOK_SEPAY_SECRET: ['api-gateway'],
+      BANK_WEBHOOK_SEPAY_API_KEY: ['api-gateway'],
     };
     for (const app of apps)
       for (const [key, names] of Object.entries(owners)) {
@@ -244,7 +246,7 @@ describe('development configuration', () => {
           : service === 'trip'
             ? ['V001', 'V002', 'V003', 'V004']
             : service === 'finance'
-              ? ['V001', 'V002', 'V003']
+              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
               : service === 'travel'
                 ? ['V001', 'V002']
                 : ['V001'],

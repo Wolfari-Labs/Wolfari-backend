@@ -15,7 +15,7 @@ const owner = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const holder = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const bank = Object.freeze({
   destination_type: 'VIETQR',
-  bank_code: 'TEST',
+  bank_code: 'VCB',
   account_number: '000123456',
   account_name: '  Nguyễn Văn A  ',
   is_default: true,
@@ -48,7 +48,7 @@ describe('API070 enable Fund input', () => {
       budgetAmount: null,
       destination: {
         destinationType: 'VIETQR',
-        bankCode: 'TEST',
+        bankCode: 'VCB',
         accountNumber: '000123456',
         accountName: '  Nguyễn Văn A  ',
         isDefault: true,
@@ -274,11 +274,29 @@ describe('DestinationWrite within enable', () => {
     }
   });
 
+  it('resolves bank_code through the NAPAS directory and normalizes account spacing', () => {
+    for (const bank_code of ['vcb', '970436'])
+      expect(
+        parseEnableFundInput({ ...enable, destination: { ...bank, bank_code } }).destination,
+      ).toMatchObject({ bankCode: 'VCB' });
+    expect(
+      parseEnableFundInput({
+        ...enable,
+        destination: { ...bank, account_number: ' 0001 2345 6 ' },
+      }).destination,
+    ).toMatchObject({ accountNumber: '000123456' });
+    for (const bank_code of ['TEST', 'Vietcombank', 'BNP HN', '', null, 7])
+      expect(() =>
+        parseEnableFundInput({ ...enable, destination: { ...bank, bank_code } }),
+      ).toThrow(new FundSetupInputError('destination.bank_code'));
+    for (const account_number of ['1'.repeat(20), 'số tài khoản', '', null, 7])
+      expect(() =>
+        parseEnableFundInput({ ...enable, destination: { ...bank, account_number } }),
+      ).toThrow(new FundSetupInputError('destination.account_number'));
+  });
+
   it.each([
-    { base: bank, key: 'bank_code', max: 30 },
-    { base: bank, key: 'account_number', max: 80 },
     { base: bank, key: 'account_name', max: 150 },
-    { base: momo, key: 'momo_phone', max: 30 },
   ])('validates destination $key without truncation or value disclosure', ({ base, key, max }) => {
     expect(() =>
       parseEnableFundInput({ ...enable, destination: { ...base, [key]: '😀'.repeat(max) } }),
@@ -370,5 +388,18 @@ describe('parsed commands still require domain checks', () => {
     expect(() => assertCanUpdateFundBudget(command, { ...trusted, fundStatus: 'CLOSED' })).toThrow(
       new FundSetupConflictError('FUND_NOT_OPEN'),
     );
+  });
+});
+
+describe('API070 MoMo phone format', () => {
+  it('stores the national form and reports the nested field on bad input', () => {
+    expect(
+      parseEnableFundInput({ ...enable, destination: { ...momo, momo_phone: '+84 912 345 678' } })
+        .destination,
+    ).toMatchObject({ momoPhone: '0912345678' });
+    for (const momo_phone of ['00111', '0123456789', '😀'.repeat(10)])
+      expect(() =>
+        parseEnableFundInput({ ...enable, destination: { ...momo, momo_phone } }),
+      ).toThrow(new FundSetupInputError('destination.momo_phone'));
   });
 });

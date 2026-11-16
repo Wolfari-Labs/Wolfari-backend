@@ -260,6 +260,18 @@ export class TripGrpcController implements TripV1.TripServiceController {
     return this.plans.setActivityCompletion(request, metadata);
   }
 
+  createDressCode(request: TripV1.CreateDressCodeRequest, metadata?: Metadata) {
+    return this.plans.createDressCode(request, metadata);
+  }
+
+  updateDressCode(request: TripV1.UpdateDressCodeRequest, metadata?: Metadata) {
+    return this.plans.updateDressCode(request, metadata);
+  }
+
+  deleteDressCode(request: TripV1.DeleteDressCodeRequest, metadata?: Metadata) {
+    return this.plans.deleteDressCode(request, metadata);
+  }
+
   private unimplemented(): never {
     throw new RpcException({ code: status.UNIMPLEMENTED, message: 'RPC is not implemented' });
   }

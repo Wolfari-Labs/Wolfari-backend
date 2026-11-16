@@ -35,6 +35,7 @@ describe('membership lifecycle finance rules', () => {
     { targetIsHolder: true },
     { fundStatus: 'CLOSING' },
     { closurePending: true },
+    { handoverPending: true },
     { hasTransferReported: true },
     { hasBlockingPayment: true },
     { hasBlockingRefund: true },

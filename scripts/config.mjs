@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(GEOAPIFY_|TRAVELPAYOUTS_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -135,6 +135,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_CSRF_KEY',
     'WEB_ORIGIN',
     'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
+    'BANK_WEBHOOK_SEPAY_SECRET',
+    'BANK_WEBHOOK_SEPAY_API_KEY',
   ];
   const automationKeys = [
     'PRICE_WATCH_PROVIDER',
@@ -165,6 +167,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   ];
   const financeKeys = [
     'FINANCE_OUTBOX_ENABLED',
+    'FINANCE_RECEIPT_CONCURRENCY',
     'RABBITMQ_URL',
     'AUTOMATION_FINANCE_SECRET',
     'MINIO_ENDPOINT',

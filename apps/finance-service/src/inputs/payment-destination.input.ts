@@ -1,3 +1,4 @@
+import { findVietQrBank, VIETQR_ACCOUNT } from '@wolfari/common';
 import {
   assertDestinationText,
   assertValidFundDestination,
@@ -61,12 +62,22 @@ function parseFields(body: Record<string, unknown>, prefix = ''): DestinationPat
   const result: Record<string, unknown> = {};
   for (const [key, target] of Object.entries(FIELD_MAP)) {
     if (!Object.hasOwn(body, key)) continue;
-    const value = body[key];
+    let value = body[key];
     if (key === 'destination_type') {
       if (value !== 'VIETQR' && value !== 'MOMO_SANDBOX') invalid(`${prefix}${key}`);
     } else if (key === 'active' || key === 'is_default') {
       if (typeof value !== 'boolean') invalid(`${prefix}${key}`);
     } else {
+      if (key === 'bank_code') {
+        // Accept the VietQR code in any letter case or the 6-digit BIN; store the canonical code.
+        const bank = findVietQrBank(typeof value === 'string' ? value.trim() : value);
+        if (!bank?.transfer_supported) invalid(`${prefix}${key}`);
+        value = bank!.code;
+      } else if (key === 'account_number') {
+        // Account numbers are often typed or pasted with grouping spaces.
+        if (typeof value === 'string') value = value.replace(/\s+/g, '');
+        if (typeof value !== 'string' || !VIETQR_ACCOUNT.test(value)) invalid(`${prefix}${key}`);
+      }
       try {
         assertDestinationText(value, `${prefix}${key}`, LENGTHS[key]);
       } catch (error) {
@@ -76,7 +87,23 @@ function parseFields(body: Record<string, unknown>, prefix = ''): DestinationPat
     }
     result[target] = value;
   }
+  if (typeof result.momoPhone === 'string') {
+    const phone = vietnameseMobile(result.momoPhone);
+    if (!phone) return invalid(`${prefix}momo_phone`);
+    result.momoPhone = phone;
+  }
   return result as DestinationPatch;
+}
+
+/**
+ * MoMo wallets are keyed by a Vietnamese mobile number. Accept common typed forms
+ * (spaces, dots, dashes, +84/84 prefix) and store the 10-digit national form 0XXXXXXXXX.
+ * Applies to new writes only; stored destinations are not re-validated.
+ */
+export function vietnameseMobile(value: string): string | null {
+  const digits = value.trim().replace(/[\s.-]/g, '');
+  const national = /^\+?84\d{9}$/.test(digits) ? `0${digits.replace(/^\+?84/, '')}` : digits;
+  return /^0[35789]\d{8}$/.test(national) ? national : null;
 }
 
 /** Shared DestinationWrite parser; API070 preserves its nested error paths. */

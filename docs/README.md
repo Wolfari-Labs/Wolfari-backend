@@ -32,6 +32,7 @@ Phụ lục sau baseline: [Demo 1 v1.0](architecture/demo-1-addendum-v1.0.md), [
 - [Identity](architecture/identity-phase1.md).
 - [Trip core](architecture/trip-core.md), [Plan access control](architecture/trip-plan-access-control.md) và [hướng dẫn tích hợp Planning](architecture/trip-plan-access-control-handoff.md).
 - [Invitations và vận hành email](architecture/trip-invitations.md).
+- [Dress code writes](architecture/trip-dress-codes.md): API050–053 từ main; không đồng nghĩa Web đã có UI ghi.
 - [Membership lifecycle](architecture/trip-member-lifecycle.md) và [runbook recovery/tích hợp](architecture/trip-member-lifecycle-handoff.md).
 
 ### Finance
@@ -39,6 +40,7 @@ Phụ lục sau baseline: [Demo 1 v1.0](architecture/demo-1-addendum-v1.0.md), [
 - [Tổng quan service](../apps/finance-service/README.md), [Fund setup](architecture/finance-fund-setup.md).
 - [Contribution requests/reads/management](architecture/finance-contribution-requests.md), [manual contributions](architecture/finance-manual-contributions.md), [reversal](architecture/finance-contribution-reversal.md).
 - [Payment instructions](architecture/finance-payment-instructions.md), [payments](architecture/finance-payments.md), [receipts](architecture/finance-receipts.md).
+- [Holder handover](architecture/finance-holder-handover.md), [bank transfers/webhook](architecture/finance-bank-transfers.md). SePay thật chưa được nghiệm thu; không tự bật credential ở trial.
 - [Expenses](architecture/finance-expenses.md), [financial notes](architecture/finance-notes.md), [refunds](architecture/finance-refunds.md).
 - [Closures](architecture/finance-closures.md), [membership obligations](architecture/finance-member-lifecycle.md), [history](architecture/finance-history.md).
 - [Automation context](architecture/finance-automation-context.md), [outbox](architecture/finance-outbox.md), [notification inbox](architecture/finance-notification-inbox.md).

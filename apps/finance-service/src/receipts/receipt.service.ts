@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHash, randomUUID } from 'node:crypto';
 import { FundQueryService } from '../application/fund-query.service';
 import { FinanceReadError, readUuid } from '../finance.errors';
@@ -6,9 +7,20 @@ import { ReceiptRepository } from './receipt.repository';
 import { ReceiptStorage } from './receipt-storage';
 import { RECEIPT_KEY, validateReceipt } from './receipt-validation';
 
+/** Concurrent receipt operations per pool; FINANCE_RECEIPT_CONCURRENCY overrides (1–64). */
+export const DEFAULT_RECEIPT_CONCURRENCY = 8;
+export function receiptConcurrency(value: unknown): number {
+  const parsed = typeof value === 'string' && /^\d{1,2}$/.test(value.trim()) ? Number(value) : NaN;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 64
+    ? parsed
+    : DEFAULT_RECEIPT_CONCURRENCY;
+}
+
 @Injectable()
 export class ReceiptService {
-  private active = 0;
+  // Separate pools: slow uploads/downloads must not starve attachment checks inside commands.
+  private readonly active = { transfer: 0, attach: 0 };
+  private readonly limit: number;
   private cleaning = false;
   private timer?: NodeJS.Timeout;
   private readonly logger = new Logger('ReceiptService');
@@ -16,14 +28,17 @@ export class ReceiptService {
     private readonly auth: FundQueryService,
     private readonly files: ReceiptRepository,
     private readonly storage: ReceiptStorage,
-  ) {}
-  private async bounded<T>(work: () => Promise<T>) {
-    if (this.active >= 2) throw new FinanceReadError('SERVICE_UNAVAILABLE');
-    this.active++;
+    @Optional() config?: ConfigService,
+  ) {
+    this.limit = receiptConcurrency(config?.get<string>('FINANCE_RECEIPT_CONCURRENCY'));
+  }
+  private async bounded<T>(work: () => Promise<T>, pool: 'transfer' | 'attach' = 'transfer') {
+    if (this.active[pool] >= this.limit) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+    this.active[pool]++;
     try {
       return await work();
     } finally {
-      this.active--;
+      this.active[pool]--;
     }
   }
   upload(
@@ -115,6 +130,60 @@ export class ReceiptService {
       this.cleaning = false;
     }
   }
+
+  downloadExpense(
+    input: { expense_id?: string; actor_user_id?: string },
+    correlation: string,
+    deadline: number,
+    signal: AbortSignal = new AbortController().signal,
+  ) {
+    return this.bounded(async () => {
+      if (signal.aborted || Date.now() >= deadline)
+        throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      const expenseId = readUuid(input.expense_id),
+        actor = readUuid(input.actor_user_id);
+      const fund = await this.files.expenseFund(expenseId);
+      await this.auth.authorizeFundRead(
+        fund,
+        actor,
+        correlation,
+        Math.min(deadline, Date.now() + 1800),
+      );
+      const file = await this.files.readableExpense(fund, expenseId);
+      let content: Buffer;
+      try {
+        content = await this.storage.withSignal(signal, () => this.storage.read(file));
+      } catch (error) {
+        // A READY, bound attachment whose object is gone is lost data: hide it from the member
+        // but record it (without the storage key). Bucket/connectivity failures stay retryable 503.
+        if (['NoSuchKey', 'NoSuchObject'].includes(String((error as { code?: unknown })?.code))) {
+          this.logger.warn(
+            `EXPENSE_RECEIPT_OBJECT_MISSING expense=${expenseId} fund=${fund} correlation=${correlation}`,
+          );
+          throw new FinanceReadError('RESOURCE_NOT_FOUND');
+        }
+        throw error;
+      }
+      if (signal.aborted || Date.now() >= deadline)
+        throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      await this.auth.authorizeFundRead(
+        fund,
+        actor,
+        correlation,
+        Math.min(deadline, Date.now() + 1800),
+      );
+      // Storage IO is outside the database transaction: recheck replacement/deletion before serving.
+      const current = await this.files.readableExpense(fund, expenseId);
+      if (current.object_key !== file.object_key) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+      return {
+        expense_id: expenseId,
+        fund_id: fund,
+        mime_type: file.mime_type,
+        size_bytes: file.size_bytes,
+        content,
+      };
+    });
+  }
   /** Internal preflight for business writers, before their SQL transaction.
    * Does not replace the business Trip guard or bind's locked state/ownership check.
    */
@@ -147,7 +216,7 @@ export class ReceiptService {
       await this.storage.withSignal(signal, () => this.storage.verify(file));
       if (signal.aborted) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return file;
-    });
+    }, 'attach');
   }
   onModuleInit() {
     this.timer = setInterval(

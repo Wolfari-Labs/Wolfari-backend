@@ -1644,8 +1644,8 @@
     "/api/v1/contributions/{contribution_id}/vietqr": {
       "get": {
         "operationId": "getPaymentInstruction",
-        "summary": "API086 Self TEST VietQR instruction",
-        "description": "Only PENDING, OPEN Fund/request, active Trip/membership and explicit unlocked closure context. Owner/Holder have no Self override. No writes. Existing downloaded QR cannot be revoked. MoMo is unsupported here. UI must show TEST/warning and load images with no-referrer. TEST is not a bank sandbox: never use real accounts for demonstrations.",
+        "summary": "API086 Self VietQR transfer instruction",
+        "description": "Only PENDING, OPEN Fund/request, active Trip/membership and explicit unlocked closure context. Owner/Holder have no Self override. No writes and no outside provider: Finance generates the NAPAS VietQR payload and its SVG from the destination snapshot of this contribution. A bank app scanning the QR prepares a real transfer to the Holder; Wolfari never sees the money move, so the member still reports the transfer and the Holder confirms it. MoMo destinations and banks outside the NAPAS transfer directory return 409.",
         "parameters": [
           {
             "name": "contribution_id",
@@ -1709,7 +1709,7 @@
             }
           },
           "200": {
-            "description": "Private TEST instruction; showing a QR does not prove payment.",
+            "description": "Private instruction; showing or scanning the QR does not prove payment.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -1882,6 +1882,13 @@
               "details": {
                 "type": "object",
                 "nullable": true,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": ["FUND_NOT_OPEN", "CLOSURE_PENDING", "FUND_ALREADY_EXISTS", "HOLDER_NOT_ACTIVE", "MEMBER_NOT_ACTIVE", "TRIP_ARCHIVED", "INSUFFICIENT_AVAILABLE_BALANCE", "HANDOVER_IN_PROGRESS", "INVALID_TRANSITION"],
+                    "description": "Optional sub-reason for 409 STATE_CONFLICT; the HTTP status and code are unchanged. Clients must treat an absent or unrecognized reason as a generic conflict."
+                  }
+                },
                 "additionalProperties": {
                   "type": "integer"
                 }
@@ -2232,11 +2239,12 @@
           "due_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Explicit offset and seconds, up to 9 fractional digits accepted, stored at millisecond precision. Metadata only; no automatic debit or cancellation."
+            "description": "Explicit offset and seconds, up to 9 fractional digits accepted, stored at millisecond precision. A new request may not be already overdue (more than 5 minutes before server time); an idempotent replay returns the stored result. Metadata only; no automatic debit or cancellation."
           },
           "note": {
             "type": "string",
-            "description": "May be empty, may not contain NUL. Omit to represent no note; explicit null rejected."
+            "maxLength": 2000,
+            "description": "May be empty, may not contain NUL, at most 2000 Unicode code points. Omit to represent no note; explicit null rejected."
           },
           "expected_finance_version": {
             "type": "integer",
@@ -2274,7 +2282,8 @@
           },
           "note": {
             "type": "string",
-            "description": "Omit to retain existing note; empty string accepted, null/NUL rejected."
+            "maxLength": 2000,
+            "description": "Omit to retain existing note; empty string accepted, null/NUL rejected, at most 2000 Unicode code points."
           },
           "expected_version": {
             "type": "integer",
@@ -2351,7 +2360,8 @@
           },
           "evidence_object_key": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 1024
           }
         }
       },
@@ -2360,6 +2370,11 @@
         "additionalProperties": false,
         "required": ["expected_version", "expected_finance_version"],
         "properties": {
+          "previous_holder_transfer_confirmed": {
+            "type": "boolean",
+            "enum": [true],
+            "description": "Required as true when the immutable contribution destination belongs to a previous Holder. Only the current Holder may attest that the previous Holder transferred the money to them. Omit for unchanged Holder. False and non-boolean values are rejected; this assertion is audited."
+          },
           "expected_version": {
             "type": "integer",
             "minimum": 1,
@@ -2390,6 +2405,7 @@
           "reason": {
             "type": "string",
             "minLength": 1,
+            "maxLength": 1024,
             "pattern": "\\S"
           }
         }
@@ -2405,8 +2421,10 @@
           "recipient_name",
           "bank_code",
           "bank_bin",
+          "bank_name",
           "account_number",
-          "qr_url",
+          "qr_payload",
+          "qr_svg",
           "environment",
           "warning"
         ],
@@ -2425,32 +2443,50 @@
           },
           "reference": {
             "type": "string",
-            "pattern": "^[A-Z0-9]{25}$"
+            "pattern": "^[A-Z0-9]{25}$",
+            "description": "Transfer content (addInfo) the bank statement will show; derived from the contribution ID."
           },
           "recipient_name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 150
           },
           "bank_code": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9 -]{0,29}$",
+            "description": "Canonical VietQR code from GET /api/v1/finance/banks."
           },
           "bank_bin": {
             "type": "string",
             "pattern": "^[0-9]{6}$"
           },
+          "bank_name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Short display name of the bank."
+          },
           "account_number": {
             "type": "string",
             "pattern": "^[A-Za-z0-9]{1,19}$"
           },
-          "qr_url": {
+          "qr_payload": {
             "type": "string",
-            "format": "uri"
+            "pattern": "^000201[\\x20-\\x7e]{20,500}6304[0-9A-F]{4}$",
+            "description": "NAPAS VietQR QRIBFTTA payload with CRC-16/CCITT-FALSE; encodes exactly bank_bin, account_number, amount and reference. A bank app scanning it prepares a real transfer."
+          },
+          "qr_svg": {
+            "type": "string",
+            "maxLength": 65536,
+            "pattern": "^<svg [^<]*><rect [^<]*/><path [^<]*/></svg>$",
+            "description": "Self-contained SVG of the QR (one rect, one path; no scripts, text or external references). Embed as an image."
           },
           "environment": {
             "type": "string",
-            "enum": ["TEST"]
+            "enum": ["LIVE"],
+            "description": "Real bank account of the Holder: scanning transfers real money."
           },
           "warning": {
-            "type": "string"
+            "type": "string",
+            "description": "Vietnamese notice to show next to the QR."
           }
         }
       }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { CorrelationMiddleware } from '@wolfari/common';
+import { buildVietQrPayload, CorrelationMiddleware } from '@wolfari/common';
 import { FinanceProxy, projectDestination, projectFund } from './finance-proxy';
 import { projectLedgerPage } from './ledger-projection';
 
@@ -640,9 +640,28 @@ describe('Contribution management Gateway', () => {
 describe('Manual contribution Gateway', () => {
   const headers = { 'content-type': 'application/json', 'idempotency-key': id };
   const versions = { expected_version: 1, expected_finance_version: 2 };
+  it.each([false, 'true', 1, null])(
+    'rejects non-affirmative previous Holder attestation %j before RPC',
+    async (flag) => {
+      const s = setup();
+      const result = await s.invoke(`/api/v1/contributions/${id}/confirm-received`, {
+        method: 'POST',
+        headers,
+        body: { ...versions, previous_holder_transfer_confirmed: flag },
+      });
+      expect(result.code).toBe(400);
+      expect(s.client.call).not.toHaveBeenCalled();
+    },
+  );
   it.each([
     ['report-transfer', 'ReportContributionTransfer', 'TRANSFER_REPORTED', {}],
     ['confirm-received', 'ConfirmContributionReceived', 'CONFIRMED', {}],
+    [
+      'confirm-received',
+      'ConfirmContributionReceived',
+      'CONFIRMED',
+      { previous_holder_transfer_confirmed: true },
+    ],
     ['reject-transfer', 'RejectContributionTransfer', 'PENDING', { reason: 'not received' }],
     ['reverse', 'ReverseContribution', 'REVERSED', { reason: 'recorded twice' }],
   ] as const)(
@@ -672,7 +691,12 @@ describe('Manual contribution Gateway', () => {
       expect(JSON.stringify(r.body)).not.toContain('PRIVATE');
       expect(s.client.call).toHaveBeenCalledWith(
         rpc,
-        expect.objectContaining({ actor_user_id: actor, contribution_id: id, operation_id: id }),
+        expect.objectContaining({
+          actor_user_id: actor,
+          contribution_id: id,
+          operation_id: id,
+          ...fields,
+        }),
         expect.any(String),
       );
     },
@@ -695,21 +719,81 @@ describe('Manual contribution Gateway', () => {
 });
 
 describe('Payment instruction Gateway', () => {
+  it('forwards only literal true previous-holder acknowledgement when resolving a linked payment', async () => {
+    const s = setup();
+    const body = {
+      resolution: 'LINKED',
+      linked_attempt_id: id,
+      reason: 'Previous Holder transferred the money',
+      expected_finance_version: 2,
+    };
+    const options = {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': id },
+    };
+    for (const flag of [false, 'true', 1, null]) {
+      expect(
+        (
+          await s.invoke(`/api/v1/payment-exceptions/${id}/resolve`, {
+            ...options,
+            body: { ...body, previous_holder_transfer_confirmed: flag },
+          })
+        ).code,
+      ).toBe(400);
+    }
+    expect(s.client.call).not.toHaveBeenCalled();
+    s.client.call.mockResolvedValue({
+      payment_exception: {
+        id,
+        payment_attempt_id: id,
+        processing_status: 'PROCESSED',
+        review_reason: 'Holder verified previous transfer',
+        received_at: { seconds: '1', nanos: 0 },
+      },
+    } as never);
+    expect(
+      (
+        await s.invoke(`/api/v1/payment-exceptions/${id}/resolve`, {
+          ...options,
+          body: { ...body, previous_holder_transfer_confirmed: true },
+        })
+      ).code,
+    ).toBe(200);
+    expect(s.client.call).toHaveBeenCalledWith(
+      'ResolvePaymentException',
+      expect.objectContaining({
+        previous_holder_transfer_confirmed: true,
+        actor_user_id: actor,
+        reason: body.reason,
+      }),
+      expect.any(String),
+    );
+  });
   it('routes an authenticated read, rejects query injection and keeps private headers', async () => {
     const s = setup();
+    const reference = '0000000000000000000000001';
+    const qr_payload = buildVietQrPayload({
+      bankBin: '970436',
+      accountNumber: '000123',
+      amount: '300000',
+      addInfo: reference,
+    });
     const data = {
       contribution_id: id,
       amount: '300000',
       currency: 'VND',
-      reference: '0000000000000000000000001',
-      recipient_name: 'TEST',
+      reference,
+      recipient_name: 'NGUYEN VAN A',
       bank_code: 'VCB',
       bank_bin: '970436',
+      bank_name: 'Vietcombank',
       account_number: '000123',
-      environment: 'TEST',
-      warning: 'TEST ONLY',
-      qr_url:
-        'https://img.vietqr.io/image/970436-000123-compact2.svg?amount=300000&addInfo=0000000000000000000000001&accountName=TEST',
+      qr_payload,
+      // Shape-valid stand-in for Finance's rendering; the projection checks shape, not content.
+      qr_svg:
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29" shape-rendering="crispEdges" role="img" aria-label="VietQR"><rect width="29" height="29" fill="#ffffff"/><path d="M4 4h7v1h-7z" fill="#000000"/></svg>',
+      environment: 'LIVE',
+      warning: 'Quét mã bằng ứng dụng ngân hàng.',
     };
     s.client.call.mockResolvedValue({ instruction: { ...data, evidence_object_key: 'hidden' } });
     const path = `/api/v1/contributions/${id}/vietqr`;
@@ -727,7 +811,50 @@ describe('Payment instruction Gateway', () => {
     expect((await s.invoke(path + '?actor_user_id=' + id)).code).toBe(400);
     expect((await s.invoke(path, { method: 'POST' })).code).toBe(404);
     expect(s.client.call).toHaveBeenCalledTimes(1);
-    s.client.call.mockResolvedValue({ instruction: { ...data, qr_url: 'https://evil.test' } });
+    s.client.call.mockResolvedValue({
+      instruction: { ...data, qr_payload: qr_payload.replace('5406300000', '5406300001') },
+    });
     expect((await s.invoke(path)).code).toBe(503);
+  });
+});
+
+describe('Empty Finance lists (proto omits empty repeated fields)', () => {
+  it.each([
+    ['expenses', 'ListExpenses'],
+    ['refunds', 'ListRefunds'],
+    ['closures', 'ListClosures'],
+    ['holder-handovers', 'ListHolderHandovers'],
+    ['payment-exceptions', 'ListPaymentExceptions'],
+  ])('GET /funds/{id}/%s returns 200 with no rows instead of 503', async (endpoint, method) => {
+    const s = setup();
+    s.client.call.mockImplementation(async (name: string) => (name === method ? {} : { fund }));
+    const r = await s.invoke(`/api/v1/funds/${id}/${endpoint}`);
+    expect(r.code).toBe(200);
+    expect(r.body).toMatchObject({ data: { items: [] } });
+  });
+});
+
+describe('Bank directory Gateway', () => {
+  it('serves transfer-capable NAPAS banks to any session without touching Finance', async () => {
+    const s = setup();
+    const result = await s.invoke('/api/v1/finance/banks');
+    expect(result.code).toBe(200);
+    const items = (
+      result.body as {
+        data: { items: { code: string; bin: string; name: string; short_name: string }[] };
+      }
+    ).data.items;
+    const vcb = items.find((bank) => bank.code === 'VCB');
+    expect(vcb).toMatchObject({ code: 'VCB', bin: '970436', short_name: 'Vietcombank' });
+    expect(vcb?.name).toMatch(/Ngoại Thương/u);
+    expect(items.length).toBeGreaterThan(40);
+    expect(
+      items.every(
+        (bank) => /^\d{6}$/.test(bank.bin) && Object.keys(bank).length === 4 && bank.name.length,
+      ),
+    ).toBe(true);
+    expect(s.client.call).not.toHaveBeenCalled();
+    expect((await s.invoke('/api/v1/finance/banks?x=1')).code).toBe(400);
+    expect((await s.invoke('/api/v1/finance/banks', { method: 'POST' })).code).toBe(404);
   });
 });

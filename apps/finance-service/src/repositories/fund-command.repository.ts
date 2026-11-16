@@ -25,7 +25,13 @@ import {
   PaymentDestinationValidationError,
   type DestinationVersions,
 } from '../domain/payment-destination-management';
-import { FinanceReadError, type FinanceReadErrorCode, readUuid } from '../finance.errors';
+import {
+  FinanceReadError,
+  type FinanceConflictReason,
+  type FinanceReadErrorCode,
+  isFinanceConflictReason,
+  readUuid,
+} from '../finance.errors';
 import { destinationResponse, fundResponse } from '../projections/fund-response';
 import { FundRepository } from './fund.repository';
 import type { DestinationListRow } from './payment-destination-query.repository';
@@ -83,6 +89,8 @@ import {
   type PaymentWriteCommand,
 } from './payment.repository';
 import { PaymentRuleError } from '../domain/payment-management';
+import { HandoverRepository, isHandoverWrite, type HandoverWriteCommand } from './handover.repository';
+import { handoverScopes } from '../domain/handover-management';
 
 export type FundWrite = {
   operationId: string;
@@ -91,6 +99,7 @@ export type FundWrite = {
   hash: string;
 } & (
   | ManualWrite
+  | HandoverWriteCommand
   | ContributionReversalWrite
   | ExpenseWriteCommand
   | FinancialNoteWriteCommand
@@ -119,6 +128,8 @@ export type StoredResult = {
   version: 1;
   tripId: string;
   error?: FinanceReadErrorCode;
+  /** Optional STATE_CONFLICT sub-reason, replayed with the stored rejection. */
+  reason?: FinanceConflictReason;
   fund?: FinanceV1.FundView;
   destination?: FinanceV1.PaymentDestinationView;
   contributionRequest?: FinanceV1.ContributionRequestView;
@@ -126,6 +137,7 @@ export type StoredResult = {
   expense?: FinanceV1.ExpenseView;
   financialNote?: FinanceV1.FinancialNoteView;
   refund?: FinanceV1.RefundView;
+  handover?: FinanceV1.HolderHandoverView;
   closure?: FinanceV1.ClosureView;
   paymentAttempt?: FinanceV1.PaymentAttemptView;
   paymentException?: FinanceV1.PaymentExceptionView;
@@ -144,6 +156,7 @@ export type FundReceipt = {
 type Client = Pick<DatabaseProvider, 'query'>;
 export const fundCommandScope = (value: string) =>
   [
+    ...handoverScopes,
     'REPORT_TRANSFER',
     'CONFIRM_RECEIVED',
     'REJECT_TRANSFER',
@@ -160,6 +173,7 @@ export const fundCommandScope = (value: string) =>
     'UPDATE_FINANCIAL_NOTE',
     'DELETE_FINANCIAL_NOTE',
     'CREATE_REFUND',
+    'ASSIGN_REFUND_VERIFIER',
     'REPORT_REFUND_PAID',
     'CONFIRM_REFUND_RECEIVED',
     'CONFIRM_REFUND_NONRECEIPT',
@@ -232,8 +246,8 @@ export function receiptView(row: FundReceipt): CommonV1.Receipt {
   };
 }
 function domainError(error: unknown): FinanceReadError | undefined {
-  if (error instanceof PaymentRuleError) return new FinanceReadError(error.code);
-  if (error instanceof ClosureRuleError) return new FinanceReadError(error.code);
+  if (error instanceof PaymentRuleError) return new FinanceReadError(error.code, error.reason);
+  if (error instanceof ClosureRuleError) return new FinanceReadError(error.code, error.reason);
   const refund = mapRefundRuleError(error);
   if (refund) return refund;
   const note = mapFinancialNoteRuleError(error);
@@ -244,16 +258,17 @@ function domainError(error: unknown): FinanceReadError | undefined {
     return new FinanceReadError('STATE_CONFLICT');
   if (error instanceof ContributionVersionConflictError)
     return new FinanceReadError('VERSION_CONFLICT');
-  if (error instanceof ContributionManagementError) return new FinanceReadError(error.code);
+  if (error instanceof ContributionManagementError)
+    return new FinanceReadError(error.code, error.reason);
   if (error instanceof FinanceReadError) return error;
   if (error instanceof ContributionPermissionDeniedError)
     return new FinanceReadError('PERMISSION_DENIED');
   if (error instanceof InvalidContributionRequestError)
     return new FinanceReadError('VALIDATION_FAILED');
   if (error instanceof ContributionRequestCreationConflictError)
-    return new FinanceReadError(
-      error.code === 'FINANCE_VERSION_CONFLICT' ? 'VERSION_CONFLICT' : 'STATE_CONFLICT',
-    );
+    return error.code === 'FINANCE_VERSION_CONFLICT'
+      ? new FinanceReadError('VERSION_CONFLICT')
+      : new FinanceReadError('STATE_CONFLICT', 'FUND_NOT_OPEN');
   if (
     error instanceof FundSetupPermissionDeniedError ||
     error instanceof PaymentDestinationPermissionError
@@ -265,9 +280,12 @@ function domainError(error: unknown): FinanceReadError | undefined {
   )
     return new FinanceReadError('VALIDATION_FAILED');
   if (error instanceof FundSetupConflictError || error instanceof PaymentDestinationConflictError)
-    return new FinanceReadError(
-      error.code.endsWith('VERSION_CONFLICT') ? 'VERSION_CONFLICT' : 'STATE_CONFLICT',
-    );
+    return error.code.endsWith('VERSION_CONFLICT')
+      ? new FinanceReadError('VERSION_CONFLICT')
+      : new FinanceReadError(
+          'STATE_CONFLICT',
+          isFinanceConflictReason(error.code) ? error.code : undefined,
+        );
   return undefined;
 }
 
@@ -467,6 +485,8 @@ export class FundCommandRepository {
             authority,
             correlation,
           );
+        } else if (isHandoverWrite(input)) {
+          response = await new HandoverRepository(client).execute(client,input,authority,correlation);
         } else if (isRefundWrite(input)) {
           response = await new RefundRepository(client).execute(
             client,
@@ -588,6 +608,7 @@ export class FundCommandRepository {
           version: 1,
           tripId: input.tripId,
           error: mapped.code,
+          ...(mapped.reason ? { reason: mapped.reason } : {}),
         });
       }
     });

@@ -1,4 +1,5 @@
 import { DatabaseProvider } from '@wolfari/database';
+import { assertNoHandover } from './handover-guards';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { FundSetupContext } from '../domain/fund-setup';
 import {
@@ -172,6 +173,14 @@ export class ExpenseRepository {
       )
     ).rows[0];
     if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    if (
+      input.scope === 'CREATE_EXPENSE' ||
+      input.scope === 'SUBMIT_EXPENSE' ||
+      (input.scope === 'UPDATE_EXPENSE' &&
+        'amount' in input.body &&
+        input.body.amount !== undefined)
+    )
+      await assertNoHandover(client, input.fundId, true);
     const context = {
       ...authority,
       financeVersion: fund.finance_version,
@@ -319,8 +328,9 @@ export class ExpenseRepository {
             BigInt(row.amount),
           );
         } catch (error) {
-          if (error instanceof InsufficientAvailableBalanceError || error instanceof RangeError)
-            throw new FinanceReadError('STATE_CONFLICT');
+          if (error instanceof InsufficientAvailableBalanceError)
+            throw new FinanceReadError('STATE_CONFLICT', 'INSUFFICIENT_AVAILABLE_BALANCE');
+          if (error instanceof RangeError) throw new FinanceReadError('STATE_CONFLICT');
           throw error;
         }
         const sequence = await nextLedgerSequence(client, input.fundId);
@@ -404,11 +414,9 @@ export class ExpenseRepository {
           );
           balanceAfter = effect.balanceAfter;
         } catch (error) {
-          if (
-            error instanceof LedgerReversalNotAllowedError ||
-            error instanceof InsufficientAvailableBalanceError ||
-            error instanceof RangeError
-          )
+          if (error instanceof InsufficientAvailableBalanceError)
+            throw new FinanceReadError('STATE_CONFLICT', 'INSUFFICIENT_AVAILABLE_BALANCE');
+          if (error instanceof LedgerReversalNotAllowedError || error instanceof RangeError)
             throw new FinanceReadError('STATE_CONFLICT');
           throw error;
         }
@@ -484,5 +492,7 @@ export class ExpenseRepository {
 }
 
 export function mapExpenseRuleError(error: unknown) {
-  return error instanceof ExpenseRuleError ? new FinanceReadError(error.code) : undefined;
+  return error instanceof ExpenseRuleError
+    ? new FinanceReadError(error.code, error.reason)
+    : undefined;
 }

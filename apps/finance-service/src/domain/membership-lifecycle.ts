@@ -4,6 +4,7 @@ export type MembershipLifecycleFacts = Readonly<{
   fundStatus: string;
   targetIsHolder: boolean;
   closurePending: boolean;
+  handoverPending?: boolean;
   hasTransferReported: boolean;
   hasBlockingPayment: boolean;
   hasBlockingRefund: boolean;
@@ -35,6 +36,7 @@ export function planMembershipLifecycle(facts: MembershipLifecycleFacts): Member
     !knownFundStatus ||
     facts.fundStatus === 'CLOSING' ||
     facts.closurePending ||
+    Boolean(facts.handoverPending) ||
     (facts.targetIsHolder && facts.fundStatus !== 'CLOSED') ||
     facts.hasTransferReported ||
     facts.hasBlockingPayment ||

@@ -300,8 +300,9 @@ export async function handleClosure(
         auth.correlationId,
       );
       if (list) {
-        if (!Array.isArray(result.items)) throw new Error('Invalid closure list');
-        const items = result.items.map(projectClosure);
+        const rawItems = result.items ?? [];
+        if (!Array.isArray(rawItems)) throw new Error('Invalid closure list');
+        const items = rawItems.map(projectClosure);
         if (items.some((item) => item.fund_id !== id)) throw new Error('Closure scope mismatch');
         return json(response, 200, {
           data: { items, next_cursor: result.next_cursor ?? null },
