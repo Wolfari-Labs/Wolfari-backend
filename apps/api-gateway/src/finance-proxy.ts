@@ -1,5 +1,7 @@
 import { handlePaymentInstruction } from './payment-instruction-http';
+import { bankRoute, handleBankTransfers, handleBankWebhook } from './bank-webhook-http';
 import { handoverRoute, handleHandover } from './handover-http';
+import { BANK_DIRECTORY_PATH, handleBankDirectory } from './bank-directory-http';
 import { expenseRoute, handleExpense } from './expense-http';
 import { financialNoteRoute, handleFinancialNote } from './financial-note-http';
 import { refundRoute, handleRefund } from './refund-http';
@@ -137,9 +139,11 @@ export class FinanceProxy {
   matches(request: Request) {
     const path = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname;
     return (
+      path === BANK_DIRECTORY_PATH ||
       /^\/api\/v1\/trips\/[^/]+\/fund(?:\/|$)/.test(path) ||
       /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path) ||
       /^\/api\/v1\/(?:payment-attempts|payment-exceptions|webhooks\/momo)(?:\/|$)/.test(path) ||
+      /^\/api\/v1\/webhooks\/bank\/[^/]+$/.test(path) ||
       /^\/api\/v1\/expenses(?:\/|$)/.test(path) ||
       /^\/api\/v1\/notes(?:\/|$)/.test(path) ||
       /^\/api\/v1\/refunds(?:\/|$)/.test(path) ||
@@ -152,6 +156,8 @@ export class FinanceProxy {
     const handover = handoverRoute(url.pathname);
     if (handover)
       return handleHandover(request, response, url, handover, this.validateSession, this.client);
+    if (url.pathname === BANK_DIRECTORY_PATH)
+      return handleBankDirectory(request, response, url, this.validateSession);
     const history = /^\/api\/v1\/funds\/([^/]+)\/history$/.exec(url.pathname);
     if (history)
       return handleFinanceHistory(
@@ -162,6 +168,18 @@ export class FinanceProxy {
         this.validateSession,
         this.client,
       );
+    const bank = bankRoute(url.pathname);
+    if (bank)
+      return bank.kind === 'webhook'
+        ? handleBankWebhook(request, response, url, this.client)
+        : handleBankTransfers(
+            request,
+            response,
+            url,
+            bank.fundId,
+            this.validateSession,
+            this.client,
+          );
     const payment = paymentRoute(url.pathname);
     if (payment)
       return handlePayment(request, response, url, payment, this.validateSession, this.client);

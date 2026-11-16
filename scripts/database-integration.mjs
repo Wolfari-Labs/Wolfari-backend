@@ -478,7 +478,7 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 4, 19, 14];
+  const counts = [8, 18, 4, 20, 14];
   let fks = 0;
   for (const [index, service] of services.entries())
     await db(service, async (client) => {
@@ -499,24 +499,39 @@ async function main() {
           : service === 'trip'
             ? ['V001', 'V002', 'V003']
             : service === 'finance'
-              ? ['V001', 'V002', 'V003', 'V004', 'V005']
+              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
               : ['V001'],
       );
     });
-  assert.equal(fks, 53);
-  pass('58 bảng mô hình + 5 lịch sử, 53 FK');
+  assert.equal(fks, 55);
+  pass('59 bảng mô hình + 5 lịch sử, 55 FK');
   await db('finance', async (client) => {
     await client.query(
-      await readFile(resolve(root, 'apps/finance-service/tests/database/V004_constraints.sql'), 'utf8'),
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V004_constraints.sql'),
+        'utf8',
+      ),
     );
   });
   pass('Finance V004 verifier assignment and confirmation constraints');
   await db('finance', async (client) => {
     await client.query(
-      await readFile(resolve(root, 'apps/finance-service/tests/database/V005_constraints.sql'), 'utf8'),
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V005_constraints.sql'),
+        'utf8',
+      ),
     );
   });
   pass('Finance V005 handover active uniqueness, snapshots and two-party confirmation constraints');
+  await db('finance', async (client) => {
+    await client.query(
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V006_constraints.sql'),
+        'utf8',
+      ),
+    );
+  });
+  pass('Finance V006 bank transfer receipt uniqueness, status and contribution constraints');
   await db('trip', async (client) => {
     await client.query(
       await readFile(
@@ -716,15 +731,20 @@ async function main() {
     'ready',
   );
   pass('Trip day-only scheduling requires V003; legacy rows retain NULL dates');
-  const financeApp = apps.find(a => a.service === 'finance');
-  await db('finance',async client=>{
+  const financeApp = apps.find((a) => a.service === 'finance');
+  await db('finance', async (client) => {
     await client.query("DELETE FROM schema_migrations WHERE version='V003'");
-    try {assert.equal((await health(financeApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");}
-    const { rows } = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='finance_audit_history_idx'");
-    assert.match(rows[0].indexdef,/fund_id, occurred_at DESC, id DESC/);
+    try {
+      assert.equal((await health(financeApp, 'ready', 503)).checks.migrations, 'missing');
+    } finally {
+      await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");
+    }
+    const { rows } = await client.query(
+      "SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='finance_audit_history_idx'",
+    );
+    assert.match(rows[0].indexdef, /fund_id, occurred_at DESC, id DESC/);
   });
-  await health(financeApp,'ready');
+  await health(financeApp, 'ready');
   pass('Finance requires V003 and has the audit history keyset index');
   const automationApp = apps.find((a) => a.service === 'automation');
   await db('automation', async (client) => {
@@ -737,15 +757,20 @@ async function main() {
   });
   await health(automationApp, 'ready');
   pass('Automation requires V005 for readiness');
-  await db('automation',async client=>{
+  await db('automation', async (client) => {
     await client.query("DELETE FROM schema_migrations WHERE version='V006'");
-    try {assert.equal((await health(automationApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V006')");}
+    try {
+      assert.equal((await health(automationApp, 'ready', 503)).checks.migrations, 'missing');
+    } finally {
+      await client.query("INSERT INTO schema_migrations(version) VALUES('V006')");
+    }
   });
-  await health(automationApp,'ready');
+  await health(automationApp, 'ready');
   pass('Automation requires V006 for readiness');
-  await db('automation', async client => {
-    const indexes = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='ix_inbox_events_finance_terminal'");
+  await db('automation', async (client) => {
+    const indexes = await client.query(
+      "SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='ix_inbox_events_finance_terminal'",
+    );
     assert.equal(indexes.rowCount, 1);
     assert.match(indexes.rows[0].indexdef, /ClosureCancelled/);
     assert.match(indexes.rows[0].indexdef, /FinanceClosed/);

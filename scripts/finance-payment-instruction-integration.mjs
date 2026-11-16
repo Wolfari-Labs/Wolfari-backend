@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { parseVietQrPayload, QR_SVG_SHAPE } = require('../packages/common/dist/index.js');
 
 export async function runPaymentInstructionTests(h, { newTrip, write, enableBody }) {
   const { query, request, bearer, pass } = h;
@@ -74,12 +77,22 @@ export async function runPaymentInstructionTests(h, { newTrip, write, enableBody
   assert.equal(raw.headers.get('referrer-policy'), 'no-referrer');
   await raw.arrayBuffer();
 
-  assert.equal(instruction.environment, 'TEST');
+  assert.equal(instruction.environment, 'LIVE');
+  assert.equal(instruction.bank_code, 'VCB');
   assert.equal(instruction.bank_bin, '970436');
+  assert.equal(instruction.bank_name, 'Vietcombank');
   assert.equal(instruction.account_number, '0001234567');
   assert.equal(instruction.amount, '300000');
   assert.match(instruction.reference, /^[A-Z0-9]{25}$/);
-  assert.equal(new URL(instruction.qr_url).searchParams.get('amount'), '300000');
+  assert.equal(instruction.qr_url, undefined);
+  // The QR is a real NAPAS payload: a bank app scanning it prepares exactly this transfer.
+  assert.deepEqual(parseVietQrPayload(instruction.qr_payload), {
+    bankBin: '970436',
+    accountNumber: '0001234567',
+    amount: '300000',
+    addInfo: instruction.reference,
+  });
+  assert.match(instruction.qr_svg, QR_SVG_SHAPE);
   assert.equal(instruction.destination_snapshot, undefined);
   assert.equal(instruction.transfer_evidence_object_key, undefined);
   assert.deepEqual((await read()).body.data, instruction);
@@ -89,7 +102,7 @@ export async function runPaymentInstructionTests(h, { newTrip, write, enableBody
   assert.equal((await request(path + '?amount=1', 'GET', undefined, bearer(member))).status, 400);
   assert.equal((await request(path, 'POST', {}, bearer(member))).status, 404);
   pass(
-    'payment instruction: authenticated Self only, private projection, stable TEST URL and no business writes',
+    'payment instruction: authenticated Self only, private projection, self-consistent NAPAS payload and no business writes',
   );
 
   await query(
@@ -205,5 +218,5 @@ export async function runPaymentInstructionTests(h, { newTrip, write, enableBody
   pass(
     'payment instruction: pending/reconciled provider fixtures, ledger duplicate, closed request and Trip outage fail closed',
   );
-  return [instruction.qr_url, instruction.recipient_name, instruction.account_number];
+  return [instruction.qr_payload, instruction.recipient_name, instruction.account_number];
 }

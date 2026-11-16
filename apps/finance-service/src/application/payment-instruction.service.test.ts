@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
+import { parseVietQrPayload, QR_SVG_SHAPE } from '@wolfari/common';
 import { PaymentInstructionService } from './payment-instruction.service';
 import { paymentInstruction, type PaymentInstructionRow } from '../domain/payment-instruction';
 import { projectPaymentInstruction } from '../../../api-gateway/src/payment-instruction-http';
@@ -27,36 +28,63 @@ function fixture(): PaymentInstructionRow {
       holder_user_id: id,
       confirmed_by_holder_at: '2026-10-22T00:00:00Z',
       destination_type: 'VIETQR',
-      recipient: { bank_code: 'VCB', account_number: '0001234567', account_name: 'TEST A & B' },
+      recipient: { bank_code: 'VCB', account_number: '0001234567', account_name: 'NGUYEN VAN A' },
     },
   };
 }
-describe('Private TEST payment instruction', () => {
-  it('keeps leading zeroes, encodes text, emits a unique full UUID reference and whitelists HTTP fields', () => {
+function withRecipient(change: Record<string, unknown>) {
+  const row = fixture();
+  const snapshot = row.destination_snapshot as { recipient: object };
+  snapshot.recipient = { ...snapshot.recipient, ...change };
+  return row;
+}
+describe('VietQR payment instruction', () => {
+  it('encodes a standard NAPAS transfer for exactly this contribution and whitelists HTTP fields', () => {
     const row = fixture(),
       original = structuredClone(row);
-    const value = paymentInstruction(row),
-      url = new URL(value.qr_url);
+    const value = paymentInstruction(row);
+    expect(value.environment).toBe('LIVE');
+    expect(value.bank_code).toBe('VCB');
     expect(value.bank_bin).toBe('970436');
+    expect(value.bank_name).toBe('Vietcombank');
     expect(value.account_number).toBe('0001234567');
-    expect(url.searchParams.get('accountName')).toBe('TEST A & B');
-    expect(url.searchParams.get('amount')).toBe('300000');
     expect(value.reference).toMatch(/^[A-Z0-9]{25}$/);
+    expect(parseVietQrPayload(value.qr_payload)).toEqual({
+      bankBin: '970436',
+      accountNumber: '0001234567',
+      amount: '300000',
+      addInfo: value.reference,
+    });
+    expect(value.qr_svg).toMatch(QR_SVG_SHAPE);
+    expect(value.qr_url).toBe('');
     expect(
       paymentInstruction({ ...row, id: '10000000-0000-4000-8000-000000000002' }).reference,
     ).not.toBe(value.reference);
     expect(paymentInstruction(row)).toEqual(value);
     expect(row).toEqual(original);
-    expect(
+    const published = projectPaymentInstruction(
+      { ...value, destination_snapshot: {}, evidence_object_key: 'secret' },
+      id,
+    );
+    expect(published).toEqual({ ...value, qr_url: undefined });
+    expect(published).not.toHaveProperty('qr_url');
+    // A payload that disagrees with the printed text, or a foreign SVG, is never published.
+    expect(() => projectPaymentInstruction({ ...value, amount: '300001' }, id)).toThrow();
+    expect(() =>
       projectPaymentInstruction(
-        { ...value, destination_snapshot: {}, evidence_object_key: 'secret' },
+        { ...value, qr_payload: value.qr_payload.slice(0, -4) + '0000' },
         id,
       ),
-    ).toEqual(value);
-    expect(() =>
-      projectPaymentInstruction({ ...value, qr_url: 'https://evil.test/' }, id),
     ).toThrow();
-    expect(() => projectPaymentInstruction({ ...value, environment: 'PRODUCTION' }, id)).toThrow();
+    expect(() =>
+      projectPaymentInstruction({ ...value, qr_svg: '<svg onload="x"></svg>' }, id),
+    ).toThrow();
+    expect(() => projectPaymentInstruction({ ...value, environment: 'TEST' }, id)).toThrow();
+  });
+  it.each(['vcb', '970436'])('resolves bank %s to the canonical code', (bank_code) => {
+    const value = paymentInstruction(withRecipient({ bank_code }));
+    expect(value.bank_code).toBe('VCB');
+    expect(value.bank_bin).toBe('970436');
   });
   it.each(['TRANSFER_REPORTED', 'CONFIRMED', 'WAIVED', 'CANCELLED', 'REVERSED'])(
     'blocks %s',
@@ -85,13 +113,12 @@ describe('Private TEST payment instruction', () => {
   });
   it.each([
     { bank_code: 'TEST' },
+    { bank_code: 'BNP HN' },
     { account_number: '12345678901234567890' },
     { account_number: '../abc' },
-  ])('does not guess/truncate account or bank %j', (change) => {
-    const row = fixture();
-    const snapshot = row.destination_snapshot as { recipient: object };
-    snapshot.recipient = { ...snapshot.recipient, ...change };
-    expect(() => paymentInstruction(row)).toThrow('STATE_CONFLICT');
+    { account_number: '0011 0123' },
+  ])('does not guess, truncate or normalize a stored account or bank %j', (change) => {
+    expect(() => paymentInstruction(withRecipient(change))).toThrow('STATE_CONFLICT');
   });
   it('does not fabricate a MoMo link', () => {
     const row = fixture();

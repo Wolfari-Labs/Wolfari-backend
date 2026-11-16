@@ -2,6 +2,22 @@
   {
     "package": "wolfari.finance.v1",
     "service": "FinanceService",
+    "method": "ReceiveBankTransfer",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SePay bank webhook: incoming transfer matched to a contribution reference"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "ListBankTransfers",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "SePay bank webhook: Owner/Holder review of reported transfers"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
     "method": "DownloadExpenseReceipt",
     "callers": ["ApiGateway"],
     "deadline_ms": 30000,

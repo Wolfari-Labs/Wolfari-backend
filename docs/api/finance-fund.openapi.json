@@ -1230,6 +1230,35 @@
           }
         }
       }
+    },
+    "/api/v1/finance/banks": {
+      "get": {
+        "operationId": "listVietQrBanks",
+        "summary": "NAPAS VietQR banks that accept account transfers",
+        "description": "Static directory served from the backend (no outside call). Clients present it as a picker when configuring a Holder destination; bank_code must be one of these codes or BINs. Requires a session.",
+        "responses": {
+          "200": {
+            "description": "Transfer-capable banks sorted by code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankDirectory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1497,19 +1526,19 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 30,
-                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+                "description": "VietQR code (any letter case) or 6-digit BIN of a bank listed by GET /api/v1/finance/banks; stored as the canonical code. Unknown or non-transfer banks are rejected with VALIDATION_FAILED on destination.bank_code."
               },
               "account_number": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 80,
-                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+                "description": "Bank account identifier: letters and digits, up to 19 characters after grouping spaces are removed (NAPAS limit). Not bank verification."
               },
               "account_name": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 150,
-                "description": "Nonblank, no NUL; maximum measured in Unicode code points. Test data only; not bank verification."
+                "description": "Account holder name as the bank prints it; shown to members, not verified with the bank."
               },
               "active": {
                 "type": "boolean"
@@ -1844,6 +1873,57 @@
           "next_cursor": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "Bank": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "bin", "name", "short_name"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Canonical VietQR code, e.g. VCB"
+          },
+          "bin": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "short_name": {
+            "type": "string"
+          }
+        }
+      },
+      "BankDirectory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Bank"
+                }
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": ["correlation_id"],
+            "properties": {
+              "correlation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
           }
         }
       }

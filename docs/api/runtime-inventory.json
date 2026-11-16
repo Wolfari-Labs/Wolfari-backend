@@ -3,6 +3,16 @@
   "scope": "Reviewed OpenAPI inventory and Gateway routing-source fingerprints; executable Plan/Fund coverage in demo1-openapi.test.ts. Not proof that all target SRS APIs exist.",
   "operations": [
     {
+      "method": "POST",
+      "path": "/api/v1/webhooks/bank/{id}",
+      "document": "finance-bank-transfers.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{id}/bank-transfers",
+      "document": "finance-bank-transfers.openapi.json"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/funds/{id}/closures",
       "document": "finance-closures.openapi.json"
@@ -180,6 +190,11 @@
     {
       "method": "GET",
       "path": "/api/v1/funds/{id}/transactions",
+      "document": "finance-fund.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/finance/banks",
       "document": "finance-fund.openapi.json"
     },
     {
@@ -604,25 +619,27 @@
     }
   ],
   "sources": {
-    "closure-http.ts": "4b33519f1171da5257d7dcef51cef0bb2dadbd0674098ac4680a32539557e74b",
+    "bank-directory-http.ts": "434cdaa8647b4cdc8eec07926bbd4d7d189a9b8931f8c9653df2dd9a57e1b75e",
+    "bank-webhook-http.ts": "a6e54948a7108e9a9490cd85c43fd6fd32c2dd2ca8b373b5630a08c3f6849db3",
+    "closure-http.ts": "1a6fb965d1e52b3cd602d65a87d2e7e291001c682cd5d374cf82c7c09a322d7b",
     "contribution-management-http.ts": "6173449cc59358a7a8d40c7e226facd45b2ea2e632cf1503751ed0eaa296a400",
     "contribution-request-http.ts": "a9826e6602fa0f62e361741874d7d65ed50e2daf27eeb0784c7616d09d0af77b",
-    "expense-http.ts": "f11c8b19eb5519e72abae6a0490ceeb3ca6b90a73c73eb05e93e32b527261d43",
+    "expense-http.ts": "d85759333839eb195b70960ed8b5d63c56ea5e73c671819e6c89aa312cafdda0",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
-    "finance-proxy.ts": "cb0df9610fb3fe0fd05e2495e8ee49f6cc59e6f56bb53b0b60fa3c677037aaed",
+    "finance-proxy.ts": "65ca4c3ba0a979b59da258c362c616472591bd26186436929d2582da073623df",
     "finance-receipt-http.ts": "e0a0dad0176c073e5bd80f6d69a4fcc88d9705453912ff1a51fdb59633870c15",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
-    "handover-http.ts": "d73ca9835758ee88277af07779db1909ef31f2d4b23c0f93f941affae8006fd8",
+    "handover-http.ts": "00431d6965eaba03ce5ec16468219005b5ce91da7faf937eb2f70be9076707c9",
     "identity-proxy.ts": "aed3d05b7d84f09f71a8442736b1a0e0b7b3e0c26c874af966a59f270f39e719",
     "invitation-proxy.ts": "22c866198e0e1625ca5f191525b105dff506ce00bc0a8bd124ec1b3ede59355a",
     "membership-proxy.ts": "dc907460ee56e0b4427dd3c40e2c15749fa6afe7719ecea1d8e6e0c8f689af9b",
     "notification-proxy.ts": "fdf5b40a624f8d5f0e3f81bc1e98ea3b15d6493558f8751cd4dd5f49281d67a1",
-    "payment-http.ts": "d76ea13233ffcc3c434e8f568b8b1ca0e2a46d6feeff34d9867e27d274f68125",
-    "payment-instruction-http.ts": "003535cf5ec6effb1dd6e9d5ad9d4510f2171eef7003ee2864aa49d6001949ac",
+    "payment-http.ts": "e36d12ce5249aeebd599a281c1bf713c371d051e5971a243f1135c4cb11c1adc",
+    "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
     "plan-proxy.ts": "71f6653f0ddbc75857649e308339921c65cf27ad07ff5e2bcfe553aecb600a08",
     "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
-    "refund-http.ts": "65d18e5bf312500b6ba155e22bc6fd737098ba0eed31838506e7061d2cc11101",
+    "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
     "trip-http.ts": "7da7c8dca9405e391d857d31efe1cf326b0c27ebce7dd4b5f213a7afe6bc93d1",
     "trip-proxy.ts": "33c71118e4489cebd1fcbd18ae953340e2b451933a513c5d697abe59b914e0e5"
   }

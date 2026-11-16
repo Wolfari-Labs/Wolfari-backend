@@ -222,3 +222,11 @@ Finance.ListFundHistory adds the Gateway-only read for API162 (114 RPCs total). 
 ## Finance integration gaps: 12 November 2026
 
 Nine additive Finance RPCs bring the catalog to 123; events stay at 19. `DownloadExpenseReceipt` is a Gateway-only expense-scoped receipt read (30 s deadline) that never exposes the storage key. `AssignRefundVerifier` lets the Owner name an independent verifier for a refund paid to the Owner/Holder; `RefundView` gains optional `reversal_reason` and verifier/confirmation fields 16–22. `ListHolderHandovers`, `GetHolderHandover`, `CreateHolderHandover`, `AcceptHolderHandover`, `RefreshHolderHandover`, `ConfirmHolderHandover` and `CancelHolderHandover` implement the two-party [Holder handover](finance-holder-handover.md); `ConfirmContributionReceivedRequest` and `ResolvePaymentExceptionRequest` gain the optional `previous_holder_transfer_confirmed` flag for money that reached the former Holder. Finance V004 (verifier columns) and V005 (`fund_holder_handovers`) extend the readiness gate. REST contracts: [expenses](../api/finance-expenses.openapi.json), [refunds](../api/finance-refunds.openapi.json) and [holder handovers](../api/finance-handovers.openapi.json). These contracts describe the backend; Web/mobile integration and SRS baseline reconciliation (v1.2 versus v2.3 QD09) remain separate decisions.
+
+## VietQR thật và danh mục ngân hàng: 12 November 2026
+
+`PaymentInstruction` gains `bank_name` (12), `qr_payload` (13) and `qr_svg` (14); `qr_url` (9) stays for wire compatibility and is always empty because no outside image provider is used. `environment` is `LIVE`. No RPC, event or migration changes; the NAPAS payload builder/reader and the bank directory live in `@wolfari/common` and are served by the Gateway at `GET /api/v1/finance/banks` (REST inventory 121 entries). See [payment instructions](finance-payment-instructions.md).
+
+## Bank transfer webhook: 12 November 2026
+
+`Finance.ReceiveBankTransfer` (Gateway-only, after provider signature verification) and `Finance.ListBankTransfers` (Owner/Holder read) bring the catalog to 125 RPCs; events unchanged. Finance V006 adds `bank_transfer_receipts`. REST: `POST /api/v1/webhooks/bank/sepay`, `GET /api/v1/funds/{fundId}/bank-transfers` ([OpenAPI](../api/finance-bank-transfers.openapi.json)). See [bank transfers](finance-bank-transfers.md).

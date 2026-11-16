@@ -20,7 +20,7 @@ const request = {
     destination_type: 'VIETQR',
     active: true,
     is_default: true,
-    bank_code: 'TEST',
+    bank_code: 'VCB',
     account_number: '001',
     account_name: 'Holder',
   },

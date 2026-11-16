@@ -131,6 +131,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_CSRF_KEY',
     'WEB_ORIGIN',
     'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
+    'BANK_WEBHOOK_SEPAY_SECRET',
+    'BANK_WEBHOOK_SEPAY_API_KEY',
   ];
   const automationKeys = [
     'AUTOMATION_FINANCE_NOTIFICATION_ENABLED',

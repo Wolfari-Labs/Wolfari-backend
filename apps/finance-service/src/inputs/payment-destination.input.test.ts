@@ -9,7 +9,7 @@ import { prepareUpdatePaymentDestination } from '../domain/payment-destination-m
 
 const bank = {
   destination_type: 'VIETQR',
-  bank_code: 'TEST',
+  bank_code: 'VCB',
   account_number: '00123',
   account_name: 'TEST HOLDER',
   is_default: true,
@@ -28,7 +28,7 @@ describe('API074/075/076 destination body parsing', () => {
     expect(create({ ...bank, expected_finance_version: 7 })).toEqual({
       destination: {
         destinationType: 'VIETQR',
-        bankCode: 'TEST',
+        bankCode: 'VCB',
         accountNumber: '00123',
         accountName: 'TEST HOLDER',
         isDefault: true,
@@ -124,14 +124,23 @@ describe('API074/075/076 destination body parsing', () => {
       expect(() => update({ ...versions, [field]: value })).toThrow();
   });
   it.each([
-    ['bank_code', 30],
-    ['account_number', 80],
     ['account_name', 150],
   ] as const)('validates Unicode bounds and blank/NUL/null for %s', (field, max) => {
     expect(() => update({ ...versions, [field]: '𠮷'.repeat(max) })).not.toThrow();
     for (const value of ['𠮷'.repeat(max + 1), '', '  ', '\u0000', null, undefined, 123]) {
       expect(() => update({ ...versions, [field]: value })).toThrow(PaymentDestinationInputError);
     }
+  });
+  it('normalizes bank codes to the directory and strips account spacing, rejecting the rest', () => {
+    expect(update({ ...versions, bank_code: 'vcb' }).patch).toEqual({ bankCode: 'VCB' });
+    expect(update({ ...versions, bank_code: '970436' }).patch).toEqual({ bankCode: 'VCB' });
+    expect(update({ ...versions, account_number: ' 0011 0123 4567 ' }).patch).toEqual({
+      accountNumber: '001101234567',
+    });
+    for (const bank_code of ['TEST', 'Vietcombank', '', ' ', null, undefined, 123])
+      expect(() => update({ ...versions, bank_code })).toThrow(PaymentDestinationInputError);
+    for (const account_number of ['1'.repeat(20), 'số tài khoản', '', null, 123])
+      expect(() => update({ ...versions, account_number })).toThrow(PaymentDestinationInputError);
   });
   it('rejects fields from the other provider on create, including null', () => {
     expect(() => create({ ...bank, momo_phone: null, expected_finance_version: 7 })).toThrow();

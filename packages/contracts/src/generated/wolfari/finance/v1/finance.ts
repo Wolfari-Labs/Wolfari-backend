@@ -45,6 +45,53 @@ export enum LedgerDirection {
   UNRECOGNIZED = -1,
 }
 
+/** Incoming bank transfers reported by an aggregation provider (SePay). Gateway verified the signature. */
+export interface ReceiveBankTransferRequest {
+  provider?: string | undefined;
+  provider_transaction_id?: string | undefined;
+  transfer_type?: string | undefined;
+  amount?: string | undefined;
+  content?: string | undefined;
+  account_number?: string | undefined;
+  bank_gateway?: string | undefined;
+  reference_code?: string | undefined;
+  sub_account?: string | undefined;
+  transaction_date?: string | undefined;
+  payload_json?: string | undefined;
+}
+
+export interface ReceiveBankTransferResponse {
+  receipt_id?: string | undefined;
+  processing_status?: string | undefined;
+  contribution_id?: string | undefined;
+}
+
+export interface BankTransferView {
+  id?: string | undefined;
+  provider?: string | undefined;
+  provider_transaction_id?: string | undefined;
+  transfer_type?: string | undefined;
+  amount?: string | undefined;
+  content?: string | undefined;
+  account_number_masked?: string | undefined;
+  bank_gateway?: string | undefined;
+  processing_status?: string | undefined;
+  contribution_id?: string | undefined;
+  review_reason?: string | undefined;
+  transaction_at?: Timestamp | undefined;
+  received_at?: Timestamp | undefined;
+  processed_at?: Timestamp | undefined;
+}
+
+export interface ListBankTransfersRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+}
+
+export interface ListBankTransfersResponse {
+  items?: BankTransferView[] | undefined;
+}
+
 /**
  * Public Member audit metadata only; raw details and provider data are excluded.
  * Handover snapshots are business data; no bank credentials or receipt storage keys.
@@ -1379,10 +1426,19 @@ export interface PaymentInstruction {
   recipient_name?: string | undefined;
   bank_code?: string | undefined;
   bank_bin?: string | undefined;
-  account_number?: string | undefined;
+  account_number?:
+    | string
+    | undefined;
+  /** qr_url (9) is kept for wire compatibility and is always empty: no external image provider. */
   qr_url?: string | undefined;
   environment?: string | undefined;
   warning?: string | undefined;
+  bank_name?:
+    | string
+    | undefined;
+  /** NAPAS VietQR QRIBFTTA payload (printable ASCII with CRC) and its plain SVG rendering. */
+  qr_payload?: string | undefined;
+  qr_svg?: string | undefined;
 }
 
 export interface GetPaymentInstructionResponse {
@@ -1647,6 +1703,13 @@ export interface FinanceServiceClient {
     request: CancelHolderHandoverRequest,
     metadata?: Metadata,
   ): Observable<CancelHolderHandoverResponse>;
+
+  receiveBankTransfer(
+    request: ReceiveBankTransferRequest,
+    metadata?: Metadata,
+  ): Observable<ReceiveBankTransferResponse>;
+
+  listBankTransfers(request: ListBankTransfersRequest, metadata?: Metadata): Observable<ListBankTransfersResponse>;
 }
 
 export interface FinanceServiceController {
@@ -2055,6 +2118,16 @@ export interface FinanceServiceController {
     request: CancelHolderHandoverRequest,
     metadata?: Metadata,
   ): Promise<CancelHolderHandoverResponse> | Observable<CancelHolderHandoverResponse> | CancelHolderHandoverResponse;
+
+  receiveBankTransfer(
+    request: ReceiveBankTransferRequest,
+    metadata?: Metadata,
+  ): Promise<ReceiveBankTransferResponse> | Observable<ReceiveBankTransferResponse> | ReceiveBankTransferResponse;
+
+  listBankTransfers(
+    request: ListBankTransfersRequest,
+    metadata?: Metadata,
+  ): Promise<ListBankTransfersResponse> | Observable<ListBankTransfersResponse> | ListBankTransfersResponse;
 }
 
 export function FinanceServiceControllerMethods() {
@@ -2131,6 +2204,8 @@ export function FinanceServiceControllerMethods() {
       "refreshHolderHandover",
       "confirmHolderHandover",
       "cancelHolderHandover",
+      "receiveBankTransfer",
+      "listBankTransfers",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

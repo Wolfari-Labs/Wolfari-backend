@@ -322,7 +322,7 @@ export async function runDemo1Acceptance({
       currency: 'VND',
       destination: {
         destination_type: 'VIETQR',
-        bank_code: 'TEST',
+        bank_code: 'VCB',
         account_number: '000987654321',
         account_name: 'TEST ONLY - NOT REAL MONEY',
         active: true,
