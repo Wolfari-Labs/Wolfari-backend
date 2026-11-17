@@ -29,6 +29,7 @@ import {
   type PlanView,
 } from './plan.projection';
 import { insertPlanUpdated, type PlanChange } from './plan.events';
+import { conflictingOrderTimes, type OrderedSchedule } from './order-times';
 
 export interface PlanCommandInput {
   actorUserId: unknown;
@@ -478,9 +479,28 @@ export class PlanService {
         action = 'ACTIVITY_DELETED';
       } else if (input.command === 'REORDER_ACTIVITIES') {
         validatePermutation(ids, input.activityIds!);
+        // Keep each activity on its Trip-local day. Clearing the whole time pair
+        // avoids inventing a new start, duration, or overnight end after a drag.
+        const schedule = await client.query<OrderedSchedule>(
+          `SELECT id,starts_at,
+          to_char(COALESCE((starts_at AT TIME ZONE $2)::date,scheduled_date),'YYYY-MM-DD') AS day
+          FROM activities WHERE trip_id=$1 ORDER BY position,id`,
+          [input.tripId, trip.timezone],
+        );
+        const clearedTimeIds = conflictingOrderTimes(schedule.rows, input.activityIds!);
+        if (clearedTimeIds.length) {
+          const cleared = await client.query<{ id: string }>(
+            `UPDATE activities SET
+            scheduled_date=(starts_at AT TIME ZONE $3)::date,
+            starts_at=NULL,ends_at=NULL,updated_at=now()
+            WHERE trip_id=$1 AND id=ANY($2::uuid[]) RETURNING id`,
+            [input.tripId, clearedTimeIds, trip.timezone],
+          );
+          for (const row of cleared.rows) change(row.id);
+        }
         await reorder(input.activityIds!);
         action = 'ACTIVITIES_REORDERED';
-        details = { activity_ids: input.activityIds };
+        details = { activity_ids: input.activityIds, cleared_time_activity_ids: clearedTimeIds };
       } else if (input.command === 'SET_ACTIVITY_COMPLETION') {
         if (
           input.status === 'TODO' &&
