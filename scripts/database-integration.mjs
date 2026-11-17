@@ -495,7 +495,7 @@ async function main() {
       assert.deepEqual(
         await history(client, files[service]),
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008']
           : service === 'trip'
             ? ['V001', 'V002', 'V003']
             : service === 'finance'
@@ -507,13 +507,19 @@ async function main() {
   pass('58 bảng mô hình + 5 lịch sử, 53 FK');
   await db('finance', async (client) => {
     await client.query(
-      await readFile(resolve(root, 'apps/finance-service/tests/database/V004_constraints.sql'), 'utf8'),
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V004_constraints.sql'),
+        'utf8',
+      ),
     );
   });
   pass('Finance V004 verifier assignment and confirmation constraints');
   await db('finance', async (client) => {
     await client.query(
-      await readFile(resolve(root, 'apps/finance-service/tests/database/V005_constraints.sql'), 'utf8'),
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V005_constraints.sql'),
+        'utf8',
+      ),
     );
   });
   pass('Finance V005 handover active uniqueness, snapshots and two-party confirmation constraints');
@@ -716,15 +722,20 @@ async function main() {
     'ready',
   );
   pass('Trip day-only scheduling requires V003; legacy rows retain NULL dates');
-  const financeApp = apps.find(a => a.service === 'finance');
-  await db('finance',async client=>{
+  const financeApp = apps.find((a) => a.service === 'finance');
+  await db('finance', async (client) => {
     await client.query("DELETE FROM schema_migrations WHERE version='V003'");
-    try {assert.equal((await health(financeApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");}
-    const { rows } = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='finance_audit_history_idx'");
-    assert.match(rows[0].indexdef,/fund_id, occurred_at DESC, id DESC/);
+    try {
+      assert.equal((await health(financeApp, 'ready', 503)).checks.migrations, 'missing');
+    } finally {
+      await client.query("INSERT INTO schema_migrations(version) VALUES('V003')");
+    }
+    const { rows } = await client.query(
+      "SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='finance_audit_history_idx'",
+    );
+    assert.match(rows[0].indexdef, /fund_id, occurred_at DESC, id DESC/);
   });
-  await health(financeApp,'ready');
+  await health(financeApp, 'ready');
   pass('Finance requires V003 and has the audit history keyset index');
   const automationApp = apps.find((a) => a.service === 'automation');
   await db('automation', async (client) => {
@@ -737,15 +748,20 @@ async function main() {
   });
   await health(automationApp, 'ready');
   pass('Automation requires V005 for readiness');
-  await db('automation',async client=>{
+  await db('automation', async (client) => {
     await client.query("DELETE FROM schema_migrations WHERE version='V006'");
-    try {assert.equal((await health(automationApp,'ready',503)).checks.migrations,'missing');}
-    finally {await client.query("INSERT INTO schema_migrations(version) VALUES('V006')");}
+    try {
+      assert.equal((await health(automationApp, 'ready', 503)).checks.migrations, 'missing');
+    } finally {
+      await client.query("INSERT INTO schema_migrations(version) VALUES('V006')");
+    }
   });
-  await health(automationApp,'ready');
+  await health(automationApp, 'ready');
   pass('Automation requires V006 for readiness');
-  await db('automation', async client => {
-    const indexes = await client.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='ix_inbox_events_finance_terminal'");
+  await db('automation', async (client) => {
+    const indexes = await client.query(
+      "SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='ix_inbox_events_finance_terminal'",
+    );
     assert.equal(indexes.rowCount, 1);
     assert.match(indexes.rows[0].indexdef, /ClosureCancelled/);
     assert.match(indexes.rows[0].indexdef, /FinanceClosed/);

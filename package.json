@@ -64,7 +64,8 @@
     "finance:handovers:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-handovers",
     "finance:closures:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-closures",
     "finance:payments:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-payments",
-    "finance:lifecycle:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-lifecycle"
+    "finance:lifecycle:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-lifecycle",
+    "mobile:completion:test": "corepack pnpm build && node scripts/trip-integration.mjs --mobile-completion"
   },
   "devDependencies": {
     "@types/node": "24.13.5",

@@ -423,6 +423,46 @@
       "document": "identity.openapi.yaml"
     },
     {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/archive",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/reopen",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/ownership",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/plan.pdf",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/reminders",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/reminders",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}/reminders/{id}",
+      "document": "mobile-completion.openapi.json"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/me/notification-preferences",
       "document": "notification.openapi.yaml"
@@ -451,6 +491,56 @@
       "method": "PATCH",
       "path": "/api/v1/me/notifications/{id}/read",
       "document": "notification.openapi.yaml"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/dress-codes",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}/dress-codes/{id}",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}/dress-codes/{id}",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/packing-items",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}/packing-items/{id}",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}/packing-items/{id}",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}/packing-items/{id}/completion",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/selected-locations",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/trips/{id}/selected-locations/{id}",
+      "document": "plan-items.openapi.json"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/trips/{id}/selected-locations/{id}",
+      "document": "plan-items.openapi.json"
     },
     {
       "method": "GET",
@@ -521,6 +611,11 @@
       "method": "GET",
       "path": "/api/v1/price-watches/{id}/observations",
       "document": "price-watch.openapi.yaml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/travel/places",
+      "document": "travel-places.openapi.json"
     },
     {
       "method": "POST",
@@ -622,14 +717,17 @@
     "identity-proxy.ts": "aed3d05b7d84f09f71a8442736b1a0e0b7b3e0c26c874af966a59f270f39e719",
     "invitation-proxy.ts": "22c866198e0e1625ca5f191525b105dff506ce00bc0a8bd124ec1b3ede59355a",
     "membership-proxy.ts": "dc907460ee56e0b4427dd3c40e2c15749fa6afe7719ecea1d8e6e0c8f689af9b",
-    "notification-proxy.ts": "fdf5b40a624f8d5f0e3f81bc1e98ea3b15d6493558f8751cd4dd5f49281d67a1",
+    "notification-proxy.ts": "0e8ea8fc82c66f43953bc40f457ae7895c33f99883d9ea40cfc0824fe1841d55",
     "payment-http.ts": "d76ea13233ffcc3c434e8f568b8b1ca0e2a46d6feeff34d9867e27d274f68125",
     "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
-    "plan-proxy.ts": "71f6653f0ddbc75857649e308339921c65cf27ad07ff5e2bcfe553aecb600a08",
+    "plan-items-proxy.ts": "b5f2004306c49a6394584aba84ab1f3eaadfad2cceeb74b3efe26779c033a076",
+    "plan-proxy.ts": "1788f69b2a12cb55fefbeeea0451f2c1e3d36bf85efb86c73cfda3b84f63095b",
     "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "65d18e5bf312500b6ba155e22bc6fd737098ba0eed31838506e7061d2cc11101",
-    "trip-http.ts": "2459aeba43239285b50093e9ff93f46e0706e03f5415eb90e29b86bc6feeb246",
-    "trip-proxy.ts": "33c71118e4489cebd1fcbd18ae953340e2b451933a513c5d697abe59b914e0e5"
+    "travel-proxy.ts": "7a70969b7367da8ab85ed616c01cafc8487f737fac4f8578af493f1d9a6de83e",
+    "trip-http.ts": "002069d4bda2a438948a56c535bf292eb207eb302135e4d3286e7d9f8d17bac2",
+    "trip-proxy.ts": "33c71118e4489cebd1fcbd18ae953340e2b451933a513c5d697abe59b914e0e5",
+    "trip-tools-proxy.ts": "c823930aeefead5755e43adcb6b414879d6bd6d6d1ed1bdbab5124ef888ce18c"
   }
 }
