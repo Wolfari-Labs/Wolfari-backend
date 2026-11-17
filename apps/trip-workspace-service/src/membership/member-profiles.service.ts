@@ -2,7 +2,7 @@ import { Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseProvider } from '@wolfari/database';
 import { IdentityClient } from '@wolfari/contracts/identity-client';
-import type { TripV1 } from '@wolfari/contracts/grpc';
+import { CommonV1, type TripV1 } from '@wolfari/contracts/grpc';
 import { LifecycleService } from '../operations/lifecycle.service';
 import { fail, uuid } from '../trip-common';
 
@@ -20,6 +20,19 @@ export class MemberProfilesService implements OnApplicationShutdown {
     if (!/^127\.0\.0\.1:\d+$/.test(target) || secret.length < 32)
       throw new Error('Invalid Trip Identity configuration');
     this.identity = new IdentityClient(target, 'Trip', secret);
+  }
+
+  async activeOwnerCandidate(userId: string, correlation: string) {
+    const account = await this.identity.getInvitationIdentity(
+      { user_id: uuid(userId) },
+      correlation,
+      Date.now() + 1000,
+    );
+    return (
+      account.found === true &&
+      account.user_id === userId &&
+      account.status === CommonV1.AccountStatus.ACCOUNT_STATUS_ACTIVE
+    );
   }
 
   async list(

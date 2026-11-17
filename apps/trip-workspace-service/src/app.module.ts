@@ -1,3 +1,6 @@
+import { TripManagementService } from './trip-management.service';
+import { PlanPdfService } from './plan-pdf.service';
+import { PlanItemsService } from './planning/plan-items.service';
 import { PlanService } from './planning/plan.service';
 import { MembershipRepository } from './membership/membership.repository';
 import { MemberProfilesService } from './membership/member-profiles.service';
@@ -22,6 +25,8 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
   ],
   controllers: [TripGrpcController, TripDependenciesController],
   providers: [
+    TripManagementService,
+    PlanPdfService,
     MembershipRepository,
     MemberProfilesService,
     LifecycleFinanceClient,
@@ -29,6 +34,7 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     FinanceOperationService,
     TripService,
     PlanService,
+    PlanItemsService,
     PlanGrpcHandlers,
     TripAccessService,
     TripPlanAccessService,

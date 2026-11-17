@@ -1,3 +1,6 @@
+import { TripManagementService } from './trip-management.service';
+import { PlanPdfService } from './plan-pdf.service';
+import { PlanItemsService } from './planning/plan-items.service';
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { LifecycleService } from './operations/lifecycle.service';
 import { MemberProfilesService } from './membership/member-profiles.service';
@@ -136,6 +139,9 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly lifecycle: LifecycleService,
     private readonly financeOperations: FinanceOperationService,
     private readonly memberProfiles: MemberProfilesService,
+    private readonly planItems?: PlanItemsService,
+    private readonly management?: TripManagementService,
+    private readonly pdf?: PlanPdfService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -222,6 +228,37 @@ export class TripGrpcController implements TripV1.TripServiceController {
           }),
         ),
       };
+    });
+  }
+
+  mutatePlanItem(
+    request: TripV1.MutatePlanItemRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.MutatePlanItemResponse> {
+    const correlation = this.authorize('MutatePlanItem', metadata);
+    return this.execute(async () => {
+      if (!this.planItems) throw new Error('Plan collection service missing');
+      const result = await this.planItems.mutate(request, correlation);
+      return {
+        version: result.version,
+        item_json: result.item ? JSON.stringify(result.item) : undefined,
+      };
+    });
+  }
+
+  manageTrip(request: TripV1.ManageTripRequest, metadata?: Metadata) {
+    const correlation = this.authorize('ManageTrip', metadata);
+    return this.execute(async () => {
+      if (!this.management) throw Error('Trip management unavailable');
+      return { result_json: JSON.stringify(await this.management.execute(request, correlation)) };
+    });
+  }
+
+  exportPlanPdf(request: TripV1.ExportPlanPdfRequest, metadata?: Metadata) {
+    this.authorize('ExportPlanPdf', metadata);
+    return this.execute(async () => {
+      if (!this.pdf) throw Error('PDF unavailable');
+      return this.pdf.export(request);
     });
   }
 
@@ -328,6 +365,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     this.authorize('GetOperationResult', metadata);
     return this.execute(async () => ({
       operation:
+        (await this.management?.operationResult(request.operation_id, request.actor_user_id)) ??
         (await this.financeOperations.getOperation(request.operation_id, request.actor_user_id)) ??
         (await this.lifecycle.getOperation(request.operation_id, request.actor_user_id)),
     }));
@@ -375,8 +413,12 @@ export class TripGrpcController implements TripV1.TripServiceController {
     }));
   }
 
-  getAutomationContext(): TripV1.GetAutomationContextResponse {
-    return this.unimplemented();
+  getAutomationContext(request: TripV1.GetAutomationContextRequest, metadata?: Metadata) {
+    this.authorize('GetAutomationContext', metadata);
+    return this.execute(async () => {
+      if (!this.management) throw Error('Reminder context unavailable');
+      return this.management.reminderContext(request);
+    });
   }
 
   getInvitationDelivery(

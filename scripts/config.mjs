@@ -118,6 +118,8 @@ export function appEnvironment(app, values, inherited = process.env) {
   const gatewayKeys = [
     'FINANCE_GRPC_TARGET',
     'GATEWAY_FINANCE_SECRET',
+    'GATEWAY_TRAVEL_SECRET',
+    'TRAVEL_GRPC_TARGET',
     'IDENTITY_HTTP_URL',
     'IDENTITY_GRPC_TARGET',
     'GATEWAY_IDENTITY_SECRET',
@@ -133,6 +135,9 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
   ];
   const automationKeys = [
+    'REMINDER_WORKER_ENABLED',
+    'PUSH_DELIVERY_ENABLED',
+    'EXPO_PUSH_ACCESS_TOKEN',
     'AUTOMATION_FINANCE_NOTIFICATION_ENABLED',
     'AUTOMATION_FINANCE_SECRET',
     'FINANCE_GRPC_TARGET',
@@ -173,7 +178,13 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MOMO_REDIRECT_URL',
     'MOMO_IPN_URL',
   ];
-  const travelKeys = ['TRIP_GRPC_TARGET', 'TRAVEL_TRIP_SECRET'];
+  const travelKeys = [
+    'TRIP_GRPC_TARGET',
+    'TRAVEL_TRIP_SECRET',
+    'TRAVEL_GRPC_PORT',
+    'GATEWAY_TRAVEL_SECRET',
+    'GEOAPIFY_API_KEY',
+  ];
   const allowed = [
     'NODE_ENV',
     'WOLFARI_ISOLATED_ENV',
@@ -234,6 +245,7 @@ export async function initEnvironment(
     MAILPIT_UI_PORT: '8025',
     GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
+    GATEWAY_TRAVEL_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
     AUTOMATION_FINANCE_SECRET: randomBytes(32).toString('hex'),
@@ -320,6 +332,8 @@ export async function initEnvironment(
                 TRIP_HTTP_URL: `http://127.0.0.1:${appPort(target, 'trip-workspace-service', 'TRIP_PORT', 3102)}`,
                 FINANCE_HTTP_URL: `http://127.0.0.1:${appPort(target, 'finance-service', 'FINANCE_PORT', 3104)}`,
                 AUTOMATION_HTTP_URL: `http://127.0.0.1:${appPort(target, 'automation-service', 'AUTOMATION_PORT', 3105)}`,
+                TRAVEL_GRPC_TARGET: '127.0.0.1:3203',
+                GATEWAY_TRAVEL_SECRET: shared.GATEWAY_TRAVEL_SECRET,
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
                 AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',
@@ -336,6 +350,8 @@ export async function initEnvironment(
                   AUTOMATION_FINANCE_SECRET: shared.AUTOMATION_FINANCE_SECRET,
                   GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
                   AUTOMATION_CURSOR_SECRET: shared.AUTOMATION_CURSOR_SECRET,
+                  REMINDER_WORKER_ENABLED: 'false',
+                  PUSH_DELIVERY_ENABLED: 'false',
                   PRICE_WATCH_WORKER_ENABLED: 'false',
                   PRICE_WATCH_WORKER_POLL_MS: '1000',
                   PRICE_WATCH_WORKER_BATCH_SIZE: '20',
@@ -365,6 +381,8 @@ export async function initEnvironment(
                   }
                 : app.name === 'travel-intelligence-service'
                   ? {
+                      TRAVEL_GRPC_PORT: '3203',
+                      GATEWAY_TRAVEL_SECRET: shared.GATEWAY_TRAVEL_SECRET,
                       TRIP_GRPC_TARGET: '127.0.0.1:3202',
                       TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
                     }

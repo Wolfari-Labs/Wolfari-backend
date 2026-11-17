@@ -4,6 +4,7 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc GetTripLifecycleState(GetTripLifecycleStateRequest) returns (GetTripLifecycleStateResponse);
   rpc ListFundHistory(ListFundHistoryRequest) returns (ListFundHistoryResponse);
   rpc CreatePaymentAttempt(CreatePaymentAttemptRequest) returns (CreatePaymentAttemptResponse);
   rpc GetPaymentAttempt(GetPaymentAttemptRequest) returns (GetPaymentAttemptResponse);
@@ -1226,4 +1227,12 @@ message PaymentInstruction {
 }
 message GetPaymentInstructionResponse {
   PaymentInstruction instruction = 1;
+}
+
+// Trip holds its row lock and checks outstanding operations before this read.
+// This read must never call Trip, avoiding a distributed lock cycle.
+message GetTripLifecycleStateRequest { string trip_id = 1; }
+message GetTripLifecycleStateResponse {
+  bool can_archive = 1;
+  bool can_transfer = 2;
 }

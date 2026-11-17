@@ -348,7 +348,7 @@
     "service": "TravelService",
     "method": "SearchPlaces",
     "callers": ["Trip", "ApiGateway"],
-    "deadline_ms": 2000,
+    "deadline_ms": 5000,
     "source": "DDL/API/Event v1.0 section 6 - Travel.SearchPlaces"
   },
   {
@@ -982,5 +982,61 @@
     "callers": ["ApiGateway"],
     "deadline_ms": 2000,
     "source": "DDL/API/Event v1.1 API162; Finance history 2026-10-29"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "MutatePlanItem",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "Mobile Plan collection integration: dress code and packing writes"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ManageTrip",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 4000,
+    "source": "Mobile lifecycle, reminders and private PDF export"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ExportPlanPdf",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 15000,
+    "source": "Mobile lifecycle, reminders and private PDF export"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetTripLifecycleState",
+    "callers": ["Trip"],
+    "deadline_ms": 1800,
+    "source": "Mobile lifecycle, reminders and private PDF export"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "ListReminders",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 5000,
+    "source": "Mobile lifecycle, reminders and private PDF export"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "CreateReminder",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 5000,
+    "source": "Mobile lifecycle, reminders and private PDF export"
+  },
+  {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "CancelReminder",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 5000,
+    "source": "Mobile lifecycle, reminders and private PDF export"
   }
 ]

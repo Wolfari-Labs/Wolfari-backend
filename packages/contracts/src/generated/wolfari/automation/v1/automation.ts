@@ -102,7 +102,11 @@ export interface UpdateNotificationPreferencesRequest {
 export interface RegisterDeviceRequest {
   actor_user_id?: string | undefined;
   platform?: DevicePlatform | undefined;
-  token?: string | undefined;
+  token?:
+    | string
+    | undefined;
+  /** Gateway supplies this from Identity, never from the HTTP body. */
+  session_family_id?: string | undefined;
 }
 
 export interface DeleteDeviceRequest {
@@ -305,9 +309,47 @@ export interface ListPriceObservationsResponse {
   last_error?: string | undefined;
 }
 
+export interface ListRemindersRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+}
+
+export interface ListRemindersResponse {
+  result_json?: string | undefined;
+}
+
+export interface CreateReminderRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  operation_id?: string | undefined;
+  source_type?: string | undefined;
+  source_id?: string | undefined;
+  remind_at?: string | undefined;
+}
+
+export interface CreateReminderResponse {
+  result_json?: string | undefined;
+}
+
+export interface CancelReminderRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  reminder_id?: string | undefined;
+}
+
+export interface CancelReminderResponse {
+  result_json?: string | undefined;
+}
+
 export const WOLFARI_AUTOMATION_V1_PACKAGE_NAME = "wolfari.automation.v1";
 
 export interface AutomationServiceClient {
+  cancelReminder(request: CancelReminderRequest, metadata?: Metadata): Observable<CancelReminderResponse>;
+
+  createReminder(request: CreateReminderRequest, metadata?: Metadata): Observable<CreateReminderResponse>;
+
+  listReminders(request: ListRemindersRequest, metadata?: Metadata): Observable<ListRemindersResponse>;
+
   getNotificationPreferences(
     request: GetNotificationPreferencesRequest,
     metadata?: Metadata,
@@ -348,6 +390,21 @@ export interface AutomationServiceClient {
 }
 
 export interface AutomationServiceController {
+  cancelReminder(
+    request: CancelReminderRequest,
+    metadata?: Metadata,
+  ): Promise<CancelReminderResponse> | Observable<CancelReminderResponse> | CancelReminderResponse;
+
+  createReminder(
+    request: CreateReminderRequest,
+    metadata?: Metadata,
+  ): Promise<CreateReminderResponse> | Observable<CreateReminderResponse> | CreateReminderResponse;
+
+  listReminders(
+    request: ListRemindersRequest,
+    metadata?: Metadata,
+  ): Promise<ListRemindersResponse> | Observable<ListRemindersResponse> | ListRemindersResponse;
+
   getNotificationPreferences(
     request: GetNotificationPreferencesRequest,
     metadata?: Metadata,
@@ -423,6 +480,9 @@ export interface AutomationServiceController {
 export function AutomationServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "cancelReminder",
+      "createReminder",
+      "listReminders",
       "getNotificationPreferences",
       "updateNotificationPreferences",
       "registerDevice",

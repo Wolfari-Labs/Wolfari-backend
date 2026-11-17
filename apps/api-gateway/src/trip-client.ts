@@ -1,6 +1,6 @@
 import { Client, credentials, Metadata, type ServiceError } from '@grpc/grpc-js';
 import { loadSync, type MethodDefinition, type ServiceDefinition } from '@grpc/proto-loader';
-import { GRPC_LOADER_OPTIONS, PROTO_PATHS } from '@wolfari/contracts/grpc';
+import { GRPC_LOADER_OPTIONS, PROTO_PATHS, RPC_CATALOG } from '@wolfari/contracts/grpc';
 
 type RpcMessage = Record<string, unknown>;
 
@@ -14,7 +14,9 @@ export class TripClient {
     target: string,
     private readonly secret: string,
   ) {
-    this.client = new Client(target, credentials.createInsecure());
+    this.client = new Client(target, credentials.createInsecure(), {
+      'grpc.max_receive_message_length': 12 * 1024 * 1024,
+    });
   }
 
   call<Request extends RpcMessage, Response extends RpcMessage>(
@@ -36,7 +38,13 @@ export class TripClient {
         method.responseDeserialize,
         request,
         metadata,
-        { deadline: Date.now() + 2000 },
+        {
+          deadline:
+            Date.now() +
+            (RPC_CATALOG.find(
+              (entry) => entry.service === 'TripService' && entry.method === methodName,
+            )?.deadline_ms ?? 2000),
+        },
         (error: ServiceError | null, response?: Response) =>
           error ? reject(error) : resolve(response as Response),
       ),

@@ -42,6 +42,28 @@ type ContributionLedgerRow = { id: string; contribution_id: string };
 export class LifecycleFinanceRepository {
   constructor(@Inject(DatabaseProvider) private readonly db: DatabaseProvider) {}
 
+  async tripState(tripId: string) {
+    const trip = readUuid(tripId);
+    return this.db.withTransaction(async (client) => {
+      await client.query("SET LOCAL statement_timeout='1500ms'");
+      const funds = (
+        await client.query<{ id: string; status: string }>(
+          'SELECT id,status FROM funds WHERE trip_id=$1 ORDER BY id FOR SHARE',
+          [trip],
+        )
+      ).rows;
+      if (!funds.length) return { can_archive: true, can_transfer: true };
+      const pending = await client.query(
+        "SELECT 1 FROM fund_holder_handovers WHERE fund_id=ANY($1::uuid[]) AND status IN ('NOMINATED','ACCEPTED') LIMIT 1",
+        [funds.map((f) => f.id)],
+      );
+      return {
+        can_archive: funds.every((f) => f.status === 'CLOSED'),
+        can_transfer: !funds.some((f) => f.status === 'CLOSING') && !pending.rowCount,
+      };
+    });
+  }
+
   private parse(
     input: FinanceV1.ExecuteTripOperationRequest | FinanceV1.CancelOperationIfNotCommittedRequest,
     scope: string,

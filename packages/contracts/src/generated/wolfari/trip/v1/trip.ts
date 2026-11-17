@@ -589,6 +589,9 @@ export interface Plan {
   dress_codes?: PlanDressCode[] | undefined;
   packing_items?: PlanPackingItem[] | undefined;
   permissions?: PlanPermissions | undefined;
+  dress_codes_write?: boolean | undefined;
+  packing_write?: boolean | undefined;
+  locations_write?: boolean | undefined;
 }
 
 export interface PlanVersion {
@@ -688,9 +691,66 @@ export interface SetActivityCompletionResponse {
   export_revision?: number | undefined;
 }
 
+/**
+ * Versioned, idempotent command for the two bounded Plan collections. fields_json
+ * is validated against an entity/action allowlist by both Gateway and Trip.
+ */
+export interface MutatePlanItemRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?:
+    | number
+    | undefined;
+  /** DRESS_CODE or PACKING_ITEM */
+  entity_type?:
+    | string
+    | undefined;
+  /** CREATE, UPDATE, DELETE, COMPLETE (packing only) */
+  action?: string | undefined;
+  item_id?: string | undefined;
+  fields_json?: string | undefined;
+}
+
+export interface MutatePlanItemResponse {
+  version?: PlanVersion | undefined;
+  item_json?: string | undefined;
+}
+
+export interface ManageTripRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  action?: string | undefined;
+  expected_plan_version?: number | undefined;
+  expected_membership_revision?: number | undefined;
+  expected_export_revision?: number | undefined;
+  reason?: string | undefined;
+  new_owner_member_id?: string | undefined;
+}
+
+export interface ManageTripResponse {
+  result_json?: string | undefined;
+}
+
+export interface ExportPlanPdfRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+}
+
+export interface ExportPlanPdfResponse {
+  content?: Uint8Array | undefined;
+  filename?: string | undefined;
+  plan_version?: number | undefined;
+}
+
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
+  exportPlanPdf(request: ExportPlanPdfRequest, metadata?: Metadata): Observable<ExportPlanPdfResponse>;
+
+  manageTrip(request: ManageTripRequest, metadata?: Metadata): Observable<ManageTripResponse>;
+
   listMembers(request: ListMembersRequest, metadata?: Metadata): Observable<ListMembersResponse>;
 
   leaveTrip(request: LeaveTripRequest, metadata?: Metadata): Observable<LeaveTripResponse>;
@@ -756,6 +816,8 @@ export interface TripServiceClient {
 
   getPlan(request: GetPlanRequest, metadata?: Metadata): Observable<GetPlanResponse>;
 
+  mutatePlanItem(request: MutatePlanItemRequest, metadata?: Metadata): Observable<MutatePlanItemResponse>;
+
   createActivity(request: CreateActivityRequest, metadata?: Metadata): Observable<CreateActivityResponse>;
 
   updateActivity(request: UpdateActivityRequest, metadata?: Metadata): Observable<UpdateActivityResponse>;
@@ -771,6 +833,16 @@ export interface TripServiceClient {
 }
 
 export interface TripServiceController {
+  exportPlanPdf(
+    request: ExportPlanPdfRequest,
+    metadata?: Metadata,
+  ): Promise<ExportPlanPdfResponse> | Observable<ExportPlanPdfResponse> | ExportPlanPdfResponse;
+
+  manageTrip(
+    request: ManageTripRequest,
+    metadata?: Metadata,
+  ): Promise<ManageTripResponse> | Observable<ManageTripResponse> | ManageTripResponse;
+
   listMembers(
     request: ListMembersRequest,
     metadata?: Metadata,
@@ -902,6 +974,11 @@ export interface TripServiceController {
     metadata?: Metadata,
   ): Promise<GetPlanResponse> | Observable<GetPlanResponse> | GetPlanResponse;
 
+  mutatePlanItem(
+    request: MutatePlanItemRequest,
+    metadata?: Metadata,
+  ): Promise<MutatePlanItemResponse> | Observable<MutatePlanItemResponse> | MutatePlanItemResponse;
+
   createActivity(
     request: CreateActivityRequest,
     metadata?: Metadata,
@@ -931,6 +1008,8 @@ export interface TripServiceController {
 export function TripServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "exportPlanPdf",
+      "manageTrip",
       "listMembers",
       "leaveTrip",
       "removeMember",
@@ -956,6 +1035,7 @@ export function TripServiceControllerMethods() {
       "getInvitationDelivery",
       "getExportWorkerContext",
       "getPlan",
+      "mutatePlanItem",
       "createActivity",
       "updateActivity",
       "deleteActivity",
