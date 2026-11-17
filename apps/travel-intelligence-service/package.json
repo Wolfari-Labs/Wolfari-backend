@@ -16,6 +16,9 @@
     "@wolfari/common": "workspace:*",
     "@wolfari/database": "workspace:*",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "@grpc/grpc-js": "1.14.5",
+    "@nestjs/microservices": "11.2.5",
+    "@wolfari/contracts": "workspace:*"
   }
 }

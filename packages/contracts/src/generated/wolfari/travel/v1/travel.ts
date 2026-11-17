@@ -37,6 +37,12 @@ export interface ProviderMetadata {
   stale?: boolean | undefined;
   is_mock?: boolean | undefined;
   warnings?: string[] | undefined;
+  attribution?: ProviderAttribution[] | undefined;
+}
+
+export interface ProviderAttribution {
+  text?: string | undefined;
+  url?: string | undefined;
 }
 
 export interface Place {
@@ -52,6 +58,8 @@ export interface SearchPlacesRequest {
   query?: string | undefined;
   coordinates?: Coordinate | undefined;
   radius_m?: number | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
 }
 
 export interface SearchPlacesResponse {
