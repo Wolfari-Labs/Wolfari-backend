@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { runPlanItemScenarios } from './plan-items-integration.mjs';
+import { runOrderTimeScenarios } from './order-times-integration.mjs';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -18,6 +20,8 @@ export async function runPlanScenarios({
     member = users?.member ?? (await account('Plan Member'));
   const editor = users?.editor ?? (await account('Plan Editor')),
     outsider = users?.outsider ?? (await account('Plan Outsider'));
+  await runPlanItemScenarios({ request, query, owner, member, outsider, bearer, tripBody, pass });
+  await runOrderTimeScenarios({ request, query, owner, bearer, tripBody, pass });
   const created = await request(
     '/api/v1/trips',
     'POST',

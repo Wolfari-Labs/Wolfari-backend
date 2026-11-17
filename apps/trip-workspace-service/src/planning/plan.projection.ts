@@ -98,7 +98,7 @@ export const ACCESS_SQL = `SELECT t.id,t.start_at,t.end_at,t.timezone,t.plan_edi
 export const ACTIVITY_COLUMNS = `id,trip_id,title,description,public_description,activity_type,
   selected_location_id,starts_at,ends_at,to_char(scheduled_date,'YYYY-MM-DD') AS scheduled_date,position,status,source,
   completed_by_user_id,completed_at,created_by_user_id`;
-export const LOCATION_METADATA_KEYS: readonly string[] = [];
+export const LOCATION_METADATA_KEYS: readonly string[] = ['attribution'];
 const time = (value: DbTime | null) => (value === null ? null : iso(value));
 
 export function projectActivity(row: ActivityRow, version: number) {

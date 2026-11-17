@@ -3,7 +3,7 @@ import { parseEventForPublish } from '@wolfari/contracts/events';
 import type { QueryClient } from '../trip-common';
 
 export type PlanChange = {
-  type: 'ACTIVITY' | 'DRESS_CODE' | 'PACKING_ITEM';
+  type: 'ACTIVITY' | 'DRESS_CODE' | 'PACKING_ITEM' | 'SELECTED_LOCATION';
   id: string;
   action: 'UPSERT' | 'DELETE';
 };

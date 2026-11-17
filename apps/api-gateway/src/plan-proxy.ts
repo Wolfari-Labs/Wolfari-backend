@@ -174,6 +174,11 @@ export function projectPlan(value: unknown) {
     selected_locations: list(row.selected_locations).map(projectLocation),
     dress_codes: list(row.dress_codes).map(projectDressCode),
     packing_items: list(row.packing_items).map(projectPackingItem),
+    capabilities: {
+      dress_codes_write: bool(row.dress_codes_write),
+      packing_write: bool(row.packing_write),
+      locations_write: bool(row.locations_write),
+    },
     permissions: {
       can_read: bool(permissions.can_read),
       can_edit: bool(permissions.can_edit),
