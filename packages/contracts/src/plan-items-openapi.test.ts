@@ -22,7 +22,7 @@ describe('shared Plan collection OpenAPI', () => {
         expect(planItemRoute(method.toUpperCase(), path.replace(/\{[^}]+\}/g, id))).not.toBeNull();
         count++;
       }
-    expect(count).toBe(10);
+    expect(count).toBe(7);
     for (const name of Object.keys(spec.components.schemas))
       ajv.compile({ $ref: '#/components/schemas/' + name, components: spec.components });
   });

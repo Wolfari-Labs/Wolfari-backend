@@ -23,7 +23,9 @@ export class FinancialNoteService {
     const operationId=readUuid(request.operation_id),actor=readUuid(request.actor_user_id),fundId=readUuid(request.fund_id); const body=parseCreateFinancialNote({description:request.description,amount:request.amount,payer_user_id:request.payer_user_id,expected_finance_version:request.expected_finance_version}); return this.run({scope:'CREATE_FINANCIAL_NOTE',fundId,body},operationId,actor,correlation,deadline);
   }
   async manage(scope:'UPDATE_FINANCIAL_NOTE'|'DELETE_FINANCIAL_NOTE',request:FinanceV1.UpdateFinancialNoteRequest|FinanceV1.DeleteFinancialNoteRequest,correlation:string,deadline:number){
-    const operationId=readUuid(request.operation_id),actor=readUuid(request.actor_user_id),noteId=readUuid(request.note_id); const found=(await this.db.query<{fund_id:string}>('SELECT fund_id FROM financial_notes WHERE id=$1 AND deleted_at IS NULL',[noteId])).rows[0]; if(!found)throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    const operationId=readUuid(request.operation_id),actor=readUuid(request.actor_user_id),noteId=readUuid(request.note_id); const found=(await this.db.query<{fund_id:string;deleted:boolean}>('SELECT fund_id,deleted_at IS NOT NULL AS deleted FROM financial_notes WHERE id=$1',[noteId])).rows[0];
+    // A deleted note stays reachable only to replay this operation's stored receipt; run() verifies actor and hash.
+    if(!found||(found.deleted&&!(await this.commands.hasReceipt(operationId))))throw new FinanceReadError('RESOURCE_NOT_FOUND');
     let body;
     if(scope==='UPDATE_FINANCIAL_NOTE') { const update=request as FinanceV1.UpdateFinancialNoteRequest,amount=nullable(update.amount),payer=nullable(update.payer_user_id); body=parseUpdateFinancialNote({...((update.description===undefined)?{}:{description:update.description}),...(amount.present?{amount:amount.value}:{}),...(payer.present?{payer_user_id:payer.value}:{}),expected_version:update.expected_version,expected_finance_version:update.expected_finance_version}); }
     else body=parseFinancialNoteAction({expected_version:request.expected_version,expected_finance_version:request.expected_finance_version});

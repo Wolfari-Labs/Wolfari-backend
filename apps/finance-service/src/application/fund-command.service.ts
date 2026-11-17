@@ -32,6 +32,7 @@ import {
   FinanceReadError,
   loopbackTarget,
   readUuid,
+  isFinanceConflictReason,
   type FinanceReadErrorCode,
 } from '../finance.errors';
 import { isManualWrite } from '../repositories/manual-contribution.repository';
@@ -42,6 +43,7 @@ import { isRefundWrite } from '../repositories/refund.repository';
 import { isClosureWrite } from '../repositories/closure.repository';
 import { isPaymentWrite } from '../repositories/payment.repository';
 import { isHandoverWrite } from '../repositories/handover.repository';
+import { assertCommandTiming, CommandTimingError } from '../domain/command-timing';
 
 type CommandResponse = FinanceV1.HolderHandoverCommandResponse &
   FinanceV1.EnableFundResponse &
@@ -310,6 +312,10 @@ export class FundCommandService {
       throw error;
     }
   }
+  /** True when this operation already has a stored receipt, i.e. the call is an idempotent replay. */
+  async hasReceipt(operationId: string): Promise<boolean> {
+    return (await this.repo.find(operationId)) !== undefined;
+  }
   /** Shared durable command coordinator; callers must parse inputs and resolve Fund scope first. */
   async run(
     command: UnhashedWrite,
@@ -325,6 +331,13 @@ export class FundCommandService {
     let saved = await this.repo.find(operationId);
     if (saved) this.repo.verify(saved, input);
     else {
+      // Time-relative input rules apply to new commands only; a stored replay keeps its result.
+      try {
+        assertCommandTiming(input);
+      } catch (error) {
+        if (error instanceof CommandTimingError) throw new FinanceReadError('VALIDATION_FAILED');
+        throw error;
+      }
       // External storage verification happens before the guard/SQL write and is skipped on replay.
       await prepare?.();
       if (prepare && Date.now() >= deadline) throw new FinanceReadError('SERVICE_UNAVAILABLE');
@@ -377,7 +390,10 @@ export class FundCommandService {
       return pending();
     }
     if (saved.status !== 'COMMITTED')
-      throw new FinanceReadError(saved.response.error ?? 'STATE_CONFLICT');
+      throw new FinanceReadError(
+        saved.response.error ?? 'STATE_CONFLICT',
+        isFinanceConflictReason(saved.response.reason) ? saved.response.reason : undefined,
+      );
     if (isPaymentWrite(input)) {
       const current = await this.queries.getFund(
         { trip_id: input.tripId, actor_user_id: input.actor },

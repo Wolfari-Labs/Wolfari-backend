@@ -273,3 +273,15 @@ describe('API078 contribution request body parser', () => {
     ).toThrow(InvalidContributionRequestError);
   });
 });
+
+describe('API078 free-text limits', () => {
+  it('accepts a 2000-character note and rejects longer or NUL notes', () => {
+    expect(parseCreateContributionRequestInput({ ...body, note: '𠮷'.repeat(2000) }).note).toBe(
+      '𠮷'.repeat(2000),
+    );
+    for (const note of ['𠮷'.repeat(2001), 'a\u0000b'])
+      expect(() => parseCreateContributionRequestInput({ ...body, note })).toThrow(
+        new ContributionRequestInputError('note'),
+      );
+  });
+});

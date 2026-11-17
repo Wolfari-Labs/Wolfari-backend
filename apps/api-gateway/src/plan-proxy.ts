@@ -24,15 +24,47 @@ import {
   type SessionValidator,
 } from './trip-http';
 
+type DressKind = 'dress-list' | 'dress-create' | 'dress-update' | 'dress-delete';
 type Route = {
-  kind: 'get' | 'create' | 'update' | 'delete' | 'reorder' | 'completion';
+  kind: 'get' | 'create' | 'update' | 'delete' | 'reorder' | 'completion' | DressKind;
   tripId: string;
   activityId?: string;
+  dressCodeId?: string;
 };
+/** Server features a client may rely on; absent keys mean the write is not offered yet. */
+export const PLAN_CAPABILITIES = {
+  dress_codes_write: true,
+  packing_write: true,
+  locations_write: true,
+} as const;
+const scopeNumbers: Record<string, number> = { TRIP: 1, DAY: 2, ACTIVITY: 3 };
+const DRESS_TEXT_MAX = 10_000;
 const statuses = { 1: 'TODO', 2: 'COMPLETED' };
 const sources = { 1: 'MANUAL', 2: 'PROVIDER', 3: 'DSS' };
 const scopes = { 1: 'TRIP', 2: 'DAY', 3: 'ACTIVITY' };
+function dressRoute(method: string, path: string): Route | null | undefined {
+  const match = /^\/api\/v1\/trips\/([^/]+)\/dress-codes(?:\/([^/]+))?$/.exec(path);
+  if (!match) return undefined;
+  const [, tripId, id] = match;
+  const kind: DressKind | null = !id
+    ? method === 'GET'
+      ? 'dress-list'
+      : method === 'POST'
+        ? 'dress-create'
+        : null
+    : method === 'PATCH'
+      ? 'dress-update'
+      : method === 'DELETE'
+        ? 'dress-delete'
+        : null;
+  if (!kind) return null;
+  if (!uuid.test(tripId!)) throw new RequestError('Invalid trip id');
+  if (id && !uuid.test(id)) throw new RequestError('Invalid dress code id');
+  return { kind, tripId: tripId!.toLowerCase(), ...(id ? { dressCodeId: id.toLowerCase() } : {}) };
+}
 export function planRoute(method: string, path: string): Route | null {
+  const dress = dressRoute(method, path);
+  if (dress !== undefined) return dress;
   const match =
     /^\/api\/v1\/trips\/([^/]+)\/(plan|activities)(?:\/([^/]+))?(?:\/(completion))?$/.exec(path);
   if (!match) return null;
@@ -174,16 +206,12 @@ export function projectPlan(value: unknown) {
     selected_locations: list(row.selected_locations).map(projectLocation),
     dress_codes: list(row.dress_codes).map(projectDressCode),
     packing_items: list(row.packing_items).map(projectPackingItem),
-    capabilities: {
-      dress_codes_write: bool(row.dress_codes_write),
-      packing_write: bool(row.packing_write),
-      locations_write: bool(row.locations_write),
-    },
     permissions: {
       can_read: bool(permissions.can_read),
       can_edit: bool(permissions.can_edit),
       can_complete: bool(permissions.can_complete),
     },
+    capabilities: { ...PLAN_CAPABILITIES },
   };
 }
 function revision(value: unknown): number {
@@ -287,6 +315,65 @@ export function planRequest(
   }
   return request;
 }
+/** API051-053. Null clears an optional field on PATCH and is the same as omission on POST. */
+export function dressCodeRequest(
+  route: Route,
+  body: RpcMessage,
+  actorId: string,
+  operationId: string,
+): RpcMessage {
+  const request: RpcMessage = {
+    operation_id: operationId,
+    actor_user_id: actorId,
+    trip_id: route.tripId,
+    expected_plan_version: revision(body.expected_plan_version),
+  };
+  if (route.dressCodeId) request.dress_code_id = route.dressCodeId;
+  if (route.kind === 'dress-delete') {
+    onlyKeys(body, ['expected_plan_version']);
+    return request;
+  }
+  onlyKeys(body, [
+    'expected_plan_version',
+    'scope_type',
+    'plan_date',
+    'activity_id',
+    'label',
+    'description',
+    'public_description',
+  ]);
+  const create = route.kind === 'dress-create';
+  if (!create && Object.keys(body).length < 2) throw new RequestError('Missing update');
+  if (create || Object.hasOwn(body, 'scope_type')) {
+    const scope = typeof body.scope_type === 'string' ? scopeNumbers[body.scope_type] : undefined;
+    if (!scope) throw new RequestError('Invalid scope_type');
+    request.scope_type = scope;
+  }
+  if (create || Object.hasOwn(body, 'label')) {
+    if (typeof body.label !== 'string' || !body.label.trim() || [...body.label.trim()].length > 100)
+      throw new RequestError('Invalid label');
+    request.label = body.label.trim();
+  }
+  for (const key of ['description', 'public_description', 'plan_date', 'activity_id'] as const) {
+    if (!Object.hasOwn(body, key)) continue;
+    const value = body[key];
+    if (value === null) {
+      if (!create) request[key] = { clear: true };
+      continue;
+    }
+    if (typeof value !== 'string') throw new RequestError(`Invalid ${key}`);
+    if (key === 'plan_date' && !isCalendarDate(value)) throw new RequestError('Invalid plan_date');
+    if (key === 'activity_id' && !uuid.test(value)) throw new RequestError('Invalid activity id');
+    if (
+      (key === 'description' || key === 'public_description') &&
+      [...value].length > DRESS_TEXT_MAX
+    )
+      throw new RequestError(`Invalid ${key}`);
+    const normalized = key === 'activity_id' ? value.toLowerCase() : value;
+    request[key] = create ? normalized : { value: normalized };
+  }
+  return request;
+}
 export class PlanProxy {
   private readonly client: TripClient;
   constructor(private readonly validateSession: SessionValidator) {
@@ -300,7 +387,7 @@ export class PlanProxy {
   }
   matches(request: IncomingMessage & { originalUrl?: string }): boolean {
     try {
-      return /^\/api\/v1\/trips\/[^/]+\/(plan|activities)(\/.*)?$/.test(
+      return /^\/api\/v1\/trips\/[^/]+\/(plan|activities|dress-codes)(\/.*)?$/.test(
         new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname,
       );
     } catch {
@@ -322,7 +409,8 @@ export class PlanProxy {
       );
     }
     if (!route) return fail(response, 404, 'RESOURCE_NOT_FOUND');
-    const auth = await authenticate(request, response, this.validateSession, route.kind !== 'get');
+    const read = route.kind === 'get' || route.kind === 'dress-list';
+    const auth = await authenticate(request, response, this.validateSession, !read);
     if (!auth) return;
     try {
       ensureQuery(url, []);
@@ -335,6 +423,49 @@ export class PlanProxy {
         return json(response, 200, {
           data,
           meta: { correlation_id: auth.correlationId, export_revision: data.export_revision },
+        });
+      }
+      if (route.kind === 'dress-list') {
+        // API050: the Plan snapshot is the single read model, so the list is one complete page.
+        const result = await this.client.getPlan(
+          { actor_user_id: auth.actorUserId, trip_id: route.tripId },
+          auth.correlationId,
+        );
+        const data = projectPlan(result.plan);
+        return json(response, 200, {
+          data: { items: data.dress_codes, next_cursor: null },
+          meta: { correlation_id: auth.correlationId, export_revision: data.export_revision },
+        });
+      }
+      if (
+        route.kind === 'dress-create' ||
+        route.kind === 'dress-update' ||
+        route.kind === 'dress-delete'
+      ) {
+        const dressInput = dressCodeRequest(
+          route,
+          await requestBody(request),
+          auth.actorUserId,
+          idempotencyKey(request, true)!,
+        );
+        if (route.kind === 'dress-delete') {
+          const version = projectPlanVersion(
+            (await this.client.deleteDressCode(dressInput, auth.correlationId)).version,
+          );
+          return json(response, 200, {
+            data: version,
+            meta: { correlation_id: auth.correlationId, export_revision: version.export_revision },
+          });
+        }
+        const saved = await this.client[
+          route.kind === 'dress-create' ? 'createDressCode' : 'updateDressCode'
+        ](dressInput, auth.correlationId);
+        return json(response, route.kind === 'dress-create' ? 201 : 200, {
+          data: projectDressCode(saved.dress_code),
+          meta: {
+            correlation_id: auth.correlationId,
+            export_revision: requiredInteger(saved.export_revision),
+          },
         });
       }
       const operationId = idempotencyKey(request, true)!;
@@ -360,7 +491,7 @@ export class PlanProxy {
       });
     } catch (error) {
       if (error instanceof RequestError) return fail(response, 400, 'VALIDATION_FAILED');
-      return grpcFailure(response, error, route.kind !== 'get');
+      return grpcFailure(response, error, !read);
     }
   }
   close() {

@@ -359,7 +359,7 @@
             "maxLength": 1024,
             "nullable": true
           },
-          "paid_at": { "type": "string", "format": "date-time", "nullable": true },
+          "paid_at": { "type": "string", "format": "date-time", "nullable": true, "description": "When the payment was made; may not be more than 5 minutes after server time." },
           "payment_method": { "type": "string", "minLength": 1, "maxLength": 30, "nullable": true },
           "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
         }
@@ -388,7 +388,7 @@
             "maxLength": 1024,
             "nullable": true
           },
-          "paid_at": { "type": "string", "format": "date-time", "nullable": true },
+          "paid_at": { "type": "string", "format": "date-time", "nullable": true, "description": "When the payment was made; may not be more than 5 minutes after server time." },
           "payment_method": { "type": "string", "minLength": 1, "maxLength": 30, "nullable": true },
           "expected_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
           "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
@@ -409,7 +409,7 @@
         "additionalProperties": false,
         "required": ["paid_at", "payment_method", "expected_version", "expected_finance_version"],
         "properties": {
-          "paid_at": { "type": "string", "format": "date-time" },
+          "paid_at": { "type": "string", "format": "date-time", "description": "When the payment was made; may not be more than 5 minutes after server time." },
           "payment_method": { "type": "string", "minLength": 1, "maxLength": 30 },
           "expected_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
           "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
@@ -546,7 +546,7 @@
             "properties": {
               "code": { "type": "string" },
               "message": { "type": "string" },
-              "details": { "nullable": true },
+              "details": { "nullable": true, "description": "May carry reason (e.g. INSUFFICIENT_AVAILABLE_BALANCE, FUND_NOT_OPEN, CLOSURE_PENDING, HANDOVER_IN_PROGRESS, INVALID_TRANSITION) for 409 STATE_CONFLICT; treat an absent or unknown reason as a generic conflict." },
               "retryable": { "type": "boolean" }
             }
           },

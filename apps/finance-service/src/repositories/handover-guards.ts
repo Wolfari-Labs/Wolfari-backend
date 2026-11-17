@@ -12,5 +12,5 @@ export async function assertNoHandover(
      AND status=ANY($2::varchar[]) LIMIT 1`,
     [fundId, acceptedOnly ? ['ACCEPTED'] : ['NOMINATED', 'ACCEPTED']],
   );
-  if (result.rows.length) throw new FinanceReadError('STATE_CONFLICT');
+  if (result.rows.length) throw new FinanceReadError('STATE_CONFLICT', 'HANDOVER_IN_PROGRESS');
 }

@@ -51,6 +51,7 @@ export const HISTORY_ACTIONS = [
   'RECONCILE_PAYMENT_ATTEMPT',
   'RESOLVE_PAYMENT_EXCEPTION',
   'CONFIRM_PROVIDER_PAYMENT',
+  'CONFIRM_BANK_TRANSFER',
   'LEAVE_MEMBER',
   'REMOVE_MEMBER',
 ] as const;
@@ -61,6 +62,9 @@ export type HistoryPage = {
   limit: number;
   before?: { at: string; id: string };
 };
+/** Actions whose stored reason is private to the entity's own view and omitted from history. */
+const HIDDEN_REASON_ACTIONS: ReadonlySet<string> = new Set(['CANCEL_REFUND']);
+
 export type HistoryRow = {
   id: string;
   fund_id: string;
@@ -150,7 +154,7 @@ export function historyResponse(row: HistoryRow, fundId: string): FinanceV1.Fund
     !HISTORY_ACTIONS.some((action) => action === row.action) ||
     !/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(row.entity_type) ||
     (row.system_actor !== null &&
-      !['MOMO_IPN', 'MOMO_RECONCILIATION'].includes(row.system_actor)) ||
+      !['MOMO_IPN', 'MOMO_RECONCILIATION', 'BANK_WEBHOOK:SEPAY'].includes(row.system_actor)) ||
     row.reason_oversized !== false ||
     (row.reason !== null && (typeof row.reason !== 'string' || [...row.reason].length > 2000)) ||
     !historyInstant(row.occurred_at)
@@ -167,7 +171,8 @@ export function historyResponse(row: HistoryRow, fundId: string): FinanceV1.Fund
     entity_id: row.entity_id === null ? undefined : id(row.entity_id),
     from_version: version(row.from_version),
     to_version: version(row.to_version),
-    reason: row.reason ?? undefined,
+    // The refund view never exposes cancelled_reason; history must not reveal it either.
+    reason: HIDDEN_REASON_ACTIONS.has(row.action) ? undefined : (row.reason ?? undefined),
     correlation_id: id(row.correlation_id),
     occurred_at: {
       seconds: String(Math.floor(milliseconds / 1000)),

@@ -107,7 +107,8 @@ export class FundQueryService {
     if (instruction) {
       if (typeof response.finance_closure_locked !== 'boolean')
         throw new FinanceReadError('SERVICE_UNAVAILABLE');
-      if (response.finance_closure_locked) throw new FinanceReadError('STATE_CONFLICT');
+      if (response.finance_closure_locked)
+        throw new FinanceReadError('STATE_CONFLICT', 'CLOSURE_PENDING');
     }
     return membership.role;
   }

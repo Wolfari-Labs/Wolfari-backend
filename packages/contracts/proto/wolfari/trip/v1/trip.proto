@@ -38,6 +38,9 @@ service TripService {
   rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
   rpc ReorderActivities(ReorderActivitiesRequest) returns (ReorderActivitiesResponse);
   rpc SetActivityCompletion(SetActivityCompletionRequest) returns (SetActivityCompletionResponse);
+  rpc CreateDressCode(CreateDressCodeRequest) returns (CreateDressCodeResponse);
+  rpc UpdateDressCode(UpdateDressCodeRequest) returns (UpdateDressCodeResponse);
+  rpc DeleteDressCode(DeleteDressCodeRequest) returns (DeleteDressCodeResponse);
 }
 
 enum TripLifecycle {
@@ -561,3 +564,27 @@ message ExportPlanPdfResponse {
   string filename = 2;
   int32 plan_version = 3;
 }
+// FR-PL03 / API051-053. Exactly one scope: TRIP (no date/activity), DAY (plan_date) or ACTIVITY (activity_id).
+message CreateDressCodeRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3;
+  int32 expected_plan_version = 4; DressScope scope_type = 5; string label = 6;
+  optional string description = 7; optional string public_description = 8;
+  optional string plan_date = 9; // YYYY-MM-DD in the Trip timezone.
+  optional string activity_id = 10;
+}
+message CreateDressCodeResponse { PlanDressCode dress_code = 1; int32 export_revision = 2; }
+
+message UpdateDressCodeRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3; string dress_code_id = 4;
+  int32 expected_plan_version = 5;
+  optional DressScope scope_type = 6; optional string label = 7;
+  StringPatch description = 8; StringPatch public_description = 9;
+  StringPatch plan_date = 10; StringPatch activity_id = 11;
+}
+message UpdateDressCodeResponse { PlanDressCode dress_code = 1; int32 export_revision = 2; }
+
+message DeleteDressCodeRequest {
+  string operation_id = 1; string actor_user_id = 2; string trip_id = 3; string dress_code_id = 4;
+  int32 expected_plan_version = 5;
+}
+message DeleteDressCodeResponse { PlanVersion version = 1; }

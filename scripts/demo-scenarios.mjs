@@ -296,6 +296,48 @@ export async function runDemoScenarios(demo, command) {
         }));
       }
       pass('Activity: three persistent server activities');
+      // FR-PL03: one dress code per scope so every client view has real data.
+      const tripDay = new Intl.DateTimeFormat('en-CA', {
+        timeZone: trip.timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(Date.parse(trip.start_at) + 86400000));
+      for (const [index, fields] of [
+        {
+          scope_type: 'TRIP',
+          label: 'Thoải mái, dễ di chuyển',
+          description: 'Áo thun, quần dài hoặc short, giày thể thao. Mang thêm áo khoác mỏng.',
+        },
+        {
+          scope_type: 'DAY',
+          plan_date: tripDay,
+          label: 'Đồ đi biển',
+          description:
+            'Đồ bơi, áo chống nắng, mũ rộng vành và dép. Tông trắng – xanh để chụp ảnh nhóm.',
+        },
+        {
+          scope_type: 'ACTIVITY',
+          activity_title: 'Tham quan thành phố',
+          label: 'Kín đáo, lịch sự',
+          description: 'Áo có tay, quần hoặc váy qua gối khi vào chùa và điểm tham quan.',
+        },
+      ].entries()) {
+        await step(`dress-code-${index}`, async () => {
+          const current = await plan();
+          const { activity_title: title, ...body } = fields;
+          const activity = title && current.activities.find((item) => item.title === title);
+          return {
+            path: base + '/dress-codes',
+            body: {
+              ...body,
+              ...(title ? { activity_id: activity.id } : {}),
+              expected_plan_version: current.plan_version,
+            },
+          };
+        });
+      }
+      pass('Dress code: Trip, day and Activity guidance');
       const profile = (await api('/api/v1/me', 'GET', undefined, owner)).data;
       if (!profile.avatar && command === 'seed') {
         const require = createRequire(

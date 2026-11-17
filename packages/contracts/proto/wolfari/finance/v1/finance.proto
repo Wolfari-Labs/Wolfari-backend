@@ -76,7 +76,47 @@ service FinanceService {
   rpc RefreshHolderHandover(RefreshHolderHandoverRequest) returns (RefreshHolderHandoverResponse);
   rpc ConfirmHolderHandover(ConfirmHolderHandoverRequest) returns (ConfirmHolderHandoverResponse);
   rpc CancelHolderHandover(CancelHolderHandoverRequest) returns (CancelHolderHandoverResponse);
+  rpc ReceiveBankTransfer(ReceiveBankTransferRequest) returns (ReceiveBankTransferResponse);
+  rpc ListBankTransfers(ListBankTransfersRequest) returns (ListBankTransfersResponse);
 }
+
+// Incoming bank transfers reported by an aggregation provider (SePay). Gateway verified the signature.
+message ReceiveBankTransferRequest {
+  string provider = 1;
+  string provider_transaction_id = 2;
+  string transfer_type = 3;
+  string amount = 4;
+  string content = 5;
+  string account_number = 6;
+  string bank_gateway = 7;
+  string reference_code = 8;
+  string sub_account = 9;
+  string transaction_date = 10;
+  string payload_json = 11;
+}
+message ReceiveBankTransferResponse {
+  string receipt_id = 1;
+  string processing_status = 2;
+  optional string contribution_id = 3;
+}
+message BankTransferView {
+  string id = 1;
+  string provider = 2;
+  string provider_transaction_id = 3;
+  string transfer_type = 4;
+  string amount = 5;
+  string content = 6;
+  string account_number_masked = 7;
+  string bank_gateway = 8;
+  string processing_status = 9;
+  optional string contribution_id = 10;
+  optional string review_reason = 11;
+  google.protobuf.Timestamp transaction_at = 12;
+  google.protobuf.Timestamp received_at = 13;
+  google.protobuf.Timestamp processed_at = 14;
+}
+message ListBankTransfersRequest { string actor_user_id = 1; string fund_id = 2; }
+message ListBankTransfersResponse { repeated BankTransferView items = 1; }
 
 // Public Member audit metadata only; raw details and provider data are excluded.
 // Handover snapshots are business data; no bank credentials or receipt storage keys.

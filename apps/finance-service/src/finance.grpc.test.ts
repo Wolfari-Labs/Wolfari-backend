@@ -362,4 +362,14 @@ describe('Finance Automation context authentication', () => {
       error: { code: transport, message: JSON.stringify({ code, details: null }) },
     });
   });
+  it('carries a STATE_CONFLICT sub-reason as details.reason', async () => {
+    const s = authorized();
+    s.automation.get.mockRejectedValue(new FinanceReadError('STATE_CONFLICT', 'CLOSURE_PENDING'));
+    await expect(s.controller.getAutomationContext(request, s.metadata)).rejects.toMatchObject({
+      error: {
+        code: status.FAILED_PRECONDITION,
+        message: JSON.stringify({ code: 'STATE_CONFLICT', details: { reason: 'CLOSURE_PENDING' } }),
+      },
+    });
+  });
 });

@@ -1882,6 +1882,13 @@
               "details": {
                 "type": "object",
                 "nullable": true,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": ["FUND_NOT_OPEN", "CLOSURE_PENDING", "FUND_ALREADY_EXISTS", "HOLDER_NOT_ACTIVE", "MEMBER_NOT_ACTIVE", "TRIP_ARCHIVED", "INSUFFICIENT_AVAILABLE_BALANCE", "HANDOVER_IN_PROGRESS", "INVALID_TRANSITION"],
+                    "description": "Optional sub-reason for 409 STATE_CONFLICT; the HTTP status and code are unchanged. Clients must treat an absent or unrecognized reason as a generic conflict."
+                  }
+                },
                 "additionalProperties": {
                   "type": "integer"
                 }
@@ -2232,11 +2239,12 @@
           "due_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Explicit offset and seconds, up to 9 fractional digits accepted, stored at millisecond precision. Metadata only; no automatic debit or cancellation."
+            "description": "Explicit offset and seconds, up to 9 fractional digits accepted, stored at millisecond precision. A new request may not be already overdue (more than 5 minutes before server time); an idempotent replay returns the stored result. Metadata only; no automatic debit or cancellation."
           },
           "note": {
             "type": "string",
-            "description": "May be empty, may not contain NUL. Omit to represent no note; explicit null rejected."
+            "maxLength": 2000,
+            "description": "May be empty, may not contain NUL, at most 2000 Unicode code points. Omit to represent no note; explicit null rejected."
           },
           "expected_finance_version": {
             "type": "integer",
@@ -2274,7 +2282,8 @@
           },
           "note": {
             "type": "string",
-            "description": "Omit to retain existing note; empty string accepted, null/NUL rejected."
+            "maxLength": 2000,
+            "description": "Omit to retain existing note; empty string accepted, null/NUL rejected, at most 2000 Unicode code points."
           },
           "expected_version": {
             "type": "integer",
@@ -2351,7 +2360,8 @@
           },
           "evidence_object_key": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 1024
           }
         }
       },
@@ -2395,6 +2405,7 @@
           "reason": {
             "type": "string",
             "minLength": 1,
+            "maxLength": 1024,
             "pattern": "\\S"
           }
         }

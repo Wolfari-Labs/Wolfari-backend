@@ -168,6 +168,32 @@ async function reconcileQueryGroup(client: PoolClient, id: string): Promise<void
   );
 }
 
+/** Active, unexpired watches allowed per Trip membership and per Trip (SRS: bounded polling cost). */
+export const PRICE_WATCH_ACTIVE_LIMITS = { membership: 20, trip: 200 } as const;
+
+/**
+ * Serialize capacity per Trip, then count ACTIVE unexpired watches. Called inside the write
+ * transaction before a watch becomes ACTIVE (create or resume); replays never reach it.
+ */
+async function assertActiveCapacity(client: PoolClient, tripId: string, membershipId: string) {
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+    `price-watch-capacity:${tripId}`,
+  ]);
+  const counts = (
+    await client.query<{ membership: number; trip: number }>(
+      `SELECT count(*) FILTER (WHERE owner_membership_id=$2)::int AS membership,
+              count(*)::int AS trip
+       FROM price_watches
+       WHERE trip_id=$1 AND status='ACTIVE' AND expires_at>clock_timestamp()`,
+      [tripId, membershipId],
+    )
+  ).rows[0]!;
+  if (counts.membership >= PRICE_WATCH_ACTIVE_LIMITS.membership)
+    priceWatchFail('RESOURCE_EXHAUSTED', { reason: 'MEMBER_ACTIVE_WATCH_LIMIT' });
+  if (counts.trip >= PRICE_WATCH_ACTIVE_LIMITS.trip)
+    priceWatchFail('RESOURCE_EXHAUSTED', { reason: 'TRIP_ACTIVE_WATCH_LIMIT' });
+}
+
 @Injectable()
 export class PriceWatchRepository {
   constructor(private readonly database: DatabaseProvider) {}
@@ -198,6 +224,7 @@ export class PriceWatchRepository {
           return priceWatchFail('IDEMPOTENCY_CONFLICT');
         return project(replay);
       }
+      await assertActiveCapacity(client, input.tripId, input.membershipId);
       const queryGroupId = await queryGroup(client, input.value);
       const inserted = await client.query<WatchRow>(
         `INSERT INTO price_watches(
@@ -319,6 +346,8 @@ export class PriceWatchRepository {
       if (current.version !== expectedVersion)
         return priceWatchFail('VERSION_CONFLICT', { current_version: current.version });
       if (current.version === 2_147_483_647) return priceWatchFail('STATE_CONFLICT');
+      if (next === 'ACTIVE' && current.status !== 'ACTIVE')
+        await assertActiveCapacity(client, current.trip_id, current.owner_membership_id);
       await client.query(
         `UPDATE price_watches SET status=$2,status_reason=$3,version=version+1,updated_at=now()
          WHERE id=$1`,

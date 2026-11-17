@@ -16,17 +16,17 @@ import {
   uuid,
   type SessionValidator,
 } from './trip-http';
-import { projectLocation, projectDressCode, projectPackingItem, projectPlanVersion } from './plan-proxy';
+import { projectLocation, projectPackingItem, projectPlanVersion } from './plan-proxy';
 
 export function planItemRoute(method: string, path: string) {
   const match =
-    /^\/api\/v1\/trips\/([^/]+)\/(dress-codes|packing-items|selected-locations)(?:\/([^/]+))?(?:\/(completion))?$/.exec(
+    /^\/api\/v1\/trips\/([^/]+)\/(packing-items|selected-locations)(?:\/([^/]+))?(?:\/(completion))?$/.exec(
       path,
     );
   if (!match) return null;
   const [, tripId, collection, itemId, completion] = match;
   if (!uuid.test(tripId!) || (itemId && !uuid.test(itemId))) throw new RequestError('Invalid ID');
-  const entity_type = collection === 'dress-codes' ? 'DRESS_CODE' : collection === 'selected-locations' ? 'SELECTED_LOCATION' : 'PACKING_ITEM';
+  const entity_type = collection === 'selected-locations' ? 'SELECTED_LOCATION' : 'PACKING_ITEM';
   const action =
     !itemId && method === 'POST'
       ? 'CREATE'
@@ -52,7 +52,7 @@ export class PlanItemsProxy {
     this.client = new TripClient(target, secret);
   }
   matches(request: IncomingMessage & { originalUrl?: string }) {
-    return /^\/api\/v1\/trips\/[^/]+\/(dress-codes|packing-items|selected-locations)(?:\/|$)/.test(
+    return /^\/api\/v1\/trips\/[^/]+\/(packing-items|selected-locations)(?:\/|$)/.test(
       new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname,
     );
   }
@@ -71,16 +71,9 @@ export class PlanItemsProxy {
           ? []
           : route.action === 'COMPLETE'
             ? ['status']
-            : route.entity_type === 'DRESS_CODE'
-              ? [
-                  'scope_type',
-                  'plan_date',
-                  'activity_id',
-                  'label',
-                  'description',
-                  'public_description',
-                ]
-              : route.entity_type === 'SELECTED_LOCATION' ? ['name', 'address', 'latitude', 'longitude', 'attribution'] : ['name', 'quantity', 'unit', 'note', 'category', 'assigned_member_id', 'due_at'];
+            : route.entity_type === 'SELECTED_LOCATION'
+              ? ['name', 'address', 'latitude', 'longitude', 'attribution']
+              : ['name', 'quantity', 'unit', 'note', 'category', 'assigned_member_id', 'due_at'];
       onlyKeys(body, ['expected_plan_version', ...fields]);
       const revision = Number(body.expected_plan_version);
       if (!Number.isInteger(body.expected_plan_version)) throw new RequestError('Invalid version');
@@ -124,9 +117,14 @@ export class PlanItemsProxy {
       const data =
         route.action === 'DELETE'
           ? { ...version, deleted: true }
-          : route.entity_type === 'DRESS_CODE'
-            ? projectDressCode(enumRow)
-            : route.entity_type === 'SELECTED_LOCATION' ? projectLocation({ ...enumRow, metadata_json: JSON.stringify(item?.metadata ?? {}), fetched_at: undefined, opening_hours_json: undefined }) : {
+          : route.entity_type === 'SELECTED_LOCATION'
+            ? projectLocation({
+                ...enumRow,
+                metadata_json: JSON.stringify(item?.metadata ?? {}),
+                fetched_at: undefined,
+                opening_hours_json: undefined,
+              })
+            : {
                 ...projectPackingItem({ ...enumRow, due_at: undefined, completed_at: undefined }),
                 due_at: item?.due_at ?? null,
                 completed_at: item?.completed_at ?? null,

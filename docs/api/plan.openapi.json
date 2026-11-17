@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Plan / Activity",
-    "version": "1.1.0",
-    "description": "Demo 1 addendum v1.0. Read projections for Locations/Dress/Packing do not imply public writers. scheduled_date is additive; old request hashes are preserved when omitted."
+    "version": "1.2.0",
+    "description": "Demo 1 addendum v1.0 plus Dress code writes (API050-053). Read projections for Locations/Packing do not imply public writers; Plan.capabilities names the writers this server offers. scheduled_date is additive; old request hashes are preserved when omitted."
   },
   "servers": [
     {
@@ -49,11 +49,16 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id"],
+                      "required": ["correlation_id", "export_revision"],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "export_revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
                         }
                       }
                     }
@@ -869,6 +874,569 @@
           }
         }
       }
+    },
+    "/api/v1/trips/{trip_id}/dress-codes": {
+      "get": {
+        "operationId": "listDressCodes",
+        "summary": "API050 List Dress codes",
+        "description": "FR-PL03. Active membership reads; Plan Editor writes on a Trip that is not archived. Exactly one scope: TRIP (plan_date and activity_id null), DAY (plan_date is a Trip-timezone day intersecting [start_at,end_at)) or ACTIVITY (activity_id of the same Trip). Writes check expected_plan_version and current permissions; a changed write raises plan_version and export_revision once and emits PlanUpdated. Omitted PATCH fields retain values; null clears, and the merged scope must stay valid. New rows are MANUAL; editing keeps the stored source. Deleting an Activity deletes its ACTIVITY dress codes. Web uses Bearer access plus Origin/CSRF convention from identity.openapi.yaml.",
+        "parameters": [
+          {
+            "name": "trip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dress codes of the current Plan snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DressCodePage"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id", "export_revision"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "export_revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, IDEMPOTENCY_CONFLICT or STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write outcome may be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDressCode",
+        "summary": "API051 Create Dress code",
+        "description": "FR-PL03. Active membership reads; Plan Editor writes on a Trip that is not archived. Exactly one scope: TRIP (plan_date and activity_id null), DAY (plan_date is a Trip-timezone day intersecting [start_at,end_at)) or ACTIVITY (activity_id of the same Trip). Writes check expected_plan_version and current permissions; a changed write raises plan_version and export_revision once and emits PlanUpdated. Omitted PATCH fields retain values; null clears, and the merged scope must stay valid. New rows are MANUAL; editing keeps the stored source. Deleting an Activity deletes its ACTIVITY dress codes. Web uses Bearer access plus Origin/CSRF convention from identity.openapi.yaml.",
+        "parameters": [
+          {
+            "name": "trip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Persisted result; replay returns saved receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DressCode"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id", "export_revision"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "export_revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, IDEMPOTENCY_CONFLICT or STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write outcome may be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDressCode"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trips/{trip_id}/dress-codes/{dress_code_id}": {
+      "patch": {
+        "operationId": "updateDressCode",
+        "summary": "API052 Update Dress code",
+        "description": "FR-PL03. Active membership reads; Plan Editor writes on a Trip that is not archived. Exactly one scope: TRIP (plan_date and activity_id null), DAY (plan_date is a Trip-timezone day intersecting [start_at,end_at)) or ACTIVITY (activity_id of the same Trip). Writes check expected_plan_version and current permissions; a changed write raises plan_version and export_revision once and emits PlanUpdated. Omitted PATCH fields retain values; null clears, and the merged scope must stay valid. New rows are MANUAL; editing keeps the stored source. Deleting an Activity deletes its ACTIVITY dress codes. Web uses Bearer access plus Origin/CSRF convention from identity.openapi.yaml.",
+        "parameters": [
+          {
+            "name": "trip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dress_code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted result; replay returns saved receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DressCode"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id", "export_revision"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "export_revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, IDEMPOTENCY_CONFLICT or STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write outcome may be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDressCode"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDressCode",
+        "summary": "API053 Delete Dress code",
+        "description": "FR-PL03. Active membership reads; Plan Editor writes on a Trip that is not archived. Exactly one scope: TRIP (plan_date and activity_id null), DAY (plan_date is a Trip-timezone day intersecting [start_at,end_at)) or ACTIVITY (activity_id of the same Trip). Writes check expected_plan_version and current permissions; a changed write raises plan_version and export_revision once and emits PlanUpdated. Omitted PATCH fields retain values; null clears, and the merged scope must stay valid. New rows are MANUAL; editing keeps the stored source. Deleting an Activity deletes its ACTIVITY dress codes. Web uses Bearer access plus Origin/CSRF convention from identity.openapi.yaml.",
+        "parameters": [
+          {
+            "name": "trip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dress_code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persisted result; replay returns saved receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlanVersion"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id", "export_revision"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "export_revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PERMISSION_DENIED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "RESOURCE_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "VERSION_CONFLICT, IDEMPOTENCY_CONFLICT or STATE_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE; write outcome may be unknown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteDressCode"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1274,7 +1842,8 @@
           "selected_locations",
           "dress_codes",
           "packing_items",
-          "permissions"
+          "permissions",
+          "capabilities"
         ],
         "properties": {
           "trip_id": {
@@ -1333,7 +1902,10 @@
           },
           "capabilities": {
             "type": "object",
-            "additionalProperties": false,
+            "description": "Server features beyond Activity writes. A missing or false key means that write is not offered; clients must also honour permissions.",
+            "additionalProperties": {
+              "type": "boolean"
+            },
             "required": ["dress_codes_write", "packing_write", "locations_write"],
             "properties": {
               "dress_codes_write": {
@@ -1511,6 +2083,121 @@
           "status": {
             "type": "string",
             "enum": ["TODO", "COMPLETED"]
+          }
+        }
+      },
+      "CreateDressCode": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_plan_version", "scope_type", "label"],
+        "properties": {
+          "scope_type": {
+            "type": "string",
+            "enum": ["TRIP", "DAY", "ACTIVITY"]
+          },
+          "plan_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "nullable": true
+          },
+          "activity_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000,
+            "nullable": true
+          },
+          "public_description": {
+            "type": "string",
+            "maxLength": 10000,
+            "nullable": true
+          },
+          "expected_plan_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "UpdateDressCode": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_plan_version"],
+        "properties": {
+          "scope_type": {
+            "type": "string",
+            "enum": ["TRIP", "DAY", "ACTIVITY"]
+          },
+          "plan_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "nullable": true
+          },
+          "activity_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000,
+            "nullable": true
+          },
+          "public_description": {
+            "type": "string",
+            "maxLength": 10000,
+            "nullable": true
+          },
+          "expected_plan_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "minProperties": 2
+      },
+      "DeleteDressCode": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_plan_version"],
+        "properties": {
+          "expected_plan_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "DressCodePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "next_cursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DressCode"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Always null: one complete page."
           }
         }
       }

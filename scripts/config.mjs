@@ -133,6 +133,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_CSRF_KEY',
     'WEB_ORIGIN',
     'GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER',
+    'BANK_WEBHOOK_SEPAY_SECRET',
+    'BANK_WEBHOOK_SEPAY_API_KEY',
   ];
   const automationKeys = [
     'REMINDER_WORKER_ENABLED',
@@ -159,6 +161,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   ];
   const financeKeys = [
     'FINANCE_OUTBOX_ENABLED',
+    'FINANCE_RECEIPT_CONCURRENCY',
     'RABBITMQ_URL',
     'AUTOMATION_FINANCE_SECRET',
     'MINIO_ENDPOINT',

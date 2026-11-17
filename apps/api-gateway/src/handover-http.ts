@@ -144,8 +144,9 @@ export async function handleHandover(
       const data = list
         ? {
             items: (() => {
-              if (!Array.isArray(result.items)) throw new Error('Invalid handover list');
-              const items = result.items.map(projectHandover);
+              const rawItems = result.items ?? [];
+              if (!Array.isArray(rawItems)) throw new Error('Invalid handover list');
+              const items = rawItems.map(projectHandover);
               if (items.some((x) => x.fund_id !== id)) throw new Error('Wrong Fund');
               return items;
             })(),

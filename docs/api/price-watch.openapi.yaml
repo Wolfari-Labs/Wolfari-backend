@@ -244,6 +244,8 @@ components:
               type: [object, 'null']
               properties:
                 current_version: { type: integer, minimum: 1 }
+                reason:
+                  { type: string, enum: [MEMBER_ACTIVE_WATCH_LIMIT, TRIP_ACTIVE_WATCH_LIMIT] }
             retryable: { type: boolean }
         meta:
           type: object
@@ -291,6 +293,11 @@ components:
         version or state conflict,
         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
       }
+    TooManyActive:
+      {
+        description: 'RESOURCE_EXHAUSTED: at most 20 ACTIVE unexpired watches per Trip membership and 200 per Trip. error.details.reason is MEMBER_ACTIVE_WATCH_LIMIT or TRIP_ACTIVE_WATCH_LIMIT. Pause or stop a watch to free a slot; replays of an existing create are unaffected.',
+        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+      }
 paths:
   /trips/{trip_id}/price-watches:
     parameters: [{ $ref: '#/components/parameters/TripId' }]
@@ -306,6 +313,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyActive' }
     get:
       operationId: listPriceWatches
       parameters:
@@ -376,6 +384,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyActive' }
   /price-watches/{watch_id}/stop:
     post:
       operationId: stopPriceWatch

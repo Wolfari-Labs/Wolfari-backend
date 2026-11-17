@@ -91,6 +91,18 @@ export class TripClient {
     return this.call('SetActivityCompletion', request, correlationId);
   }
 
+  createDressCode(request: RpcMessage, correlationId: string) {
+    return this.call('CreateDressCode', request, correlationId);
+  }
+
+  updateDressCode(request: RpcMessage, correlationId: string) {
+    return this.call('UpdateDressCode', request, correlationId);
+  }
+
+  deleteDressCode(request: RpcMessage, correlationId: string) {
+    return this.call('DeleteDressCode', request, correlationId);
+  }
+
   updatePlanPolicy(request: RpcMessage, correlationId: string) {
     return this.call('UpdatePlanPolicy', request, correlationId);
   }

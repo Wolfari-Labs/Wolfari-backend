@@ -29,6 +29,7 @@ import { ClosureService } from './application/closure.service';
 import { PaymentService } from './application/payment.service';
 import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
 import { HandoverService } from './application/handover.service';
+import { BankTransferService } from './application/bank-transfer.service';
 
 type DeadlineCall = {
   getDeadline(): Date | number;
@@ -59,6 +60,7 @@ export class FinanceGrpcController {
     private readonly automationContext?: FinanceAutomationContextService,
     private readonly history?: FinanceHistoryService,
     private readonly handovers?: HandoverService,
+    private readonly bankTransfers?: BankTransferService,
   ) {}
 
   @GrpcMethod('FinanceService', 'GetTripLifecycleState')
@@ -250,6 +252,28 @@ export class FinanceGrpcController {
     return this.execute('ReconcilePaymentAttempt', metadata, call, (correlation, deadline) => {
       if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return this.payments.reconcile(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ReceiveBankTransfer')
+  receiveBankTransfer(
+    request: FinanceV1.ReceiveBankTransferRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ReceiveBankTransfer', metadata, call, (correlation) => {
+      if (!this.bankTransfers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.bankTransfers.receive(request, correlation);
+    });
+  }
+  @GrpcMethod('FinanceService', 'ListBankTransfers')
+  listBankTransfers(
+    request: FinanceV1.ListBankTransfersRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ListBankTransfers', metadata, call, (correlation, deadline) => {
+      if (!this.bankTransfers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.bankTransfers.list(request, correlation, deadline);
     });
   }
   @GrpcMethod('FinanceService', 'ReceiveMomoWebhook')
@@ -728,7 +752,11 @@ export class FinanceGrpcController {
           IDEMPOTENCY_CONFLICT: status.ALREADY_EXISTS,
           FINANCE_OBLIGATION_BLOCKED: status.FAILED_PRECONDITION,
         }[code],
-        message: JSON.stringify({ code, details: null }),
+        message: JSON.stringify({
+          code,
+          details:
+            error instanceof FinanceReadError && error.reason ? { reason: error.reason } : null,
+        }),
       });
     }
   }

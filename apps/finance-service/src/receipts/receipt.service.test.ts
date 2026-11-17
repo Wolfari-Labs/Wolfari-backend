@@ -1,13 +1,14 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi } from 'vitest';
 import sharp from 'sharp';
-import { ReceiptService } from './receipt.service';
+import type { ConfigService } from '@nestjs/config';
+import { ReceiptService, receiptConcurrency, DEFAULT_RECEIPT_CONCURRENCY } from './receipt.service';
 import type { ReceiptRepository } from './receipt.repository';
 import type { ReceiptStorage } from './receipt-storage';
 import type { FundQueryService } from '../application/fund-query.service';
 
 const id = '10000000-0000-4000-8000-000000000001';
-async function setup() {
+async function setup(concurrency?: string) {
   const content = await sharp({ create: { width: 1, height: 1, channels: 3, background: 'red' } })
     .png()
     .toBuffer();
@@ -36,6 +37,7 @@ async function setup() {
     auth as unknown as FundQueryService,
     files as unknown as ReceiptRepository,
     storage as unknown as ReceiptStorage,
+    { get: () => concurrency } as unknown as ConfigService,
   );
   return {
     input,
@@ -134,7 +136,7 @@ describe('Receipt failure lifecycle', () => {
     expect(s.auth.authorizeFundRead).toHaveBeenCalledTimes(2);
   });
   it('bounds report evidence verification and treats cancelled preparation as unavailable', async () => {
-    const s = await setup();
+    const s = await setup('2');
     const key = `funds/${id}/receipts/${id}-${'a'.repeat(64)}.png`;
     const releases: (() => void)[] = [];
     s.storage.verify.mockImplementation(
@@ -179,7 +181,7 @@ describe('Receipt failure lifecycle', () => {
     expect(s.files.ready).not.toHaveBeenCalled();
   });
   it('bounds concurrency and frees capacity after failures', async () => {
-    const s = await setup();
+    const s = await setup('2');
     let release!: () => void;
     s.auth.authorizeReceiptUpload.mockImplementation(
       () =>
@@ -205,5 +207,31 @@ describe('Receipt failure lifecycle', () => {
     await expect(s.service.cleanup()).rejects.toThrow();
     expect(s.storage.remove).toHaveBeenCalledWith('claimed');
     await expect(s.service.cleanup()).resolves.toBeUndefined();
+  });
+});
+
+describe('receipt concurrency configuration', () => {
+  it('defaults to ${DEFAULT_RECEIPT_CONCURRENCY} and accepts only 1–64', () => {
+    expect(DEFAULT_RECEIPT_CONCURRENCY).toBe(8);
+    expect(receiptConcurrency(undefined)).toBe(8);
+    expect(receiptConcurrency(' 12 ')).toBe(12);
+    for (const value of ['0', '65', '-1', '2.5', 'abc', '', 8])
+      expect(receiptConcurrency(value)).toBe(8);
+  });
+  it('keeps attachment checks available while uploads fill their pool', async () => {
+    const s = await setup('1');
+    let release!: () => void;
+    s.auth.authorizeReceiptUpload.mockImplementation(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    const upload = s.upload();
+    await expect(s.upload()).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    const attach = s.service
+      .prepareAttachment(id, 'not-a-receipt-key', id, new AbortController().signal)
+      .catch((error: { code?: string }) => error.code);
+    // Reaches key validation (400), not the full-pool 503.
+    await expect(attach).resolves.toBe('VALIDATION_FAILED');
+    release();
+    await upload;
   });
 });

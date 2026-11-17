@@ -478,7 +478,7 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 4, 19, 14];
+  const counts = [8, 18, 4, 20, 14];
   let fks = 0;
   for (const [index, service] of services.entries())
     await db(service, async (client) => {
@@ -499,12 +499,12 @@ async function main() {
           : service === 'trip'
             ? ['V001', 'V002', 'V003']
             : service === 'finance'
-              ? ['V001', 'V002', 'V003', 'V004', 'V005']
+              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
               : ['V001'],
       );
     });
-  assert.equal(fks, 53);
-  pass('58 bảng mô hình + 5 lịch sử, 53 FK');
+  assert.equal(fks, 55);
+  pass('59 bảng mô hình + 5 lịch sử, 55 FK');
   await db('finance', async (client) => {
     await client.query(
       await readFile(
@@ -523,6 +523,15 @@ async function main() {
     );
   });
   pass('Finance V005 handover active uniqueness, snapshots and two-party confirmation constraints');
+  await db('finance', async (client) => {
+    await client.query(
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V006_constraints.sql'),
+        'utf8',
+      ),
+    );
+  });
+  pass('Finance V006 bank transfer receipt uniqueness, status and contribution constraints');
   await db('trip', async (client) => {
     await client.query(
       await readFile(

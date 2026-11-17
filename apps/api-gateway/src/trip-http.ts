@@ -103,7 +103,11 @@ export function fail(
   response: ServerResponse,
   statusCode: number,
   code: string,
-  options: { details?: Record<string, number> | null; retryable?: boolean; write?: boolean } = {},
+  options: {
+    details?: Record<string, number | string> | null;
+    retryable?: boolean;
+    write?: boolean;
+  } = {},
 ) {
   const message =
     statusCode === 503 && options.write
@@ -122,7 +126,7 @@ export function fail(
 
 export function domainFailure(
   cause: unknown,
-): { code: string; details: Record<string, number> | null } | null {
+): { code: string; details: Record<string, number | string> | null } | null {
   const raw = (cause as Partial<ServiceError>).details;
   if (typeof raw !== 'string') return null;
   try {
@@ -132,7 +136,7 @@ export function domainFailure(
       parsed.details === null || parsed.details === undefined
         ? null
         : responseRecord(parsed.details);
-    const revisions: Record<string, number> = {};
+    const revisions: Record<string, number | string> = {};
     if (details) {
       for (const key of [
         'plan_version',
@@ -144,6 +148,9 @@ export function domainFailure(
         const value = details[key];
         if (Number.isSafeInteger(value) && Number(value) >= 1) revisions[key] = Number(value);
       }
+      // Machine-readable conflict sub-reason (Finance); anything else is dropped, never echoed.
+      if (typeof details.reason === 'string' && /^[A-Z][A-Z0-9_]{2,63}$/.test(details.reason))
+        revisions.reason = details.reason;
     }
     return { code: parsed.code, details: Object.keys(revisions).length ? revisions : null };
   } catch {
@@ -161,9 +168,12 @@ export function grpcFailure(response: ServerResponse, cause: unknown, write: boo
   if (domain?.code === 'IDEMPOTENCY_CONFLICT') return fail(response, 409, 'IDEMPOTENCY_CONFLICT');
   if (domain?.code === 'VERSION_CONFLICT')
     return fail(response, 409, 'VERSION_CONFLICT', { details: domain.details });
-  if (domain?.code === 'STATE_CONFLICT') return fail(response, 409, 'STATE_CONFLICT');
+  if (domain?.code === 'STATE_CONFLICT')
+    return fail(response, 409, 'STATE_CONFLICT', { details: domain.details });
   if (domain?.code === 'FINANCE_OBLIGATION_BLOCKED')
     return fail(response, 409, 'FINANCE_OBLIGATION_BLOCKED');
+  if (domain?.code === 'RESOURCE_EXHAUSTED')
+    return fail(response, 429, 'RESOURCE_EXHAUSTED', { details: domain.details });
   if (error.code === status.INVALID_ARGUMENT) return fail(response, 400, 'VALIDATION_FAILED');
   if (error.code === status.UNAUTHENTICATED) return fail(response, 401, 'UNAUTHENTICATED');
   if (error.code === status.NOT_FOUND) return fail(response, 404, 'RESOURCE_NOT_FOUND');

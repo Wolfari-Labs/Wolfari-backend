@@ -87,7 +87,23 @@ function parseFields(body: Record<string, unknown>, prefix = ''): DestinationPat
     }
     result[target] = value;
   }
+  if (typeof result.momoPhone === 'string') {
+    const phone = vietnameseMobile(result.momoPhone);
+    if (!phone) return invalid(`${prefix}momo_phone`);
+    result.momoPhone = phone;
+  }
   return result as DestinationPatch;
+}
+
+/**
+ * MoMo wallets are keyed by a Vietnamese mobile number. Accept common typed forms
+ * (spaces, dots, dashes, +84/84 prefix) and store the 10-digit national form 0XXXXXXXXX.
+ * Applies to new writes only; stored destinations are not re-validated.
+ */
+export function vietnameseMobile(value: string): string | null {
+  const digits = value.trim().replace(/[\s.-]/g, '');
+  const national = /^\+?84\d{9}$/.test(digits) ? `0${digits.replace(/^\+?84/, '')}` : digits;
+  return /^0[35789]\d{8}$/.test(national) ? national : null;
 }
 
 /** Shared DestinationWrite parser; API070 preserves its nested error paths. */

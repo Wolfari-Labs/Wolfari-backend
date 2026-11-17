@@ -54,6 +54,8 @@ export async function runContributionRequestTests(h, helpers) {
     { actor_user_id: owner.id },
     { due_at: null },
     { due_at: '2026-02-30T00:00:00Z' },
+    { due_at: '2020-01-01T00:00:00Z' }, // already overdue when created
+    { note: 'n'.repeat(2001) },
     { contributions: [{ member_user_id: member.id, amount: 2, destination_id: dest.id }] },
     { contributions: [{ member_user_id: member.id, amount: '0', destination_id: dest.id }] },
     {
@@ -85,7 +87,7 @@ export async function runContributionRequestTests(h, helpers) {
   pass('API078 validates session, Owner, members, amounts and confirmed same-Fund destinations');
 
   const key = randomUUID(),
-    raw = { ...(await body()), due_at: '2026-10-20T07:00:00+07:00', note: '' };
+    raw = { ...(await body()), due_at: '2099-10-20T07:00:00+07:00', note: '' };
   const before = await fund(),
     created = await send(raw, owner, key);
   assert.equal(created.status, 201, JSON.stringify(created.body));
@@ -95,7 +97,7 @@ export async function runContributionRequestTests(h, helpers) {
   assert.equal(result.contributions[0].amount, '9007199254740993');
   assert.equal(result.status, 'OPEN');
   assert.equal(result.version, 1);
-  assert.equal(result.due_at, '2026-10-20T00:00:00.000Z');
+  assert.equal(result.due_at, '2099-10-20T00:00:00.000Z');
   assert.equal(result.note, '');
   assert.equal(result.amount_per_member, null);
   assert.equal(result.created_by_user_id, owner.id);
@@ -173,7 +175,7 @@ export async function runContributionRequestTests(h, helpers) {
   const after = await fund();
   assert.deepEqual((await send(raw, owner, key)).body.data, result);
   assert.deepEqual(await fund(), after);
-  assert.equal((await send({ ...raw, due_at: '2026-10-21T00:00:00Z' }, owner, key)).status, 409);
+  assert.equal((await send({ ...raw, due_at: '2099-10-21T00:00:00Z' }, owner, key)).status, 409);
   assert.equal((await send({ ...raw, title: 'Different' }, owner, key)).status, 409);
   assert.equal((await send(raw)).status, 409); // different key, stale version
   assert.equal(

@@ -27,7 +27,7 @@ describe('closure management rules', () => {
     );
     expect(() =>
       assertCreateClosure(4, { ...authority, activeMemberUserIds: new Set([owner]) }),
-    ).toThrow(new ClosureRuleError('STATE_CONFLICT'));
+    ).toThrow(new ClosureRuleError('STATE_CONFLICT', 'HOLDER_NOT_ACTIVE'));
   });
   it('allows Self confirmation and keeps cancel/remind Owner-only during CLOSING', () => {
     const closing = {
@@ -44,5 +44,19 @@ describe('closure management rules', () => {
     expect(() =>
       assertClosureAction('REMIND_CLOSURE', { ...closing, actorUserId: owner }),
     ).not.toThrow();
+  });
+});
+
+describe('closure conflict reasons', () => {
+  it('names why a closure cannot start', () => {
+    expect(() => assertCreateClosure(4, { ...authority, tripArchived: true })).toThrow(
+      new ClosureRuleError('STATE_CONFLICT', 'TRIP_ARCHIVED'),
+    );
+    expect(() => assertCreateClosure(4, { ...authority, fundStatus: 'CLOSING' })).toThrow(
+      new ClosureRuleError('STATE_CONFLICT', 'CLOSURE_PENDING'),
+    );
+    expect(() => assertCreateClosure(4, { ...authority, fundStatus: 'CLOSED' })).toThrow(
+      new ClosureRuleError('STATE_CONFLICT', 'FUND_NOT_OPEN'),
+    );
   });
 });

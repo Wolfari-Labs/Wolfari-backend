@@ -1,10 +1,14 @@
+import type { FinanceConflictReason } from '../finance.errors';
 import type {
   ContributionManagementCommand,
   ContributionManagementScope,
 } from '../inputs/contribution-management.input';
 
 export class ContributionManagementError extends Error {
-  constructor(readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT') {
+  constructor(
+    readonly code: 'PERMISSION_DENIED' | 'STATE_CONFLICT' | 'VERSION_CONFLICT',
+    readonly reason?: FinanceConflictReason,
+  ) {
     super(code);
   }
 }
@@ -29,11 +33,15 @@ export function planContributionManagement(
   body: ContributionManagementCommand,
   state: ManagementState,
 ) {
-  const fail = (code: ContributionManagementError['code']): never => {
-    throw new ContributionManagementError(code);
+  const fail = (
+    code: ContributionManagementError['code'],
+    reason?: FinanceConflictReason,
+  ): never => {
+    throw new ContributionManagementError(code, reason);
   };
   if (!state.owner) fail('PERMISSION_DENIED');
-  if (!state.fundOpen || !state.requestOpen) fail('STATE_CONFLICT');
+  if (!state.fundOpen) fail('STATE_CONFLICT', 'FUND_NOT_OPEN');
+  if (!state.requestOpen) fail('STATE_CONFLICT', 'INVALID_TRANSITION');
   if (
     body.expectedVersion !== state.version ||
     body.expectedFinanceVersion !== state.financeVersion
@@ -48,7 +56,9 @@ export function planContributionManagement(
       (body.title !== undefined && body.title !== state.title) ||
       (body.note !== undefined && body.note !== state.note);
   } else {
-    if (!state.pending || !state.memberActive || state.blockedPayment) fail('STATE_CONFLICT');
+    if (!state.pending) fail('STATE_CONFLICT', 'INVALID_TRANSITION');
+    if (!state.memberActive) fail('STATE_CONFLICT', 'MEMBER_NOT_ACTIVE');
+    if (state.blockedPayment) fail('STATE_CONFLICT');
     changed = scope !== 'UPDATE_CONTRIBUTION_AMOUNT' || body.amount!.toString() !== state.amount;
   }
   if (changed && (state.version === 2147483647 || state.financeVersion === 2147483647))

@@ -56,8 +56,8 @@ export class GatewayRouter implements OnApplicationShutdown {
     if (this.finance.matches(request)) return this.finance.handle(request, response);
     if (this.membership.matches(request)) return this.membership.handle(request, response);
     if (this.invitations.matches(request)) return this.invitations.handle(request, response);
-    if (this.planItems.matches(request)) return this.planItems.handle(request, response);
     if (this.plan.matches(request)) return this.plan.handle(request, response);
+    if (this.planItems.matches(request)) return this.planItems.handle(request, response);
     if (this.trip.matches(request)) return this.trip.handle(request, response);
     return this.identity.handle(request, response);
   }
