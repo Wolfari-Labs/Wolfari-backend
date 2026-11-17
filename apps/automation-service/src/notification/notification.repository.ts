@@ -180,6 +180,10 @@ export class NotificationRepository {
       );
       let current: DeviceRow | undefined = found.rows[0];
       if (current && current.user_id !== input.userId) {
+        // Rebinding is only safe when the caller carries the authenticated session
+        // family. Repository callers without that proof must retain the former
+        // conflict behavior instead of silently taking a token from another user.
+        if (!input.sessionFamilyId) return notificationFail('STATE_CONFLICT');
         // A newly authenticated app proves possession of its opaque token. Rotate the row
         // identity so queued deliveries and delayed deletes from the old owner cannot follow it.
         await client.query('DELETE FROM device_tokens WHERE id=$1', [current.id]);
