@@ -1445,9 +1445,27 @@ export interface GetPaymentInstructionResponse {
   instruction?: PaymentInstruction | undefined;
 }
 
+/**
+ * Trip holds its row lock and checks outstanding operations before this read.
+ * This read must never call Trip, avoiding a distributed lock cycle.
+ */
+export interface GetTripLifecycleStateRequest {
+  trip_id?: string | undefined;
+}
+
+export interface GetTripLifecycleStateResponse {
+  can_archive?: boolean | undefined;
+  can_transfer?: boolean | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  getTripLifecycleState(
+    request: GetTripLifecycleStateRequest,
+    metadata?: Metadata,
+  ): Observable<GetTripLifecycleStateResponse>;
+
   listFundHistory(request: ListFundHistoryRequest, metadata?: Metadata): Observable<ListFundHistoryResponse>;
 
   createPaymentAttempt(
@@ -1713,6 +1731,11 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  getTripLifecycleState(
+    request: GetTripLifecycleStateRequest,
+    metadata?: Metadata,
+  ): Promise<GetTripLifecycleStateResponse> | Observable<GetTripLifecycleStateResponse> | GetTripLifecycleStateResponse;
+
   listFundHistory(
     request: ListFundHistoryRequest,
     metadata?: Metadata,
@@ -2133,6 +2156,7 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "getTripLifecycleState",
       "listFundHistory",
       "createPaymentAttempt",
       "getPaymentAttempt",

@@ -63,6 +63,18 @@ export class FinanceGrpcController {
     private readonly bankTransfers?: BankTransferService,
   ) {}
 
+  @GrpcMethod('FinanceService', 'GetTripLifecycleState')
+  getTripLifecycleState(
+    request: FinanceV1.GetTripLifecycleStateRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('GetTripLifecycleState', metadata, call, async () => {
+      if (!this.lifecycle) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.lifecycle.tripState(request.trip_id ?? '');
+    });
+  }
+
   @GrpcMethod('FinanceService', 'ListHolderHandovers')
   listHolderHandovers(
     request: FinanceV1.ListHolderHandoversRequest,

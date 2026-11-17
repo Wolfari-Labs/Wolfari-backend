@@ -16,7 +16,7 @@ export class NotificationEligibilityService {
     private readonly database: Pick<DatabaseProvider, 'pool'>,
   ) {}
 
-  async get(userIds: unknown): Promise<{
+  async get(userIds: unknown, sessionFamilyId?: unknown): Promise<{
     recipients: { user_id: string; eligible: boolean }[];
   }> {
     if (!Array.isArray(userIds) || userIds.length < 1 || userIds.length > 100)
@@ -28,6 +28,8 @@ export class NotificationEligibilityService {
       unique.add(userId.toLowerCase());
     }
     const requested = [...unique];
+    if (sessionFamilyId !== undefined && (requested.length !== 1 || typeof sessionFamilyId !== "string" || !UUID.test(sessionFamilyId)))
+      throw new NotificationEligibilityValidationError();
     const deadline = Date.now() + 1500;
     const client = await this.database.pool.connect();
     let failed = false;
@@ -38,8 +40,9 @@ export class NotificationEligibilityService {
       const query = {
         text:
           "SELECT id FROM users WHERE id=ANY($1::uuid[]) AND status='ACTIVE' " +
-          'AND deletion_requested_at IS NULL AND anonymized_at IS NULL',
-        values: [requested],
+          'AND deletion_requested_at IS NULL AND anonymized_at IS NULL' +
+          (sessionFamilyId === undefined ? '' : ' AND EXISTS (SELECT 1 FROM refresh_sessions s WHERE s.user_id=users.id AND s.family_id=$2::uuid AND s.revoked_at IS NULL AND s.replaced_by_session_id IS NULL AND s.expires_at>now())'),
+        values: sessionFamilyId === undefined ? [requested] : [requested, sessionFamilyId],
         query_timeout: Math.max(1, Math.min(1500, remaining)),
       };
       const { rows } = await client.query<{ id: string }>(query);

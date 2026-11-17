@@ -168,6 +168,7 @@ export class NotificationRepository {
     userId: string;
     platform: DevicePlatform;
     token: string;
+    sessionFamilyId: string;
   }): Promise<DeviceRecord> {
     return this.database.withTransaction(async (client) => {
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,918272))', [
@@ -177,20 +178,29 @@ export class NotificationRepository {
         'SELECT id,user_id,platform,active,last_seen_at FROM device_tokens WHERE token=$1 FOR UPDATE',
         [input.token],
       );
-      const current = found.rows[0];
-      if (current && current.user_id !== input.userId) return notificationFail('STATE_CONFLICT');
+      let current: DeviceRow | undefined = found.rows[0];
+      if (current && current.user_id !== input.userId) {
+        // Rebinding is only safe when the caller carries the authenticated session
+        // family. Repository callers without that proof must retain the former
+        // conflict behavior instead of silently taking a token from another user.
+        if (!input.sessionFamilyId) return notificationFail('STATE_CONFLICT');
+        // A newly authenticated app proves possession of its opaque token. Rotate the row
+        // identity so queued deliveries and delayed deletes from the old owner cannot follow it.
+        await client.query('DELETE FROM device_tokens WHERE id=$1', [current.id]);
+        current = undefined;
+      }
       const changed = current
         ? await client.query<DeviceRow>(
-            `UPDATE device_tokens SET platform=$2,active=true,last_seen_at=clock_timestamp(),
+            `UPDATE device_tokens SET platform=$2,session_family_id=$3,active=true,last_seen_at=clock_timestamp(),
                updated_at=clock_timestamp() WHERE id=$1
              RETURNING id,user_id,platform,active,last_seen_at`,
-            [current.id, input.platform],
+            [current.id, input.platform, input.sessionFamilyId],
           )
         : await client.query<DeviceRow>(
-            `INSERT INTO device_tokens(user_id,platform,token,active,last_seen_at)
-             VALUES($1,$2,$3,true,clock_timestamp())
+            `INSERT INTO device_tokens(user_id,platform,token,session_family_id,active,last_seen_at)
+             VALUES($1,$2,$3,$4,true,clock_timestamp())
              RETURNING id,user_id,platform,active,last_seen_at`,
-            [input.userId, input.platform, input.token],
+            [input.userId, input.platform, input.token, input.sessionFamilyId],
           );
       return device(changed.rows[0]!);
     });

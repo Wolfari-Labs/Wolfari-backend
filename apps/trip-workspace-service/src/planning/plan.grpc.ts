@@ -83,6 +83,9 @@ function plan(value: PlanView): TripV1.Plan {
   return {
     ...value,
     activities: value.activities.map(activity),
+    dress_codes_write: true,
+    packing_write: true,
+    locations_write: true,
     selected_locations: value.selected_locations.map(({ metadata, opening_hours, ...row }) => ({
       ...row,
       address: row.address ?? undefined,

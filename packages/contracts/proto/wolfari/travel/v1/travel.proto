@@ -29,7 +29,9 @@ message ProviderMetadata {
   bool stale = 4;
   bool is_mock = 5;
   repeated string warnings = 6;
+  repeated ProviderAttribution attribution = 7;
 }
+message ProviderAttribution { string text = 1; string url = 2; }
 message Place {
   string id = 1; // External provider ID, not a Wolfari UUID.
   string name = 2;
@@ -41,6 +43,8 @@ message SearchPlacesRequest {
   string query = 1;
   wolfari.common.v1.Coordinate coordinates = 2;
   optional double radius_m = 3;
+  string actor_user_id = 4;
+  string trip_id = 5;
 }
 message SearchPlacesResponse {
   repeated Place data = 1;

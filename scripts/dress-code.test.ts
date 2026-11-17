@@ -397,6 +397,6 @@ describe('Dress code Gateway contract', () => {
     expect(
       projectPlan({ trip_id: trip, plan_version: 4, export_revision: 7, permissions: {} })
         .capabilities,
-    ).toEqual({ dress_codes_write: true });
+    ).toEqual({ dress_codes_write: true, packing_write: true, locations_write: true });
   });
 });

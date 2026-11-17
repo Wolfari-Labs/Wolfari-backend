@@ -199,3 +199,24 @@ describe('notification account eligibility', () => {
     expect(s.release).not.toHaveBeenCalled();
   });
 });
+
+
+describe('push session eligibility', () => {
+  it('requires an unrevoked unexpired session in the requested account family', async () => {
+    const s = setup();
+    await s.service.get([first], second);
+    const config = s.query.mock.calls[0]![0];
+    expect(config.values).toEqual([[first], second]);
+    expect(config.text).toContain('s.user_id=users.id');
+    expect(config.text).toContain('s.family_id=$2::uuid');
+    expect(config.text).toContain('s.revoked_at IS NULL');
+    expect(config.text).toContain('s.replaced_by_session_id IS NULL');
+    expect(config.text).toContain('s.expires_at>now()');
+  });
+  it('rejects a malformed session or ambiguous multi-account binding before database access', async () => {
+    const s = setup();
+    await expect(s.service.get([first], 'invalid')).rejects.toBeInstanceOf(NotificationEligibilityValidationError);
+    await expect(s.service.get([first, second], third)).rejects.toBeInstanceOf(NotificationEligibilityValidationError);
+    expect(s.connect).not.toHaveBeenCalled();
+  });
+});

@@ -34,7 +34,11 @@ export interface ValidateSessionResponse {
   user_id?: string | undefined;
   system_role?: SystemRole | undefined;
   status?: AccountStatus | undefined;
-  expires_at?: Timestamp | undefined;
+  expires_at?:
+    | Timestamp
+    | undefined;
+  /** Authenticated session binding for device registration. */
+  session_family_id?: string | undefined;
 }
 
 export interface GetProfilesRequest {
@@ -79,7 +83,11 @@ export interface GetAccountEmailDeliveryResponse {
 
 /** A raw batch contains 1..100 UUIDs. Results preserve first-seen normalized unique IDs. */
 export interface GetNotificationEligibilityRequest {
-  user_ids?: string[] | undefined;
+  user_ids?:
+    | string[]
+    | undefined;
+  /** When present, require this live session for the single recipient. */
+  session_family_id?: string | undefined;
 }
 
 export interface NotificationEligibility {

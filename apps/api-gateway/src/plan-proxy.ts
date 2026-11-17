@@ -32,7 +32,11 @@ type Route = {
   dressCodeId?: string;
 };
 /** Server features a client may rely on; absent keys mean the write is not offered yet. */
-export const PLAN_CAPABILITIES = { dress_codes_write: true } as const;
+export const PLAN_CAPABILITIES = {
+  dress_codes_write: true,
+  packing_write: true,
+  locations_write: true,
+} as const;
 const scopeNumbers: Record<string, number> = { TRIP: 1, DAY: 2, ACTIVITY: 3 };
 const DRESS_TEXT_MAX = 10_000;
 const statuses = { 1: 'TODO', 2: 'COMPLETED' };

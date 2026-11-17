@@ -5,6 +5,8 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service TripService {
+  rpc ExportPlanPdf(ExportPlanPdfRequest) returns (ExportPlanPdfResponse);
+  rpc ManageTrip(ManageTripRequest) returns (ManageTripResponse);
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc LeaveTrip(LeaveTripRequest) returns (LeaveTripResponse);
   rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
@@ -30,6 +32,7 @@ service TripService {
   rpc GetInvitationDelivery(GetInvitationDeliveryRequest) returns (GetInvitationDeliveryResponse);
   rpc GetExportWorkerContext(GetExportWorkerContextRequest) returns (GetExportWorkerContextResponse);
   rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
+  rpc MutatePlanItem(MutatePlanItemRequest) returns (MutatePlanItemResponse);
   rpc CreateActivity(CreateActivityRequest) returns (CreateActivityResponse);
   rpc UpdateActivity(UpdateActivityRequest) returns (UpdateActivityResponse);
   rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
@@ -476,6 +479,9 @@ message Plan {
   repeated PlanActivity activities = 4; repeated PlanLocation selected_locations = 5;
   repeated PlanDressCode dress_codes = 6; repeated PlanPackingItem packing_items = 7;
   PlanPermissions permissions = 8;
+  bool dress_codes_write = 9;
+  bool packing_write = 10;
+  bool locations_write = 11;
 }
 message PlanVersion { string trip_id = 1; int32 plan_version = 2; int32 export_revision = 3; }
 
@@ -523,6 +529,41 @@ message SetActivityCompletionRequest {
 }
 message SetActivityCompletionResponse { PlanActivity activity = 1; int32 export_revision = 2; }
 
+// Versioned, idempotent command for the two bounded Plan collections. fields_json
+// is validated against an entity/action allowlist by both Gateway and Trip.
+message MutatePlanItemRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  int32 expected_plan_version = 4;
+  string entity_type = 5; // DRESS_CODE or PACKING_ITEM
+  string action = 6; // CREATE, UPDATE, DELETE, COMPLETE (packing only)
+  optional string item_id = 7;
+  string fields_json = 8;
+}
+message MutatePlanItemResponse {
+  PlanVersion version = 1;
+  optional string item_json = 2;
+}
+
+message ManageTripRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string trip_id = 3;
+  string action = 4;
+  int32 expected_plan_version = 5;
+  int32 expected_membership_revision = 6;
+  int32 expected_export_revision = 7;
+  string reason = 8;
+  optional string new_owner_member_id = 9;
+}
+message ManageTripResponse { string result_json = 1; }
+message ExportPlanPdfRequest { string actor_user_id = 1; string trip_id = 2; }
+message ExportPlanPdfResponse {
+  bytes content = 1;
+  string filename = 2;
+  int32 plan_version = 3;
+}
 // FR-PL03 / API051-053. Exactly one scope: TRIP (no date/activity), DAY (plan_date) or ACTIVITY (activity_id).
 message CreateDressCodeRequest {
   string operation_id = 1; string actor_user_id = 2; string trip_id = 3;

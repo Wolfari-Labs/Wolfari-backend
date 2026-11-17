@@ -44,6 +44,7 @@ export function appOverrides() {
   const targets = {
     IDENTITY_GRPC_TARGET: '127.0.0.1:13201',
     TRIP_GRPC_TARGET: '127.0.0.1:13202',
+    TRAVEL_GRPC_TARGET: '127.0.0.1:13203',
     FINANCE_GRPC_TARGET: '127.0.0.1:13204',
     AUTOMATION_GRPC_TARGET: '127.0.0.1:13205',
   };
@@ -74,6 +75,7 @@ export function appOverrides() {
     TRIP_OUTBOX_ENABLED: 'true',
     TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'true',
   });
+  Object.assign(result['travel-intelligence-service'], { TRAVEL_GRPC_PORT: '13203' });
   Object.assign(result['finance-service'], {
     FINANCE_GRPC_PORT: '13204',
     MOMO_SANDBOX_MODE: 'disabled',

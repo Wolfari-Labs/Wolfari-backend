@@ -122,61 +122,21 @@ export async function runNotificationManagementTests({
   assert.equal(replay.status, 200);
   assert.equal(replay.body.data.id, registered.body.data.id);
   assert.equal(replay.body.data.platform, 'ANDROID');
-  assert.equal(
-    (await request('/api/v1/me/devices', 'POST', { platform: 'WEB', token }, bearer(second)))
-      .status,
-    409,
-  );
-  assert.equal(
-    (
-      await request(
-        `/api/v1/me/devices/${registered.body.data.id}`,
-        'DELETE',
-        undefined,
-        bearer(second),
-      )
-    ).status,
-    204,
-  );
-  assert.equal(
-    (
-      await query('automation', 'SELECT user_id FROM device_tokens WHERE id=$1', [
-        registered.body.data.id,
-      ])
-    )[0].user_id,
-    first.id,
-  );
-  assert.equal(
-    (
-      await request(
-        `/api/v1/me/devices/${registered.body.data.id}`,
-        'DELETE',
-        undefined,
-        bearer(first),
-      )
-    ).status,
-    204,
-  );
-  assert.equal(
-    (
-      await request(
-        `/api/v1/me/devices/${registered.body.data.id}`,
-        'DELETE',
-        undefined,
-        bearer(first),
-      )
-    ).status,
-    204,
-  );
-  const reassigned = await request(
-    '/api/v1/me/devices',
-    'POST',
-    { platform: 'WEB', token },
-    bearer(second),
-  );
+  const reassigned = await request('/api/v1/me/devices', 'POST', { platform: 'ANDROID', token }, bearer(second));
   assert.equal(reassigned.status, 200);
   assert.notEqual(reassigned.body.data.id, registered.body.data.id);
-  pass('API128/129 keep token ownership isolated, replay safely and unbind on Self delete');
+  assert.equal((await query('automation', 'SELECT id FROM device_tokens WHERE id=$1', [registered.body.data.id])).length, 0);
+  const binding = (await query('automation', 'SELECT user_id,session_family_id FROM device_tokens WHERE id=$1', [reassigned.body.data.id]))[0];
+  assert.equal(binding.user_id, second.id);
+  assert.ok(binding.session_family_id);
+  // Delayed removal by the former account cannot delete the newly bound row.
+  assert.equal((await request(`/api/v1/me/devices/${registered.body.data.id}`, 'DELETE', undefined, bearer(first))).status, 204);
+  assert.equal((await request(`/api/v1/me/devices/${reassigned.body.data.id}`, 'DELETE', undefined, bearer(first))).status, 204);
+  assert.equal((await query('automation', 'SELECT id FROM device_tokens WHERE id=$1', [reassigned.body.data.id])).length, 1);
+  assert.equal((await request(`/api/v1/me/devices/${reassigned.body.data.id}`, 'DELETE', undefined, bearer(second))).status, 204);
+  assert.equal((await query('automation', 'SELECT id FROM device_tokens WHERE token=$1', [token])).length, 0);
+  assert.equal((await request('/api/v1/me/devices', 'POST', { platform: 'ANDROID', token, session_family_id: randomUUID() }, bearer(second))).status, 400);
+  pass('API128/129 bind authenticated sessions, rotate device ownership and reject forged session bindings');
 
   const createTrip = async (owner, name) => {
     const key = randomUUID();

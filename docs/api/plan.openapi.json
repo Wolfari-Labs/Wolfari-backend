@@ -585,8 +585,8 @@
     "/api/v1/trips/{trip_id}/activities/order": {
       "put": {
         "operationId": "reorderActivities",
-        "summary": "API043 Reorder, preserve all timestamps",
-        "description": "Active membership required; structural edits require Plan Editor, completion follows actor attribution. Writes check expected_plan_version and current permissions on replay. Omitted PATCH fields retain values; null clears. Trip interval is [start_at,end_at); scheduled_date is a Trip-timezone day intersecting that interval. Timed changes clear scheduled_date atomically, conflicting explicit modes fail. No multi-item time cascade. Web uses Bearer access plus Origin/CSRF convention from identity.openapi.yaml; never call internal RPC directly.",
+        "summary": "API043 Reorder and clear conflicting times on reordered days",
+        "description": "Atomic reorder with optimistic version and idempotent replay. On each Trip-local day whose relative activity order changes, scan the requested order and retain nondecreasing start instants; clear both starts_at and ends_at for any activity earlier than the last retained start, preserving its original local day in scheduled_date. Day-only entries do not reset the comparison. Other days, unchanged relative orders and no-op requests retain their times. No duration or replacement time is invented. Active membership required; structural edits require Plan Editor, completion follows actor attribution. Writes check expected_plan_version and current permissions on replay. Omitted PATCH fields retain values; null clears. Trip interval is [start_at,end_at); scheduled_date is a Trip-timezone day intersecting that interval. Timed changes clear scheduled_date atomically, conflicting explicit modes fail. No multi-item time cascade. Web uses Bearer access plus Origin/CSRF convention from identity.openapi.yaml; never call internal RPC directly.",
         "parameters": [
           {
             "name": "trip_id",
@@ -1906,9 +1906,15 @@
             "additionalProperties": {
               "type": "boolean"
             },
-            "required": ["dress_codes_write"],
+            "required": ["dress_codes_write", "packing_write", "locations_write"],
             "properties": {
               "dress_codes_write": {
+                "type": "boolean"
+              },
+              "packing_write": {
+                "type": "boolean"
+              },
+              "locations_write": {
                 "type": "boolean"
               }
             }

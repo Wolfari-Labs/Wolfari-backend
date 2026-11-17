@@ -57,7 +57,11 @@ export async function runDressCodeScenarios({ request, query, bearer, tripBody, 
     )[0];
   const firstDay = localDate(trip.start_at, trip.timezone);
 
-  assert.deepEqual((await plan()).capabilities, { dress_codes_write: true });
+  assert.deepEqual((await plan()).capabilities, {
+    dress_codes_write: true,
+    packing_write: true,
+    locations_write: true,
+  });
   const activity = (
     await send('POST', 'activities', { title: 'Temple', activity_type: 'OTHER', position: 0 })
   ).body.data;

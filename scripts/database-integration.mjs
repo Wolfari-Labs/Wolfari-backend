@@ -495,7 +495,7 @@ async function main() {
       assert.deepEqual(
         await history(client, files[service]),
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008']
           : service === 'trip'
             ? ['V001', 'V002', 'V003']
             : service === 'finance'

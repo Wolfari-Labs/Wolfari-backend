@@ -26,6 +26,8 @@ Repository hiện cung cấp nền kỹ thuật cho một pnpm monorepo gồm 7 
 
 Mốc bổ sung ngày 28/10/2026: [Finance inbox](docs/architecture/finance-notification-inbox.md) tạo thông báo in-app từ `ContributionRequested`, `ClosureRequested` và `ContributionUpdated` (Holder review), kiểm tra Finance/Identity hiện tại và chống trùng. Closure chỉ gửi cho người chưa xác nhận, tối đa một thông báo/người/phiên trong 24 giờ. Holder chỉ nhận một thông báo mỗi revision báo chuyển, kể cả khi request được sửa metadata. Consumer mặc định tắt. Mốc ngày 29/10 bổ sung ClosureCancelled/FinanceClosed để chặn tạo thông báo từ nguồn đã kết thúc; giữ lịch sử inbox. Push/email và scheduler Reminder vẫn chưa triển khai. Chạy `corepack pnpm finance:notification:test` để kiểm thử môi trường cô lập.
 
+Mốc mobile completion bổ sung quản lý chuyến đi, scheduler nhắc cá nhân, worker Expo push và PDF kế hoạch. Xem [phạm vi, migration và vận hành](docs/architecture/mobile-completion.md); cần cấu hình và nghiệm thu native trước khi xác nhận push tới thiết bị.
+
 ## Kiến trúc
 
 | Thành phần                  | Vai trò                                           |   Cổng |
