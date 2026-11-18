@@ -40,7 +40,7 @@ dn-bien-pham-van-dong,2,Bãi biển Phạm Văn Đồng,Pham Van Dong Beach,,bea
 dn-cho-hoi-an,2,Chợ Hội An,Hoi An Market,,market,FOOD,true,,60,15.876818,108.331344,nominatim,false,way/35952504,,false,,,
 dn-art-in-paradise,3,Bảo tàng tranh 3D Art in Paradise Đà Nẵng,Art in Paradise Danang,Bảo tàng 3D,gallery,MUSEUM,true,,90,16.095254,108.243117,nominatim,false,node/5281441021,,false,,,
 dn-cay-da-nghin-nam,3,Cây đa nghìn năm Sơn Trà,Thousand-year Banyan Tree,,nature_area,SIGHTSEEING,false,,30,,,,false,,,false,,,
-dn-suoi-mo,3,Suối Mơ,Suoi Mo Stream,,nature_area,OUTDOOR,false,đồ bơi,180,16.016336,108.094541,nominatim,false,way/583524671,,false,,,
+dn-suoi-mo,3,Khu du lịch Suối Mơ (chân núi Bà Nà),Suoi Mo Stream,Suối Mơ Bà Nà,nature_area,OUTDOOR,false,đồ bơi,180,16.016336,108.094541,nominatim,false,way/583524671,,false,,,
 dn-bao-tang-ho-chi-minh,3,Bảo tàng Hồ Chí Minh (Quân khu 5),Ho Chi Minh Museum Da Nang,,museum,MUSEUM,true,kín đáo,60,16.046445,108.218247,nominatim,false,way/303341669,,false,,,
 dn-thanh-dien-hai,3,Thành Điện Hải,Dien Hai Citadel,,historic,SIGHTSEEING,false,,45,16.076325,108.221761,nominatim,false,way/118609193,,false,,,
 dn-bao-tang-my-thuat,3,Bảo tàng Mỹ thuật Đà Nẵng,Da Nang Fine Arts Museum,,museum,MUSEUM,true,,60,16.071258,108.217746,nominatim,false,way/1574932306,,false,,,
