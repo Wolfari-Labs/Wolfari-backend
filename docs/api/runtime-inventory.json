@@ -732,7 +732,7 @@
     "expense-http.ts": "d85759333839eb195b70960ed8b5d63c56ea5e73c671819e6c89aa312cafdda0",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
     "finance-proxy.ts": "7186adb3c5d236a279643e52019d479939d03e0e47f95b0faf9aff530a687a76",
-    "finance-receipt-http.ts": "e0a0dad0176c073e5bd80f6d69a4fcc88d9705453912ff1a51fdb59633870c15",
+    "finance-receipt-http.ts": "5b2eb52dc9fc3cc3e5863ac901b1c23c51be0c6a0f2940283c66ac69aa4fc461",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "00431d6965eaba03ce5ec16468219005b5ce91da7faf937eb2f70be9076707c9",
     "identity-proxy.ts": "aed3d05b7d84f09f71a8442736b1a0e0b7b3e0c26c874af966a59f270f39e719",
