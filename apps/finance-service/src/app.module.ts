@@ -36,6 +36,7 @@ import { RefundService } from './application/refund.service';
 import { RefundRepository } from './repositories/refund.repository';
 import { ClosureService } from './application/closure.service';
 import { ClosureRepository } from './repositories/closure.repository';
+import { QrSandboxService } from './application/qr-sandbox.service';
 import { PaymentService } from './application/payment.service';
 import { PaymentProcessor } from './application/payment-processor';
 import { PaymentRepository } from './repositories/payment.repository';
@@ -90,6 +91,7 @@ import { BankTransferService } from './application/bank-transfer.service';
     ClosureService,
     ClosureRepository,
     PaymentService,
+    QrSandboxService,
     PaymentProcessor,
     PaymentRepository,
     MomoSandboxProvider,

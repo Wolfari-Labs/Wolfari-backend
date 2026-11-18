@@ -628,6 +628,11 @@
       "document": "price-watch.openapi.yaml"
     },
     {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/qr-payments/momo-sandbox",
+      "document": "qr-sandbox.openapi.json"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/travel/places",
       "document": "travel-places.openapi.json"
@@ -726,7 +731,7 @@
     "contribution-request-http.ts": "e8f542a896aa7c2ef21b2372f18a4c293aaacc4f6a7d9a1ce3261529de48e353",
     "expense-http.ts": "d85759333839eb195b70960ed8b5d63c56ea5e73c671819e6c89aa312cafdda0",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
-    "finance-proxy.ts": "65ca4c3ba0a979b59da258c362c616472591bd26186436929d2582da073623df",
+    "finance-proxy.ts": "7186adb3c5d236a279643e52019d479939d03e0e47f95b0faf9aff530a687a76",
     "finance-receipt-http.ts": "e0a0dad0176c073e5bd80f6d69a4fcc88d9705453912ff1a51fdb59633870c15",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "00431d6965eaba03ce5ec16468219005b5ce91da7faf937eb2f70be9076707c9",
@@ -739,10 +744,11 @@
     "plan-items-proxy.ts": "0e3b805c49d801b9a57328d49eceb5e0e6171609f3b1eaf67d6eea2fd4b0bf95",
     "plan-proxy.ts": "9ccaf53b6eaffc95ce02afa152620414139c83b26a54ef4d0cfb1b3b8ecbe42e",
     "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
+    "qr-payment-http.ts": "7484f5ef923f799574eefe45303aea8b97271b4a8c718e8b0265006dc43e89f7",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
     "travel-proxy.ts": "7a70969b7367da8ab85ed616c01cafc8487f737fac4f8578af493f1d9a6de83e",
-    "trip-http.ts": "7ca425aa3470b18f36feb3cb99616ce444b7c422feea017e9682dedc854aac6d",
+    "trip-http.ts": "6595b9726ef5fb66489e68b352294c05e5b10a3577333744393ed08d342f28a7",
     "trip-proxy.ts": "33c71118e4489cebd1fcbd18ae953340e2b451933a513c5d697abe59b914e0e5",
     "trip-tools-proxy.ts": "c823930aeefead5755e43adcb6b414879d6bd6d6d1ed1bdbab5124ef888ce18c"
   }

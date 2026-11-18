@@ -161,6 +161,8 @@ export function domainFailure(
 export function grpcFailure(response: ServerResponse, cause: unknown, write: boolean) {
   const error = cause as Partial<ServiceError>;
   const domain = domainFailure(cause);
+  if (domain?.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED')
+    return fail(response, 503, 'PAYMENT_PROVIDER_NOT_CONFIGURED', { retryable: false });
   if (domain?.code === 'VALIDATION_FAILED') return fail(response, 400, 'VALIDATION_FAILED');
   if (domain?.code === 'UNAUTHENTICATED') return fail(response, 401, 'UNAUTHENTICATED');
   if (domain?.code === 'PERMISSION_DENIED') return fail(response, 403, 'PERMISSION_DENIED');

@@ -38,7 +38,7 @@ export class PaymentService {
     correlation: string,
     deadline: number,
   ) {
-    if (!this.provider.ready()) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+    if (!this.provider.ready()) throw new FinanceReadError('PAYMENT_PROVIDER_NOT_CONFIGURED');
     const operationId = readUuid(request.operation_id),
       actor = readUuid(request.actor_user_id),
       contributionId = readUuid(request.contribution_id);
@@ -139,6 +139,12 @@ export class PaymentService {
         signature: request.signature,
       }),
     );
+    // Standalone QR test orders never enter the fund payment processor or ledger.
+    if (/^wqr-[a-f0-9]{40}$/.test(input.orderId)) {
+      if (input.partnerCode !== this.provider.partnerCode() || !this.provider.verifyIpn(input))
+        throw new FinanceReadError('PERMISSION_DENIED');
+      return {};
+    }
     await this.rows.receiveWebhook(
       input,
       this.provider.verifyIpn(input),

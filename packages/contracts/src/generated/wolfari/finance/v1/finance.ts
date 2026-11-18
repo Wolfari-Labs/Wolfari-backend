@@ -1463,9 +1463,31 @@ export interface GetTripLifecycleStateResponse {
   can_transfer?: boolean | undefined;
 }
 
+/** Test checkout only. No fund ledger or actual scanned-bank transfer is created. */
+export interface CreateQrSandboxPaymentRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  request_id?: string | undefined;
+  amount?: string | undefined;
+  note?: string | undefined;
+}
+
+export interface CreateQrSandboxPaymentResponse {
+  request_id?: string | undefined;
+  order_id?: string | undefined;
+  amount?: string | undefined;
+  payment_url?: string | undefined;
+  environment?: string | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  createQrSandboxPayment(
+    request: CreateQrSandboxPaymentRequest,
+    metadata?: Metadata,
+  ): Observable<CreateQrSandboxPaymentResponse>;
+
   getTripLifecycleState(
     request: GetTripLifecycleStateRequest,
     metadata?: Metadata,
@@ -1736,6 +1758,14 @@ export interface FinanceServiceClient {
 }
 
 export interface FinanceServiceController {
+  createQrSandboxPayment(
+    request: CreateQrSandboxPaymentRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<CreateQrSandboxPaymentResponse>
+    | Observable<CreateQrSandboxPaymentResponse>
+    | CreateQrSandboxPaymentResponse;
+
   getTripLifecycleState(
     request: GetTripLifecycleStateRequest,
     metadata?: Metadata,
@@ -2161,6 +2191,7 @@ export interface FinanceServiceController {
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "createQrSandboxPayment",
       "getTripLifecycleState",
       "listFundHistory",
       "createPaymentAttempt",
