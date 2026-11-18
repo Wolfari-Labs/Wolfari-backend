@@ -248,7 +248,7 @@ describe('development configuration', () => {
             : service === 'finance'
               ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
               : service === 'travel'
-                ? ['V001', 'V002', 'V003']
+                ? ['V001', 'V002', 'V003', 'V004']
                 : ['V001'],
       );
     }

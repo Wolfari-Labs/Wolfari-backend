@@ -25,6 +25,7 @@ import {
   checkPoiCatalog,
   checkCachedPriceAlerts,
 } from './provider-cache-integration.mjs';
+import { checkOvertureSnapshots } from './poi-overture-integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -506,7 +507,7 @@ async function main() {
             : service === 'finance'
               ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
               : service === 'travel'
-                ? ['V001', 'V002', 'V003']
+                ? ['V001', 'V002', 'V003', 'V004']
                 : ['V001'],
       );
     });
@@ -577,6 +578,11 @@ async function main() {
   await db('automation', checkCachedPriceAlerts);
   pass(
     'provider adapters: real cache DB TTL/stale + cached VND stale suppression, fresh alert and observation dedup (HTTP mock only)',
+  );
+  stage = 'poi-overture-snapshots';
+  await db('travel', (client) => checkOvertureSnapshots(client, databaseUrl(env, 'travel')));
+  pass(
+    'POI Overture: nạp snapshot inactive (golden giữ nguyên), poi:snapshots, poi:activate hai chiều, chặn snapshot đang nạp',
   );
   pass('Automation PriceAlertRepository: rule, cooldown, lease, notification and lifecycle');
   await db('automation', checkNotificationRepository);
@@ -652,12 +658,14 @@ async function main() {
     }
   });
   pass('runner timeout khi khóa đang bận');
+  // The probe takes the next free travel version, so new real migrations never collide with it.
+  const probeVersion = `V${String(files.travel.length + 1).padStart(3, '0')}`;
   await assert.rejects(
     migrate('travel', databaseUrl(env, 'travel'), [
       ...files.travel,
       {
-        version: 'V004',
-        sql: "BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('V004'); COMMIT;",
+        version: probeVersion,
+        sql: `BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('${probeVersion}'); COMMIT;`,
       },
     ]),
     (error) => error.code === '22012',
@@ -667,7 +675,7 @@ async function main() {
       (await client.query("SELECT to_regclass('public.rollback_probe') AS name")).rows[0].name,
       null,
     );
-    assert.deepEqual(await history(client, files.travel), ['V001', 'V002', 'V003']);
+    assert.deepEqual(await history(client, files.travel), ['V001', 'V002', 'V003', 'V004']);
     await client.query("INSERT INTO schema_migrations(version) VALUES('V999')");
     try {
       await assert.rejects(history(client, files.travel), /UNKNOWN_OR_INVALID/);
