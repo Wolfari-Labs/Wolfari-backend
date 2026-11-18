@@ -36,3 +36,32 @@ describe('signed provider selection', () => {
   it('refuses missing signing secret', () =>
     expect(() => signPlaceSelection(selection, '')).toThrow());
 });
+describe('WOLFARI curated selection', () => {
+  const wolfari: PlaceSelection = {
+    ...selection,
+    place: {
+      ...selection.place,
+      provider: 'WOLFARI',
+      provider_place_id: 'dn-cho-han',
+      name: 'Chợ Hàn',
+      categories: ['market'],
+      attribution: '© OpenStreetMap contributors',
+    },
+  };
+  it('accepts a signed WOLFARI token keyed by wolfari_key', () =>
+    expect(
+      readPlaceSelection(signPlaceSelection(wolfari, secret), secret, 'actor', 'trip'),
+    ).toEqual(wolfari));
+  it.each(['GOOGLE', 'wolfari', '', undefined])(
+    'rejects signed token for provider %s',
+    (provider) => {
+      const forged = {
+        ...wolfari,
+        place: { ...wolfari.place, provider },
+      } as unknown as PlaceSelection;
+      expect(() =>
+        readPlaceSelection(signPlaceSelection(forged, secret), secret, 'actor', 'trip'),
+      ).toThrow('INVALID_SELECTION');
+    },
+  );
+});

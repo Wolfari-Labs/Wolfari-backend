@@ -7,9 +7,22 @@ export { isCalendarDate } from './calendar-date';
 export {
   signPlaceSelection,
   readPlaceSelection,
+  PLACE_SELECTION_PROVIDERS,
+  type PlaceSelectionProvider,
   type PlaceSnapshot,
   type PlaceSelection,
 } from './place-selection';
+export {
+  POI_CATEGORY_LABELS,
+  POI_CATEGORIES,
+  POI_ACTIVITY_TYPES,
+  POI_SEARCH_CATEGORIES,
+  isPoiCategory,
+  poiCategoryLabel,
+  type PoiCategory,
+  type PoiActivityType,
+  type PlaceSearchCategory,
+} from './poi-taxonomy';
 export {
   productionTransportBlocked,
   productionTransportBlockedFor,

@@ -1,7 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+/** Sources whose search results may be saved through a signed selection token. */
+export const PLACE_SELECTION_PROVIDERS = Object.freeze(['GEOAPIFY', 'WOLFARI'] as const);
+export type PlaceSelectionProvider = (typeof PLACE_SELECTION_PROVIDERS)[number];
 export interface PlaceSnapshot {
-  provider: 'GEOAPIFY';
+  /** WOLFARI: provider_place_id is the curated POI wolfari_key. */
+  provider: PlaceSelectionProvider;
   provider_place_id: string;
   name: string;
   address: string;
@@ -41,7 +45,7 @@ export function readPlaceSelection(
     value.actor !== actor ||
     value.trip !== trip ||
     !Number.isFinite(value.expires) ||
-    value.place?.provider !== 'GEOAPIFY'
+    !(PLACE_SELECTION_PROVIDERS as readonly unknown[]).includes(value.place?.provider)
   )
     throw new Error('INVALID_SELECTION');
   return value;
