@@ -748,6 +748,9 @@ message ContributionView {
   int32 finance_version = 14;
   // Latest Holder rejection reason. Absent on never-rejected/legacy receipt snapshots.
   optional string rejected_reason = 15;
+  // Payment rail only; recipient snapshot remains private.
+  optional string destination_type = 16;
+  optional string latest_payment_attempt_id = 17;
 }
 message ListContributionRequestsRequest {
   string actor_user_id = 1;

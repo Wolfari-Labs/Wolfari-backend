@@ -65,7 +65,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "oneOf": [
@@ -130,7 +133,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -248,12 +254,18 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["items", "next_cursor"],
+                      "required": [
+                        "items",
+                        "next_cursor"
+                      ],
                       "properties": {
                         "items": {
                           "type": "array",
@@ -446,12 +458,18 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["items", "next_cursor"],
+                      "required": [
+                        "items",
+                        "next_cursor"
+                      ],
                       "properties": {
                         "items": {
                           "type": "array",
@@ -605,6 +623,29 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ContributionRequest"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Operation is still being finalized or recovered.",
             "content": {
@@ -612,7 +653,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -681,26 +725,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Saved public snapshot after current read authorization.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ContributionRequest"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/Meta"
-                    }
-                  }
                 }
               }
             }
@@ -744,6 +768,29 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Operation is still being finalized or recovered.",
             "content": {
@@ -751,7 +798,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -820,26 +870,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Saved public snapshot after current read authorization.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Contribution"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/Meta"
-                    }
-                  }
                 }
               }
             }
@@ -883,6 +913,29 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Operation is still being finalized or recovered.",
             "content": {
@@ -890,7 +943,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -959,26 +1015,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Saved public snapshot after current read authorization.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Contribution"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/Meta"
-                    }
-                  }
                 }
               }
             }
@@ -1022,6 +1058,29 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Operation is still being finalized or recovered.",
             "content": {
@@ -1029,7 +1088,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -1101,26 +1163,6 @@
                 }
               }
             }
-          },
-          "200": {
-            "description": "Saved public snapshot after current read authorization.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Contribution"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/Meta"
-                    }
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -1135,20 +1177,28 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ContributionReasonInput" }
+              "schema": {
+                "$ref": "#/components/schemas/ContributionReasonInput"
+              }
             }
           }
         },
@@ -1160,10 +1210,17 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
-                    "data": { "$ref": "#/components/schemas/Contribution" },
-                    "meta": { "$ref": "#/components/schemas/Meta" }
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
                   }
                 }
               }
@@ -1176,10 +1233,17 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
-                    "data": { "$ref": "#/components/schemas/Operation" },
-                    "meta": { "$ref": "#/components/schemas/Meta" }
+                    "data": {
+                      "$ref": "#/components/schemas/Operation"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
                   }
                 }
               }
@@ -1188,37 +1252,61 @@
           "400": {
             "description": "VALIDATION_FAILED: malformed reason, version or request.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           },
           "401": {
             "description": "UNAUTHENTICATED: missing or invalid session.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           },
           "403": {
             "description": "PERMISSION_DENIED: actor is not the current active Holder.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           },
           "404": {
             "description": "RESOURCE_NOT_FOUND: scoped Finance record or current membership is absent.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           },
           "409": {
             "description": "VERSION_CONFLICT, STATE_CONFLICT or IDEMPOTENCY_CONFLICT, including insufficient available balance or an existing reversal.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           },
           "503": {
             "description": "SERVICE_UNAVAILABLE: dependency failure or malformed persisted ledger invariant.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           }
         }
@@ -1260,6 +1348,29 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Operation is still being finalized or recovered.",
             "content": {
@@ -1267,7 +1378,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -1336,26 +1450,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Saved public snapshot after current read authorization.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Contribution"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/Meta"
-                    }
-                  }
                 }
               }
             }
@@ -1399,6 +1493,29 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Operation is still being finalized or recovered.",
             "content": {
@@ -1406,7 +1523,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -1475,26 +1595,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Saved public snapshot after current read authorization.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Contribution"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/Meta"
-                    }
-                  }
                 }
               }
             }
@@ -1538,6 +1638,29 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Saved public snapshot after current read authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Contribution"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/Meta"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Operation is still being finalized or recovered.",
             "content": {
@@ -1545,7 +1668,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Operation"
@@ -1617,26 +1743,6 @@
                 }
               }
             }
-          },
-          "200": {
-            "description": "Saved public snapshot after current read authorization.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Contribution"
-                    },
-                    "meta": {
-                      "$ref": "#/components/schemas/Meta"
-                    }
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -1658,6 +1764,55 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "Private instruction; showing or scanning the QR does not prove payment.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-referrer"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PaymentInstruction"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "correlation_id"
+                      ],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "400": {
             "description": "VALIDATION_FAILED: invalid ID or unexpected query.",
             "content": {
@@ -1704,46 +1859,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Private instruction; showing or scanning the QR does not prove payment.",
-            "headers": {
-              "Cache-Control": {
-                "schema": {
-                  "type": "string",
-                  "enum": ["private, no-store"]
-                }
-              },
-              "Referrer-Policy": {
-                "schema": {
-                  "type": "string",
-                  "enum": ["no-referrer"]
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["data", "meta"],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/PaymentInstruction"
-                    },
-                    "meta": {
-                      "type": "object",
-                      "required": ["correlation_id"],
-                      "properties": {
-                        "correlation_id": {
-                          "type": "string",
-                          "format": "uuid"
-                        }
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -1809,7 +1924,14 @@
           },
           "status": {
             "type": "string",
-            "enum": ["PENDING", "TRANSFER_REPORTED", "CONFIRMED", "WAIVED", "CANCELLED", "REVERSED"]
+            "enum": [
+              "PENDING",
+              "TRANSFER_REPORTED",
+              "CONFIRMED",
+              "WAIVED",
+              "CANCELLED",
+              "REVERSED"
+            ]
           },
           "self_contribution": {
             "type": "boolean"
@@ -1851,13 +1973,28 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          },
+          "destination_type": {
+            "type": "string",
+            "enum": [
+              "VIETQR",
+              "MOMO_SANDBOX"
+            ],
+            "description": "Rail from the immutable allocation snapshot; no recipient details."
+          },
+          "latest_payment_attempt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Most recent attempt for resume; GET still requires Self or current Holder."
           }
         }
       },
       "Meta": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["correlation_id"],
+        "required": [
+          "correlation_id"
+        ],
         "properties": {
           "correlation_id": {
             "type": "string",
@@ -1867,11 +2004,19 @@
       },
       "Error": {
         "type": "object",
-        "required": ["error", "meta"],
+        "required": [
+          "error",
+          "meta"
+        ],
         "properties": {
           "error": {
             "type": "object",
-            "required": ["code", "message", "details", "retryable"],
+            "required": [
+              "code",
+              "message",
+              "details",
+              "retryable"
+            ],
             "properties": {
               "code": {
                 "type": "string"
@@ -1885,7 +2030,17 @@
                 "properties": {
                   "reason": {
                     "type": "string",
-                    "enum": ["FUND_NOT_OPEN", "CLOSURE_PENDING", "FUND_ALREADY_EXISTS", "HOLDER_NOT_ACTIVE", "MEMBER_NOT_ACTIVE", "TRIP_ARCHIVED", "INSUFFICIENT_AVAILABLE_BALANCE", "HANDOVER_IN_PROGRESS", "INVALID_TRANSITION"],
+                    "enum": [
+                      "FUND_NOT_OPEN",
+                      "CLOSURE_PENDING",
+                      "FUND_ALREADY_EXISTS",
+                      "HOLDER_NOT_ACTIVE",
+                      "MEMBER_NOT_ACTIVE",
+                      "TRIP_ARCHIVED",
+                      "INSUFFICIENT_AVAILABLE_BALANCE",
+                      "HANDOVER_IN_PROGRESS",
+                      "INVALID_TRANSITION"
+                    ],
                     "description": "Optional sub-reason for 409 STATE_CONFLICT; the HTTP status and code are unchanged. Clients must treat an absent or unrecognized reason as a generic conflict."
                   }
                 },
@@ -1912,7 +2067,11 @@
       "Operation": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["operation_id", "trip_id", "state"],
+        "required": [
+          "operation_id",
+          "trip_id",
+          "state"
+        ],
         "properties": {
           "operation_id": {
             "type": "string",
@@ -1924,26 +2083,44 @@
           },
           "state": {
             "type": "string",
-            "enum": ["PROCESSING", "PENDING_RECOVERY", "NEEDS_REVIEW"]
+            "enum": [
+              "PROCESSING",
+              "PENDING_RECOVERY",
+              "NEEDS_REVIEW"
+            ]
           },
           "outcome": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["status"],
+            "required": [
+              "status"
+            ],
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["COMMITTED", "REJECTED", "CANCELLED"]
+                "enum": [
+                  "COMMITTED",
+                  "REJECTED",
+                  "CANCELLED"
+                ]
               },
               "error_code": {
                 "type": "string",
-                "enum": ["FINANCE_OBLIGATION_BLOCKED", "STATE_CONFLICT", "VERSION_CONFLICT"]
+                "enum": [
+                  "FINANCE_OBLIGATION_BLOCKED",
+                  "STATE_CONFLICT",
+                  "VERSION_CONFLICT"
+                ]
               }
             }
           },
           "error_code": {
             "type": "string",
-            "enum": ["FINANCE_OBLIGATION_BLOCKED", "STATE_CONFLICT", "VERSION_CONFLICT"]
+            "enum": [
+              "FINANCE_OBLIGATION_BLOCKED",
+              "STATE_CONFLICT",
+              "VERSION_CONFLICT"
+            ]
           },
           "next_retry_at": {
             "type": "string",
@@ -1992,11 +2169,15 @@
           },
           "status": {
             "type": "string",
-            "enum": ["OPEN"]
+            "enum": [
+              "OPEN"
+            ]
           },
           "version": {
             "type": "integer",
-            "enum": [1]
+            "enum": [
+              1
+            ]
           },
           "created_by_user_id": {
             "type": "string",
@@ -2009,12 +2190,16 @@
           "amount_per_member": {
             "type": "string",
             "nullable": true,
-            "enum": [null]
+            "enum": [
+              null
+            ]
           },
           "closed_at": {
             "type": "string",
             "nullable": true,
-            "enum": [null]
+            "enum": [
+              null
+            ]
           }
         },
         "description": "Only for replay of receipts issued before the full response increment. Does not contain contributions or finance_version. No live rows are used to reconstruct historical data."
@@ -2062,7 +2247,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["OPEN", "CLOSED", "CANCELLED"]
+            "enum": [
+              "OPEN",
+              "CLOSED",
+              "CANCELLED"
+            ]
           },
           "version": {
             "type": "integer",
@@ -2144,11 +2333,15 @@
           },
           "status": {
             "type": "string",
-            "enum": ["OPEN"]
+            "enum": [
+              "OPEN"
+            ]
           },
           "version": {
             "type": "integer",
-            "enum": [1]
+            "enum": [
+              1
+            ]
           },
           "created_by_user_id": {
             "type": "string",
@@ -2161,12 +2354,16 @@
           "amount_per_member": {
             "type": "string",
             "nullable": true,
-            "enum": [null]
+            "enum": [
+              null
+            ]
           },
           "closed_at": {
             "type": "string",
             "nullable": true,
-            "enum": [null]
+            "enum": [
+              null
+            ]
           },
           "contributions": {
             "type": "array",
@@ -2181,11 +2378,15 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["PENDING"]
+                      "enum": [
+                        "PENDING"
+                      ]
                     },
                     "version": {
                       "type": "integer",
-                      "enum": [1]
+                      "enum": [
+                        1
+                      ]
                     }
                   }
                 }
@@ -2203,7 +2404,11 @@
       "CreateInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["title", "contributions", "expected_finance_version"],
+        "required": [
+          "title",
+          "contributions",
+          "expected_finance_version"
+        ],
         "properties": {
           "title": {
             "type": "string",
@@ -2217,7 +2422,11 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["member_user_id", "amount", "destination_id"],
+              "required": [
+                "member_user_id",
+                "amount",
+                "destination_id"
+              ],
               "properties": {
                 "member_user_id": {
                   "type": "string",
@@ -2256,16 +2465,25 @@
       "UpdateRequestInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_version", "expected_finance_version"],
+        "required": [
+          "expected_version",
+          "expected_finance_version"
+        ],
         "anyOf": [
           {
-            "required": ["title"]
+            "required": [
+              "title"
+            ]
           },
           {
-            "required": ["due_at"]
+            "required": [
+              "due_at"
+            ]
           },
           {
-            "required": ["note"]
+            "required": [
+              "note"
+            ]
           }
         ],
         "properties": {
@@ -2300,7 +2518,11 @@
       "UpdateAmountInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["amount", "expected_version", "expected_finance_version"],
+        "required": [
+          "amount",
+          "expected_version",
+          "expected_finance_version"
+        ],
         "properties": {
           "amount": {
             "type": "string",
@@ -2322,7 +2544,11 @@
       "ContributionReasonInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["reason", "expected_version", "expected_finance_version"],
+        "required": [
+          "reason",
+          "expected_version",
+          "expected_finance_version"
+        ],
         "properties": {
           "reason": {
             "type": "string",
@@ -2346,7 +2572,10 @@
       "ReportContributionTransferInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_version", "expected_finance_version"],
+        "required": [
+          "expected_version",
+          "expected_finance_version"
+        ],
         "properties": {
           "expected_version": {
             "type": "integer",
@@ -2368,11 +2597,16 @@
       "ConfirmContributionReceivedInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_version", "expected_finance_version"],
+        "required": [
+          "expected_version",
+          "expected_finance_version"
+        ],
         "properties": {
           "previous_holder_transfer_confirmed": {
             "type": "boolean",
-            "enum": [true],
+            "enum": [
+              true
+            ],
             "description": "Required as true when the immutable contribution destination belongs to a previous Holder. Only the current Holder may attest that the previous Holder transferred the money to them. Omit for unchanged Holder. False and non-boolean values are rejected; this assertion is audited."
           },
           "expected_version": {
@@ -2390,7 +2624,11 @@
       "RejectContributionTransferInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_version", "expected_finance_version", "reason"],
+        "required": [
+          "expected_version",
+          "expected_finance_version",
+          "reason"
+        ],
         "properties": {
           "expected_version": {
             "type": "integer",
@@ -2439,7 +2677,9 @@
           },
           "currency": {
             "type": "string",
-            "enum": ["VND"]
+            "enum": [
+              "VND"
+            ]
           },
           "reference": {
             "type": "string",
@@ -2481,7 +2721,9 @@
           },
           "environment": {
             "type": "string",
-            "enum": ["LIVE"],
+            "enum": [
+              "LIVE"
+            ],
             "description": "Real bank account of the Holder: scanning transfers real money."
           },
           "warning": {

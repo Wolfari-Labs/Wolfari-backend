@@ -102,6 +102,7 @@ export class ContributionCommandRepository {
         member_user_id: item.memberUserId,
         amount: item.amount.toString(),
         status: 'PENDING',
+        destination_type: dest.destinationType,
         self_contribution: item.memberUserId === fund.holder_user_id,
         version: 1,
         finance_version: fund.finance_version + 1,

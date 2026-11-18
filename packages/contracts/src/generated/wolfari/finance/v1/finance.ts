@@ -900,7 +900,12 @@ export interface ContributionView {
     | number
     | undefined;
   /** Latest Holder rejection reason. Absent on never-rejected/legacy receipt snapshots. */
-  rejected_reason?: string | undefined;
+  rejected_reason?:
+    | string
+    | undefined;
+  /** Payment rail only; recipient snapshot remains private. */
+  destination_type?: string | undefined;
+  latest_payment_attempt_id?: string | undefined;
 }
 
 export interface ListContributionRequestsRequest {
