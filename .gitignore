@@ -11,3 +11,5 @@ coverage/
 .DS_Store
 # Office lock files are local to an open document.
 ~$*.docx
+# Local Nominatim response cache for scripts/poi/fetch-coordinates.mjs.
+data/poi/.nominatim-cache.json
