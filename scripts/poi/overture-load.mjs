@@ -31,6 +31,8 @@ const parseCli = () => parseArgs({
 });
 
 export const OVERTURE_LICENSE_FALLBACK = 'CDLA-Permissive-2.0';
+/** POIs sharing one exact coordinate from this count on are flagged coord_pileup. */
+export const PILEUP_MIN = 20;
 const sqlString = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const sqlPath = (path) => sqlString(path.replaceAll('\\', '/'));
 const seconds = (from) => Number(((performance.now() - from) / 1000).toFixed(1));
@@ -74,8 +76,8 @@ async function main() {
     // Modest per-session memory: the dev machine has little free RAM.
     await client.query("SET work_mem = '16MB'");
     await client.query("SET maintenance_work_mem = '128MB'");
-    const v004 = await client.query("SELECT 1 FROM schema_migrations WHERE version = 'V004'");
-    if (!v004.rowCount) throw new Error('Cần cấu hình travel_db V004: chạy migrate travel trước.');
+    const v005 = await client.query("SELECT 1 FROM schema_migrations WHERE version = 'V005'");
+    if (!v005.rowCount) throw new Error('Cần cấu hình travel_db V005: chạy migrate travel trước.');
     const golden = await findSnapshot(client, args['golden-snapshot']);
     if (golden.status !== 'complete') throw new Error(`Snapshot golden ${golden.version} chưa hoàn tất.`);
 
@@ -195,9 +197,21 @@ async function main() {
     console.log(`  poi_sources Overture: ${sources.rowCount} (${seconds(t)} s)`);
     await client.query(`DROP TABLE ${stage}`);
     await client.query(`DROP TABLE ${stageSources}`);
+    // Coordinate pile-ups: ≥ PILEUP_MIN Overture POIs on one exact coordinate (area centroids).
+    // Kept for name search, hidden from map exploration; golden POIs are never flagged.
+    t = performance.now();
+    const pileup = await client.query(
+      `UPDATE pois p SET coord_pileup = true
+       FROM (SELECT latitude, longitude FROM pois WHERE snapshot_id = $1 AND tier = 9
+             GROUP BY 1, 2 HAVING count(*) >= $2) c
+       WHERE p.snapshot_id = $1 AND p.tier = 9 AND p.latitude = c.latitude AND p.longitude = c.longitude`,
+      [snapshotId, PILEUP_MIN],
+    );
+    console.log(`  coord_pileup: ${pileup.rowCount} POI (${seconds(t)} s)`);
     t = performance.now();
     await client.query('ANALYZE pois');
     await client.query('ANALYZE poi_sources');
+    await client.query('ANALYZE poi_snapshots');
     console.log(`  ANALYZE (${seconds(t)} s)`);
 
     manifest.status = 'complete';
@@ -206,8 +220,10 @@ async function main() {
       golden_overture_sources: goldenOverture.rowCount,
       overture: loaded,
       overture_sources: sources.rowCount,
+      coord_pileup: pileup.rowCount,
       total: copied.rowCount + loaded,
     };
+    manifest.coord_pileup_min = PILEUP_MIN;
     manifest.seconds = seconds(started);
     await client.query('UPDATE poi_snapshots SET manifest = $2::jsonb WHERE id = $1', [snapshotId, JSON.stringify(manifest)]);
     console.log(`Xong: ${version} · ${manifest.counts.total} POI · ${manifest.seconds} s · CHƯA active`);

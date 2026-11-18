@@ -42,6 +42,59 @@ không liên quan đến du lịch. Cổng chất lượng chỉ báo cáo.
 - Điểm golden nằm ngoài polygon (ghim sát bờ) nhận tỉnh gần nhất.
 - Không lưu tên quốc gia khác cho điểm ở Việt Nam: địa chỉ Overture có `country` khác `VN` bị bỏ
   (giữ tên và tọa độ).
+- Release 2026-10-21.0: vùng đệm giữ **11.030** điểm Overture (nhiều nhất Khánh Hòa 2.672,
+  TP.HCM 1.125, Đà Nẵng 1.113); **6** điểm golden nằm ngoài polygon và nhận mã 48:
+  `dn-bien-an-bang`, `dn-bien-my-khe`, `dn-bien-non-nuoc`, `dn-bien-pham-van-dong`,
+  `dn-cong-vien-bien-dong`, `dn-ran-nam-o`. Chủ dự án duyệt giữ vùng đệm (OV-2).
+
+### ADR-POI-4: Ghép golden chỉ trong cùng nhóm tìm kiếm
+
+Bản ghi Overture chỉ được gộp vào điểm golden khi ≤ 150 m, tên giống (trigram ≥ 0,6 hoặc trùng
+alias) **và cùng nhóm tìm kiếm** (`tourism`, `restaurant`, …). Nhờ vậy khách sạn "An Bang Beach
+Bungalow" hay nhà hàng "Lost An Bang" cạnh golden "Bãi biển An Bang" vẫn là POI riêng.
+
+### ADR-POI-5: Tọa độ dồn không lên bản đồ
+
+Overture gán nhiều điểm vào tâm khu vực (ví dụ 721 POI cùng một tọa độ ở trung tâm Hà Nội). Khi
+nạp, POI Overture có **≥ 20 POI cùng tọa độ chính xác** (numeric(9,6)) được gắn
+`pois.coord_pileup = true` (V005). Các POI này vẫn tìm được theo tên nhưng **không** trả về trong
+chế độ khám phá theo `bbox`. Golden không bao giờ bị gắn cờ. Số POI bị ẩn ghi trong manifest
+snapshot (`counts.coord_pileup`) và báo cáo `poi:gates`.
+
+### ADR-POI-6: Truy vấn theo snapshot và chính sách giữ snapshot
+
+- Mỗi truy vấn đọc id snapshot active trước (một truy vấn nhỏ), rồi lọc `snapshot_id = <id>` trước
+  khi so chữ / khoảng cách. Index V005 dẫn đầu bằng `snapshot_id`: GIN
+  `(snapshot_id, search_text gin_trgm_ops)` (cần `btree_gin`) và B-tree
+  `(snapshot_id, category, latitude, longitude)`. Snapshot chưa active nằm cùng bảng không làm chậm
+  snapshot active. `poi:activate` chạy `ANALYZE` sau khi đổi.
+- Tìm theo chữ: trong 50 km quanh tâm Trip/bản đồ trước; < 3 kết quả tốt thì mở toàn quốc; vẫn
+  thiếu thì Geoapify. Xếp hạng: golden chứa/khớp đúng tên → khớp đúng tên/alias → tier → similarity
+  → khoảng cách → confidence.
+- Giữ **snapshot active + 1 bản hoàn tất gần nhất** để quay lại. `corepack pnpm poi:prune --dry-run`
+  liệt kê; bỏ `--dry-run` để xóa các bản khác (cascade `pois`/`poi_sources`, rồi `VACUUM ANALYZE`).
+  Snapshot đang nạp không bị xóa.
+
+### Đề xuất (chưa làm): partition `pois` theo `snapshot_id`
+
+- **Lợi:** xóa snapshot = `DROP`/`DETACH` partition (tức thì, không bloat, không cần VACUUM 1,2 triệu
+  dòng; xóa thử mất 54 s + VACUUM 12 s); nạp vào bảng riêng rồi `ATTACH` (index tạo sau khi nạp, đúng
+  quy tắc "index sau COPY"); planner chỉ quét partition của snapshot active; thống kê tách riêng.
+- **Hại:** khóa chính hiện là `pois.id` (uuid) — bảng partition yêu cầu khóa chính/unique chứa cột
+  partition, nên phải đổi thành `(snapshot_id, id)`; `poi_sources.poi_id` FK tới `pois(id)` phải đổi
+  thành FK hai cột `(snapshot_id, poi_id)` (thêm cột vào `poi_sources`) hoặc chuyển `poi_sources`
+  thành partition theo snapshot luôn. Mỗi snapshot thêm một bảng; quản lý partition bằng script.
+- **Migration cần:** travel V00x mới tạo `pois_p` (PARTITION BY LIST (snapshot_id)), chép dữ liệu
+  theo snapshot, đổi tên bảng trong một transaction, cập nhật FK, cập nhật loader (`CREATE TABLE …
+  PARTITION OF`, nạp, index, `ATTACH`) và `poi:prune` (`DETACH` + `DROP`). Không additive → làm sau
+  demo, có bản sao lưu và chạy thử trên DB cô lập.
+
+### ADR-POI-7: DB cô lập để thử nghiệm
+
+Migration travel chặn mọi database không tên `travel_db`, và script chỉ kết nối `travel_app`.
+Vì vậy DB thử nghiệm toàn quốc là một container Postgres riêng (`docker compose --project-name
+wolfari-ov`, cổng 127.0.0.1:55433) có `travel_db` của nó, chạy đúng migration không sửa — thay vì
+một database `travel_ov` trong container demo.
 
 ## Nguồn dữ liệu và giấy phép
 

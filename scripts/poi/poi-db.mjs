@@ -49,24 +49,53 @@ export async function findSnapshot(client, ref) {
  * request, so no restart is needed. Returns { previous, current } versions.
  */
 export async function activateSnapshot(client, ref) {
+  let target;
+  let previous;
   await client.query('BEGIN');
   try {
     // Serialise concurrent activations; readers are not blocked.
     await client.query('LOCK TABLE poi_snapshots IN SHARE ROW EXCLUSIVE MODE');
-    const target = await findSnapshot(client, ref);
+    target = await findSnapshot(client, ref);
     if (target.status !== 'complete')
       throw new Error(`Snapshot ${target.version} chưa nạp xong (status ${target.status}); không kích hoạt.`);
     const count = (await client.query('SELECT count(*)::int AS n FROM pois WHERE snapshot_id = $1', [target.id])).rows[0].n;
     if (!count) throw new Error(`Snapshot ${target.version} không có POI; không kích hoạt.`);
-    const previous = (await client.query('SELECT version FROM poi_snapshots WHERE is_active')).rows[0]?.version ?? null;
+    previous = (await client.query('SELECT version FROM poi_snapshots WHERE is_active')).rows[0]?.version ?? null;
     await client.query('UPDATE poi_snapshots SET is_active = false WHERE is_active AND id <> $1', [target.id]);
     await client.query('UPDATE poi_snapshots SET is_active = true WHERE id = $1', [target.id]);
     await client.query('COMMIT');
-    return { previous, current: target.version };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     throw error;
   }
+  // Fresh statistics so the planner sees the new active snapshot (sample-based, ~1 s per table).
+  await client.query('ANALYZE poi_snapshots');
+  await client.query('ANALYZE pois');
+  return { previous, current: target.version };
+}
+
+/**
+ * Retention: keep the active snapshot and the newest other complete one; everything else
+ * complete and inactive is removed (pois/poi_sources cascade). Snapshots still loading are
+ * never touched. Returns the plan; deletes only when `dryRun` is false.
+ */
+export async function pruneSnapshots(client, { keep = 1, dryRun = true } = {}) {
+  const rows = await listSnapshots(client);
+  const active = rows.find((r) => r.active) ?? null;
+  const others = rows
+    .filter((r) => !r.active && r.status === 'complete')
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const kept = [...(active ? [active] : []), ...others.slice(0, keep)];
+  const removed = others.slice(keep);
+  const skipped = rows.filter((r) => !r.active && r.status !== 'complete');
+  if (!dryRun && removed.length) {
+    for (const row of removed)
+      await client.query('DELETE FROM poi_snapshots WHERE id = $1 AND NOT is_active', [row.id]);
+    await client.query('VACUUM (ANALYZE) pois');
+    await client.query('VACUUM (ANALYZE) poi_sources');
+    await client.query('ANALYZE poi_snapshots');
+  }
+  return { kept, removed, skipped };
 }
 
 /** Golden rows of a snapshot (default: the active one) for name/coordinate matching. */
@@ -76,7 +105,8 @@ export async function exportGolden(client, ref) {
     : (await client.query('SELECT id, version FROM poi_snapshots WHERE is_active')).rows[0];
   if (!snapshot) throw new Error('Không có snapshot active; truyền --golden-snapshot <version>.');
   const { rows } = await client.query(
-    `SELECT wolfari_key, name_vi, name_en, aliases, latitude::float8 AS latitude, longitude::float8 AS longitude
+    `SELECT wolfari_key, name_vi, name_en, aliases, category,
+       latitude::float8 AS latitude, longitude::float8 AS longitude
      FROM pois WHERE snapshot_id = $1 AND tier IN (1, 2, 3) ORDER BY wolfari_key`,
     [snapshot.id],
   );

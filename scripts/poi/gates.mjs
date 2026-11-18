@@ -102,15 +102,31 @@ async function main() {
         [id, Object.keys(VN_PROVINCES)],
       )
     ).rows[0].n;
-    // Same folded name, same group, ~30 m grid cell: duplicates the build should have merged.
+    // Same rule as the build: same folded name, same group, ≤ 30 m apart (Overture only; golden
+    // vs Overture of the same group is the golden-match rule, reported separately).
     const duplicates = (
       await client.query(
-        `WITH g(code, grp) AS (VALUES ${groupValues})
-         SELECT count(*)::int AS groups, coalesce(sum(n - 1), 0)::int AS extra FROM (
-           SELECT count(*) AS n FROM pois p JOIN g ON g.code = p.category
-           WHERE p.snapshot_id = $1
-           GROUP BY lower(unaccent(p.name_vi)), g.grp, floor(p.latitude / 0.00027), floor(p.longitude / 0.00027)
-           HAVING count(*) > 1) d`,
+        `WITH g(code, grp) AS (VALUES ${groupValues}),
+         c AS (
+           SELECT p.wolfari_key AS k, lower(unaccent(p.name_vi)) AS n, g.grp, p.latitude::float8 AS lat,
+             p.longitude::float8 AS lon, floor(p.latitude / 0.00027) AS cy, floor(p.longitude / 0.00027) AS cx
+           FROM pois p JOIN g ON g.code = p.category WHERE p.snapshot_id = $1 AND p.tier = 9),
+         pairs AS (
+           SELECT a.k AS a, b.k AS b FROM c a JOIN c b
+             ON a.n = b.n AND a.grp = b.grp AND a.k < b.k
+            AND b.cy BETWEEN a.cy - 1 AND a.cy + 1 AND b.cx BETWEEN a.cx - 1 AND a.cx + 1
+           WHERE 2 * 6371000 * asin(sqrt(power(sin(radians(b.lat - a.lat) / 2), 2) +
+             cos(radians(a.lat)) * cos(radians(b.lat)) * power(sin(radians(b.lon - a.lon) / 2), 2))) <= 30)
+         SELECT count(*)::int AS pairs, coalesce(array_agg(a || ' ~ ' || b) FILTER (WHERE true), '{}') AS sample
+         FROM (SELECT * FROM pairs ORDER BY a, b LIMIT 1000) s`,
+        [id],
+      )
+    ).rows[0];
+    duplicates.sample = duplicates.sample.slice(0, 10);
+    const hiddenPileups = (
+      await client.query(
+        `SELECT count(*)::int AS pois, count(DISTINCT (latitude, longitude))::int AS coordinates
+         FROM pois WHERE snapshot_id = $1 AND coord_pileup`,
         [id],
       )
     ).rows[0];
@@ -141,6 +157,7 @@ async function main() {
       outside_polygon_or_unknown_province: outside,
       provinces_without_pois: missingProvinces,
       coordinate_pileups: pileups,
+      coord_pileup_hidden_from_map: hiddenPileups,
       leftover_duplicates: duplicates,
       licenses,
       per_province: perProvince,
@@ -163,7 +180,8 @@ async function main() {
         : '- Golden: không có snapshot đối chiếu',
       `- Ngoài polygon / mã tỉnh lạ: ${outside}`,
       `- Tỉnh không có POI: ${missingProvinces.join(', ') || 'không'}`,
-      `- Cặp trùng còn sót (cùng tên chuẩn hóa, cùng nhóm, cùng ô ~30 m): ${duplicates.groups} nhóm, ${duplicates.extra} bản thừa`,
+      `- Cặp trùng còn sót (Overture, cùng tên chuẩn hóa, cùng nhóm, ≤ 30 m): ${duplicates.pairs}${duplicates.sample.length ? ` (${duplicates.sample.join(', ')})` : ''}`,
+      `- Ẩn khỏi bản đồ (coord_pileup, ≥ 20 POI cùng tọa độ): ${hiddenPileups.pois} POI tại ${hiddenPileups.coordinates} tọa độ`,
       `- Thiếu license: ${licenses.missing_license} · thiếu attribution: ${licenses.missing_attribution} · POI Overture không có poi_sources: ${licenses.overture_without_source}`,
       `- Tọa độ dồn (> 20 tên khác nhau cùng tọa độ 5 chữ số): ${pileups.length}`,
       ...pileups.slice(0, 20).map((p) => `  - ${p.lat}, ${p.lon}: ${p.names} tên / ${p.pois} POI`),

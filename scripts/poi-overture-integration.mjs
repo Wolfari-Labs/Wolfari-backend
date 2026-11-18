@@ -101,7 +101,7 @@ export async function checkOvertureSnapshots(client, url) {
     created.push(snap.id);
     assert.equal(snap.is_active, false, 'new snapshot is not active');
     assert.equal(snap.manifest.status, 'complete');
-    assert.deepEqual(snap.manifest.counts, { golden: 2, golden_overture_sources: 1, overture: 3, overture_sources: 4, total: 5 });
+    assert.deepEqual(snap.manifest.counts, { golden: 2, golden_overture_sources: 1, overture: 3, overture_sources: 4, coord_pileup: 0, total: 5 });
     const pois = (
       await client.query(
         `SELECT wolfari_key, tier, latitude::float8 AS lat, longitude::float8 AS lon, coord_verified, province_code,

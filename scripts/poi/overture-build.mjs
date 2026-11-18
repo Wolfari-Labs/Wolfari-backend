@@ -192,9 +192,21 @@ step(`sau loại bỏ ${counts.after_filter}`, t);
 t = performance.now();
 const golden = JSON.parse(await readFile(args.golden, 'utf8'));
 if (!Array.isArray(golden) || !golden.length) throw new Error('File golden rỗng');
+// A golden POI only absorbs Overture records of its own search group (beach ≠ beach hotel).
+const goldenGroups = golden.map((g) => [g.wolfari_key, poiCategoryGroup(g.category ?? '')]);
+const ungrouped = goldenGroups.filter(([, group]) => !group).map(([key]) => key);
+if (ungrouped.length) throw new Error(`Golden thiếu category/nhóm: ${ungrouped.join(', ')}`);
 await db.run(`CREATE TABLE golden AS SELECT * FROM read_json(${sqlPath(resolve(args.golden))},
   columns = {wolfari_key: 'VARCHAR', name_vi: 'VARCHAR', name_en: 'VARCHAR', aliases: 'VARCHAR[]',
-             latitude: 'DOUBLE', longitude: 'DOUBLE'})`);
+             category: 'VARCHAR', latitude: 'DOUBLE', longitude: 'DOUBLE'})`);
+await db.run('CREATE TABLE golden_group(wolfari_key VARCHAR, grp VARCHAR)');
+const groupAppender = await db.createAppender('golden_group');
+for (const [key, group] of goldenGroups) {
+  groupAppender.appendVarchar(key);
+  groupAppender.appendVarchar(group);
+  groupAppender.endRow();
+}
+groupAppender.closeSync();
 // Golden pins are reviewed by hand: a pin just off the polygon edge (shoreline) takes the
 // nearest province instead of none.
 await db.run(`CREATE TABLE golden_province AS
@@ -210,15 +222,16 @@ const names = (alias) => `list_filter(list_distinct([fold(${alias}.names."primar
 const dLat = GOLDEN_RADIUS_M / 111_000;
 await db.run(`CREATE TABLE golden_match AS
   WITH g AS (
-    SELECT wolfari_key, latitude, longitude,
+    SELECT golden.wolfari_key, latitude, longitude, gg.grp,
       list_filter(list_distinct([fold(name_vi), fold(name_en)] ||
         list_transform(coalesce(aliases, []), a -> fold(a))), v -> v <> '') AS gnames
-    FROM golden),
+    FROM golden JOIN golden_group gg USING (wolfari_key)),
   pairs AS (
     SELECT g.wolfari_key, k.id, meters(g.latitude, g.longitude, k.lat, k.lon) AS distance_m,
       ${names('k')} AS onames, g.gnames
     FROM g JOIN kept k
-      ON k.lat BETWEEN g.latitude - ${dLat} AND g.latitude + ${dLat}
+      ON k.grp = g.grp
+     AND k.lat BETWEEN g.latitude - ${dLat} AND g.latitude + ${dLat}
      AND k.lon BETWEEN g.longitude - ${dLat * 1.2} AND g.longitude + ${dLat * 1.2}),
   scored AS (
     SELECT *, list_max(flatten(list_transform(onames, o -> list_transform(gnames,
@@ -355,7 +368,7 @@ const manifest = {
   provinces: { source: 'thanglequoc/vietnamese-provinces-database (MIT)', files: provinceInputs },
   rules: {
     coast_buffer_m: coastM,
-    golden: { radius_m: GOLDEN_RADIUS_M, min_similarity: GOLDEN_MIN_SIMILARITY },
+    golden: { radius_m: GOLDEN_RADIUS_M, min_similarity: GOLDEN_MIN_SIMILARITY, same_group: true },
     duplicates: { radius_m: DUPLICATE_RADIUS_M, min_similarity: DUPLICATE_MIN_SIMILARITY },
     taxonomy_sha256: createHash('sha256').update(JSON.stringify({ KEEP, EXCLUDE, MAP })).digest('hex'),
   },
