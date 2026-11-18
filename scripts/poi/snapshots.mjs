@@ -20,13 +20,14 @@ const { values, positionals } = parseArgs({
   options: {
     env: { type: 'string', default: DEFAULT_ENV },
     'dry-run': { type: 'boolean', default: false },
+    keep: { type: 'string', default: '1' },
   },
 });
 const [command, ref] = positionals;
 
 async function main() {
   if (!['list', 'activate', 'prune'].includes(command))
-    throw new Error('Lệnh: list | activate <snapshot> | prune [--dry-run]');
+    throw new Error('Lệnh: list | activate <snapshot> | prune [--keep 1] [--dry-run]');
   if (command === 'activate' && !ref) throw new Error('Lệnh: corepack pnpm poi:activate <version|id>');
   const client = await connectTravel(await travelUrl(values.env), {
     statementTimeout: command === 'prune' ? '30min' : '30s',
@@ -34,7 +35,9 @@ async function main() {
   try {
     if (command === 'prune') {
       const dryRun = values['dry-run'];
-      const { kept, removed, skipped } = await pruneSnapshots(client, { keep: 1, dryRun });
+      const keep = Number(values.keep);
+      if (!Number.isInteger(keep) || keep < 0) throw new Error('Lệnh: --keep <số bản inactive giữ lại, mặc định 1>');
+      const { kept, removed, skipped } = await pruneSnapshots(client, { keep, dryRun });
       const line = (r) => `${r.version} (${r.pois} POI${r.active ? ', ACTIVE' : ''})`;
       console.log(`Giữ: ${kept.map(line).join('; ') || 'không có'}`);
       console.log(`${dryRun ? 'Sẽ xóa' : 'Đã xóa'}: ${removed.map(line).join('; ') || 'không có'}`);
