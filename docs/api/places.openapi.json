@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Wolfari Places and Selected Locations",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "servers": [
     {
@@ -21,7 +21,7 @@
     "/api/v1/trips/{tripId}/places/search": {
       "get": {
         "operationId": "searchTripPlaces",
-        "description": "Authenticated trip reader only. Explicit submit; no autocomplete. May return labelled stale cache.",
+        "description": "Authenticated trip reader only. Explicit submit; no autocomplete. MAP-POI: curated Wolfari catalogue results come first (accent-insensitive text search over the active snapshot, or points within radius_m when q is empty); Geoapify is consulted only when the catalogue has fewer than 3 good matches (or none nearby, or category=accommodation, or geocode=true) and its results are appended without duplicates (<= 75 m and same accent-folded name). A Geoapify failure never removes catalogue results. May return labelled stale cache.",
         "parameters": [
           {
             "name": "tripId",
@@ -356,7 +356,8 @@
           "selection_token": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 16000
+            "maxLength": 16000,
+            "description": "Signed token from a search result of provider GEOAPIFY or WOLFARI. Saving the same provider place twice returns the existing location without a new plan_version."
           }
         }
       },
@@ -390,7 +391,20 @@
       },
       "Place": {
         "type": "object",
-        "required": ["id", "name", "coordinates", "selection_token", "attribution"],
+        "required": [
+          "id",
+          "name",
+          "coordinates",
+          "selection_token",
+          "attribution",
+          "provider",
+          "category",
+          "category_label",
+          "tier",
+          "coord_verified",
+          "activity_type",
+          "dress_code_hint"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -422,13 +436,49 @@
             "type": "string"
           },
           "attribution": {
-            "type": "string"
+            "type": "string",
+            "description": "Always present: OpenStreetMap (WOLFARI) or Geoapify + OpenStreetMap."
           },
           "categories": {
             "type": "array",
             "items": {
               "type": "string"
             }
+          },
+          "provider": {
+            "enum": ["WOLFARI", "GEOAPIFY"],
+            "description": "Result source. WOLFARI: id is the curated wolfari_key."
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Wolfari taxonomy code (MAP-POI section 8); empty for Geoapify."
+          },
+          "category_label": {
+            "type": "string",
+            "description": "Vietnamese label of category; empty for Geoapify."
+          },
+          "tier": {
+            "enum": [1, 2, 3, 9],
+            "description": "1-3 curated golden list; 9 bulk/external (Geoapify)."
+          },
+          "coord_verified": {
+            "type": "boolean",
+            "description": "Coordinates were checked by a human reviewer."
+          },
+          "typical_duration_min": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Suggested visit duration; omitted when unknown."
+          },
+          "activity_type": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Suggested Plan activity type (SIGHTSEEING, BEACH, ...); may be empty. Clients show unknown values as \"Khác\"."
+          },
+          "dress_code_hint": {
+            "type": "string",
+            "maxLength": 120
           }
         }
       },
@@ -448,7 +498,8 @@
             "required": ["provider", "status", "stale", "is_mock"],
             "properties": {
               "provider": {
-                "const": "GEOAPIFY"
+                "enum": ["WOLFARI", "GEOAPIFY", "WOLFARI+GEOAPIFY"],
+                "description": "Sources that contributed data; GEOAPIFY also when nothing was found."
               },
               "status": {
                 "enum": ["SUCCESS", "NO_RESULT", "ERROR"]

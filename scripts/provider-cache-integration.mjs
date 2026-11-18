@@ -11,6 +11,8 @@ export async function checkPlacesCache(client) {
  const fetcher=globalThis.fetch;let calls=0;
  await client.query('BEGIN');
  try{
+  // Geoapify-only path: hide any curated snapshot (rolled back below).
+  await client.query('UPDATE poi_snapshots SET is_active=false WHERE is_active');
   const values={GEOAPIFY_API_KEY:'integration-not-a-real-key',PLACE_SELECTION_SECRET:'s'.repeat(64)};
   const service=new PlacesService({query:client.query.bind(client)},{get:key=>values[key]});
   globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({features:[{properties:{place_id:'id',name:'Hoi An',lat:15.88,lon:108.33}}]}));};
@@ -27,6 +29,36 @@ export async function checkPlacesCache(client) {
   globalThis.fetch=async()=>new Response('{"features":[]}');
   assert.equal((await service.search(input)).data.length,0);
   const empty=(await client.query('SELECT * FROM provider_cache')).rows[0];assert.equal(empty.expires_at-empty.fetched_at,300000);
+ }finally{globalThis.fetch=fetcher;await client.query('ROLLBACK');}
+}
+// MAP-POI: real pg_trgm/unaccent ranking over an active snapshot; Geoapify must not be called.
+export async function checkPoiCatalog(client) {
+ const fetcher=globalThis.fetch;let calls=0;
+ await client.query('BEGIN');
+ try{
+  await client.query('UPDATE poi_snapshots SET is_active=false WHERE is_active');
+  const snapshot=(await client.query("INSERT INTO poi_snapshots(version,manifest,is_active) VALUES('integration-poi','{}'::jsonb,true) RETURNING id")).rows[0].id;
+  const rows=[['dn-cho-han',1,'Chợ Hàn','Han Market',['Cho Han'],'market',16.068352,108.224283],['dn-cho-con',1,'Chợ Cồn','Con Market',['Cho Con'],'market',16.068127,108.214521],
+   ['dn-cau-rong',1,'Cầu Rồng','Dragon Bridge',['Cau Rong'],'bridge',16.061168,108.227897],['dn-deo-hai-van',1,'Đèo Hải Vân','Hai Van Pass',[],'viewpoint',16.169143,108.126262],
+   ['dn-quan-an',2,'Quán Ăn Thử','Test Eatery',[],'restaurant',16.06,108.22]];
+  for(const [key,tier,vi,en,aliases,category,lat,lon] of rows)
+   await client.query(`INSERT INTO pois(snapshot_id,wolfari_key,tier,name_vi,name_en,aliases,search_text,category,latitude,longitude,confidence,license)
+    VALUES($1,$2,$3,$4::text,$5::text,$6::text[],lower(unaccent(concat_ws(' ',$4::text,$5::text,array_to_string($6::text[],' ')))),$7,$8,$9,1.0,'ODbL-1.0')`,[snapshot,key,tier,vi,en,aliases,category,lat,lon]);
+  globalThis.fetch=async()=>{calls++;return new Response('{"features":[]}');};
+  const values={GEOAPIFY_API_KEY:'integration-not-a-real-key',PLACE_SELECTION_SECRET:'s'.repeat(64)};
+  const service=new PlacesService({query:client.query.bind(client)},{get:key=>values[key]});
+  const input={actor_user_id:randomUUID(),trip_id:randomUUID(),coordinates:{latitude:16.0544,longitude:108.2022},radius_m:5000};
+  const hit=await service.search({...input,query:'cho han'});
+  assert.equal(hit.data[0].id,'dn-cho-han');assert.equal(hit.data[0].provider,'WOLFARI');assert.equal(hit.data[0].category_label,'Chợ');
+  assert.equal((await service.search({...input,query:'CẦU RỒNG'})).data[0].id,'dn-cau-rong');
+  assert.equal((await service.search({...input,query:'deo hai van'})).data[0].id,'dn-deo-hai-van');
+  assert.ok(!(await service.search({...input,query:'quan an'})).data.some(p=>p.id==='dn-quan-an'),'tourism excludes restaurants');
+  const injected=await service.search({...input,query:'%'});assert.ok(!injected.data.some(p=>p.provider==='WOLFARI'),'LIKE wildcard is escaped');
+  calls=0;
+  const near=await service.search({...input,query:''});
+  assert.deepEqual(near.data.map(p=>p.id).sort(),['dn-cau-rong','dn-cho-con','dn-cho-han']);
+  assert.equal(near.meta.provider,'WOLFARI');
+  assert.equal(calls,0,'nearby catalogue hits skip Geoapify');
  }finally{globalThis.fetch=fetcher;await client.query('ROLLBACK');}
 }
 export async function checkCachedPriceAlerts(client) {

@@ -44,4 +44,19 @@ export async function runLocationScenarios({request,query,bearer,tripBody,pass,o
   assert.equal(refreshed.body.data.activities[0].selected_location_id,location);
   status(await send('DELETE',`/selected-locations/${first.body.data.location_id}`),200);
   pass('locations: signed provider snapshot, 600-char ID, duplicate dedup, attach/reload and delete-used conflict');
+  // MAP-POI: curated Wolfari catalogue token (provider_place_id = wolfari_key).
+  const curated={actor:owner.id,trip:trip.id,expires:Date.now()+60000,place:{provider:'WOLFARI',provider_place_id:'dn-cho-han',name:'Chợ Hàn',address:'',latitude:16.068352,longitude:108.224283,categories:['market'],fetched_at:new Date().toISOString(),attribution:'© OpenStreetMap contributors'}};
+  status(await send('POST','/selected-locations',{selection_token:signPlaceSelection({...curated,place:{...curated.place,provider:'GOOGLE'}},secret)}),400);
+  const beforeCurated=version;
+  const savedCurated=await send('POST','/selected-locations',{selection_token:signPlaceSelection(curated,secret)});status(savedCurated,201);
+  assert.equal(version,beforeCurated+1);
+  const againCurated=await send('POST','/selected-locations',{selection_token:signPlaceSelection({...curated,expires:Date.now()+90000},secret)});status(againCurated,201);
+  assert.equal(againCurated.body.data.location_id,savedCurated.body.data.location_id);
+  assert.equal(version,beforeCurated+1);
+  const curatedPlan=await request(base+'/plan','GET',undefined,bearer(owner));status(curatedPlan,200);
+  const curatedRows=curatedPlan.body.data.selected_locations.filter(p=>p.provider_place_id==='dn-cho-han');
+  assert.equal(curatedRows.length,1);
+  assert.equal(curatedRows[0].source,'PROVIDER');
+  assert.equal(curatedPlan.body.data.plan_version,beforeCurated+1);
+  pass('locations: WOLFARI token saved once; second save returns same location without a new plan_version');
 }

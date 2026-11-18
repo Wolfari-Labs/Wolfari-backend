@@ -23,6 +23,35 @@ import {
 const service = loadSync(PROTO_PATHS.travel, GRPC_LOADER_OPTIONS)[
   'wolfari.travel.v1.TravelService'
 ] as ServiceDefinition;
+const PLACE_PROVIDERS = ['WOLFARI', 'GEOAPIFY'];
+const SEARCH_PROVIDERS = ['WOLFARI', 'GEOAPIFY', 'WOLFARI+GEOAPIFY'];
+/**
+ * Public Place shape (MAP-POI §4.1). proto-loader runs with defaults:false, so empty/false/0
+ * fields and proto3 `optional` virtual oneof keys (`_name`) are normalized here.
+ */
+export function publicPlace(value: unknown): Record<string, unknown> {
+  const row = responseRecord(value);
+  const fields = Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith('_')));
+  const text = (key: string) => (typeof row[key] === 'string' ? row[key] : '');
+  const provider = PLACE_PROVIDERS.includes(text('provider')) ? text('provider') : 'GEOAPIFY';
+  const duration = row.typical_duration_min;
+  delete fields.typical_duration_min;
+  return {
+    ...fields,
+    address: text('address'),
+    categories: Array.isArray(row.categories) ? row.categories : [],
+    provider,
+    category: text('category'),
+    category_label: text('category_label'),
+    tier: typeof row.tier === 'number' && Number.isInteger(row.tier) && row.tier > 0 ? row.tier : 9,
+    coord_verified: row.coord_verified === true,
+    ...(typeof duration === 'number' && Number.isInteger(duration) && duration > 0
+      ? { typical_duration_min: duration }
+      : {}),
+    activity_type: text('activity_type'),
+    dress_code_hint: text('dress_code_hint'),
+  };
+}
 export class PlacesProxy {
   private readonly trip: TripClient;
   private travel?: Client;
@@ -132,9 +161,9 @@ export class PlacesProxy {
         const meta = responseRecord(result.meta);
         const rows = Array.isArray(result.data) ? result.data : [];
         return json(response, 200, {
-          data: rows,
+          data: rows.map(publicPlace),
           meta: {
-            provider: meta.provider,
+            provider: SEARCH_PROVIDERS.includes(String(meta.provider)) ? meta.provider : 'GEOAPIFY',
             status: { 1: 'SUCCESS', 2: 'NO_RESULT', 3: 'ERROR' }[Number(meta.status)],
             fetched_at: meta.fetched_at ? timestampToIso(meta.fetched_at) : null,
             stale: meta.stale === true,

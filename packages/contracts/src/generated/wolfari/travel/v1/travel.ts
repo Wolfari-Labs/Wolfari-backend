@@ -48,7 +48,33 @@ export interface Place {
   opening_hours?: OpeningPeriod[] | undefined;
   selection_token?: string | undefined;
   categories?: string[] | undefined;
-  attribution?: string | undefined;
+  attribution?:
+    | string
+    | undefined;
+  /** MAP-POI: result source. WOLFARI = curated POI catalogue (id = wolfari_key); otherwise GEOAPIFY. */
+  provider?:
+    | string
+    | undefined;
+  /** Wolfari taxonomy code; empty for Geoapify results. */
+  category?:
+    | string
+    | undefined;
+  /** Vietnamese label of category. */
+  category_label?:
+    | string
+    | undefined;
+  /** 1-3 curated golden list, 9 = bulk/external (Geoapify). */
+  tier?:
+    | number
+    | undefined;
+  /** Coordinates checked by a human reviewer. */
+  coord_verified?: boolean | undefined;
+  typical_duration_min?:
+    | number
+    | undefined;
+  /** Suggested Plan activity type; may be empty. */
+  activity_type?: string | undefined;
+  dress_code_hint?: string | undefined;
 }
 
 export interface SearchPlacesRequest {

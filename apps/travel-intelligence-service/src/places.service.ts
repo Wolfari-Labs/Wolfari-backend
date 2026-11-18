@@ -1,9 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseProvider } from '@wolfari/database';
-import { signPlaceSelection, type PlaceSnapshot } from '@wolfari/common';
+import { poiCategoryLabel, signPlaceSelection, type PlaceSnapshot } from '@wolfari/common';
 import { createHash } from 'node:crypto';
 import { TravelV1 } from '@wolfari/contracts/grpc';
+import {
+  GOOD_SIMILARITY,
+  catalogSnapshot,
+  duplicatesCatalog,
+  searchCatalog,
+  type CatalogPoi,
+} from './poi-catalog';
 
 export const PLACE_CATEGORIES: Record<string, string> = {
   tourism: 'tourism',
@@ -12,6 +19,7 @@ export const PLACE_CATEGORIES: Record<string, string> = {
   accommodation: 'accommodation',
 };
 const attribution = 'Powered by Geoapify | © OpenStreetMap contributors';
+const MAX_RESULTS = 20;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Cached = { payload: PlaceSnapshot[]; fetched_at: Date; expires_at: Date; status: string };
 export function normalizePlaceSearch(request: TravelV1.SearchPlacesRequest) {
@@ -96,25 +104,20 @@ export class PlacesService {
     string,
     Promise<{ rows: PlaceSnapshot[]; fetched: Date; stale: boolean; warning?: string }>
   >();
+  private readonly logger = new Logger(PlacesService.name);
   constructor(
     private readonly database: DatabaseProvider,
     private readonly config: ConfigService,
   ) {}
   async search(request: TravelV1.SearchPlacesRequest): Promise<TravelV1.SearchPlacesResponse> {
     const query = normalizePlaceSearch(request);
-    const key = createHash('sha256').update(JSON.stringify(query)).digest('hex');
-    let promise = this.pending.get(key);
-    if (!promise) {
-      promise = this.load(key, query);
-      this.pending.set(key, promise);
-    }
-    let result;
-    try {
-      result = await promise;
-    } finally {
-      if (this.pending.get(key) === promise) this.pending.delete(key);
-    }
-    const { rows, fetched, stale, warning } = result;
+    // MAP-POI: curated Wolfari catalogue first (not for explicit address geocoding).
+    const catalog = query.geocode ? [] : await this.catalog(query);
+    const good = query.query
+      ? catalog.filter((poi) => (poi.sim ?? 0) >= GOOD_SIMILARITY).length
+      : catalog.length;
+    const external =
+      (query.query ? good < 3 : good === 0) || query.geocode ? await this.external(query) : null;
     const secret = this.config.get<string>('PLACE_SELECTION_SECRET') ?? '';
     if (secret.length < 32)
       return {
@@ -127,8 +130,41 @@ export class PlacesService {
           warnings: ['PROVIDER_NOT_CONFIGURED'],
         },
       };
-    return {
-      data: rows.map((place) => ({
+    const sign = (place: PlaceSnapshot) =>
+      signPlaceSelection(
+        {
+          actor: request.actor_user_id!,
+          trip: request.trip_id!,
+          expires: Date.now() + 86400000,
+          place,
+        },
+        secret,
+      );
+    const curated: TravelV1.Place[] = catalog.slice(0, MAX_RESULTS).map((poi) => {
+      const place = catalogSnapshot(poi);
+      return {
+        id: poi.wolfari_key,
+        name: place.name,
+        address: place.address,
+        coordinates: { latitude: place.latitude, longitude: place.longitude },
+        opening_hours: [],
+        categories: place.categories,
+        attribution: place.attribution,
+        selection_token: sign(place),
+        provider: 'WOLFARI',
+        category: poi.category,
+        category_label: poiCategoryLabel(poi.category),
+        tier: poi.tier,
+        coord_verified: poi.coord_verified,
+        ...(poi.typical_duration_min ? { typical_duration_min: poi.typical_duration_min } : {}),
+        activity_type: poi.activity_type ?? '',
+        dress_code_hint: poi.dress_code_hint ?? '',
+      };
+    });
+    const extra: TravelV1.Place[] = (external?.rows ?? [])
+      .filter((place) => !duplicatesCatalog(place, catalog))
+      .slice(0, MAX_RESULTS - curated.length)
+      .map((place) => ({
         id: place.provider_place_id,
         name: place.name,
         address: place.address,
@@ -136,30 +172,65 @@ export class PlacesService {
         opening_hours: [],
         categories: place.categories,
         attribution,
-        selection_token: signPlaceSelection(
-          {
-            actor: request.actor_user_id!,
-            trip: request.trip_id!,
-            expires: Date.now() + 86400000,
-            place,
-          },
-          secret,
-        ),
-      })),
-      meta: {
-        status:
-          warning && !rows.length
-            ? TravelV1.ProviderStatus.PROVIDER_STATUS_ERROR
-            : rows.length
-              ? TravelV1.ProviderStatus.PROVIDER_STATUS_SUCCESS
-              : TravelV1.ProviderStatus.PROVIDER_STATUS_NO_RESULT,
+        selection_token: sign(place),
         provider: 'GEOAPIFY',
+        category: '',
+        category_label: '',
+        tier: 9,
+        coord_verified: false,
+        activity_type: '',
+        dress_code_hint: '',
+      }));
+    const data = [...curated, ...extra];
+    const warning = external?.warning;
+    const fetched =
+      extra.length || !curated.length
+        ? (external?.fetched ?? new Date())
+        : new Date(catalog[0]!.snapshot_at);
+    return {
+      data,
+      meta: {
+        status: data.length
+          ? TravelV1.ProviderStatus.PROVIDER_STATUS_SUCCESS
+          : warning
+            ? TravelV1.ProviderStatus.PROVIDER_STATUS_ERROR
+            : TravelV1.ProviderStatus.PROVIDER_STATUS_NO_RESULT,
+        provider:
+          curated.length && extra.length
+            ? 'WOLFARI+GEOAPIFY'
+            : curated.length
+              ? 'WOLFARI'
+              : 'GEOAPIFY',
         fetched_at: { seconds: String(Math.floor(fetched.getTime() / 1000)), nanos: 0 },
-        stale,
+        stale: extra.length > 0 && external?.stale === true,
         is_mock: false,
         warnings: warning ? [warning] : [],
       },
     };
+  }
+  /** Catalogue failure (e.g. V003 not migrated) degrades to the Geoapify-only behaviour. */
+  private async catalog(query: ReturnType<typeof normalizePlaceSearch>): Promise<CatalogPoi[]> {
+    try {
+      return await searchCatalog(this.database, query);
+    } catch (error) {
+      this.logger.warn(
+        `POI_CATALOG_UNAVAILABLE ${error instanceof Error ? error.message.slice(0, 120) : ''}`,
+      );
+      return [];
+    }
+  }
+  private async external(query: ReturnType<typeof normalizePlaceSearch>) {
+    const key = createHash('sha256').update(JSON.stringify(query)).digest('hex');
+    let promise = this.pending.get(key);
+    if (!promise) {
+      promise = this.load(key, query);
+      this.pending.set(key, promise);
+    }
+    try {
+      return await promise;
+    } finally {
+      if (this.pending.get(key) === promise) this.pending.delete(key);
+    }
   }
   private async load(key: string, query: ReturnType<typeof normalizePlaceSearch>) {
     const cached = (
