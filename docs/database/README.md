@@ -22,7 +22,7 @@ Status/migrate/inspect hỗ trợ `--service identity|trip|travel|finance|automa
 | ------------- | -------------- | ------------------------------: |
 | identity_db   | identity_app   |                               8 |
 | trip_db       | trip_app       |                              18 |
-| travel_db     | travel_app     |                               4 |
+| travel_db     | travel_app     |                               8 |
 | finance_db    | finance_app    |                              18 |
 | automation_db | automation_app |                              14 |
 
@@ -40,6 +40,8 @@ Có 59 bảng mô hình, 5 bảng lịch sử và 55 FK cùng database sau Trip 
 ## Thêm migration
 
 Trip V002 thêm liên kết acceptance cùng Trip, unique EMAIL/PENDING chuẩn hóa và index expiry. Readiness Trip yêu cầu cả V001/V002. Runner đọc thêm [manifest forward](SHA256SUMS.forward.txt), từ chối ghi đè baseline hoặc trùng đường dẫn. Không đổi byte/checksum SQL baseline hoặc V001 đã áp dụng. ACCEPTED legacy thiếu liên kết và duplicate pending phải xử lý có chủ đích trước khi migrate; runner dừng, không tự backfill/xóa dữ liệu. Xem [invitations](../architecture/trip-invitations.md).
+
+Travel V002 thêm `provider_usage` (hạn mức Geoapify bền qua restart). Travel V003 (MAP-POI) tạo extension trusted `pg_trgm`, `unaccent` bằng chính role owner và thêm ba bảng `poi_snapshots`, `pois`, `poi_sources` (hai FK, một snapshot active nhờ partial unique index); readiness Travel yêu cầu V001–V003. Nạp dữ liệu bằng `corepack pnpm poi:load`.
 
 Automation V002 thêm `price_watches.owner_membership_id` và index phục vụ quyền theo đúng vòng đời membership. Nếu đã có watch legacy, migration dừng bằng `PRICE_WATCH_MEMBERSHIP_BACKFILL_REQUIRED`; operator phải xác định membership đúng thay vì suy từ `user_id`. Automation V003 thêm `price_query_attempts.next_attempt_at` cùng partial index để tách lịch retry khỏi hạn lease. V004 thêm alert candidate có lease/dedupe và bảng revision lifecycle Trip. V005 thêm partial index inbox AVAILABLE/unread theo Self mà không đổi bảng hoặc FK. V006 thêm partial index cho ClosureCancelled/FinanceClosed trong inbox_events, không thay bảng/FK hay xóa lịch sử. Readiness Automation yêu cầu V001–V006. Xem [Price Watch Core](../architecture/price-watch-core.md) và [Notification Self Management](../architecture/notification-management.md).
 
