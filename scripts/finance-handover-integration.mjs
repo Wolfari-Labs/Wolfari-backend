@@ -32,6 +32,10 @@ export async function runHandoverTests(h, helpers) {
   };
   const get = async (id, user = owner) =>
     request(`/api/v1/holder-handovers/${id}`, 'GET', undefined, bearer(user));
+  const handoverData = (result) => {
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    return result.body.data;
+  };
   const action = (row, name, user, extra = {}, key = randomUUID()) =>
     mutate(
       `/api/v1/holder-handovers/${row.id}/${name}`,
@@ -143,7 +147,7 @@ export async function runHandoverTests(h, helpers) {
     'PATCH',
   );
   assert.equal(budget.status, 200, JSON.stringify(budget.body));
-  row = (await get(row.id)).body.data;
+  row = handoverData(await get(row.id));
   assert.equal(row.snapshot_stale, true);
   assert.equal(row.old_holder_confirmed_at, null);
   assert.equal(row.new_holder_confirmed_at, null);
@@ -178,27 +182,28 @@ export async function runHandoverTests(h, helpers) {
     `INSERT INTO contributions(id,request_id,fund_id,member_user_id,amount,status,destination_snapshot,destination_version) VALUES($1,$2,$3,$4,100,'PENDING','{}',1)`,
     [contributionId, requestId, fundId, owner.id],
   );
+  // Keep this manually advanced fixture outside the running sandbox dispatcher's candidates.
   await query(
     'finance',
-    `INSERT INTO payment_attempts(id,contribution_id,provider,environment,amount,client_request_id,status,merchant_id,provider_order_id,destination_snapshot) VALUES($1,$2,'MOMO_SANDBOX','SANDBOX',100,$3,'CREATED','handover-fixture',$3,'{}')`,
+    `INSERT INTO payment_attempts(id,contribution_id,provider,environment,amount,client_request_id,status,merchant_id,provider_order_id,destination_snapshot) VALUES($1,$2,'MOMO_SANDBOX','TEST',100,$3,'CREATED','handover-fixture',$3,'{}')`,
     [attemptId, contributionId, randomUUID()],
   );
-  row = (await get(row.id)).body.data;
+  row = handoverData(await get(row.id));
   assert.equal(row.snapshot_stale, true);
-  row = (await action(row, 'refresh-snapshot', owner)).body.data;
+  row = handoverData(await action(row, 'refresh-snapshot', owner));
   assert(row.snapshot.pending_payment_ids.includes(attemptId));
   assert(row.snapshot.pending_contribution_ids.includes(contributionId));
-  row = (
+  row = handoverData(
     await action(row, 'confirm', holder, {
       expected_snapshot_finance_version: row.snapshot_finance_version,
-    })
-  ).body.data;
+    }),
+  );
   await query(
     'finance',
     "UPDATE payment_attempts SET status='PENDING',updated_at=clock_timestamp() WHERE id=$1",
     [attemptId],
   );
-  row = (await get(row.id)).body.data;
+  row = handoverData(await get(row.id));
   assert.equal(row.snapshot_stale, true);
   assert.equal(row.old_holder_confirmed_at, null);
   assert.equal(
@@ -209,7 +214,7 @@ export async function runHandoverTests(h, helpers) {
     ).status,
     409,
   );
-  row = (await action(row, 'refresh-snapshot', owner)).body.data;
+  row = handoverData(await action(row, 'refresh-snapshot', owner));
   pass('Snapshot fingerprint detects unversioned provider state and retains pending liabilities');
   const payments = new PaymentRepository(helpers.financeDb);
   async function assertWriterUsesFundLock(label, work) {
@@ -248,9 +253,9 @@ export async function runHandoverTests(h, helpers) {
     payments.completeDispatch(attemptId, { resultCode: 0, responseTime: Date.now() }),
   );
   await assertWriterUsesFundLock('markStaleDispatches', () => payments.markStaleDispatches());
-  row = (await get(row.id)).body.data;
+  row = handoverData(await get(row.id));
   assert.equal(row.snapshot_stale, true);
-  row = (await action(row, 'refresh-snapshot', owner)).body.data;
+  row = handoverData(await action(row, 'refresh-snapshot', owner));
   pass(
     'Provider dispatch completion, failure and timeout serialize with the same Fund snapshot lock',
   );
