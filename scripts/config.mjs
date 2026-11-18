@@ -100,6 +100,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'IDENTITY_RESET_LINK_PATH',
   ];
   const tripKeys = [
+    'MINIO_ENDPOINT', 'MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY',
     'TRIP_MEMBERSHIP_LIFECYCLE_ENABLED',
     'FINANCE_GRPC_TARGET',
     'TRIP_FINANCE_SECRET',

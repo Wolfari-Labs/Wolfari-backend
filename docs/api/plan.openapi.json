@@ -41,7 +41,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Plan"
@@ -49,7 +52,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -173,7 +179,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Activity"
@@ -181,7 +190,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -324,7 +336,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Activity"
@@ -332,7 +347,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -473,7 +491,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/PlanVersion"
@@ -481,7 +502,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -615,7 +639,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/PlanVersion"
@@ -623,7 +650,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -766,7 +796,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/Activity"
@@ -774,7 +807,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -899,7 +935,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/DressCodePage"
@@ -907,7 +946,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -1029,7 +1071,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/DressCode"
@@ -1037,7 +1082,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -1180,7 +1228,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/DressCode"
@@ -1188,7 +1239,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -1329,7 +1383,10 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["data", "meta"],
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
                   "properties": {
                     "data": {
                       "$ref": "#/components/schemas/PlanVersion"
@@ -1337,7 +1394,10 @@
                     "meta": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["correlation_id", "export_revision"],
+                      "required": [
+                        "correlation_id",
+                        "export_revision"
+                      ],
                       "properties": {
                         "correlation_id": {
                           "type": "string",
@@ -1437,6 +1497,101 @@
           }
         }
       }
+    },
+    "/api/v1/trips/{trip_id}/dress-code-images": {
+      "post": {
+        "operationId": "uploadDressCodeImage",
+        "summary": "Stage a private JPEG/PNG reference image up to 2 MiB as a Plan Editor",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trip_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image ID for Create/UpdateDressCode; no Plan mutation until attached"
+          },
+          "400": {
+            "description": "Invalid image"
+          },
+          "403": {
+            "description": "Plan Editor required"
+          },
+          "404": {
+            "description": "Trip unavailable"
+          },
+          "409": {
+            "description": "Trip archived"
+          }
+        }
+      }
+    },
+    "/api/v1/trips/{trip_id}/dress-codes/{dress_code_id}/reference-image": {
+      "get": {
+        "operationId": "getDressCodeImage",
+        "summary": "Read the attached reference image as a current Trip member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trip_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dress_code_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Private normalized JPEG",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Image absent or membership unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1450,11 +1605,19 @@
     "schemas": {
       "Error": {
         "type": "object",
-        "required": ["error", "meta"],
+        "required": [
+          "error",
+          "meta"
+        ],
         "properties": {
           "error": {
             "type": "object",
-            "required": ["code", "message", "details", "retryable"],
+            "required": [
+              "code",
+              "message",
+              "details",
+              "retryable"
+            ],
             "properties": {
               "code": {
                 "type": "string"
@@ -1488,7 +1651,11 @@
       "PlanVersion": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["trip_id", "plan_version", "export_revision"],
+        "required": [
+          "trip_id",
+          "plan_version",
+          "export_revision"
+        ],
         "properties": {
           "trip_id": {
             "type": "string",
@@ -1579,11 +1746,18 @@
           },
           "status": {
             "type": "string",
-            "enum": ["TODO", "COMPLETED"]
+            "enum": [
+              "TODO",
+              "COMPLETED"
+            ]
           },
           "source": {
             "type": "string",
-            "enum": ["MANUAL", "PROVIDER", "DSS"]
+            "enum": [
+              "MANUAL",
+              "PROVIDER",
+              "DSS"
+            ]
           },
           "completed_by_user_id": {
             "type": "string",
@@ -1658,7 +1832,11 @@
           },
           "source": {
             "type": "string",
-            "enum": ["MANUAL", "PROVIDER", "DSS"]
+            "enum": [
+              "MANUAL",
+              "PROVIDER",
+              "DSS"
+            ]
           },
           "fetched_at": {
             "type": "string",
@@ -1715,7 +1893,11 @@
           },
           "scope_type": {
             "type": "string",
-            "enum": ["TRIP", "DAY", "ACTIVITY"]
+            "enum": [
+              "TRIP",
+              "DAY",
+              "ACTIVITY"
+            ]
           },
           "plan_date": {
             "type": "string",
@@ -1741,12 +1923,20 @@
           },
           "source": {
             "type": "string",
-            "enum": ["MANUAL", "PROVIDER", "DSS"]
+            "enum": [
+              "MANUAL",
+              "PROVIDER",
+              "DSS"
+            ]
           },
           "plan_version": {
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          },
+          "reference_image_available": {
+            "type": "boolean",
+            "description": "True when an authenticated reference image is available."
           }
         }
       },
@@ -1808,11 +1998,18 @@
           },
           "status": {
             "type": "string",
-            "enum": ["TODO", "COMPLETED"]
+            "enum": [
+              "TODO",
+              "COMPLETED"
+            ]
           },
           "source": {
             "type": "string",
-            "enum": ["MANUAL", "PROVIDER", "DSS"]
+            "enum": [
+              "MANUAL",
+              "PROVIDER",
+              "DSS"
+            ]
           },
           "completed_by_user_id": {
             "type": "string",
@@ -1887,7 +2084,11 @@
           "permissions": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["can_read", "can_edit", "can_complete"],
+            "required": [
+              "can_read",
+              "can_edit",
+              "can_complete"
+            ],
             "properties": {
               "can_read": {
                 "type": "boolean"
@@ -1906,7 +2107,11 @@
             "additionalProperties": {
               "type": "boolean"
             },
-            "required": ["dress_codes_write", "packing_write", "locations_write"],
+            "required": [
+              "dress_codes_write",
+              "packing_write",
+              "locations_write"
+            ],
             "properties": {
               "dress_codes_write": {
                 "type": "boolean"
@@ -1916,6 +2121,9 @@
               },
               "locations_write": {
                 "type": "boolean"
+              },
+              "dress_code_images_write": {
+                "type": "boolean"
               }
             }
           }
@@ -1924,7 +2132,12 @@
       "CreateActivity": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["title", "activity_type", "position", "expected_plan_version"],
+        "required": [
+          "title",
+          "activity_type",
+          "position",
+          "expected_plan_version"
+        ],
         "properties": {
           "title": {
             "type": "string",
@@ -1980,7 +2193,9 @@
       "UpdateActivity": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_plan_version"],
+        "required": [
+          "expected_plan_version"
+        ],
         "properties": {
           "title": {
             "type": "string",
@@ -2037,7 +2252,10 @@
       "DeleteActivity": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_plan_version", "confirmed"],
+        "required": [
+          "expected_plan_version",
+          "confirmed"
+        ],
         "properties": {
           "expected_plan_version": {
             "type": "integer",
@@ -2046,14 +2264,19 @@
           },
           "confirmed": {
             "type": "boolean",
-            "enum": [true]
+            "enum": [
+              true
+            ]
           }
         }
       },
       "Reorder": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_plan_version", "activity_ids"],
+        "required": [
+          "expected_plan_version",
+          "activity_ids"
+        ],
         "properties": {
           "expected_plan_version": {
             "type": "integer",
@@ -2073,7 +2296,10 @@
       "Completion": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_plan_version", "status"],
+        "required": [
+          "expected_plan_version",
+          "status"
+        ],
         "properties": {
           "expected_plan_version": {
             "type": "integer",
@@ -2082,18 +2308,29 @@
           },
           "status": {
             "type": "string",
-            "enum": ["TODO", "COMPLETED"]
+            "enum": [
+              "TODO",
+              "COMPLETED"
+            ]
           }
         }
       },
       "CreateDressCode": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_plan_version", "scope_type", "label"],
+        "required": [
+          "expected_plan_version",
+          "scope_type",
+          "label"
+        ],
         "properties": {
           "scope_type": {
             "type": "string",
-            "enum": ["TRIP", "DAY", "ACTIVITY"]
+            "enum": [
+              "TRIP",
+              "DAY",
+              "ACTIVITY"
+            ]
           },
           "plan_date": {
             "type": "string",
@@ -2125,17 +2362,29 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          },
+          "reference_image_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "ID from this editor's upload in this Trip; null removes the image, omission retains it."
           }
         }
       },
       "UpdateDressCode": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_plan_version"],
+        "required": [
+          "expected_plan_version"
+        ],
         "properties": {
           "scope_type": {
             "type": "string",
-            "enum": ["TRIP", "DAY", "ACTIVITY"]
+            "enum": [
+              "TRIP",
+              "DAY",
+              "ACTIVITY"
+            ]
           },
           "plan_date": {
             "type": "string",
@@ -2167,6 +2416,12 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          },
+          "reference_image_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "ID from this editor's upload in this Trip; null removes the image, omission retains it."
           }
         },
         "minProperties": 2
@@ -2174,7 +2429,9 @@
       "DeleteDressCode": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expected_plan_version"],
+        "required": [
+          "expected_plan_version"
+        ],
         "properties": {
           "expected_plan_version": {
             "type": "integer",
@@ -2186,7 +2443,10 @@
       "DressCodePage": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["items", "next_cursor"],
+        "required": [
+          "items",
+          "next_cursor"
+        ],
         "properties": {
           "items": {
             "type": "array",

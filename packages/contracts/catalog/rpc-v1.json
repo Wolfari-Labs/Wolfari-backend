@@ -1370,5 +1370,25 @@
     ],
     "deadline_ms": 35000,
     "source": "QR checkout sandbox demo; no fund ledger writes"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "UploadDressCodeImage",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 15000,
+    "source": "Dress-code private reference image upload/read"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetDressCodeImage",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 15000,
+    "source": "Dress-code private reference image upload/read"
   }
 ]

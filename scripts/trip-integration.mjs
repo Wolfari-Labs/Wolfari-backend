@@ -195,15 +195,15 @@ async function stop(child) {
 async function request(path, method = 'GET', body, headers = {}) {
   const response = await fetch(`http://127.0.0.1:${ports.gateway}${path}`, {
     method,
-    headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { ...(body === undefined || body instanceof FormData ? {} : { 'content-type': 'application/json' }), ...headers },
+    body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     signal: AbortSignal.timeout(10_000),
   });
   const type = response.headers.get('content-type') ?? '';
   return {
     status: response.status,
     headers: response.headers,
-    body: type.includes('json') ? await response.json() : await response.text(),
+    body: type.includes('json') ? await response.json() : type.startsWith('image/') ? Buffer.from(await response.arrayBuffer()) : await response.text(),
   };
 }
 
@@ -313,7 +313,7 @@ async function main() {
     '--wait-timeout',
     '180',
     'postgres',
-    ...(financeReadMode ? ['minio'] : []),
+    'minio',
     ...(invitationMode || demo1Mode
       ? ['rabbitmq', 'mailpit']
       : membershipMode || priceWatchMode || notificationMode || financeNotificationMode
@@ -367,6 +367,9 @@ async function main() {
     EXPORT_IDENTITY_SECRET: secrets.EXPORT_IDENTITY_SECRET,
   });
   const tripValues = {
+    MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
+    MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
+    MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
     ...(financeReadMode
       ? { FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`, TRIP_FINANCE_SECRET: financeSecret }
       : {}),

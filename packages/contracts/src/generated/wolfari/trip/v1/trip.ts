@@ -561,6 +561,7 @@ export interface PlanDressCode {
   public_description?: string | undefined;
   source?: EntitySource | undefined;
   plan_version?: number | undefined;
+  reference_image_available?: boolean | undefined;
 }
 
 export interface PlanPackingItem {
@@ -592,6 +593,7 @@ export interface Plan {
   dress_codes_write?: boolean | undefined;
   packing_write?: boolean | undefined;
   locations_write?: boolean | undefined;
+  dress_code_images_write?: boolean | undefined;
 }
 
 export interface PlanVersion {
@@ -759,6 +761,7 @@ export interface CreateDressCodeRequest {
   /** YYYY-MM-DD in the Trip timezone. */
   plan_date?: string | undefined;
   activity_id?: string | undefined;
+  reference_image_id?: string | undefined;
 }
 
 export interface CreateDressCodeResponse {
@@ -778,6 +781,7 @@ export interface UpdateDressCodeRequest {
   public_description?: StringPatch | undefined;
   plan_date?: StringPatch | undefined;
   activity_id?: StringPatch | undefined;
+  reference_image_id?: StringPatch | undefined;
 }
 
 export interface UpdateDressCodeResponse {
@@ -795,6 +799,31 @@ export interface DeleteDressCodeRequest {
 
 export interface DeleteDressCodeResponse {
   version?: PlanVersion | undefined;
+}
+
+export interface UploadDressCodeImageRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  content?: Uint8Array | undefined;
+  mime_type?: string | undefined;
+}
+
+export interface UploadDressCodeImageResponse {
+  image_id?: string | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+}
+
+export interface GetDressCodeImageRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  dress_code_id?: string | undefined;
+}
+
+export interface GetDressCodeImageResponse {
+  content?: Uint8Array | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
 }
 
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
@@ -883,6 +912,13 @@ export interface TripServiceClient {
     request: SetActivityCompletionRequest,
     metadata?: Metadata,
   ): Observable<SetActivityCompletionResponse>;
+
+  uploadDressCodeImage(
+    request: UploadDressCodeImageRequest,
+    metadata?: Metadata,
+  ): Observable<UploadDressCodeImageResponse>;
+
+  getDressCodeImage(request: GetDressCodeImageRequest, metadata?: Metadata): Observable<GetDressCodeImageResponse>;
 
   createDressCode(request: CreateDressCodeRequest, metadata?: Metadata): Observable<CreateDressCodeResponse>;
 
@@ -1063,6 +1099,16 @@ export interface TripServiceController {
     metadata?: Metadata,
   ): Promise<SetActivityCompletionResponse> | Observable<SetActivityCompletionResponse> | SetActivityCompletionResponse;
 
+  uploadDressCodeImage(
+    request: UploadDressCodeImageRequest,
+    metadata?: Metadata,
+  ): Promise<UploadDressCodeImageResponse> | Observable<UploadDressCodeImageResponse> | UploadDressCodeImageResponse;
+
+  getDressCodeImage(
+    request: GetDressCodeImageRequest,
+    metadata?: Metadata,
+  ): Promise<GetDressCodeImageResponse> | Observable<GetDressCodeImageResponse> | GetDressCodeImageResponse;
+
   createDressCode(
     request: CreateDressCodeRequest,
     metadata?: Metadata,
@@ -1115,6 +1161,8 @@ export function TripServiceControllerMethods() {
       "deleteActivity",
       "reorderActivities",
       "setActivityCompletion",
+      "uploadDressCodeImage",
+      "getDressCodeImage",
       "createDressCode",
       "updateDressCode",
       "deleteDressCode",

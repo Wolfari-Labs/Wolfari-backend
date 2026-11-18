@@ -10,6 +10,7 @@ import { FinanceOperationService } from './operations/finance-operation.service'
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { DressCodeService } from './planning/dress-code.service';
 import { Module } from '@nestjs/common';
+import { DressCodeImageService } from './planning/dress-code-image.service';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
 import { TripAccessService } from './trip-access.service';
@@ -37,6 +38,7 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     PlanService,
     PlanItemsService,
     DressCodeService,
+    DressCodeImageService,
     PlanGrpcHandlers,
     TripAccessService,
     TripPlanAccessService,

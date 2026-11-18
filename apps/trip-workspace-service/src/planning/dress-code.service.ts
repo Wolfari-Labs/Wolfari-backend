@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { DressCodeImageService } from './dress-code-image.service';
 import { isCalendarDate } from '@wolfari/common';
 import { DatabaseProvider } from '@wolfari/database';
 import {
@@ -33,6 +34,7 @@ export interface DressCodeFields {
   label?: string;
   description?: string | null;
   public_description?: string | null;
+  reference_image_id?: string | null;
 }
 export interface DressCodeResult {
   version: PlanVersion;
@@ -60,9 +62,10 @@ const FIELD_NAMES = [
   'label',
   'description',
   'public_description',
+  'reference_image_id',
 ] as const;
 const DRESS_COLUMNS = `id,trip_id,scope_type,to_char(plan_date,'YYYY-MM-DD') AS plan_date,
-  activity_id,label,description,public_description,source`;
+  activity_id,label,description,public_description,reference_image_key,source`;
 
 /** Blank free text is stored as "no description" so readers need one empty state. */
 function freeText(value: unknown): string | null {
@@ -121,6 +124,7 @@ export function normalizeDressCodeFields(value: unknown, create: boolean): Dress
     if (Object.hasOwn(input, key)) fields[key] = freeText(input[key]);
     else if (create) fields[key] = null;
   }
+  if (Object.hasOwn(input, 'reference_image_id')) fields.reference_image_id = input.reference_image_id === null ? null : uuid(input.reference_image_id);
   if (create) assertDressScope(fields);
   return fields;
 }
@@ -190,7 +194,7 @@ async function assertDayInsideTrip(client: QueryClient, date: string, trip: Acce
 
 @Injectable()
 export class DressCodeService {
-  constructor(private readonly database: DatabaseProvider) {}
+  constructor(private readonly database: DatabaseProvider, @Optional() private readonly images?: DressCodeImageService) {}
 
   async createDressCode(input: PlanCommandInput & { fields: unknown }): Promise<DressCodeResult> {
     return this.write({
@@ -218,6 +222,17 @@ export class DressCodeService {
 
   private async write(input: NormalizedCommand): Promise<DressCodeResult> {
     const requestHash = dressCodeRequestHash(input);
+    let imageKey: string | null | undefined;
+    if (input.fields && Object.hasOwn(input.fields, 'reference_image_id')) {
+      imageKey = null;
+      if (input.fields.reference_image_id) {
+        if (!this.images) return fail('SERVICE_UNAVAILABLE', 503);
+        await this.images.authorize(input.tripId, input.actorUserId, true, true);
+        const replay = await this.database.query('SELECT operation_id FROM trip_operations WHERE operation_id=$1', [input.operationId]);
+        if (!replay.rows.length) await this.images.validate(input.tripId, input.actorUserId, input.fields.reference_image_id);
+        imageKey = this.images.key(input.tripId, input.actorUserId, input.fields.reference_image_id);
+      }
+    }
     return this.database.withTransaction(async (client) => {
       await lockOperation(client, input.operationId);
       // Same locking order as activity writes: Trip row first, then a fresh permission read.
@@ -258,6 +273,7 @@ export class DressCodeService {
       if (input.fields) {
         const fields = input.fields;
         const merged = { ...existing, ...fields };
+        const referenceKey = imageKey === undefined ? existing?.reference_image_key ?? null : imageKey;
         assertDressScope(merged);
         // Re-check references only when the write sets them; stored rows are already valid.
         if (merged.scope_type === 'DAY' && (!existing || fields.plan_date !== undefined))
@@ -272,8 +288,8 @@ export class DressCodeService {
         if (!existing) {
           const created = await client.query<DressCodeRow>(
             `INSERT INTO dress_codes(trip_id,scope_type,plan_date,activity_id,label,description,
-              public_description,source,created_by_user_id)
-            VALUES($1,$2,$3::date,$4,$5,$6,$7,'MANUAL',$8) RETURNING ${DRESS_COLUMNS}`,
+              public_description,source,created_by_user_id,reference_image_key)
+            VALUES($1,$2,$3::date,$4,$5,$6,$7,'MANUAL',$8,$9) RETURNING ${DRESS_COLUMNS}`,
             [
               input.tripId,
               fields.scope_type,
@@ -283,6 +299,7 @@ export class DressCodeService {
               fields.description,
               fields.public_description,
               input.actorUserId,
+              referenceKey,
             ],
           );
           saved = created.rows[0];
@@ -292,13 +309,13 @@ export class DressCodeService {
           details = { changed_fields: Object.keys(fields) };
         } else {
           const changedFields = FIELD_NAMES.filter(
-            (key) => Object.hasOwn(fields, key) && fields[key] !== existing[key],
+            (key) => Object.hasOwn(fields, key) && (key === 'reference_image_id' ? referenceKey !== (existing.reference_image_key ?? null) : fields[key] !== existing[key]),
           );
           saved = existing;
           if (changedFields.length) {
             const updated = await client.query<DressCodeRow>(
               `UPDATE dress_codes SET scope_type=$3,plan_date=$4::date,activity_id=$5,label=$6,
-                description=$7,public_description=$8,updated_at=now()
+                description=$7,public_description=$8,reference_image_key=$9,updated_at=now()
               WHERE id=$1 AND trip_id=$2 RETURNING ${DRESS_COLUMNS}`,
               [
                 existing.id,
@@ -309,6 +326,7 @@ export class DressCodeService {
                 merged.label,
                 merged.description,
                 merged.public_description,
+                referenceKey,
               ],
             );
             saved = updated.rows[0]!;

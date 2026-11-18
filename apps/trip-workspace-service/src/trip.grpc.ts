@@ -1,5 +1,6 @@
 import { TripManagementService } from './trip-management.service';
 import { PlanPdfService } from './plan-pdf.service';
+import { DressCodeImageService } from './planning/dress-code-image.service';
 import { PlanItemsService } from './planning/plan-items.service';
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { LifecycleService } from './operations/lifecycle.service';
@@ -142,6 +143,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly planItems?: PlanItemsService,
     private readonly management?: TripManagementService,
     private readonly pdf?: PlanPdfService,
+    private readonly dressImages?: DressCodeImageService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -534,6 +536,20 @@ export class TripGrpcController implements TripV1.TripServiceController {
     );
   }
 
+  uploadDressCodeImage(request: TripV1.UploadDressCodeImageRequest, metadata?: Metadata): Promise<TripV1.UploadDressCodeImageResponse> {
+    this.authorize('UploadDressCodeImage', metadata);
+    return this.execute(async () => {
+      if (!this.dressImages) throw Error('Image service unavailable');
+      return this.dressImages.upload(request.trip_id ?? '', request.actor_user_id ?? '', request.content ?? new Uint8Array(), request.mime_type ?? '');
+    });
+  }
+  getDressCodeImage(request: TripV1.GetDressCodeImageRequest, metadata?: Metadata): Promise<TripV1.GetDressCodeImageResponse> {
+    this.authorize('GetDressCodeImage', metadata);
+    return this.execute(async () => {
+      if (!this.dressImages) throw Error('Image service unavailable');
+      return this.dressImages.download(request.trip_id ?? '', request.actor_user_id ?? '', request.dress_code_id ?? '');
+    });
+  }
   getExportWorkerContext(): TripV1.GetExportWorkerContextResponse {
     return this.unimplemented();
   }

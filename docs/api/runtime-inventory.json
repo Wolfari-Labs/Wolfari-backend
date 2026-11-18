@@ -589,6 +589,16 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/trips/{id}/dress-code-images",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/dress-codes/{id}/reference-image",
+      "document": "plan.openapi.json"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/trips/{id}/price-watches",
       "document": "price-watch.openapi.yaml"
     },
@@ -729,6 +739,7 @@
     "closure-http.ts": "1a6fb965d1e52b3cd602d65a87d2e7e291001c682cd5d374cf82c7c09a322d7b",
     "contribution-management-http.ts": "6173449cc59358a7a8d40c7e226facd45b2ea2e632cf1503751ed0eaa296a400",
     "contribution-request-http.ts": "e8f542a896aa7c2ef21b2372f18a4c293aaacc4f6a7d9a1ce3261529de48e353",
+    "dress-code-image-http.ts": "73807adac2e250d82a172c69ba70ffef6643509a9f500c0f11bfd88df2508322",
     "expense-http.ts": "d85759333839eb195b70960ed8b5d63c56ea5e73c671819e6c89aa312cafdda0",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
     "finance-proxy.ts": "7186adb3c5d236a279643e52019d479939d03e0e47f95b0faf9aff530a687a76",
@@ -742,7 +753,7 @@
     "payment-http.ts": "e36d12ce5249aeebd599a281c1bf713c371d051e5971a243f1135c4cb11c1adc",
     "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
     "plan-items-proxy.ts": "0e3b805c49d801b9a57328d49eceb5e0e6171609f3b1eaf67d6eea2fd4b0bf95",
-    "plan-proxy.ts": "9ccaf53b6eaffc95ce02afa152620414139c83b26a54ef4d0cfb1b3b8ecbe42e",
+    "plan-proxy.ts": "51a4a23dfe5b1cf8238d7d1292d5215a11a20fd03eb53d9e048cce19e0a3aa4a",
     "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
     "qr-payment-http.ts": "7484f5ef923f799574eefe45303aea8b97271b4a8c718e8b0265006dc43e89f7",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
