@@ -41,14 +41,15 @@ corepack pnpm demo:accounts
 
 ## Kho POI Đà Nẵng và OSRM (MAP-POI, local)
 
-Kho POI: `data/poi/danang_golden.csv` là golden list. Tọa độ chỉ lấy từ OpenStreetMap Nominatim hoặc người nhập tay; `coord_verified=true` do người kiểm đặt, script không tự đặt.
+Kho POI: `data/poi/danang_golden.csv` là golden list. Tọa độ chỉ lấy từ OpenStreetMap (Nominatim/Overpass) hoặc người nhập tay; script chỉ liệt kê ứng viên, `coord_verified=true` và tọa độ thay thế do người kiểm ghi trong `danang_golden.overrides.csv`.
 
 ```sh
 # Điền NOMINATIM_EMAIL trong root .env (User-Agent theo chính sách Nominatim, tối đa 1 request/giây)
 corepack pnpm poi:fetch                        # thêm "--dns 1.1.1.1,8.8.8.8" nếu DNS mạng không phân giải nominatim.openstreetmap.org
-# Kiểm data/poi/danang_golden.review.md, sửa CSV
-corepack pnpm db:migrate --service travel      # travel_db V003
-corepack pnpm poi:load                         # thêm --dry-run để chỉ kiểm CSV
+corepack pnpm poi:candidates                   # 1–3 ứng viên OSM (Nominatim + Overpass) cho điểm cần quyết định
+# Kiểm data/poi/danang_golden.review.md, ghi quyết định vào data/poi/danang_golden.overrides.csv
+corepack pnpm db:migrate --service travel      # travel_db V003 (một lần)
+corepack pnpm poi:load                         # override thắng CSV gốc; thêm --dry-run để chỉ kiểm
 ```
 
 `GET /api/v1/trips/{tripId}/places/search` trả kết quả từ kho (`provider: WOLFARI`) trước, chỉ gọi Geoapify khi kho không đủ (xem [Places OpenAPI](docs/api/places.openapi.json)).

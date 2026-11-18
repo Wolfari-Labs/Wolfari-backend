@@ -52,6 +52,8 @@
     "trip:replay-invitation": "node scripts/trip-replay-invitation.mjs",
     "identity:replay-email": "node scripts/identity-replay-email.mjs",
     "poi:fetch": "node --env-file=.env scripts/poi/fetch-coordinates.mjs",
+    "poi:candidates": "node --env-file=.env scripts/poi/find-candidates.mjs",
+    "poi:review": "node scripts/poi/review.mjs",
     "poi:load": "corepack pnpm --filter @wolfari/common build && node scripts/poi/load-golden.mjs",
     "contracts:lint": "node scripts/contracts.mjs lint",
     "contracts:rest": "node scripts/rest-contracts.mjs && corepack pnpm exec vitest run packages/contracts/src/demo1-openapi.test.ts",

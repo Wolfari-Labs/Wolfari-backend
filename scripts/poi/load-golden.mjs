@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // Load data/poi/danang_golden.csv into travel_db as a new active POI snapshot (MAP-POI B3).
-// Usage: corepack pnpm poi:load [--csv <path>] [--dry-run]
-// Invalid rows are printed and skipped; nothing is guessed. One transaction: the previous
-// snapshot stays active until the new one is fully inserted.
+// Usage: corepack pnpm poi:load [--csv <path>] [--overrides <path> | --no-overrides] [--dry-run]
+// Reviewer overrides (data/poi/danang_golden.overrides.csv) win over the golden CSV; any invalid
+// override aborts the load. Invalid golden rows are printed and skipped; nothing is guessed.
+// One transaction: the previous snapshot stays active until the new one is fully inserted.
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { root, readEnv } from '../config.mjs';
 import { connectDatabase, safeError } from '../migrations.mjs';
 import { parseCsv } from './csv.mjs';
+import { DANANG_BBOX, applyOverride, parseOverrides } from './overrides.mjs';
 
 const require = createRequire(import.meta.url);
 let taxonomy;
@@ -23,12 +26,7 @@ try {
 }
 const { isPoiCategory, POI_ACTIVITY_TYPES } = taxonomy;
 
-export const DANANG_BBOX = Object.freeze({
-  minLat: 14.9,
-  maxLat: 16.4,
-  minLon: 107.2,
-  maxLon: 108.8,
-});
+export { DANANG_BBOX };
 const LICENSE = 'ODbL-1.0';
 const ATTRIBUTION = '© OpenStreetMap contributors';
 const flag = (value) =>
@@ -105,6 +103,7 @@ export function validateRow(record, seen) {
       dress_code_hint: dressCode || null,
       activity_type: activityType || null,
       osm_ref: osmRef || null,
+      coord_source: record.coord_source?.trim() || null,
     },
   };
 }
@@ -136,7 +135,36 @@ async function main() {
   );
   const dryRun = args.includes('--dry-run');
   const bytes = await readFile(csvPath);
-  const { records } = parseCsv(bytes.toString('utf8'));
+  const { records: original } = parseCsv(bytes.toString('utf8'));
+  const overridePath = args.includes('--no-overrides')
+    ? null
+    : resolve(
+        root,
+        args.includes('--overrides')
+          ? args[args.indexOf('--overrides') + 1]
+          : csvPath.replace(/\.csv$/, '.overrides.csv'),
+      );
+  let overrides = new Map();
+  let overrideBytes = null;
+  if (overridePath && existsSync(overridePath)) {
+    overrideBytes = await readFile(overridePath);
+    const parsed = parseOverrides(
+      overrideBytes.toString('utf8'),
+      new Set(original.map((r) => r.wolfari_key)),
+    );
+    if (parsed.errors.length) {
+      for (const error of parsed.errors) console.log(`OVERRIDE LỖI ${error}`);
+      throw new Error(
+        `File override có lỗi: sửa ${parsed.errors.length} lỗi trong ${relative(root, overridePath)} rồi chạy lại; chưa nạp gì.`,
+      );
+    }
+    overrides = parsed.overrides;
+    for (const [key, o] of overrides)
+      console.log(
+        `OVERRIDE ${key}: ${o.lat ? `${o.lat}, ${o.lon}` : 'giữ ghim'}${o.coord_verified !== undefined ? ` · coord_verified=${o.coord_verified}` : ''}${o.note ? ` · ${o.note}` : ''}`,
+      );
+  }
+  const records = original.map((r) => applyOverride(r, overrides.get(r.wolfari_key)));
   const seen = new Set();
   const rows = [];
   const rejected = [];
@@ -185,6 +213,13 @@ async function main() {
       rows_loaded: rows.length,
       coord_verified: verified,
       rejected,
+      overrides: overrideBytes
+        ? {
+            source_file: relative(root, overridePath).replaceAll('\\', '/'),
+            source_sha256: createHash('sha256').update(overrideBytes).digest('hex'),
+            applied: [...overrides.keys()],
+          }
+        : null,
       license: LICENSE,
       attribution: ATTRIBUTION,
       loader: 'scripts/poi/load-golden.mjs',
@@ -235,6 +270,12 @@ async function main() {
             "INSERT INTO poi_sources(poi_id,source,source_id,license,fetched_at) VALUES($1,'osm',$2,$3,now())",
             [poi, row.osm_ref, LICENSE],
           );
+        else if (row.coord_source === 'manual')
+          // Reviewer-entered coordinate (typically read off the OSM map): keep provenance explicit.
+          await client.query(
+            "INSERT INTO poi_sources(poi_id,source,source_id,license,fetched_at) VALUES($1,'manual',$2,$3,now())",
+            [poi, overrides.has(row.wolfari_key) ? 'overrides.csv' : 'golden.csv', LICENSE],
+          );
       }
       await client.query('UPDATE poi_snapshots SET is_active=false WHERE is_active AND id<>$1', [
         snapshot,
@@ -245,7 +286,9 @@ async function main() {
       await client.query('ROLLBACK').catch(() => {});
       throw error;
     }
-    console.log(`Đã nạp snapshot ${version} (${rows.length} điểm) và đặt làm snapshot active.`);
+    console.log(
+      `Đã nạp snapshot ${version} (${rows.length} điểm, ${verified} đã xác minh, ${overrides.size} override) và đặt làm snapshot active.`,
+    );
   } finally {
     await client.end();
   }
@@ -255,6 +298,10 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(root, 'scripts/poi/l
   main().catch((error) => {
     const message = String(error?.message ?? '');
     // Own messages are safe; driver errors go through safeError (no SQL/URL/credentials).
-    console.error(/^(Không có|Thiếu|Cần cấu hình|CSV:)/.test(message) ? message : safeError(error));
+    console.error(
+      /^(Không có|Thiếu|Cần cấu hình|CSV:|File override)/.test(message)
+        ? message
+        : safeError(error),
+    );
     process.exitCode = 1;
   });

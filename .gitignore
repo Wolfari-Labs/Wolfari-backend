@@ -13,3 +13,4 @@ coverage/
 ~$*.docx
 # Local Nominatim response cache for scripts/poi/fetch-coordinates.mjs.
 data/poi/.nominatim-cache.json
+data/poi/.overpass-cache.json
