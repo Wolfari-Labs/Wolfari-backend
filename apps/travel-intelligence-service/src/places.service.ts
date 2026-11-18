@@ -1,33 +1,87 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseProvider } from '@wolfari/database';
-import { poiCategoryLabel, signPlaceSelection, type PlaceSnapshot } from '@wolfari/common';
+import {
+  DEFAULT_PLACE_SEARCH_CATEGORIES,
+  PLACE_SEARCH_CATEGORIES,
+  POI_SEARCH_CATEGORIES,
+  poiCategoryGroup,
+  poiCategoryLabel,
+  signPlaceSelection,
+  vnProvinceName,
+  type PlaceSearchCategory,
+  type PlaceSnapshot,
+} from '@wolfari/common';
 import { createHash } from 'node:crypto';
 import { TravelV1 } from '@wolfari/contracts/grpc';
 import {
+  DEFAULT_LIMIT,
   GOOD_SIMILARITY,
+  MAX_BBOX_DEGREES,
+  MAX_LIMIT,
   catalogSnapshot,
   duplicatesCatalog,
   searchCatalog,
   type CatalogPoi,
+  type CatalogResult,
 } from './poi-catalog';
 
-export const PLACE_CATEGORIES: Record<string, string> = {
+/** Public search group → Geoapify categories ('' = the group is never sent to Geoapify). */
+export const PLACE_CATEGORIES: Record<PlaceSearchCategory, string> = {
   tourism: 'tourism',
   restaurant: 'catering.restaurant',
   cafe: 'catering.cafe',
   accommodation: 'accommodation',
+  nightlife: 'catering.bar,catering.pub',
+  shopping: 'commercial',
+  entertainment: 'entertainment,sport',
+  wellness: 'service.beauty',
+  transport: 'airport,public_transport',
+  services: 'service.financial.atm,healthcare.pharmacy,healthcare.hospital',
+  other: '',
 };
 const attribution = 'Powered by Geoapify | © OpenStreetMap contributors';
-const MAX_RESULTS = 20;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Cached = { payload: PlaceSnapshot[]; fetched_at: Date; expires_at: Date; status: string };
+
+/** `category`: '' = default groups, 'all' = every group, otherwise one public group. */
+export function placeSearchGroups(category: string): PlaceSearchCategory[] | null {
+  if (!category) return [...DEFAULT_PLACE_SEARCH_CATEGORIES];
+  if (category === 'all') return [...PLACE_SEARCH_CATEGORIES];
+  return (PLACE_SEARCH_CATEGORIES as readonly string[]).includes(category)
+    ? [category as PlaceSearchCategory]
+    : null;
+}
+/** Map frame validation shared with the gateway: finite, ordered, at most 2° per side. */
+export function bboxProblem(
+  b: Partial<TravelV1.BoundingBox>,
+): 'INVALID_BBOX' | 'BBOX_TOO_LARGE' | null {
+  const values = [b.min_longitude, b.min_latitude, b.max_longitude, b.max_latitude];
+  if (values.some((v) => typeof v !== 'number' || !Number.isFinite(v))) return 'INVALID_BBOX';
+  const [minLon, minLat, maxLon, maxLat] = values as number[];
+  if (minLon! < -180 || maxLon! > 180 || minLat! < -90 || maxLat! > 90) return 'INVALID_BBOX';
+  if (minLon! >= maxLon! || minLat! >= maxLat!) return 'INVALID_BBOX';
+  if (maxLon! - minLon! > MAX_BBOX_DEGREES || maxLat! - minLat! > MAX_BBOX_DEGREES)
+    return 'BBOX_TOO_LARGE';
+  return null;
+}
 export function normalizePlaceSearch(request: TravelV1.SearchPlacesRequest) {
   const query = request.query?.normalize('NFKC').trim() ?? '';
-  const lat = request.coordinates?.latitude,
-    lon = request.coordinates?.longitude;
+  if (request.bbox && bboxProblem(request.bbox)) throw new Error('VALIDATION_FAILED');
+  const bbox = request.bbox
+    ? ([
+        request.bbox.min_longitude,
+        request.bbox.min_latitude,
+        request.bbox.max_longitude,
+        request.bbox.max_latitude,
+      ] as [number, number, number, number])
+    : undefined;
+  const lat = request.coordinates?.latitude ?? (bbox ? (bbox[1] + bbox[3]) / 2 : undefined),
+    lon = request.coordinates?.longitude ?? (bbox ? (bbox[0] + bbox[2]) / 2 : undefined);
   const radius = request.radius_m ?? 5000;
-  const category = request.category || 'tourism';
+  const category = request.category ?? '';
+  const groups = placeSearchGroups(category);
+  const limit = request.limit ?? undefined;
   if (
     !uuid.test(request.actor_user_id ?? '') ||
     !uuid.test(request.trip_id ?? '') ||
@@ -39,16 +93,26 @@ export function normalizePlaceSearch(request: TravelV1.SearchPlacesRequest) {
     !Number.isInteger(radius) ||
     radius < 100 ||
     radius > 20000 ||
-    !Object.hasOwn(PLACE_CATEGORIES, category) ||
-    (request.geocode && query.length < 2)
+    !groups ||
+    (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT)) ||
+    (request.geocode && query.length < 2) ||
+    (request.geocode && bbox)
   )
     throw new Error('VALIDATION_FAILED');
+  const geoapify = [
+    ...new Set(groups.flatMap((g) => PLACE_CATEGORIES[g].split(',')).filter(Boolean)),
+  ];
   return {
-    query,
+    query: bbox ? '' : query,
     latitude: Number(lat!.toFixed(4)),
     longitude: Number(lon!.toFixed(4)),
     radius,
     category,
+    groups,
+    codes: groups.flatMap((g) => POI_SEARCH_CATEGORIES[g]),
+    geoapify: geoapify.join(','),
+    limit,
+    bbox,
     geocode: request.geocode === true,
   };
 }
@@ -111,13 +175,19 @@ export class PlacesService {
   ) {}
   async search(request: TravelV1.SearchPlacesRequest): Promise<TravelV1.SearchPlacesResponse> {
     const query = normalizePlaceSearch(request);
-    // MAP-POI: curated Wolfari catalogue first (not for explicit address geocoding).
-    const catalog = query.geocode ? [] : await this.catalog(query);
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    // Wolfari catalogue first (not for address geocoding); Geoapify only when it falls short.
+    const found: CatalogResult = query.geocode
+      ? { snapshot: null, rows: [], truncated: false }
+      : await this.catalog(query);
+    const catalog = found.rows;
     const good = query.query
-      ? catalog.filter((poi) => (poi.sim ?? 0) >= GOOD_SIMILARITY).length
+      ? catalog.filter((p) => p.golden_hit || p.exact || (p.sim ?? 0) >= GOOD_SIMILARITY).length
       : catalog.length;
-    const external =
-      (query.query ? good < 3 : good === 0) || query.geocode ? await this.external(query) : null;
+    const wantsExternal =
+      query.geocode ||
+      (!query.bbox && query.geoapify !== '' && (query.query ? good < 3 : good === 0));
+    const external = wantsExternal ? await this.external(query) : null;
     const secret = this.config.get<string>('PLACE_SELECTION_SECRET') ?? '';
     if (secret.length < 32)
       return {
@@ -128,6 +198,9 @@ export class PlacesService {
           stale: false,
           is_mock: false,
           warnings: ['PROVIDER_NOT_CONFIGURED'],
+          snapshot_id: '',
+          data_release: '',
+          bbox_truncated: false,
         },
       };
     const sign = (place: PlaceSnapshot) =>
@@ -140,8 +213,13 @@ export class PlacesService {
         },
         secret,
       );
-    const curated: TravelV1.Place[] = catalog.slice(0, MAX_RESULTS).map((poi) => {
+    const timestamp = (date: Date) => ({
+      seconds: String(Math.floor(date.getTime() / 1000)),
+      nanos: 0,
+    });
+    const curated: TravelV1.Place[] = catalog.slice(0, limit).map((poi) => {
       const place = catalogSnapshot(poi);
+      const golden = poi.source_dataset !== 'overture';
       return {
         id: poi.wolfari_key,
         name: place.name,
@@ -159,11 +237,18 @@ export class PlacesService {
         ...(poi.typical_duration_min ? { typical_duration_min: poi.typical_duration_min } : {}),
         activity_type: poi.activity_type ?? '',
         dress_code_hint: poi.dress_code_hint ?? '',
+        source_dataset: golden ? 'golden' : 'overture',
+        category_group: poiCategoryGroup(poi.category) ?? '',
+        province_code: poi.province_code ?? '',
+        province_name: vnProvinceName(poi.province_code),
+        ...(!golden && poi.confidence !== null ? { confidence: poi.confidence } : {}),
+        data_release: poi.source_release ?? '',
+        fetched_at: timestamp(new Date(place.fetched_at)),
       };
     });
     const extra: TravelV1.Place[] = (external?.rows ?? [])
       .filter((place) => !duplicatesCatalog(place, catalog))
-      .slice(0, MAX_RESULTS - curated.length)
+      .slice(0, Math.max(limit - curated.length, 0))
       .map((place) => ({
         id: place.provider_place_id,
         name: place.name,
@@ -180,6 +265,12 @@ export class PlacesService {
         coord_verified: false,
         activity_type: '',
         dress_code_hint: '',
+        source_dataset: 'geoapify',
+        category_group: query.groups.length === 1 ? query.groups[0]! : '',
+        province_code: '',
+        province_name: '',
+        data_release: '',
+        fetched_at: timestamp(new Date(place.fetched_at)),
       }));
     const data = [...curated, ...extra];
     const warning = external?.warning;
@@ -201,22 +292,25 @@ export class PlacesService {
             : curated.length
               ? 'WOLFARI'
               : 'GEOAPIFY',
-        fetched_at: { seconds: String(Math.floor(fetched.getTime() / 1000)), nanos: 0 },
+        fetched_at: timestamp(fetched),
         stale: extra.length > 0 && external?.stale === true,
         is_mock: false,
         warnings: warning ? [warning] : [],
+        snapshot_id: found.snapshot?.version ?? '',
+        data_release: found.snapshot?.release ?? '',
+        bbox_truncated: found.truncated,
       },
     };
   }
-  /** Catalogue failure (e.g. V003 not migrated) degrades to the Geoapify-only behaviour. */
-  private async catalog(query: ReturnType<typeof normalizePlaceSearch>): Promise<CatalogPoi[]> {
+  /** Catalogue failure (e.g. migrations missing) degrades to the Geoapify-only behaviour. */
+  private async catalog(query: ReturnType<typeof normalizePlaceSearch>): Promise<CatalogResult> {
     try {
       return await searchCatalog(this.database, query);
     } catch (error) {
       this.logger.warn(
         `POI_CATALOG_UNAVAILABLE ${error instanceof Error ? error.message.slice(0, 120) : ''}`,
       );
-      return [];
+      return { snapshot: null, rows: [] as CatalogPoi[], truncated: false };
     }
   }
   private async external(query: ReturnType<typeof normalizePlaceSearch>) {
@@ -267,7 +361,7 @@ export class PlacesService {
         url.searchParams.set('format', 'json');
         url.searchParams.set('bias', `proximity:${query.longitude},${query.latitude}`);
       } else {
-        url.searchParams.set('categories', PLACE_CATEGORIES[query.category]!);
+        url.searchParams.set('categories', query.geoapify);
         url.searchParams.set(
           'filter',
           `circle:${query.longitude},${query.latitude},${query.radius}`,

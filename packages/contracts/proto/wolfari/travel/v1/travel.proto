@@ -29,6 +29,10 @@ message ProviderMetadata {
   bool stale = 4;
   bool is_mock = 5;
   repeated string warnings = 6;
+  // POI-OVERTURE (Places search only): active POI snapshot and its data release.
+  string snapshot_id = 7;
+  string data_release = 8;
+  bool bbox_truncated = 9; // More POIs in the map frame than `limit`.
 }
 message Place {
   string id = 1; // External provider ID, not a Wolfari UUID.
@@ -48,6 +52,21 @@ message Place {
   optional int32 typical_duration_min = 14;
   string activity_type = 15; // Suggested Plan activity type; may be empty.
   string dress_code_hint = 16;
+  // POI-OVERTURE (additive): provenance and province; empty/absent when unknown.
+  string source_dataset = 17; // golden | overture | geoapify
+  string category_group = 18; // Public search group of `category`.
+  string province_code = 19; // Province code after the 2025 merger (34 units).
+  string province_name = 20; // Vietnamese province name.
+  optional double confidence = 21; // Provider confidence; absent for golden and Geoapify.
+  string data_release = 22; // Provider data release, e.g. Overture 2026-10-21.0.
+  google.protobuf.Timestamp fetched_at = 23;
+}
+// Map frame for POI exploration, WGS84 degrees.
+message BoundingBox {
+  double min_longitude = 1;
+  double min_latitude = 2;
+  double max_longitude = 3;
+  double max_latitude = 4;
 }
 message SearchPlacesRequest {
   string query = 1;
@@ -57,6 +76,8 @@ message SearchPlacesRequest {
   string trip_id = 5;
   string category = 6;
   bool geocode = 7;
+  BoundingBox bbox = 8; // POI-OVERTURE: when set, radius_m and query are ignored.
+  optional int32 limit = 9;
 }
 message SearchPlacesResponse {
   repeated Place data = 1;

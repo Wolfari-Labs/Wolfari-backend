@@ -36,7 +36,16 @@ export interface ProviderMetadata {
   fetched_at?: Timestamp | undefined;
   stale?: boolean | undefined;
   is_mock?: boolean | undefined;
-  warnings?: string[] | undefined;
+  warnings?:
+    | string[]
+    | undefined;
+  /** POI-OVERTURE (Places search only): active POI snapshot and its data release. */
+  snapshot_id?: string | undefined;
+  data_release?:
+    | string
+    | undefined;
+  /** More POIs in the map frame than `limit`. */
+  bbox_truncated?: boolean | undefined;
 }
 
 export interface Place {
@@ -74,7 +83,40 @@ export interface Place {
     | undefined;
   /** Suggested Plan activity type; may be empty. */
   activity_type?: string | undefined;
-  dress_code_hint?: string | undefined;
+  dress_code_hint?:
+    | string
+    | undefined;
+  /** POI-OVERTURE (additive): provenance and province; empty/absent when unknown. */
+  source_dataset?:
+    | string
+    | undefined;
+  /** Public search group of `category`. */
+  category_group?:
+    | string
+    | undefined;
+  /** Province code after the 2025 merger (34 units). */
+  province_code?:
+    | string
+    | undefined;
+  /** Vietnamese province name. */
+  province_name?:
+    | string
+    | undefined;
+  /** Provider confidence; absent for golden and Geoapify. */
+  confidence?:
+    | number
+    | undefined;
+  /** Provider data release, e.g. Overture 2026-10-21.0. */
+  data_release?: string | undefined;
+  fetched_at?: Timestamp | undefined;
+}
+
+/** Map frame for POI exploration, WGS84 degrees. */
+export interface BoundingBox {
+  min_longitude?: number | undefined;
+  min_latitude?: number | undefined;
+  max_longitude?: number | undefined;
+  max_latitude?: number | undefined;
 }
 
 export interface SearchPlacesRequest {
@@ -84,7 +126,12 @@ export interface SearchPlacesRequest {
   actor_user_id?: string | undefined;
   trip_id?: string | undefined;
   category?: string | undefined;
-  geocode?: boolean | undefined;
+  geocode?:
+    | boolean
+    | undefined;
+  /** POI-OVERTURE: when set, radius_m and query are ignored. */
+  bbox?: BoundingBox | undefined;
+  limit?: number | undefined;
 }
 
 export interface SearchPlacesResponse {

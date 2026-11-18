@@ -47,12 +47,13 @@ export async function checkPoiCatalog(client) {
   globalThis.fetch=async()=>{calls++;return new Response('{"features":[]}');};
   const values={GEOAPIFY_API_KEY:'integration-not-a-real-key',PLACE_SELECTION_SECRET:'s'.repeat(64)};
   const service=new PlacesService({query:client.query.bind(client)},{get:key=>values[key]});
-  const input={actor_user_id:randomUUID(),trip_id:randomUUID(),coordinates:{latitude:16.0544,longitude:108.2022},radius_m:5000};
+  const input={actor_user_id:randomUUID(),trip_id:randomUUID(),coordinates:{latitude:16.0544,longitude:108.2022},radius_m:5000,category:'tourism'};
   const hit=await service.search({...input,query:'cho han'});
   assert.equal(hit.data[0].id,'dn-cho-han');assert.equal(hit.data[0].provider,'WOLFARI');assert.equal(hit.data[0].category_label,'Chợ');
   assert.equal((await service.search({...input,query:'CẦU RỒNG'})).data[0].id,'dn-cau-rong');
   assert.equal((await service.search({...input,query:'deo hai van'})).data[0].id,'dn-deo-hai-van');
   assert.ok(!(await service.search({...input,query:'quan an'})).data.some(p=>p.id==='dn-quan-an'),'tourism excludes restaurants');
+  assert.ok((await service.search({...input,category:'',query:'quan an'})).data.some(p=>p.id==='dn-quan-an'),'default groups include restaurants');
   const injected=await service.search({...input,query:'%'});assert.ok(!injected.data.some(p=>p.provider==='WOLFARI'),'LIKE wildcard is escaped');
   calls=0;
   const near=await service.search({...input,query:''});

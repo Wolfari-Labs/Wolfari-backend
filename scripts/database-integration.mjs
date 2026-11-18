@@ -507,7 +507,7 @@ async function main() {
             : service === 'finance'
               ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
               : service === 'travel'
-                ? ['V001', 'V002', 'V003', 'V004']
+                ? ['V001', 'V002', 'V003', 'V004', 'V005']
                 : ['V001'],
       );
     });
@@ -675,7 +675,7 @@ async function main() {
       (await client.query("SELECT to_regclass('public.rollback_probe') AS name")).rows[0].name,
       null,
     );
-    assert.deepEqual(await history(client, files.travel), ['V001', 'V002', 'V003', 'V004']);
+    assert.deepEqual(await history(client, files.travel), ['V001', 'V002', 'V003', 'V004', 'V005']);
     await client.query("INSERT INTO schema_migrations(version) VALUES('V999')");
     try {
       await assert.rejects(history(client, files.travel), /UNKNOWN_OR_INVALID/);

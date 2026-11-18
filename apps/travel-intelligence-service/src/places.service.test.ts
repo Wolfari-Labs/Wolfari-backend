@@ -114,6 +114,10 @@ describe('MAP-POI catalogue merge', () => {
   const service = (catalog: unknown[] | Error, fetcher: () => Promise<Response>) => {
     const db = {
       query: vi.fn(async (sql: string) => {
+        if (sql.includes('FROM poi_snapshots WHERE is_active'))
+          return {
+            rows: [{ id: 'snap', version: 'golden-test', created_at: new Date('2026-11-18T11:26:28Z'), release: null }],
+          };
         if (sql.includes('FROM pois')) {
           if (catalog instanceof Error) throw catalog;
           return { rows: catalog };
@@ -217,5 +221,57 @@ describe('MAP-POI catalogue merge', () => {
     const many = Array.from({ length: 20 }, (_, i) => poi(`dn-${i}`, 0.2));
     const svc = service(many, async () => geoapify('extra', 16.1, 108.3));
     expect((await svc.search({ ...request, query: 'x' })).data).toHaveLength(20);
+  });
+});
+
+describe('POI-OVERTURE search request', () => {
+  const box = { min_longitude: 108.1, min_latitude: 16.0, max_longitude: 108.3, max_latitude: 16.1 };
+  it('defaults to tourism, restaurant, cafe and accommodation', () => {
+    const q = normalizePlaceSearch({ ...request, category: '' });
+    expect(q.groups).toEqual(['tourism', 'restaurant', 'cafe', 'accommodation']);
+    expect(q.codes).toContain('accommodation');
+    expect(q.codes).not.toContain('traveler_service');
+  });
+  it('accepts every documented group and all', () => {
+    expect(normalizePlaceSearch({ ...request, category: 'services' }).codes).toEqual(['traveler_service']);
+    expect(normalizePlaceSearch({ ...request, category: 'other' }).geoapify).toBe('');
+    expect(normalizePlaceSearch({ ...request, category: 'all' }).groups).toHaveLength(11);
+    expect(() => normalizePlaceSearch({ ...request, category: 'bank' })).toThrow('VALIDATION_FAILED');
+  });
+  it('validates bbox and limit', () => {
+    const q = normalizePlaceSearch({ ...request, coordinates: undefined, bbox: box, query: 'ignored' });
+    expect(q.bbox).toEqual([108.1, 16.0, 108.3, 16.1]);
+    expect(q.query).toBe('');
+    expect(q.latitude).toBeCloseTo(16.05);
+    for (const bad of [
+      { ...box, max_longitude: 110.5 },
+      { ...box, min_latitude: 16.2 },
+      { ...box, min_longitude: Number.NaN },
+    ])
+      expect(() => normalizePlaceSearch({ ...request, bbox: bad })).toThrow('VALIDATION_FAILED');
+    expect(() => normalizePlaceSearch({ ...request, limit: 301 })).toThrow('VALIDATION_FAILED');
+    expect(normalizePlaceSearch({ ...request, limit: 300 }).limit).toBe(300);
+  });
+  it('bbox exploration never calls Geoapify and reports the snapshot', async () => {
+    const fetcher = vi.fn(async () => new Response('{"features":[]}'));
+    vi.stubGlobal('fetch', fetcher);
+    const db = {
+      query: vi.fn(async (sql: string) =>
+        sql.includes('FROM poi_snapshots')
+          ? { rows: [{ id: 's', version: 'golden-overture-vn-x', created_at: new Date(), release: '2026-10-21.0' }] }
+          : { rows: [] },
+      ),
+    };
+    const svc = new PlacesService(
+      db as unknown as DatabaseProvider,
+      new ConfigService({ GEOAPIFY_API_KEY: 'unit-private', PLACE_SELECTION_SECRET: 's'.repeat(64) }),
+    );
+    const result = await svc.search({ ...request, bbox: box });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(result.meta).toMatchObject({
+      snapshot_id: 'golden-overture-vn-x',
+      data_release: '2026-10-21.0',
+      bbox_truncated: false,
+    });
   });
 });
