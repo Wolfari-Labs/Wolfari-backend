@@ -158,6 +158,11 @@ export function appEnvironment(app, values, inherited = process.env) {
     'RABBITMQ_URL',
     'SMTP_HOST',
     'SMTP_PORT',
+    'SMTP_SECURE',
+    'SMTP_REQUIRE_TLS',
+    'SMTP_USER',
+    'SMTP_PASSWORD',
+    'SMTP_FROM',
   ];
   const financeKeys = [
     'FINANCE_OUTBOX_ENABLED',

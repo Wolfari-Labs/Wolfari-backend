@@ -1,3 +1,4 @@
+import { smtpConfiguration } from './smtp-config';
 import {
   Controller,
   Get,
@@ -27,6 +28,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
   private readonly owner = randomUUID();
   private readonly identity: IdentityClient;
   private readonly smtp: Transporter;
+  private readonly sender: string;
   private brokerTimer?: NodeJS.Timeout;
   private senderTimer?: NodeJS.Timeout;
   private connection?: ChannelModel;
@@ -45,13 +47,9 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
       'Automation',
       config.getOrThrow<string>('AUTOMATION_IDENTITY_SECRET'),
     );
-    this.smtp = createTransport({
-      host: config.getOrThrow<string>('SMTP_HOST'),
-      port: Number(config.getOrThrow<string>('SMTP_PORT')),
-      secure: false,
-      connectionTimeout: 2000,
-      socketTimeout: 5000,
-    });
+    const smtp = smtpConfiguration(config);
+    this.smtp = createTransport(smtp.options);
+    this.sender = smtp.from;
     this.brokerUrl = config.getOrThrow<string>('RABBITMQ_URL');
   }
 
@@ -212,7 +210,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
         return;
       }
       const info = await this.smtp.sendMail({
-        from: 'Wolfari <no-reply@wolfari.local>',
+        from: this.sender,
         to: response.delivery.recipient_email,
         subject:
           response.delivery.purpose === 1 ? 'Xác minh email Wolfari' : 'Đặt lại mật khẩu Wolfari',
