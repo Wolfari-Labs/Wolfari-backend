@@ -569,6 +569,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/travel/route",
+      "document": "travel-route.openapi.json"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/trips",
       "document": "trip-core.openapi.yaml"
     },
@@ -676,6 +681,7 @@
     "price-watch-proxy.ts": "9cb75318eeccbca77faa5afd4de506a0478a94038131f749a0082719bbd1bdaf",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
+    "travel-proxy.ts": "7e8e4adfbd0e65500f00a4e1e38ca495d6a8e0bc0d4b5954121bc0c57789f56d",
     "trip-http.ts": "7da7c8dca9405e391d857d31efe1cf326b0c27ebce7dd4b5f213a7afe6bc93d1",
     "trip-proxy.ts": "6846d9daeda37790190f5bab6182fb2a601c0ce9bc17638a4a77b34a8b4e8b42"
   }

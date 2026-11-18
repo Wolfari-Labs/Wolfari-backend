@@ -56,7 +56,7 @@ Phụ lục sau baseline: [Demo 1 v1.0](architecture/demo-1-addendum-v1.0.md), [
 - [REST runtime inventory](api/runtime-inventory.json): tra cứu route/handler; có khai báo không có nghĩa provider/live flow đã nghiệm thu.
 - Identity/Trip: [Identity](api/identity.openapi.yaml), [Trip core](api/trip-core.openapi.yaml), [Plan](api/plan.openapi.json), [Invitations](api/trip-invitations.openapi.json), [Membership](api/trip-member-lifecycle.openapi.json).
 - Finance: [Fund](api/finance-fund.openapi.json), [Contributions](api/finance-contributions.openapi.json), [Payments](api/finance-payments.openapi.json), [Receipts](api/finance-receipts.openapi.json), [Expenses](api/finance-expenses.openapi.json), [Notes](api/finance-notes.openapi.json), [Refunds](api/finance-refunds.openapi.json), [Closures](api/finance-closures.openapi.json), [History](api/finance-history.openapi.json).
-- Travel/Automation: [Places](api/places.openapi.json), [Price Watch](api/price-watch.openapi.yaml), [Notification](api/notification.openapi.yaml).
+- Travel/Automation: [Places](api/places.openapi.json), [Travel Route](api/travel-route.openapi.json), [Price Watch](api/price-watch.openapi.yaml), [Notification](api/notification.openapi.yaml).
 - [Postman Finance/Price Watch](api/finance-price-watch.postman_collection.json), [workspace contracts](../packages/contracts/README.md).
 
 ## Kiểm chứng theo snapshot và lịch sử

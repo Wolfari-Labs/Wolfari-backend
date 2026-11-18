@@ -39,6 +39,36 @@ corepack pnpm demo:accounts
 - [Nghiệm thu demo](docs/architecture/local-demo-acceptance.md): API thật, fixture và provider mô phỏng.
 - [Single-host trial](deployment/README.md): cấu hình triển khai riêng và [giới hạn kiểm chứng](deployment/VERIFICATION.md). Không dùng cấu hình development để suy ra production đã an toàn.
 
+## Kho POI Đà Nẵng và OSRM (MAP-POI, local)
+
+Kho POI: `data/poi/danang_golden.csv` là golden list. Tọa độ chỉ lấy từ OpenStreetMap Nominatim hoặc người nhập tay; `coord_verified=true` do người kiểm đặt, script không tự đặt.
+
+```sh
+# Điền NOMINATIM_EMAIL trong root .env (User-Agent theo chính sách Nominatim, tối đa 1 request/giây)
+corepack pnpm poi:fetch                        # thêm "--dns 1.1.1.1,8.8.8.8" nếu DNS mạng không phân giải nominatim.openstreetmap.org
+# Kiểm data/poi/danang_golden.review.md, sửa CSV
+corepack pnpm db:migrate --service travel      # travel_db V003
+corepack pnpm poi:load                         # thêm --dry-run để chỉ kiểm CSV
+```
+
+`GET /api/v1/trips/{tripId}/places/search` trả kết quả từ kho (`provider: WOLFARI`) trước, chỉ gọi Geoapify khi kho không đủ (xem [Places OpenAPI](docs/api/places.openapi.json)).
+
+### OSRM
+
+`POST /api/v1/travel/route` ([OpenAPI](docs/api/travel-route.openapi.json)) gọi OSRM qua `OSRM_URL` trong `apps/travel-intelligence-service/.env` (mặc định `http://127.0.0.1:5001`). OSRM chạy tay bằng container `wolfari-osrm`; Compose development không khai báo service này để tránh trùng cổng 5001. Dữ liệu tiền xử lý nằm ở `.local/osrm/` và chỉ cần chuẩn bị một lần:
+
+```sh
+mkdir -p .local/osrm && cd .local/osrm
+curl -LO https://download.geofabrik.de/asia/vietnam-latest.osm.pbf
+docker run --rm -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend:v5.27.1 osrm-extract -p /opt/car.lua /data/vietnam-latest.osm.pbf
+docker run --rm -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend:v5.27.1 osrm-partition /data/vietnam-latest.osrm
+docker run --rm -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend:v5.27.1 osrm-customize /data/vietnam-latest.osrm
+docker run -d --name wolfari-osrm -p 127.0.0.1:5001:5000 -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend:v5.27.1 osrm-routed --algorithm mld /data/vietnam-latest.osrm
+curl "http://127.0.0.1:5001/route/v1/driving/108.22,16.06;108.24,16.05?overview=false"   # kiểm tra
+```
+
+Trên Windows dùng đường dẫn tuyệt đối cho `-v` nếu `$PWD` không được Docker nhận. OSRM chưa chạy thì endpoint trả `503 SERVICE_UNAVAILABLE`, web vẽ nét đứt "Đường chim bay".
+
 ## Cấu trúc
 
 | Thư mục                                    | Trách nhiệm                                           |

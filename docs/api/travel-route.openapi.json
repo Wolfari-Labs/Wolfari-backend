@@ -1,0 +1,148 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wolfari Travel Route (MAP-POI)",
+    "version": "1.0.0",
+    "description": "Driving route estimate between ordered points via the self-hosted OSRM car profile. Clients must fall back to a dashed straight line labelled \"Đường chim bay — chưa kiểm tra di chuyển\" on 503."
+  },
+  "servers": [{ "url": "http://127.0.0.1:3000" }],
+  "security": [{ "bearer": [] }, { "cookie": [] }],
+  "paths": {
+    "/api/v1/travel/route": {
+      "post": {
+        "operationId": "getTravelRoute",
+        "description": "Authenticated users only; 60 requests per minute per user. 2-25 points inside Vietnam. Results are cached 7 days per rounded coordinate list; an expired cached route may be returned with stale=true when OSRM is down.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RouteRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SUCCESS with road geometry, or NO_RESULT (data null) when OSRM finds no road route.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RouteResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "429": { "$ref": "#/components/responses/Error" },
+          "503": {
+            "description": "OSRM not configured/unreachable or mode not supported (WALKING: details.reason = PROVIDER_NOT_CONFIGURED, retryable false).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": { "type": "http", "scheme": "bearer" },
+      "cookie": { "type": "apiKey", "in": "cookie", "name": "wolfari_access" }
+    },
+    "responses": {
+      "Error": {
+        "description": "Validation, authentication, rate limit. Vietnamese message, no upstream secrets.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Coordinate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["latitude", "longitude"],
+        "properties": {
+          "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+          "longitude": { "type": "number", "minimum": -180, "maximum": 180 }
+        }
+      },
+      "RouteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["coordinates"],
+        "properties": {
+          "coordinates": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 25,
+            "items": { "$ref": "#/components/schemas/Coordinate" },
+            "description": "Ordered stops; each must lie inside Vietnam (lat 8-23.5, lon 102-110)."
+          },
+          "mode": { "enum": ["DRIVING", "WALKING"], "default": "DRIVING" }
+        }
+      },
+      "RouteResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["distance_m", "duration_seconds", "geometry"],
+                "properties": {
+                  "distance_m": { "type": "number", "minimum": 0 },
+                  "duration_seconds": { "type": "number", "minimum": 0 },
+                  "geometry": {
+                    "type": "array",
+                    "items": { "$ref": "#/components/schemas/Coordinate" }
+                  }
+                }
+              }
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "required": ["status", "provider", "stale", "is_mock", "warnings"],
+            "properties": {
+              "status": { "enum": ["SUCCESS", "NO_RESULT"] },
+              "provider": { "const": "OSRM" },
+              "fetched_at": { "type": ["string", "null"], "format": "date-time" },
+              "stale": { "type": "boolean" },
+              "is_mock": { "const": false },
+              "warnings": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Always contains ESTIMATED_BY_CAR_PROFILE; a stale result adds the provider error code."
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error", "meta"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "retryable"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": ["object", "null"] },
+              "retryable": { "type": "boolean" }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": { "correlation_id": { "type": ["string", "null"] } }
+          }
+        }
+      }
+    }
+  }
+}
