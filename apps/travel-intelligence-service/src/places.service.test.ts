@@ -226,11 +226,11 @@ describe('MAP-POI catalogue merge', () => {
 
 describe('POI-OVERTURE search request', () => {
   const box = { min_longitude: 108.1, min_latitude: 16.0, max_longitude: 108.3, max_latitude: 16.1 };
-  it('defaults to tourism, restaurant, cafe and accommodation', () => {
+  it('keeps tourism as the default until the web ships the 4-group UI', () => {
     const q = normalizePlaceSearch({ ...request, category: '' });
-    expect(q.groups).toEqual(['tourism', 'restaurant', 'cafe', 'accommodation']);
-    expect(q.codes).toContain('accommodation');
-    expect(q.codes).not.toContain('traveler_service');
+    expect(q.groups).toEqual(['tourism']);
+    expect(q.codes).not.toContain('restaurant');
+    expect(q.geoapify).toBe('tourism');
   });
   it('accepts every documented group and all', () => {
     expect(normalizePlaceSearch({ ...request, category: 'services' }).codes).toEqual(['traveler_service']);

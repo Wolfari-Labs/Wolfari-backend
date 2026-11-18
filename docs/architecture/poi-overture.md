@@ -89,6 +89,14 @@ snapshot (`counts.coord_pileup`) và báo cáo `poi:gates`.
   PARTITION OF`, nạp, index, `ATTACH`) và `poi:prune` (`DETACH` + `DROP`). Không additive → làm sau
   demo, có bản sao lưu và chạy thử trên DB cô lập.
 
+### ADR-POI-8: Mặc định khi không truyền `category` giữ `tourism` tới sau demo
+
+Hợp đồng §4.1 đặt mặc định là 4 nhóm (tourism, restaurant, cafe, accommodation). Theo quyết định
+chủ dự án (OV-3), service tạm giữ `tourism` (hành vi trước POI-OVERTURE) để web hiện tại không đột
+ngột nhận quán ăn/khách sạn; mọi giá trị `category` mới và `all` đã dùng được. Sau demo đổi
+`UNSET_CATEGORY_GROUPS` trong `places.service.ts` sang `DEFAULT_PLACE_SEARCH_CATEGORIES`, cùng lúc
+với bản web.
+
 ### ADR-POI-7: DB cô lập để thử nghiệm
 
 Migration travel chặn mọi database không tên `travel_db`, và script chỉ kết nối `travel_app`.

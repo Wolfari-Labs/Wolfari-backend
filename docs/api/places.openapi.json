@@ -21,7 +21,7 @@
     "/api/v1/trips/{tripId}/places/search": {
       "get": {
         "operationId": "searchTripPlaces",
-        "description": "Authenticated trip reader only. Explicit submit; no autocomplete. Wolfari POI catalogue first: the active snapshot holds the curated golden list plus (POI-OVERTURE) nationwide Overture Places. With q, the search looks within 50 km of latitude/longitude first and widens nationwide when that yields fewer than 3 good matches; golden POIs always rank first on an exact or contained name. Without q, points within radius_m. With bbox (map exploration), up to limit points in the frame by tier then confidence; radius_m and q are ignored, Geoapify is never called and coordinate pile-ups (≥ 20 POIs on one exact coordinate) are hidden. Geoapify is consulted only when the catalogue falls short (fewer than 3 good matches, none nearby, or geocode=true) and its results are appended without duplicates. Without category the default groups are tourism, restaurant, cafe and accommodation.",
+        "description": "Authenticated trip reader only. Explicit submit; no autocomplete. Wolfari POI catalogue first: the active snapshot holds the curated golden list plus (POI-OVERTURE) nationwide Overture Places. With q, the search looks within 50 km of latitude/longitude first and widens nationwide when that yields fewer than 3 good matches; golden POIs always rank first on an exact or contained name. Without q, points within radius_m. With bbox (map exploration), up to limit points in the frame by tier then confidence; radius_m and q are ignored, Geoapify is never called and coordinate pile-ups (≥ 20 POIs on one exact coordinate) are hidden. Geoapify is consulted only when the catalogue falls short (fewer than 3 good matches, none nearby, or geocode=true) and its results are appended without duplicates. Without category only tourism is searched (unchanged default until the web ships the 4-group UI; then tourism, restaurant, cafe and accommodation).",
         "parameters": [
           {
             "name": "tripId",
@@ -94,7 +94,7 @@
                 "all"
               ]
             },
-            "description": "Search group. Omitted: tourism + restaurant + cafe + accommodation. all: every group. Earlier values keep their meaning."
+            "description": "Search group. Omitted: tourism (for now; later tourism + restaurant + cafe + accommodation). all: every group. Earlier values keep their meaning."
           },
           {
             "name": "geocode",

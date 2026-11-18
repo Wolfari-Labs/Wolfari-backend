@@ -53,7 +53,8 @@ export async function checkPoiCatalog(client) {
   assert.equal((await service.search({...input,query:'CẦU RỒNG'})).data[0].id,'dn-cau-rong');
   assert.equal((await service.search({...input,query:'deo hai van'})).data[0].id,'dn-deo-hai-van');
   assert.ok(!(await service.search({...input,query:'quan an'})).data.some(p=>p.id==='dn-quan-an'),'tourism excludes restaurants');
-  assert.ok((await service.search({...input,category:'',query:'quan an'})).data.some(p=>p.id==='dn-quan-an'),'default groups include restaurants');
+  assert.ok(!(await service.search({...input,category:'',query:'quan an'})).data.some(p=>p.id==='dn-quan-an'),'no category = tourism until after the demo');
+  assert.ok((await service.search({...input,category:'all',query:'quan an'})).data.some(p=>p.id==='dn-quan-an'),'category=all includes restaurants');
   const injected=await service.search({...input,query:'%'});assert.ok(!injected.data.some(p=>p.provider==='WOLFARI'),'LIKE wildcard is escaped');
   calls=0;
   const near=await service.search({...input,query:''});

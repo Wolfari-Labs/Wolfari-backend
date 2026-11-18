@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseProvider } from '@wolfari/database';
 import {
-  DEFAULT_PLACE_SEARCH_CATEGORIES,
   PLACE_SEARCH_CATEGORIES,
   POI_SEARCH_CATEGORIES,
   poiCategoryGroup,
@@ -44,9 +43,14 @@ const attribution = 'Powered by Geoapify | © OpenStreetMap contributors';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type Cached = { payload: PlaceSnapshot[]; fetched_at: Date; expires_at: Date; status: string };
 
-/** `category`: '' = default groups, 'all' = every group, otherwise one public group. */
+/**
+ * Groups searched when the client sends no `category`. Kept at tourism (the pre-POI-OVERTURE
+ * behaviour) until the web ships the 4-group UI; then switch to DEFAULT_PLACE_SEARCH_CATEGORIES.
+ */
+export const UNSET_CATEGORY_GROUPS: readonly PlaceSearchCategory[] = Object.freeze(['tourism']);
+/** `category`: '' = UNSET_CATEGORY_GROUPS, 'all' = every group, otherwise one public group. */
 export function placeSearchGroups(category: string): PlaceSearchCategory[] | null {
-  if (!category) return [...DEFAULT_PLACE_SEARCH_CATEGORIES];
+  if (!category) return [...UNSET_CATEGORY_GROUPS];
   if (category === 'all') return [...PLACE_SEARCH_CATEGORIES];
   return (PLACE_SEARCH_CATEGORIES as readonly string[]).includes(category)
     ? [category as PlaceSearchCategory]

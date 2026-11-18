@@ -38,7 +38,7 @@ export async function runLocationScenarios({request,query,bearer,tripBody,pass,o
   assert.equal(plan.body.data.selected_locations.length,2);
   assert.equal(plan.body.data.selected_locations.find(p=>p.source==='PROVIDER').provider_place_id,snapshot.place.provider_place_id);
   const location=provider.body.data.location_id;
-  const activity=await send('POST','/activities',{title:'Visit Hoi An',activity_type:'VISIT',position:0,scheduled_date:trip.start_at.slice(0,10),selected_location_id:location});status(activity,201);
+  const activity=await send('POST','/activities',{title:'Visit Hoi An',activity_type:'VISIT',position:0,scheduled_date:new Intl.DateTimeFormat('en-CA',{timeZone:trip.timezone??'Asia/Ho_Chi_Minh'}).format(new Date(trip.start_at)),selected_location_id:location});status(activity,201);
   status(await send('DELETE',`/selected-locations/${location}`),409);
   const refreshed=await request(base+'/plan','GET',undefined,bearer(owner));
   assert.equal(refreshed.body.data.activities[0].selected_location_id,location);
