@@ -17,12 +17,16 @@ export {
   POI_CATEGORIES,
   POI_ACTIVITY_TYPES,
   POI_SEARCH_CATEGORIES,
+  PLACE_SEARCH_CATEGORIES,
+  DEFAULT_PLACE_SEARCH_CATEGORIES,
   isPoiCategory,
   poiCategoryLabel,
+  poiCategoryGroup,
   type PoiCategory,
   type PoiActivityType,
   type PlaceSearchCategory,
 } from './poi-taxonomy';
+export { VN_PROVINCES, isVnProvinceCode, vnProvinceName, type VnProvinceCode } from './vn-provinces';
 export {
   productionTransportBlocked,
   productionTransportBlockedFor,

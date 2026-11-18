@@ -34,6 +34,7 @@ Phụ lục sau baseline: [Demo 1 v1.0](architecture/demo-1-addendum-v1.0.md), [
 - [Invitations và vận hành email](architecture/trip-invitations.md).
 - [Dress code writes](architecture/trip-dress-codes.md): API050–053 từ main; không đồng nghĩa Web đã có UI ghi.
 - [Membership lifecycle](architecture/trip-member-lifecycle.md) và [runbook recovery/tích hợp](architecture/trip-member-lifecycle-handoff.md).
+- [POI tầng B — Overture toàn quốc](architecture/poi-overture.md): ADR DuckDB, snapshot bật/quay lại, nguồn polygon và bảng mã 34 tỉnh.
 
 ### Finance
 

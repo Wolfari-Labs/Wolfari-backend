@@ -68,11 +68,11 @@ describe('POI catalogue helpers', () => {
       fetched_at: '2026-11-18T11:26:28.000Z',
       attribution: '© OpenStreetMap contributors',
     }));
-  it('maps public categories, skips accommodation and binds text as a parameter', async () => {
+  it('maps public categories (accommodation included since POI-OVERTURE) and binds text as a parameter', async () => {
     const query = vi.fn(async () => ({ rows: [] }));
     const db = { query } as unknown as DatabaseProvider;
     const base = { latitude: 16.0544, longitude: 108.2022, radius: 5000 };
-    await searchCatalog(db, { ...base, query: '', category: 'accommodation' });
+    await searchCatalog(db, { ...base, query: '', category: 'unknown-group' });
     expect(query).not.toHaveBeenCalled();
     await searchCatalog(db, { ...base, query: "  cho   han%' --", category: 'restaurant' });
     const [sql, params] = query.mock.calls[0] as unknown as [string, unknown[]];
@@ -81,5 +81,8 @@ describe('POI catalogue helpers', () => {
     await searchCatalog(db, { ...base, query: '', category: 'cafe' });
     const nearby = query.mock.calls[1] as unknown as [string, unknown[]];
     expect(nearby[1].slice(0, 4)).toEqual([['cafe'], 16.0544, 108.2022, 5000]);
+    await searchCatalog(db, { ...base, query: '', category: 'accommodation' });
+    const lodging = query.mock.calls[2] as unknown as [string, unknown[]];
+    expect(lodging[1][0]).toEqual(['accommodation']);
   });
 });
