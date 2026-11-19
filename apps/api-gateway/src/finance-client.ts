@@ -33,6 +33,7 @@ export class FinanceClient {
       | 'ResolvePaymentException'
       | 'ListClosures'
       | 'GetClosure'
+      | 'GetClosureReadiness'
       | 'CreateClosure'
       | 'ConfirmClosure'
       | 'CancelClosure'

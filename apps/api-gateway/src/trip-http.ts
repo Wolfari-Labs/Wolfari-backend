@@ -144,6 +144,8 @@ export function domainFailure(
         'export_revision',
         'invitation_version',
         'current_version',
+        'activity_count',
+        'dress_code_count',
       ] as const) {
         const value = details[key];
         if (Number.isSafeInteger(value) && Number(value) >= 1) revisions[key] = Number(value);

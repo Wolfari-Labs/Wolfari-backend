@@ -38,6 +38,17 @@ export class ClosureService {
     if (!closure) throw new FinanceReadError('RESOURCE_NOT_FOUND');
     return { closure };
   }
+  /** Any active member may see what still blocks a closure; the counts carry no member data. */
+  async readiness(
+    request: FinanceV1.GetClosureReadinessRequest,
+    correlation: string,
+    deadline: number,
+  ): Promise<FinanceV1.GetClosureReadinessResponse> {
+    const actor = readUuid(request.actor_user_id);
+    const fundId = readUuid(request.fund_id);
+    await this.auth.authorizeFundRead(fundId, actor, correlation, deadline);
+    return this.rows.readiness(fundId);
+  }
   async create(request: FinanceV1.CreateClosureRequest, correlation: string, deadline: number) {
     return this.run(
       {

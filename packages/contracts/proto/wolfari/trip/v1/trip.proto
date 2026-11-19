@@ -43,6 +43,9 @@ service TripService {
   rpc CreateDressCode(CreateDressCodeRequest) returns (CreateDressCodeResponse);
   rpc UpdateDressCode(UpdateDressCodeRequest) returns (UpdateDressCodeResponse);
   rpc DeleteDressCode(DeleteDressCodeRequest) returns (DeleteDressCodeResponse);
+  rpc UploadTripCover(UploadTripCoverRequest) returns (UploadTripCoverResponse);
+  rpc GetTripCover(GetTripCoverRequest) returns (GetTripCoverResponse);
+  rpc DeleteTripCover(DeleteTripCoverRequest) returns (DeleteTripCoverResponse);
 }
 
 enum TripLifecycle {
@@ -64,6 +67,7 @@ message StringPatch {
 message TripPermissions {
   bool can_read = 1;
   bool can_update = 2;
+  bool can_invite = 3;
 }
 
 // Public application projection. Internal receipt and audit data are excluded.
@@ -83,6 +87,8 @@ message Trip {
   int32 export_revision = 13;
   wolfari.common.v1.Membership current_membership = 14;
   TripPermissions permissions = 15;
+  optional string budget_amount = 16; // VND integer string.
+  bool cover_image_available = 17;
 }
 
 message CreateTripRequest {
@@ -93,6 +99,7 @@ message CreateTripRequest {
   google.protobuf.Timestamp end_at = 5;
   optional string timezone = 6;
   optional string description = 7;
+  optional string budget_amount = 8;
 }
 message CreateTripResponse {
   Trip trip = 1;
@@ -126,6 +133,10 @@ message UpdateTripRequest {
   optional string name = 6;
   StringPatch description = 7;
   StringPatch public_description = 8;
+  google.protobuf.Timestamp start_at = 9;
+  google.protobuf.Timestamp end_at = 10;
+  optional string timezone = 11;
+  StringPatch budget_amount = 12;
 }
 message UpdateTripResponse {
   Trip trip = 1;
@@ -259,6 +270,7 @@ message Invitation {
   google.protobuf.Timestamp expires_at = 6;
   google.protobuf.Timestamp resolved_at = 7;
   int32 version = 8;
+  optional string code_hint = 9; // Last 4 characters of a LINK join code.
 }
 message CreateInvitationRequest {
   string operation_id = 1;
@@ -272,6 +284,7 @@ message CreateInvitationRequest {
 message CreateInvitationResponse {
   Invitation invitation = 1;
   optional string one_time_link = 2;
+  optional string join_code = 3; // XXXX-XXXX, returned once for LINK invitations.
 }
 message ListInvitationsRequest {
   string actor_user_id = 1;
@@ -599,3 +612,9 @@ message UploadDressCodeImageRequest { string actor_user_id = 1; string trip_id =
 message UploadDressCodeImageResponse { string image_id = 1; string mime_type = 2; int32 size_bytes = 3; }
 message GetDressCodeImageRequest { string actor_user_id = 1; string trip_id = 2; string dress_code_id = 3; }
 message GetDressCodeImageResponse { bytes content = 1; string mime_type = 2; int32 size_bytes = 3; }
+message UploadTripCoverRequest { string actor_user_id = 1; string trip_id = 2; bytes content = 3; string mime_type = 4; }
+message UploadTripCoverResponse { Trip trip = 1; }
+message GetTripCoverRequest { string actor_user_id = 1; string trip_id = 2; }
+message GetTripCoverResponse { bytes content = 1; string mime_type = 2; int32 size_bytes = 3; }
+message DeleteTripCoverRequest { string actor_user_id = 1; string trip_id = 2; }
+message DeleteTripCoverResponse { Trip trip = 1; }

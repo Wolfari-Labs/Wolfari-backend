@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TripClient } from './trip-client';
 import { DressCodeImageHttp, dressImageRoute } from './dress-code-image-http';
+import { TripCoverHttp, tripCoverRoute } from './trip-cover-http';
+import { projectTrip } from './trip-proxy';
 import { isCalendarDate } from '@wolfari/common';
 import {
   authenticate,
@@ -380,6 +382,7 @@ export function dressCodeRequest(
 export class PlanProxy {
   private readonly client: TripClient;
   private readonly images: DressCodeImageHttp;
+  private readonly covers: TripCoverHttp;
   constructor(private readonly validateSession: SessionValidator) {
     const target = process.env.TRIP_GRPC_TARGET ?? '127.0.0.1:3202',
       secret = process.env.GATEWAY_TRIP_SECRET ?? '';
@@ -389,10 +392,11 @@ export class PlanProxy {
       throw new Error('Gateway Trip transport requires TLS in production');
     this.client = new TripClient(target, secret);
     this.images = new DressCodeImageHttp(validateSession, this.client);
+    this.covers = new TripCoverHttp(validateSession, this.client, projectTrip);
   }
   matches(request: IncomingMessage & { originalUrl?: string }): boolean {
     try {
-      return /^\/api\/v1\/trips\/[^/]+\/(plan|activities|dress-codes|dress-code-images)(\/.*)?$/.test(
+      return /^\/api\/v1\/trips\/[^/]+\/(plan|activities|dress-codes|dress-code-images|cover)(\/.*)?$/.test(
         new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname,
       );
     } catch {
@@ -407,6 +411,8 @@ export class PlanProxy {
       url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
       const imageRoute = dressImageRoute(url.pathname);
       if (imageRoute) return this.images.handle(request, response, url, imageRoute);
+      const coverTrip = tripCoverRoute(url.pathname);
+      if (coverTrip) return this.covers.handle(request, response, url, coverTrip);
       route = planRoute(request.method ?? '', url.pathname);
     } catch (error) {
       return fail(

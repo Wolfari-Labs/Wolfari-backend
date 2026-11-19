@@ -244,21 +244,30 @@ paths:
   /auth/email-verifications/confirm:
     post:
       tags: [Auth]
-      summary: Consume a verification token once; GET on the link never consumes it.
+      summary: Confirm the email once with the link token or the 6-digit emailed code.
+      description: >-
+        Exactly one body shape is accepted. Unknown email, wrong, expired or used codes all return the
+        same 400; five wrong codes revoke the issued code. Limited to 10 requests per 15 minutes per IP.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              {
-                type: object,
-                additionalProperties: false,
-                required: [token],
-                properties: { token: { type: string, writeOnly: true } },
-              }
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [token]
+                  properties: { token: { type: string, writeOnly: true } }
+                - type: object
+                  additionalProperties: false
+                  required: [email, code]
+                  properties:
+                    email: { type: string, format: email }
+                    code: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
       responses:
         '200': { description: Confirmed }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/BadRequest' }
   /auth/password-reset-requests:
     post:
       tags: [Auth]
@@ -284,21 +293,33 @@ paths:
   /auth/password-resets:
     post:
       tags: [Auth]
-      summary: Consume a reset token once and revoke all existing sessions.
+      summary: Reset once with the link token or the 6-digit emailed code; revokes all sessions.
+      description: >-
+        Exactly one body shape is accepted. Unknown email, wrong, expired or used codes all return the
+        same 400; five wrong codes revoke the issued code. Limited to 10 requests per 15 minutes per IP.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: false
-              required: [token, new_password]
-              properties:
-                token: { type: string, writeOnly: true }
-                new_password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [token, new_password]
+                  properties:
+                    token: { type: string, writeOnly: true }
+                    new_password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
+                - type: object
+                  additionalProperties: false
+                  required: [email, code, new_password]
+                  properties:
+                    email: { type: string, format: email }
+                    code: { type: string, pattern: '^[0-9]{6}$', writeOnly: true }
+                    new_password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
       responses:
         '200': { description: Password changed }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/BadRequest' }
   /auth/local/{action}:
     get:
       tags: [Auth]

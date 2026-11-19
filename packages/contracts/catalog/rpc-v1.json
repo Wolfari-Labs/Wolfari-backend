@@ -1194,6 +1194,16 @@
   {
     "package": "wolfari.finance.v1",
     "service": "FinanceService",
+    "method": "GetClosureReadiness",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 2000,
+    "source": "API133 closure readiness checklist 2026-11-19"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
     "method": "ConfirmClosure",
     "callers": [
       "ApiGateway"
@@ -1390,5 +1400,35 @@
     ],
     "deadline_ms": 15000,
     "source": "Dress-code private reference image upload/read"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "UploadTripCover",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 15000,
+    "source": "Trip private cover image upload/read/remove"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "GetTripCover",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 15000,
+    "source": "Trip private cover image upload/read/remove"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "DeleteTripCover",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 15000,
+    "source": "Trip private cover image upload/read/remove"
   }
 ]

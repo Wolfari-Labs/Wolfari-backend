@@ -56,6 +56,7 @@ message AccountEmailDelivery {
   wolfari.common.v1.EmailPurpose purpose = 3;
   string one_time_link = 4; // Sensitive RPC-only field: never publish in events.
   google.protobuf.Timestamp expires_at = 5;
+  string code = 6; // Sensitive RPC-only 6-digit code; empty for tokens issued before codes existed.
 }
 message GetAccountEmailDeliveryResponse {
   bool valid = 1;

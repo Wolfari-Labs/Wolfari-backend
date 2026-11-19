@@ -19,7 +19,7 @@
     "/trips/{trip_id}/invitations": {
       "post": {
         "operationId": "createInvitation",
-        "summary": "Tạo EMAIL/LINK; TTL mặc định 7 ngày",
+        "summary": "Tạo EMAIL/LINK; TTL mặc định 7 ngày; Owner hoặc người được sửa kế hoạch",
         "parameters": [
           {
             "name": "trip_id",
@@ -143,7 +143,7 @@
       },
       "get": {
         "operationId": "listInvitations",
-        "summary": "Owner liệt kê, kể cả Trip archived",
+        "summary": "Owner hoặc người được sửa kế hoạch liệt kê, kể cả Trip archived",
         "parameters": [
           {
             "name": "trip_id",
@@ -283,7 +283,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Token"
+                "$ref": "#/components/schemas/TokenOrCode"
               }
             }
           }
@@ -367,6 +367,16 @@
               }
             }
           },
+          "429": {
+            "description": "Nhập sai mã mời quá 10 lần trong 15 phút (theo người dùng)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Dependency lỗi/timeout; retry mutation với cùng Idempotency-Key.",
             "content": {
@@ -377,7 +387,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Nhận token liên kết (inv1_…) hoặc mã mời ngắn, không gửi cả hai."
       }
     },
     "/invitations/accept": {
@@ -400,7 +411,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Token"
+                "$ref": "#/components/schemas/TokenOrCode"
               }
             }
           }
@@ -484,6 +495,16 @@
               }
             }
           },
+          "429": {
+            "description": "Nhập sai mã mời quá 10 lần trong 15 phút (theo người dùng)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Dependency lỗi/timeout; retry mutation với cùng Idempotency-Key.",
             "content": {
@@ -494,7 +515,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Nhận token liên kết (inv1_…) hoặc mã mời ngắn, không gửi cả hai."
       }
     },
     "/invitations/decline": {
@@ -517,7 +539,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Token"
+                "$ref": "#/components/schemas/TokenOrCode"
               }
             }
           }
@@ -601,6 +623,16 @@
               }
             }
           },
+          "429": {
+            "description": "Nhập sai mã mời quá 10 lần trong 15 phút (theo người dùng)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Dependency lỗi/timeout; retry mutation với cùng Idempotency-Key.",
             "content": {
@@ -611,7 +643,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Nhận token liên kết (inv1_…) hoặc mã mời ngắn, không gửi cả hai."
       }
     },
     "/trips/{trip_id}/invitations/{invitation_id}/revoke": {
@@ -746,7 +779,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Owner hoặc chính người đã tạo lời mời."
       }
     },
     "/trips/{trip_id}/invitations/{invitation_id}/resend": {
@@ -881,7 +915,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Owner hoặc chính người đã tạo lời mời."
       }
     }
   },
@@ -930,6 +965,11 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          },
+          "code_hint": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9A-HJKMNP-TV-Z]{4}$",
+            "description": "4 ký tự cuối của mã mời (chỉ LINK); null với EMAIL hoặc lời mời cũ."
           }
         },
         "required": [
@@ -940,7 +980,8 @@
           "status",
           "expires_at",
           "resolved_at",
-          "version"
+          "version",
+          "code_hint"
         ]
       },
       "Preview": {
@@ -1047,6 +1088,11 @@
             "type": "string",
             "format": "uri",
             "description": "Chỉ có ở response tạo mới đầu tiên; bị bỏ qua khi replay."
+          },
+          "join_code": {
+            "type": "string",
+            "pattern": "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$",
+            "description": "Mã mời ngắn (Crockford base32, XXXX-XXXX) cho LINK; chỉ có ở response tạo mới đầu tiên, server chỉ lưu hash."
           }
         },
         "required": ["invitation"]
@@ -1155,7 +1201,8 @@
                   "VERSION_CONFLICT",
                   "STATE_CONFLICT",
                   "IDEMPOTENCY_CONFLICT",
-                  "SERVICE_UNAVAILABLE"
+                  "SERVICE_UNAVAILABLE",
+                  "RESOURCE_EXHAUSTED"
                 ]
               },
               "message": {
@@ -1186,6 +1233,29 @@
           }
         },
         "required": ["error", "meta"]
+      },
+      "Code": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 32,
+            "writeOnly": true,
+            "description": "Mã mời 8 ký tự; không phân biệt hoa thường, bỏ khoảng trắng/gạch, O→0, I/L→1."
+          }
+        },
+        "required": ["code"]
+      },
+      "TokenOrCode": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Token"
+          },
+          {
+            "$ref": "#/components/schemas/Code"
+          }
+        ]
       }
     }
   }

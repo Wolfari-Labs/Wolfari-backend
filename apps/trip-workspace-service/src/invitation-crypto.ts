@@ -7,6 +7,34 @@ export function invitationTokenHash(token: unknown): string {
   return createHash('sha256').update(`wolfari:invitation:v1:${token}`).digest('hex');
 }
 
+// Crockford base32 without I, L, O, U: easy to read aloud and type.
+const JOIN_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+/** 8 random characters (40 bits); shown as XXXX-XXXX. */
+export function mintJoinCode(): string {
+  const bytes = randomBytes(8);
+  return Array.from(bytes, (byte) => JOIN_ALPHABET[byte & 31]).join('');
+}
+
+export function formatJoinCode(code: string): string {
+  return `${code.slice(0, 4)}-${code.slice(4)}`;
+}
+
+/** Normalizes user input (case, spaces, dashes, confusable letters); undefined when not a join code. */
+export function normalizeJoinCode(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > 32) return undefined;
+  const code = value
+    .toUpperCase()
+    .replace(/[\s-]/g, '')
+    .replace(/O/g, '0')
+    .replace(/[IL]/g, '1');
+  return /^[0-9A-HJKMNP-TV-Z]{8}$/.test(code) ? code : undefined;
+}
+
+export function joinCodeHash(code: string): string {
+  return createHash('sha256').update(`wolfari:invitation-code:v1:${code}`).digest('hex');
+}
+
 export function invitationEmail(value: unknown): string {
   if (typeof value !== 'string') return fail('VALIDATION_FAILED', 400);
   const email = value.trim().toLowerCase();

@@ -8,7 +8,16 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { accessUuid, accessRevision, maximumRevision } from './trip-access.domain';
 import { fail } from './trip.errors';
-import { InvitationCrypto, invitationEmail, invitationTokenHash } from './invitation-crypto';
+import {
+  InvitationCrypto,
+  formatJoinCode,
+  invitationEmail,
+  invitationTokenHash,
+  joinCodeHash,
+  mintJoinCode,
+  normalizeJoinCode,
+} from './invitation-crypto';
+import { isPlanEditor } from './planning/plan.service';
 
 type InvitationRow = {
   id: string;
@@ -24,6 +33,8 @@ type InvitationRow = {
   accepted_member_id: string | null;
   token_hash: string;
   delivery_token_ciphertext: string | null;
+  code_hash: string | null;
+  code_hint: string | null;
 };
 type TripRow = {
   id: string;
@@ -72,6 +83,7 @@ function view(row: InvitationRow): TripV1.Invitation {
     version: row.version,
     expires_at: stamp(row.expires_at),
     resolved_at: row.resolved_at ? stamp(row.resolved_at) : undefined,
+    code_hint: row.code_hint ?? undefined,
   };
 }
 function requestedExpiry(value: TripV1.CreateInvitationRequest['expires_at']): Date | undefined {
@@ -155,15 +167,25 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     if (!row) return fail('RESOURCE_NOT_FOUND', 404);
     return row;
   }
-  private async owner(client: PoolClient, tripId: string, actor: string) {
+  /** Owner and anyone allowed to edit the plan may invite; returns whether the actor is Owner. */
+  private async inviter(client: PoolClient, tripId: string, actor: string) {
     const row = (
-      await client.query<MemberRow>(
-        'SELECT * FROM trip_members WHERE trip_id=$1 AND user_id=$2 AND left_at IS NULL',
+      await client.query<{
+        role: 'OWNER' | 'MEMBER';
+        plan_edit_policy: 'OWNER_ONLY' | 'SELECTED_MEMBERS' | 'ALL_MEMBERS';
+        selected_editor: boolean;
+      }>(
+        `SELECT m.role,t.plan_edit_policy,
+          EXISTS (SELECT 1 FROM trip_plan_editors e WHERE e.trip_id=t.id AND e.trip_member_id=m.id) AS selected_editor
+        FROM trip_members m JOIN trips t ON t.id=m.trip_id
+        WHERE m.trip_id=$1 AND m.user_id=$2 AND m.left_at IS NULL`,
         [tripId, actor],
       )
     ).rows[0];
     if (!row) return fail('RESOURCE_NOT_FOUND', 404);
-    if (row.role !== 'OWNER') return fail('PERMISSION_DENIED', 403);
+    if (!isPlanEditor(row.role, row.plan_edit_policy, row.selected_editor))
+      return fail('PERMISSION_DENIED', 403);
+    return { owner: row.role === 'OWNER' };
   }
   private async audit(
     client: PoolClient,
@@ -340,7 +362,7 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       : undefined;
     return this.db.withTransaction(async (client) => {
       const trip = await this.lock(client, tripId, operation);
-      await this.owner(client, tripId, actor);
+      await this.inviter(client, tripId, actor);
       const replay = await this.replay(
         client,
         operation,
@@ -379,10 +401,21 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       )
         return fail('STATE_CONFLICT', 409);
       const token = this.crypto.mint();
+      // Link invitations also get a short code people can read out or type; only a digest is kept.
+      let code: string | undefined;
+      if (!email)
+        for (let attempt = 0; attempt < 5 && !code; attempt++) {
+          const candidate = mintJoinCode();
+          const taken = await client.query('SELECT 1 FROM invitations WHERE code_hash=$1', [
+            joinCodeHash(candidate),
+          ]);
+          if (!taken.rowCount) code = candidate;
+        }
+      if (!email && !code) return fail('SERVICE_UNAVAILABLE', 503);
       const row = (
         await client.query<InvitationRow>(
-          `INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,delivery_token_ciphertext,delivery_token_expires_at,created_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()) RETURNING *`,
+          `INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,delivery_token_ciphertext,delivery_token_expires_at,code_hash,code_hint,created_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,clock_timestamp()) RETURNING *`,
           [
             tripId,
             email,
@@ -392,6 +425,8 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
             input.invitation_type,
             email ? this.crypto.encrypt(token) : null,
             email ? expiresAt : null,
+            code ? joinCodeHash(code) : null,
+            code ? code.slice(4) : null,
           ],
         )
       ).rows[0]!;
@@ -399,7 +434,11 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       await this.audit(client, row, 'INVITATION_CREATED', actor, correlation);
       await this.event(client, row, trip, actor, correlation, operation);
       await this.receipt(client, operation, actor, 'CREATE_INVITATION', trip, requestHash, outcome);
-      return { ...outcome, one_time_link: this.link(token) };
+      return {
+        ...outcome,
+        one_time_link: this.link(token),
+        ...(code ? { join_code: formatJoinCode(code) } : {}),
+      };
     });
   }
   async list(
@@ -419,7 +458,7 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     const cursor = input.cursor === undefined ? null : accessUuid(input.cursor);
     return this.db.withTransaction(async (client) => {
       await this.lock(client, tripId);
-      await this.owner(client, tripId, actor);
+      await this.inviter(client, tripId, actor);
       await this.expire(client, tripId, correlation);
       const rows = (
         await client.query<InvitationRow>(
@@ -446,7 +485,7 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     const requestHash = hash({ actor, command, tripId, id, expected });
     const result = await this.db.withTransaction(async (client) => {
       const trip = await this.lock(client, tripId, operation);
-      await this.owner(client, tripId, actor);
+      const { owner } = await this.inviter(client, tripId, actor);
       const replay = await this.replay(client, operation, actor, command, tripId, requestHash);
       if (replay) return replay as TripV1.CreateInvitationResponse;
       if (trip.archived_at) return fail('STATE_CONFLICT', 409);
@@ -458,6 +497,8 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
         ])
       ).rows[0];
       if (!row) return fail('RESOURCE_NOT_FOUND', 404);
+      // Editors manage only invitations they sent; the Owner manages all.
+      if (!owner && row.invited_by_user_id !== actor) return fail('PERMISSION_DENIED', 403);
       if (row.status === 'EXPIRED') return expired;
       if (row.version !== expected)
         return fail('VERSION_CONFLICT', 409, { invitation_version: row.version });
@@ -514,15 +555,22 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     command: 'PREVIEW_INVITATION' | 'ACCEPT_INVITATION' | 'DECLINE_INVITATION',
     deadlineMs = Date.now() + 1800,
   ): Promise<TripV1.PreviewInvitationResponse | TripV1.AcceptInvitationResponse> {
-    const actor = accessUuid(input.actor_user_id),
-      tokenHash = invitationTokenHash(input.token);
+    const actor = accessUuid(input.actor_user_id);
+    // The token field carries either the long link secret or a short join code.
+    const code = normalizeJoinCode(input.token);
+    const lookup = code
+      ? { column: 'code_hash', value: joinCodeHash(code) }
+      : { column: 'token_hash', value: invitationTokenHash(input.token) };
     const operation = command === 'PREVIEW_INVITATION' ? undefined : accessUuid(input.operation_id);
     const candidate = (
-      await this.db.query<InvitationRow>('SELECT * FROM invitations WHERE token_hash=$1', [
-        tokenHash,
-      ])
+      await this.db.query<InvitationRow>(
+        `SELECT * FROM invitations WHERE ${lookup.column}=$1`,
+        [lookup.value],
+      )
     ).rows[0];
     if (!candidate) return fail('RESOURCE_NOT_FOUND', 404);
+    // Both entry forms resolve to the same receipt identity.
+    const tokenHash = candidate.token_hash;
     const identity = await this.identity.getInvitationIdentity(
       { user_id: actor },
       correlation,

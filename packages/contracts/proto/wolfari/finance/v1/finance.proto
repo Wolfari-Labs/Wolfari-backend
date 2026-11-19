@@ -15,6 +15,7 @@ service FinanceService {
   rpc ResolvePaymentException(ResolvePaymentExceptionRequest) returns (ResolvePaymentExceptionResponse);
   rpc ListClosures(ListClosuresRequest) returns (ListClosuresResponse);
   rpc GetClosure(GetClosureRequest) returns (GetClosureResponse);
+  rpc GetClosureReadiness(GetClosureReadinessRequest) returns (GetClosureReadinessResponse);
   rpc CreateClosure(CreateClosureRequest) returns (CreateClosureResponse);
   rpc ConfirmClosure(ConfirmClosureRequest) returns (ConfirmClosureResponse);
   rpc CancelClosure(CancelClosureRequest) returns (CancelClosureResponse);
@@ -341,6 +342,16 @@ message ListClosuresResponse {
 }
 message GetClosureRequest { string actor_user_id = 1; string closure_id = 2; }
 message GetClosureResponse { ClosureView closure = 1; }
+// Same counts the closure writers enforce; kind is a ClosureBlockerKind string.
+message ClosureBlocker { string kind = 1; int32 count = 2; }
+message GetClosureReadinessRequest { string actor_user_id = 1; string fund_id = 2; }
+message GetClosureReadinessResponse {
+  bool ready = 1;
+  string fund_status = 2;
+  string current_balance = 3;
+  repeated ClosureBlocker blockers = 4;
+  int32 bank_transfers_needing_review = 5;
+}
 message CreateClosureRequest {
   string operation_id = 1;
   string actor_user_id = 2;

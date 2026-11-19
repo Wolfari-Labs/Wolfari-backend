@@ -5,7 +5,12 @@ import { BANK_DIRECTORY_PATH, handleBankDirectory } from './bank-directory-http'
 import { expenseRoute, handleExpense } from './expense-http';
 import { financialNoteRoute, handleFinancialNote } from './financial-note-http';
 import { refundRoute, handleRefund } from './refund-http';
-import { closureRoute, handleClosure } from './closure-http';
+import {
+  closureReadinessRoute,
+  closureRoute,
+  handleClosure,
+  handleClosureReadiness,
+} from './closure-http';
 import { FinanceReceiptHttp, receiptRoute } from './finance-receipt-http';
 import { handlePayment, paymentRoute } from './payment-http';
 import { qrPaymentRoute, handleQrPayment } from './qr-payment-http';
@@ -188,6 +193,16 @@ export class FinanceProxy {
     const payment = paymentRoute(url.pathname);
     if (payment)
       return handlePayment(request, response, url, payment, this.validateSession, this.client);
+    const readinessFund = closureReadinessRoute(url.pathname);
+    if (readinessFund)
+      return handleClosureReadiness(
+        request,
+        response,
+        url,
+        readinessFund,
+        this.validateSession,
+        this.client,
+      );
     const closure = closureRoute(url.pathname);
     if (closure)
       return handleClosure(request, response, url, closure, this.validateSession, this.client);

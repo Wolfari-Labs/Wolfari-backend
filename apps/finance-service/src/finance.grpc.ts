@@ -337,6 +337,17 @@ export class FinanceGrpcController {
       return this.closures.list(request, correlation, deadline);
     });
   }
+  @GrpcMethod('FinanceService', 'GetClosureReadiness')
+  getClosureReadiness(
+    request: FinanceV1.GetClosureReadinessRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('GetClosureReadiness', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.readiness(request, correlation, deadline);
+    });
+  }
   @GrpcMethod('FinanceService', 'GetClosure')
   getClosure(request: FinanceV1.GetClosureRequest, metadata?: Metadata, call?: DeadlineCall) {
     return this.execute('GetClosure', metadata, call, (correlation, deadline) => {

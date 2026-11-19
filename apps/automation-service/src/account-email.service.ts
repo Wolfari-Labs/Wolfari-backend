@@ -16,8 +16,10 @@ import { DatabaseProvider } from '@wolfari/database';
 import { EVENT_TOPOLOGY, parseEventForConsume } from '@wolfari/contracts/events';
 import { IdentityClient } from '@wolfari/contracts/identity-client';
 import type { PoolClient } from 'pg';
+import { accountEmailContent } from './account-email-content';
 
 type Delivery = { id: string; attempt_count: number; private_context: { token_id?: string } };
+
 const queue = 'wolfari.automation.account-email.v1';
 const deadLetterExchange = `${EVENT_TOPOLOGY.exchange.name}.dlx`;
 const retryDelays = EVENT_TOPOLOGY.retry_delays_ms;
@@ -212,9 +214,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
       const info = await this.smtp.sendMail({
         from: this.sender,
         to: response.delivery.recipient_email,
-        subject:
-          response.delivery.purpose === 1 ? 'Xác minh email Wolfari' : 'Đặt lại mật khẩu Wolfari',
-        text: `Mở liên kết sau để tiếp tục: ${response.delivery.one_time_link}\nNếu bạn không yêu cầu, hãy bỏ qua email này.`,
+        ...accountEmailContent(response.delivery),
       });
       await this.db.query(
         `UPDATE notification_deliveries SET status='SENT',provider_reference=$3,sent_at=now(),

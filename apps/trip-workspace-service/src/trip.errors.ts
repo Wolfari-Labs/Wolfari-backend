@@ -3,6 +3,9 @@ export interface TripErrorDetails {
   plan_version?: number;
   membership_revision?: number;
   export_revision?: number;
+  reason?: string;
+  activity_count?: number;
+  dress_code_count?: number;
 }
 
 export class TripError extends Error {

@@ -11,6 +11,7 @@ import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { DressCodeService } from './planning/dress-code.service';
 import { Module } from '@nestjs/common';
 import { DressCodeImageService } from './planning/dress-code-image.service';
+import { TripCoverService } from './trip-cover.service';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
 import { TripAccessService } from './trip-access.service';
@@ -39,6 +40,7 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     PlanItemsService,
     DressCodeService,
     DressCodeImageService,
+    TripCoverService,
     PlanGrpcHandlers,
     TripAccessService,
     TripPlanAccessService,

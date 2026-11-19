@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseProvider } from '@wolfari/database';
 import { createHash, randomUUID } from 'node:crypto';
 import { assertNoHandover } from './handover-guards';
+import { blocksClosureWrite, closureBlockers, closureCounts } from './closure-readiness';
 import type { FinanceV1 } from '@wolfari/contracts/grpc';
 import type { FundSetupContext } from '../domain/fund-setup';
 import {
@@ -205,26 +206,24 @@ export class ClosureRepository {
     });
   }
 
-  private async blockers(client: Client, fundId: string) {
-    const result = await client.query<{ ledger_total: string; blockers: number }>(
-      `SELECT
-       COALESCE((SELECT SUM(CASE WHEN direction='IN' THEN amount ELSE -amount END) FROM fund_transactions WHERE fund_id=$1),0)::text AS ledger_total,
-       (SELECT COUNT(*) FROM (
-         SELECT 1 FROM contributions WHERE fund_id=$1 AND status IN ('PENDING','TRANSFER_REPORTED')
-         UNION ALL SELECT 1 FROM fund_expenses WHERE fund_id=$1 AND deleted_at IS NULL AND status IN ('DRAFT','SUBMITTED')
-         UNION ALL SELECT 1 FROM fund_refunds WHERE fund_id=$1 AND
-           (status IN ('PENDING','HOLDER_REPORTED') OR (status='CONFIRMED' AND reversal_requested_at IS NOT NULL))
-         UNION ALL SELECT 1 FROM payment_attempts p JOIN contributions c ON c.id=p.contribution_id
-           WHERE c.fund_id=$1 AND (p.needs_reconciliation OR p.status IN ('CREATED','PENDING') OR
-             (p.status='SUCCEEDED' AND (c.status NOT IN ('CONFIRMED','REVERSED') OR NOT EXISTS
-               (SELECT 1 FROM fund_transactions t WHERE t.fund_id=$1 AND t.contribution_id=c.id AND t.transaction_type='CONTRIBUTION'))))
-         UNION ALL SELECT 1 FROM payment_webhook_receipts w JOIN payment_attempts p ON p.id=w.payment_attempt_id
-           JOIN contributions c ON c.id=p.contribution_id WHERE c.fund_id=$1 AND w.signature_valid
-           AND w.processing_status IN ('RECEIVED','NEEDS_REVIEW')
-       ) blocked) AS blockers`,
-      [fundId],
-    );
-    return result.rows[0]!;
+  /** Read-only checklist for API133 (closure readiness); same counts the writers enforce. */
+  async readiness(fundId: string): Promise<FinanceV1.GetClosureReadinessResponse> {
+    const fund = (
+      await this.db.query<{ current_balance: string; status: string }>(
+        'SELECT current_balance::text,status FROM funds WHERE id=$1',
+        [fundId],
+      )
+    ).rows[0];
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    const counts = await closureCounts(this.db, fundId);
+    const blockers = closureBlockers(fund.current_balance, counts);
+    return {
+      ready: fund.status === 'OPEN' && blockers.length === 0,
+      fund_status: fund.status,
+      current_balance: fund.current_balance,
+      blockers,
+      bank_transfers_needing_review: counts.bankTransfersNeedingReview,
+    };
   }
 
   async execute(
@@ -257,12 +256,7 @@ export class ClosureRepository {
       if (input.scope === 'CREATE_CLOSURE') {
         assertCreateClosure(input.body.expectedFinanceVersion, base);
         await assertNoHandover(client, fund.id);
-        const check = await this.blockers(client, fund.id);
-        if (
-          BigInt(fund.current_balance) !== 0n ||
-          BigInt(check.ledger_total) !== 0n ||
-          Number(check.blockers) > 0
-        )
+        if (blocksClosureWrite(fund.current_balance, await closureCounts(client, fund.id)))
           throw new FinanceReadError('STATE_CONFLICT');
         financeVersion++;
         const users = [...authority.activeMemberUserIds].sort();
@@ -315,12 +309,7 @@ export class ClosureRepository {
           else {
             // Provider evidence can arrive after the snapshot was created.
             // Its writers take this same Fund lock before introducing blockers.
-            const check = await this.blockers(client, fund.id);
-            if (
-              BigInt(fund.current_balance) !== 0n ||
-              BigInt(check.ledger_total) !== 0n ||
-              Number(check.blockers) > 0
-            )
+            if (blocksClosureWrite(fund.current_balance, await closureCounts(client, fund.id)))
               throw new FinanceReadError('STATE_CONFLICT');
             await client.query(
               'UPDATE closure_confirmations SET confirmed_at=clock_timestamp() WHERE closure_id=$1 AND user_id=$2',

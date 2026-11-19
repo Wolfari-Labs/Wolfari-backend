@@ -882,7 +882,7 @@ async function main() {
   );
   const trip = creates[0].body.data;
   assert.equal(trip.current_membership.role, 'OWNER');
-  assert.deepEqual(trip.permissions, { can_read: true, can_update: true });
+  assert.deepEqual(trip.permissions, { can_read: true, can_update: true, can_invite: true });
   const aggregate = (
     await query(
       'trip',
@@ -990,7 +990,7 @@ async function main() {
     'PATCH',
     {
       ...patchInput,
-      timezone: 'UTC',
+      lifecycle: 'ARCHIVED',
     },
     { ...bearer(owner), 'idempotency-key': randomUUID() },
   );

@@ -70,7 +70,11 @@ export interface AccountEmailDelivery {
     | undefined;
   /** Sensitive RPC-only field: never publish in events. */
   one_time_link?: string | undefined;
-  expires_at?: Timestamp | undefined;
+  expires_at?:
+    | Timestamp
+    | undefined;
+  /** Sensitive RPC-only 6-digit code; empty for tokens issued before codes existed. */
+  code?: string | undefined;
 }
 
 export interface GetAccountEmailDeliveryResponse {

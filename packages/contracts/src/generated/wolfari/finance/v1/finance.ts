@@ -408,6 +408,25 @@ export interface GetClosureResponse {
   closure?: ClosureView | undefined;
 }
 
+/** Same counts the closure writers enforce; kind is a ClosureBlockerKind string. */
+export interface ClosureBlocker {
+  kind?: string | undefined;
+  count?: number | undefined;
+}
+
+export interface GetClosureReadinessRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+}
+
+export interface GetClosureReadinessResponse {
+  ready?: boolean | undefined;
+  fund_status?: string | undefined;
+  current_balance?: string | undefined;
+  blockers?: ClosureBlocker[] | undefined;
+  bank_transfers_needing_review?: number | undefined;
+}
+
 export interface CreateClosureRequest {
   operation_id?: string | undefined;
   actor_user_id?: string | undefined;
@@ -1523,6 +1542,11 @@ export interface FinanceServiceClient {
 
   getClosure(request: GetClosureRequest, metadata?: Metadata): Observable<GetClosureResponse>;
 
+  getClosureReadiness(
+    request: GetClosureReadinessRequest,
+    metadata?: Metadata,
+  ): Observable<GetClosureReadinessResponse>;
+
   createClosure(request: CreateClosureRequest, metadata?: Metadata): Observable<CreateClosureResponse>;
 
   confirmClosure(request: ConfirmClosureRequest, metadata?: Metadata): Observable<ConfirmClosureResponse>;
@@ -1821,6 +1845,11 @@ export interface FinanceServiceController {
     request: GetClosureRequest,
     metadata?: Metadata,
   ): Promise<GetClosureResponse> | Observable<GetClosureResponse> | GetClosureResponse;
+
+  getClosureReadiness(
+    request: GetClosureReadinessRequest,
+    metadata?: Metadata,
+  ): Promise<GetClosureReadinessResponse> | Observable<GetClosureReadinessResponse> | GetClosureReadinessResponse;
 
   createClosure(
     request: CreateClosureRequest,
@@ -2202,6 +2231,7 @@ export function FinanceServiceControllerMethods() {
       "resolvePaymentException",
       "listClosures",
       "getClosure",
+      "getClosureReadiness",
       "createClosure",
       "confirmClosure",
       "cancelClosure",

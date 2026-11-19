@@ -497,10 +497,12 @@ async function main() {
         service === 'automation'
           ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003', 'V004']
+            ? ['V001', 'V002', 'V003', 'V004', 'V005']
             : service === 'finance'
               ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
-              : ['V001'],
+              : service === 'identity'
+                ? ['V001', 'V002']
+                : ['V001'],
       );
     });
   assert.equal(fks, 55);

@@ -11,6 +11,13 @@ function strict(input: unknown, allowed: string[]): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !allowed.includes(key))) throw new IdentityError('VALIDATION_FAILED', 400);
   return input as Record<string, unknown>;
 }
+/** The body must have exactly one of the listed key sets (e.g. link token vs. email + code). */
+export function oneOf(input: unknown, shapes: string[][]): Record<string, unknown> {
+  const body = strict(input, [...new Set(shapes.flat())]);
+  const keys = Object.keys(body).sort().join();
+  if (!shapes.some(shape => [...shape].sort().join() === keys)) throw new IdentityError('VALIDATION_FAILED', 400);
+  return body;
+}
 
 @Catch()
 class SafeErrors implements ExceptionFilter {
@@ -54,13 +61,13 @@ export class IdentityController {
   }
 
   @Post('auth/email-verifications/confirm') @HttpCode(200)
-  async verify(@Body() input: unknown) { await this.identity.confirmEmail(strict(input, ['token']).token); return accepted(); }
+  async verify(@Body() input: unknown) { await this.identity.confirmEmail(oneOf(input, [['token'], ['email', 'code']])); return accepted(); }
 
   @Post('auth/password-reset-requests') @HttpCode(202)
   async resetRequest(@Body() input: unknown) { await this.identity.resetRequest(strict(input, ['email']).email); return accepted(); }
 
   @Post('auth/password-resets') @HttpCode(200)
-  async reset(@Body() input: unknown) { const body = strict(input, ['token', 'new_password']); await this.identity.resetPassword(body.token, body.new_password); return accepted(); }
+  async reset(@Body() input: unknown) { await this.identity.resetPassword(oneOf(input, [['token', 'new_password'], ['email', 'code', 'new_password']])); return accepted(); }
 
   @Get('me')
   async me(@Headers('authorization') authorization: string | undefined) { const { user } = await this.current(authorization); return data(await this.identity.profile(user.id)); }
