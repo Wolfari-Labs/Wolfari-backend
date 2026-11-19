@@ -131,6 +131,26 @@ Bảng mã 34 tỉnh/thành dùng cho `province_code` / `province_name`:
 
 Bộ polygon viết "Thanh Hoá", "Khánh Hoà"; Wolfari lưu "Thanh Hóa", "Khánh Hòa".
 
+## Lưu trữ và sao lưu dữ liệu
+
+| Vai trò | Nơi lưu | Ghi chú |
+| --- | --- | --- |
+| Dữ liệu app đọc | PostgreSQL `travel_db` (volume Docker) | Có index tìm kiếm; bật/quay lại snapshot không cần restart. |
+| Bản gốc | `.local/poi/overture/raw-vn-bbox-<R>.parquet`, `build-<R>/pois.parquet` | Không đưa vào git (`.local/` bị ignore). Không dùng Excel/CSV cho ~1,2 triệu điểm. |
+| Sao lưu | Chép thư mục `.local/poi/overture/` ra ổ khác hoặc kho lưu trữ của nhóm | Đủ để dựng lại mà không tải lại từ S3. |
+| Git | Code, quy tắc lọc, golden list `data/poi/*` | Chỉ dữ liệu nhỏ đã duyệt tay. |
+
+Dựng lại sau khi reset DB hoặc mất volume (không tải lại, cần đúng `<R>` của file raw):
+
+```text
+corepack pnpm poi:load
+corepack pnpm poi:overture --release <R> --from-raw
+corepack pnpm poi:activate <snapshot in ra ở bước trên>
+```
+
+Máy chưa có file raw thì chép từ máy đã tải, hoặc chạy `corepack pnpm poi:overture --release <R>`
+(cần mạng, DuckDB dùng tối đa 3 GB RAM theo `scripts/poi/overture-vn.config.json`).
+
 ## Pipeline
 
 ```text
