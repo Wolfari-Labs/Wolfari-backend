@@ -53,6 +53,8 @@ function invitation(value: unknown) {
           : (() => {
               throw new Error('Invalid code hint');
             })(),
+    invited_by_user_id:
+      row.invited_by_user_id === undefined ? null : requiredString(row.invited_by_user_id),
   };
 }
 /** Normalized 8-character join code (Crockford base32), or undefined. */

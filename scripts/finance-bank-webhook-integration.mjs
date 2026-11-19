@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 
 /** Real Gateway → Finance → PostgreSQL run of the SePay webhook; no provider or bank is contacted. */
 export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
@@ -262,4 +262,108 @@ export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
   );
   assert.equal((await request(listPath, 'GET')).status, 401);
   pass('bank webhook: Owner/Holder read masked receipts; members and outsiders cannot');
+
+  // Holder resolution of transfers needing review, and the closure blocker it clears.
+  const readiness = async () => {
+    const r = await request(`/api/v1/funds/${fund}/closure-readiness`, 'GET', undefined, bearer(owner));
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body.data;
+  };
+  const reviewIds = (
+    await query(
+      'finance',
+      "SELECT id FROM bank_transfer_receipts WHERE fund_id=$1 AND processing_status='NEEDS_REVIEW' ORDER BY received_at",
+      [fund],
+    )
+  ).map((row) => row.id);
+  assert.ok(reviewIds.length >= 3, `expected several transfers needing review, got ${reviewIds.length}`);
+  const blocked = await readiness();
+  assert.equal(blocked.ready, false);
+  assert.deepEqual(
+    blocked.blockers.find((item) => item.kind === 'BANK_TRANSFERS_REVIEW'),
+    { kind: 'BANK_TRANSFERS_REVIEW', count: reviewIds.length },
+  );
+  assert.equal(blocked.bank_transfers_needing_review, reviewIds.length);
+  const financeVersion = async () =>
+    (await query('finance', 'SELECT finance_version FROM funds WHERE id=$1', [fund]))[0]
+      .finance_version;
+  const resolvePath = (transfer) => `/api/v1/funds/${fund}/bank-transfers/${transfer}/resolve`;
+  const resolveBody = async (overrides = {}) => ({
+    resolution: 'RETURNED_TO_SENDER',
+    note: 'Đã chuyển trả người gửi',
+    expected_finance_version: await financeVersion(),
+    ...overrides,
+  });
+  const resolveAs = async (transfer, user, body, key = randomUUID()) =>
+    request(resolvePath(transfer), 'POST', body, { ...bearer(user), 'idempotency-key': key });
+  const ledgerBefore = await ledgerCount();
+  const [first, second, ...rest] = reviewIds;
+  assert.equal((await resolveAs(first, member, await resolveBody())).status, 403);
+  assert.equal((await resolveAs(first, owner, await resolveBody())).status, 403);
+  assert.ok([403, 404].includes((await resolveAs(first, outsider, await resolveBody())).status));
+  assert.equal((await resolveAs(first, holder, await resolveBody({ note: '  ' }))).status, 400);
+  assert.equal(
+    (await resolveAs(first, holder, await resolveBody({ resolution: 'MATCHED' }))).status,
+    400,
+  );
+  assert.equal(
+    (await request(resolvePath(first), 'POST', await resolveBody(), bearer(holder))).status,
+    400,
+    'Idempotency-Key is required',
+  );
+  const key = randomUUID();
+  const versionBefore = await financeVersion();
+  const firstBody = await resolveBody();
+  const resolved = await resolveAs(first, holder, firstBody, key);
+  assert.equal(resolved.status, 200, JSON.stringify(resolved.body));
+  assert.equal(resolved.body.data.processing_status, 'RESOLVED');
+  assert.equal(resolved.body.data.resolution, 'RETURNED_TO_SENDER');
+  assert.equal(resolved.body.data.resolved_by_user_id, holder.id);
+  assert.equal(await financeVersion(), versionBefore + 1);
+  const replayed = await resolveAs(first, holder, firstBody, key);
+  assert.equal(replayed.status, 200, JSON.stringify(replayed.body));
+  assert.equal(replayed.body.data.resolved_at, resolved.body.data.resolved_at);
+  assert.equal(await financeVersion(), versionBefore + 1, 'a replay does not move the Fund again');
+  assert.equal(
+    (await resolveAs(first, holder, { ...firstBody, note: 'Khác' }, key)).status,
+    409,
+    'same key, different intent',
+  );
+  assert.equal((await resolveAs(first, holder, await resolveBody())).status, 409, 'already resolved');
+  assert.equal(
+    (await resolveAs(second, holder, await resolveBody({ expected_finance_version: versionBefore }))).status,
+    409,
+    'stale Fund version',
+  );
+  assert.equal(await ledgerCount(), ledgerBefore, 'resolving never posts money');
+  assert.equal(
+    (
+      await query(
+        'finance',
+        "SELECT count(*)::int AS n FROM finance_audit_logs WHERE entity_id=$1 AND action='RESOLVE_BANK_TRANSFER' AND actor_user_id=$2",
+        [first, holder.id],
+      )
+    )[0].n,
+    1,
+  );
+  for (const transfer of [second, ...rest]) {
+    const r = await resolveAs(transfer, holder, await resolveBody({ resolution: 'NOT_OURS', note: 'Không thuộc quỹ' }));
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+  }
+  const cleared = await readiness();
+  assert.equal(cleared.bank_transfers_needing_review, 0);
+  assert.equal(
+    cleared.blockers.some((item) => item.kind === 'BANK_TRANSFERS_REVIEW'),
+    false,
+  );
+  const listedAfter = (await request(listPath, 'GET', undefined, bearer(owner))).body.data.items;
+  assert.ok(
+    listedAfter.some(
+      (item) =>
+        item.id === first && item.resolution_note === 'Đã chuyển trả người gửi' && item.resolved_at,
+    ),
+  );
+  pass(
+    'bank webhook: only the Holder resolves transfers needing review (idempotent, versioned, no ledger effect); closure readiness blocks until all are resolved',
+  );
 }

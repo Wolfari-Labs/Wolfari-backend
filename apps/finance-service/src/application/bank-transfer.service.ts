@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CommonV1, type FinanceV1 } from '@wolfari/contracts/grpc';
 import { FinanceReadError, readUuid } from '../finance.errors';
-import { parseBankTransferInput } from '../inputs/bank-transfer.input';
+import { parseBankTransferInput, parseBankTransferResolution } from '../inputs/bank-transfer.input';
 import { bankTransferResponse } from '../projections/bank-transfer-response';
 import { BankTransferRepository } from '../repositories/bank-transfer.repository';
 import { FundQueryService } from './fund-query.service';
@@ -10,9 +10,9 @@ import { FundQueryService } from './fund-query.service';
 export class BankTransferService {
   constructor(
     @Inject(FundQueryService)
-    private readonly queries: Pick<FundQueryService, 'authorizeFundRead'>,
+    private readonly queries: Pick<FundQueryService, 'authorizeFundRead' | 'authorizeActiveFundWrite'>,
     @Inject(BankTransferRepository)
-    private readonly rows: Pick<BankTransferRepository, 'receive' | 'list' | 'fundHolder'>,
+    private readonly rows: Pick<BankTransferRepository, 'receive' | 'list' | 'fundHolder' | 'resolve'>,
   ) {}
 
   /** Gateway-authenticated provider webhook; the Gateway already verified the provider signature. */
@@ -42,5 +42,20 @@ export class BankTransferService {
     if (role !== CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER && actor !== holder)
       throw new FinanceReadError('PERMISSION_DENIED');
     return { items: (await this.rows.list(fundId)).map(bankTransferResponse) };
+  }
+
+  /** Current Holder of an active Trip records how a transfer needing review was handled. */
+  async resolve(
+    request: FinanceV1.ResolveBankTransferRequest,
+    correlation: string,
+    deadline: number,
+  ): Promise<FinanceV1.ResolveBankTransferResponse> {
+    const input = parseBankTransferResolution(request);
+    await this.queries.authorizeActiveFundWrite(input.fundId, input.actor, correlation, deadline);
+    const result = await this.rows.resolve(input, correlation);
+    return {
+      bank_transfer: bankTransferResponse(result.row),
+      finance_version: result.financeVersion,
+    };
   }
 }

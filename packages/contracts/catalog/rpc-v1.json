@@ -22,6 +22,16 @@
   {
     "package": "wolfari.finance.v1",
     "service": "FinanceService",
+    "method": "ResolveBankTransfer",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 2000,
+    "source": "SePay bank webhook: Holder resolves a transfer that needs review"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
     "method": "DownloadExpenseReceipt",
     "callers": [
       "ApiGateway"

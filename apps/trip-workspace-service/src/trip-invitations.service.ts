@@ -84,6 +84,7 @@ function view(row: InvitationRow): TripV1.Invitation {
     expires_at: stamp(row.expires_at),
     resolved_at: row.resolved_at ? stamp(row.resolved_at) : undefined,
     code_hint: row.code_hint ?? undefined,
+    invited_by_user_id: row.invited_by_user_id,
   };
 }
 function requestedExpiry(value: TripV1.CreateInvitationRequest['expires_at']): Date | undefined {

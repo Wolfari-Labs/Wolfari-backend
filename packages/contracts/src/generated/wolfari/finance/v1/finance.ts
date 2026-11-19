@@ -81,6 +81,10 @@ export interface BankTransferView {
   transaction_at?: Timestamp | undefined;
   received_at?: Timestamp | undefined;
   processed_at?: Timestamp | undefined;
+  resolution?: string | undefined;
+  resolution_note?: string | undefined;
+  resolved_by_user_id?: string | undefined;
+  resolved_at?: Timestamp | undefined;
 }
 
 export interface ListBankTransfersRequest {
@@ -90,6 +94,22 @@ export interface ListBankTransfersRequest {
 
 export interface ListBankTransfersResponse {
   items?: BankTransferView[] | undefined;
+}
+
+/** Holder records how a NEEDS_REVIEW transfer was handled; no ledger or balance effect. */
+export interface ResolveBankTransferRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  bank_transfer_id?: string | undefined;
+  resolution?: string | undefined;
+  note?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ResolveBankTransferResponse {
+  bank_transfer?: BankTransferView | undefined;
+  finance_version?: number | undefined;
 }
 
 /**
@@ -1779,6 +1799,11 @@ export interface FinanceServiceClient {
   ): Observable<ReceiveBankTransferResponse>;
 
   listBankTransfers(request: ListBankTransfersRequest, metadata?: Metadata): Observable<ListBankTransfersResponse>;
+
+  resolveBankTransfer(
+    request: ResolveBankTransferRequest,
+    metadata?: Metadata,
+  ): Observable<ResolveBankTransferResponse>;
 }
 
 export interface FinanceServiceController {
@@ -2215,6 +2240,11 @@ export interface FinanceServiceController {
     request: ListBankTransfersRequest,
     metadata?: Metadata,
   ): Promise<ListBankTransfersResponse> | Observable<ListBankTransfersResponse> | ListBankTransfersResponse;
+
+  resolveBankTransfer(
+    request: ResolveBankTransferRequest,
+    metadata?: Metadata,
+  ): Promise<ResolveBankTransferResponse> | Observable<ResolveBankTransferResponse> | ResolveBankTransferResponse;
 }
 
 export function FinanceServiceControllerMethods() {
@@ -2296,6 +2326,7 @@ export function FinanceServiceControllerMethods() {
       "cancelHolderHandover",
       "receiveBankTransfer",
       "listBankTransfers",
+      "resolveBankTransfer",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

@@ -318,7 +318,11 @@ export interface Invitation {
     | number
     | undefined;
   /** Last 4 characters of a LINK join code. */
-  code_hint?: string | undefined;
+  code_hint?:
+    | string
+    | undefined;
+  /** Lets an inviter manage the invitations they created. */
+  invited_by_user_id?: string | undefined;
 }
 
 export interface CreateInvitationRequest {

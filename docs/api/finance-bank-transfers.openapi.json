@@ -70,6 +70,41 @@
           }
         }
       }
+    },
+    "/api/v1/funds/{fund_id}/bank-transfers/{bank_transfer_id}/resolve": {
+      "post": {
+        "summary": "Holder: record how a NEEDS_REVIEW transfer was handled",
+        "description": "Current Holder of an active Trip and OPEN Fund only. Moves NEEDS_REVIEW to RESOLVED with the outcome, a note, who and when. No ledger or balance effect: money is handled with the existing contribution/refund actions. Bumps finance_version. While any transfer of the Fund is NEEDS_REVIEW, closure is blocked (closure readiness kind BANK_TRANSFERS_REVIEW).",
+        "parameters": [
+          { "$ref": "#/components/parameters/FundId" },
+          { "$ref": "#/components/parameters/BankTransferId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ResolveBankTransferInput" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolved, or the stored result of the same Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResolveBankTransferEnvelope" }
+              }
+            }
+          },
+          "400": { "description": "VALIDATION_FAILED" },
+          "401": { "description": "UNAUTHENTICATED" },
+          "403": { "description": "PERMISSION_DENIED: not the current Holder" },
+          "404": { "description": "RESOURCE_NOT_FOUND" },
+          "409": {
+            "description": "STATE_CONFLICT (not NEEDS_REVIEW, Fund not OPEN, Trip archived), VERSION_CONFLICT or IDEMPOTENCY_CONFLICT"
+          },
+          "503": { "description": "SERVICE_UNAVAILABLE" }
+        }
+      }
     }
   },
   "components": {
@@ -79,6 +114,19 @@
         "in": "path",
         "required": true,
         "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "BankTransferId": {
+        "name": "bank_transfer_id",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "description": "Retrying with the same key returns the stored result.",
+        "schema": { "type": "string", "format": "uuid" }
       }
     },
     "schemas": {
@@ -127,7 +175,37 @@
       },
       "ProcessingStatus": {
         "type": "string",
-        "enum": ["MATCHED", "UNMATCHED", "NEEDS_REVIEW", "IGNORED"]
+        "enum": ["MATCHED", "UNMATCHED", "NEEDS_REVIEW", "IGNORED", "RESOLVED"]
+      },
+      "BankTransferResolution": {
+        "type": "string",
+        "description": "RETURNED_TO_SENDER: the Holder sent the money back. HANDLED_IN_APP: handled with an existing in-app action (e.g. contribution confirmed manually). NOT_OURS: the transfer does not belong to this Fund.",
+        "enum": ["RETURNED_TO_SENDER", "HANDLED_IN_APP", "NOT_OURS"]
+      },
+      "ResolveBankTransferInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resolution", "note", "expected_finance_version"],
+        "properties": {
+          "resolution": { "$ref": "#/components/schemas/BankTransferResolution" },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Required, 1-500 characters, not only whitespace."
+          },
+          "expected_finance_version": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        }
+      },
+      "ResolveBankTransferEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "description": "The Fund's finance_version moved; reload the Fund to see it.",
+        "properties": {
+          "data": { "$ref": "#/components/schemas/BankTransfer" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
       },
       "ReviewReason": {
         "type": "string",
@@ -163,8 +241,13 @@
           "review_reason",
           "transaction_at",
           "received_at",
-          "processed_at"
+          "processed_at",
+          "resolution",
+          "resolution_note",
+          "resolved_by_user_id",
+          "resolved_at"
         ],
+        "description": "Resolution fields are all present on RESOLVED rows and all null otherwise.",
         "properties": {
           "id": { "$ref": "#/components/schemas/Uuid" },
           "provider": { "type": "string", "enum": ["SEPAY"] },
@@ -182,7 +265,15 @@
           "review_reason": { "$ref": "#/components/schemas/ReviewReason" },
           "transaction_at": { "type": "string", "format": "date-time", "nullable": true },
           "received_at": { "type": "string", "format": "date-time" },
-          "processed_at": { "type": "string", "format": "date-time", "nullable": true }
+          "processed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "resolution": {
+            "type": "string",
+            "nullable": true,
+            "enum": ["RETURNED_TO_SENDER", "HANDLED_IN_APP", "NOT_OURS", null]
+          },
+          "resolution_note": { "type": "string", "minLength": 1, "maxLength": 500, "nullable": true },
+          "resolved_by_user_id": { "type": "string", "format": "uuid", "nullable": true },
+          "resolved_at": { "type": "string", "format": "date-time", "nullable": true }
         }
       },
       "Meta": {

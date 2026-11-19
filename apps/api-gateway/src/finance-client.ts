@@ -29,6 +29,7 @@ export class FinanceClient {
       | 'ReceiveMomoWebhook'
       | 'ReceiveBankTransfer'
       | 'ListBankTransfers'
+      | 'ResolveBankTransfer'
       | 'ListPaymentExceptions'
       | 'ResolvePaymentException'
       | 'ListClosures'

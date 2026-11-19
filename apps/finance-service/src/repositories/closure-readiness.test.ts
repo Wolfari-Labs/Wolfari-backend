@@ -47,8 +47,11 @@ describe('closure readiness rules', () => {
     expect(blocksClosureWrite('0', { ...clear, refunds: 1 })).toBe(true);
   });
 
-  it('does not block on bank transfers that only need Holder review', () => {
-    expect(closureBlockers('0', { ...clear, bankTransfersNeedingReview: 2 })).toEqual([]);
+  it('blocks while bank transfers still need the Holder to resolve them', () => {
+    expect(closureBlockers('0', { ...clear, bankTransfersNeedingReview: 2 })).toEqual([
+      { kind: 'BANK_TRANSFERS_REVIEW', count: 2 },
+    ]);
+    expect(blocksClosureWrite('0', { ...clear, bankTransfersNeedingReview: 1 })).toBe(true);
   });
 
   it('reads all counts in one parameterised query', async () => {

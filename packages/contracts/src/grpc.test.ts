@@ -195,7 +195,7 @@ describe('gRPC contracts', () => {
       (entry) => `${entry.package}.${entry.service}/${entry.method}`,
     ).sort();
     expect(loadedMethods).toEqual(catalogMethods);
-    expect(RPC_CATALOG).toHaveLength(142);
+    expect(RPC_CATALOG).toHaveLength(143);
     expect(
       RPC_CATALOG.filter((entry) => entry.deadline_ms === 10_000)
         .map((entry) => entry.method)

@@ -296,6 +296,17 @@ export class FinanceGrpcController {
       return this.bankTransfers.list(request, correlation, deadline);
     });
   }
+  @GrpcMethod('FinanceService', 'ResolveBankTransfer')
+  resolveBankTransfer(
+    request: FinanceV1.ResolveBankTransferRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ResolveBankTransfer', metadata, call, (correlation, deadline) => {
+      if (!this.bankTransfers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.bankTransfers.resolve(request, correlation, deadline);
+    });
+  }
   @GrpcMethod('FinanceService', 'ReceiveMomoWebhook')
   receiveMomoWebhook(
     request: FinanceV1.ReceiveMomoWebhookRequest,

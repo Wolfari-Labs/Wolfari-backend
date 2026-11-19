@@ -10,6 +10,7 @@ export const CLOSURE_BLOCKER_KINDS = [
   'REFUNDS_OPEN',
   'PAYMENTS_OPEN',
   'PAYMENT_WEBHOOKS_OPEN',
+  'BANK_TRANSFERS_REVIEW',
   'HOLDER_HANDOVER_OPEN',
 ] as const;
 export type ClosureBlockerKind = (typeof CLOSURE_BLOCKER_KINDS)[number];
@@ -22,7 +23,7 @@ export type ClosureCounts = {
   payments: number;
   webhooks: number;
   handovers: number;
-  /** Advisory only: unmatched money is reviewed by the Holder but has no resolution writer yet. */
+  /** SePay money the Holder must resolve before the Fund may close. */
   bankTransfersNeedingReview: number;
 };
 
@@ -82,6 +83,7 @@ export function closureBlockers(
     ['CONTRIBUTIONS_OPEN', counts.contributions],
     ['PAYMENTS_OPEN', counts.payments],
     ['PAYMENT_WEBHOOKS_OPEN', counts.webhooks],
+    ['BANK_TRANSFERS_REVIEW', counts.bankTransfersNeedingReview],
     ['EXPENSES_OPEN', counts.expenses],
     ['REFUNDS_OPEN', counts.refunds],
     ['HOLDER_HANDOVER_OPEN', counts.handovers],

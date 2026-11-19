@@ -141,7 +141,7 @@ export class DatabaseProvider implements OnApplicationShutdown {
             : this.name === 'trip'
               ? ['V001', 'V002', 'V003', 'V004', 'V005']
               : this.name === 'finance'
-                ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
+                ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
                 : this.name === 'identity'
                   ? ['V001', 'V002']
                   : ['V001'];

@@ -35,6 +35,29 @@ describe('closure readiness HTTP (API133)', () => {
     ).toMatchObject({ ready: true, blockers: [] });
   });
 
+  it('accepts the explicit zero count gRPC sends with proto3 defaults', () => {
+    expect(
+      projectClosureReadiness({
+        ready: true,
+        fund_status: 'OPEN',
+        current_balance: '0',
+        blockers: [],
+        bank_transfers_needing_review: 0,
+      }),
+    ).toMatchObject({ ready: true, bank_transfers_needing_review: 0 });
+    expect(
+      projectClosureReadiness({
+        fund_status: 'OPEN',
+        current_balance: '0',
+        blockers: [{ kind: 'BANK_TRANSFERS_REVIEW', count: 2 }],
+        bank_transfers_needing_review: 2,
+      }),
+    ).toMatchObject({ ready: false, blockers: [{ kind: 'BANK_TRANSFERS_REVIEW', count: 2 }] });
+    expect(() =>
+      projectClosureReadiness({ fund_status: 'OPEN', current_balance: '0', bank_transfers_needing_review: -1 }),
+    ).toThrow();
+  });
+
   it('rejects unknown kinds and a ready flag that contradicts the blockers', () => {
     expect(() =>
       projectClosureReadiness({

@@ -13,6 +13,11 @@
       "document": "finance-bank-transfers.openapi.json"
     },
     {
+      "method": "POST",
+      "path": "/api/v1/funds/{id}/bank-transfers/{id}/resolve",
+      "document": "finance-bank-transfers.openapi.json"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/funds/{id}/closures",
       "document": "finance-closures.openapi.json"
@@ -755,19 +760,19 @@
   ],
   "sources": {
     "bank-directory-http.ts": "434cdaa8647b4cdc8eec07926bbd4d7d189a9b8931f8c9653df2dd9a57e1b75e",
-    "bank-webhook-http.ts": "a6e54948a7108e9a9490cd85c43fd6fd32c2dd2ca8b373b5630a08c3f6849db3",
-    "closure-http.ts": "d06b5f73033f087ed6dc5c9d6478afc461524ec3f5554a595d914d36f9c47394",
+    "bank-webhook-http.ts": "aad99fe14ddd854a1fac1d38aa6dcd3f143201c9cc35792ccc9bd06087800df4",
+    "closure-http.ts": "560a81a422774d1f4289653093e2bb4b0a2fc73dffa22ff37fa566de2fa1406c",
     "contribution-management-http.ts": "6173449cc59358a7a8d40c7e226facd45b2ea2e632cf1503751ed0eaa296a400",
     "contribution-request-http.ts": "e8f542a896aa7c2ef21b2372f18a4c293aaacc4f6a7d9a1ce3261529de48e353",
     "dress-code-image-http.ts": "73807adac2e250d82a172c69ba70ffef6643509a9f500c0f11bfd88df2508322",
     "expense-http.ts": "d85759333839eb195b70960ed8b5d63c56ea5e73c671819e6c89aa312cafdda0",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
-    "finance-proxy.ts": "13af861ab5635868fbce6812dd531d0d51c4cde6aba7d30f98dd3cdb346bc4c2",
+    "finance-proxy.ts": "4fc93bdaa75811fa74464a4a2a6873577f20ce35b83de15c0f00268a681d3598",
     "finance-receipt-http.ts": "5b2eb52dc9fc3cc3e5863ac901b1c23c51be0c6a0f2940283c66ac69aa4fc461",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "00431d6965eaba03ce5ec16468219005b5ce91da7faf937eb2f70be9076707c9",
     "identity-proxy.ts": "0c50ed98ea2813d07b9a0d26430cf8e888e7ca5186f47ad7693c24c7d31a2f4a",
-    "invitation-proxy.ts": "5206f10d9036c4f223f2d1eb629f4b7558deef21f3f655ed0bfe8cdeb206f8e0",
+    "invitation-proxy.ts": "c03e3df37e57e950c1b9408e3454322e592f85b5dfe279e692ec03f48509159c",
     "membership-proxy.ts": "dc907460ee56e0b4427dd3c40e2c15749fa6afe7719ecea1d8e6e0c8f689af9b",
     "notification-proxy.ts": "0e8ea8fc82c66f43953bc40f457ae7895c33f99883d9ea40cfc0824fe1841d55",
     "payment-http.ts": "e36d12ce5249aeebd599a281c1bf713c371d051e5971a243f1135c4cb11c1adc",

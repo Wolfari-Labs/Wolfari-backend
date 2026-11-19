@@ -630,6 +630,7 @@
               "REFUNDS_OPEN",
               "PAYMENTS_OPEN",
               "PAYMENT_WEBHOOKS_OPEN",
+              "BANK_TRANSFERS_REVIEW",
               "HOLDER_HANDOVER_OPEN"
             ]
           },
@@ -673,7 +674,7 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 2147483647,
-            "description": "Advisory only: bank transfers in NEEDS_REVIEW do not block a closure."
+            "description": "Bank transfers still in NEEDS_REVIEW; while above zero the BANK_TRANSFERS_REVIEW blocker is present and the Holder resolves them via POST /funds/{fund_id}/bank-transfers/{bank_transfer_id}/resolve."
           }
         }
       },

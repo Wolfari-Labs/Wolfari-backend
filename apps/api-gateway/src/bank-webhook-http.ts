@@ -8,8 +8,12 @@ import {
   ensureQuery,
   fail,
   grpcFailure,
+  idempotencyKey,
   json,
+  onlyKeys,
   RequestError,
+  requestBody,
+  requiredInteger,
   requiredString,
   responseRecord,
   timestampToIso,
@@ -18,12 +22,17 @@ import {
 } from './trip-http';
 
 type Request = IncomingMessage & { originalUrl?: string; body?: unknown };
-export type BankRoute = { kind: 'webhook'; provider: 'sepay' } | { kind: 'list'; fundId: string };
+export type BankRoute =
+  | { kind: 'webhook'; provider: 'sepay' }
+  | { kind: 'list'; fundId: string }
+  | { kind: 'resolve'; fundId: string; transferId: string };
 
 export function bankRoute(path: string): BankRoute | undefined {
   if (path === '/api/v1/webhooks/bank/sepay') return { kind: 'webhook', provider: 'sepay' };
   const list = /^\/api\/v1\/funds\/([^/]+)\/bank-transfers$/.exec(path);
-  return list ? { kind: 'list', fundId: list[1]! } : undefined;
+  if (list) return { kind: 'list', fundId: list[1]! };
+  const resolve = /^\/api\/v1\/funds\/([^/]+)\/bank-transfers\/([^/]+)\/resolve$/.exec(path);
+  return resolve ? { kind: 'resolve', fundId: resolve[1]!, transferId: resolve[2]! } : undefined;
 }
 
 const MAX_BODY = 64 * 1024;
@@ -202,7 +211,7 @@ const time = (value: unknown) =>
   value === undefined || value === null ? null : timestampToIso(value);
 export function projectBankTransfer(value: unknown) {
   const row = responseRecord(value);
-  if (!['MATCHED', 'UNMATCHED', 'NEEDS_REVIEW', 'IGNORED'].includes(String(row.processing_status)))
+  if (!['MATCHED', 'UNMATCHED', 'NEEDS_REVIEW', 'IGNORED', 'RESOLVED'].includes(String(row.processing_status)))
     throw new Error('Invalid bank transfer');
   const id = requiredString(row.id);
   if (!uuid.test(id)) throw new Error('Invalid bank transfer');
@@ -228,7 +237,90 @@ export function projectBankTransfer(value: unknown) {
     transaction_at: time(row.transaction_at),
     received_at: timestampToIso(row.received_at),
     processed_at: time(row.processed_at),
+    ...resolutionFields(row),
   };
+}
+
+export const BANK_TRANSFER_RESOLUTIONS = ['RETURNED_TO_SENDER', 'HANDLED_IN_APP', 'NOT_OURS'] as const;
+/** Resolution columns appear only, and always all together, on a RESOLVED transfer. */
+function resolutionFields(row: Record<string, unknown>) {
+  const resolved = row.processing_status === 'RESOLVED';
+  const present = [row.resolution, row.resolution_note, row.resolved_by_user_id, row.resolved_at].map(
+    (value) => value !== undefined && value !== null && value !== '',
+  );
+  if (present.some((value) => value !== resolved)) throw new Error('Invalid bank transfer resolution');
+  if (!resolved)
+    return { resolution: null, resolution_note: null, resolved_by_user_id: null, resolved_at: null };
+  const resolution = requiredString(row.resolution);
+  if (!(BANK_TRANSFER_RESOLUTIONS as readonly string[]).includes(resolution))
+    throw new Error('Invalid bank transfer resolution');
+  const resolver = requiredString(row.resolved_by_user_id);
+  if (!uuid.test(resolver)) throw new Error('Invalid bank transfer resolution');
+  return {
+    resolution,
+    resolution_note: requiredString(row.resolution_note),
+    resolved_by_user_id: resolver.toLowerCase(),
+    resolved_at: timestampToIso(row.resolved_at),
+  };
+}
+
+/** Holder marks a NEEDS_REVIEW transfer handled; the Idempotency-Key makes a retry return the same result. */
+export async function handleBankTransferResolve(
+  request: Request,
+  response: ServerResponse,
+  url: URL,
+  route: { fundId: string; transferId: string },
+  validateSession: SessionValidator,
+  client: Pick<FinanceClient, 'call'>,
+) {
+  if (request.method !== 'POST') return fail(response, 404, 'RESOURCE_NOT_FOUND');
+  const auth = await authenticate(request, response, validateSession, true);
+  if (!auth) return;
+  try {
+    ensureQuery(url, []);
+    if (!uuid.test(route.fundId) || !uuid.test(route.transferId))
+      throw new RequestError('Invalid bank transfer scope');
+    const operationId = idempotencyKey(request, true);
+    const body = await requestBody(request);
+    if (body === null || typeof body !== 'object' || Array.isArray(body))
+      throw new RequestError('Invalid body');
+    const input = body as Record<string, unknown>;
+    onlyKeys(input, ['resolution', 'note', 'expected_finance_version']);
+    if (!(BANK_TRANSFER_RESOLUTIONS as readonly string[]).includes(String(input.resolution)))
+      throw new RequestError('Invalid resolution');
+    if (
+      typeof input.note !== 'string' ||
+      !input.note.trim() ||
+      input.note.includes('\u0000') ||
+      [...input.note].length > 500
+    )
+      throw new RequestError('Invalid note');
+    const version = input.expected_finance_version;
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 1 || version > 2147483647)
+      throw new RequestError('Invalid version');
+    const result = await client.call(
+      'ResolveBankTransfer',
+      {
+        operation_id: operationId,
+        actor_user_id: auth.actorUserId,
+        fund_id: route.fundId.toLowerCase(),
+        bank_transfer_id: route.transferId.toLowerCase(),
+        resolution: input.resolution,
+        note: input.note,
+        expected_finance_version: version,
+      },
+      auth.correlationId,
+    );
+    const transfer = projectBankTransfer(result.bank_transfer);
+    if (transfer.id !== route.transferId.toLowerCase() || transfer.processing_status !== 'RESOLVED')
+      throw new Error('Bank transfer result mismatch');
+    // finance_version moved; clients reload the Fund after the write like every other command.
+    requiredInteger(result.finance_version);
+    return json(response, 200, { data: transfer, meta: { correlation_id: auth.correlationId } });
+  } catch (error) {
+    if (error instanceof RequestError) return fail(response, 400, 'VALIDATION_FAILED');
+    return grpcFailure(response, error, true);
+  }
 }
 
 export async function handleBankTransfers(

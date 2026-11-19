@@ -165,6 +165,13 @@ export class FundQueryService {
     return this.access(fund.tripId, readUuid(actor), correlation, deadline);
   }
 
+  /** Active member of an ACTIVE (not archived) Trip; role checks stay with the caller. */
+  async authorizeActiveFundWrite(fundId: string, actor: string, correlation: string, deadline: number) {
+    const fund = await this.funds.findScopeById(readUuid(fundId));
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    return this.access(fund.tripId, readUuid(actor), correlation, deadline, true);
+  }
+
   async authorizePaymentInstruction(
     fundId: string,
     actor: string,

@@ -80,6 +80,7 @@ service FinanceService {
   rpc CancelHolderHandover(CancelHolderHandoverRequest) returns (CancelHolderHandoverResponse);
   rpc ReceiveBankTransfer(ReceiveBankTransferRequest) returns (ReceiveBankTransferResponse);
   rpc ListBankTransfers(ListBankTransfersRequest) returns (ListBankTransfersResponse);
+  rpc ResolveBankTransfer(ResolveBankTransferRequest) returns (ResolveBankTransferResponse);
 }
 
 // Incoming bank transfers reported by an aggregation provider (SePay). Gateway verified the signature.
@@ -116,9 +117,27 @@ message BankTransferView {
   google.protobuf.Timestamp transaction_at = 12;
   google.protobuf.Timestamp received_at = 13;
   google.protobuf.Timestamp processed_at = 14;
+  optional string resolution = 15;
+  optional string resolution_note = 16;
+  optional string resolved_by_user_id = 17;
+  google.protobuf.Timestamp resolved_at = 18;
 }
 message ListBankTransfersRequest { string actor_user_id = 1; string fund_id = 2; }
 message ListBankTransfersResponse { repeated BankTransferView items = 1; }
+// Holder records how a NEEDS_REVIEW transfer was handled; no ledger or balance effect.
+message ResolveBankTransferRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string bank_transfer_id = 4;
+  string resolution = 5;
+  string note = 6;
+  int32 expected_finance_version = 7;
+}
+message ResolveBankTransferResponse {
+  BankTransferView bank_transfer = 1;
+  int32 finance_version = 2;
+}
 
 // Public Member audit metadata only; raw details and provider data are excluded.
 // Handover snapshots are business data; no bank credentials or receipt storage keys.

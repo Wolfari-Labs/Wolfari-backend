@@ -384,13 +384,15 @@ export const CLOSURE_BLOCKER_KINDS = [
   'REFUNDS_OPEN',
   'PAYMENTS_OPEN',
   'PAYMENT_WEBHOOKS_OPEN',
+  'BANK_TRANSFERS_REVIEW',
   'HOLDER_HANDOVER_OPEN',
 ] as const;
+// gRPC sends proto3 zero defaults, so 0 is a real count here (requiredInteger rejects it).
 const count = (value: unknown) => {
   if (value === undefined) return 0;
-  const result = requiredInteger(value);
-  if (result < 0 || result > 2147483647) throw new Error('Invalid readiness count');
-  return result;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 2147483647)
+    throw new Error('Invalid readiness count');
+  return value;
 };
 export function projectClosureReadiness(value: unknown) {
   const row = responseRecord(value);

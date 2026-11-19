@@ -271,6 +271,7 @@ message Invitation {
   google.protobuf.Timestamp resolved_at = 7;
   int32 version = 8;
   optional string code_hint = 9; // Last 4 characters of a LINK join code.
+  optional string invited_by_user_id = 10; // Lets an inviter manage the invitations they created.
 }
 message CreateInvitationRequest {
   string operation_id = 1;

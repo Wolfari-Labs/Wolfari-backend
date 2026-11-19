@@ -1,5 +1,5 @@
 import { handlePaymentInstruction } from './payment-instruction-http';
-import { bankRoute, handleBankTransfers, handleBankWebhook } from './bank-webhook-http';
+import { bankRoute, handleBankTransferResolve, handleBankTransfers, handleBankWebhook } from './bank-webhook-http';
 import { handoverRoute, handleHandover } from './handover-http';
 import { BANK_DIRECTORY_PATH, handleBankDirectory } from './bank-directory-http';
 import { expenseRoute, handleExpense } from './expense-http';
@@ -182,14 +182,16 @@ export class FinanceProxy {
     if (bank)
       return bank.kind === 'webhook'
         ? handleBankWebhook(request, response, url, this.client)
-        : handleBankTransfers(
-            request,
-            response,
-            url,
-            bank.fundId,
-            this.validateSession,
-            this.client,
-          );
+        : bank.kind === 'resolve'
+          ? handleBankTransferResolve(request, response, url, bank, this.validateSession, this.client)
+          : handleBankTransfers(
+              request,
+              response,
+              url,
+              bank.fundId,
+              this.validateSession,
+              this.client,
+            );
     const payment = paymentRoute(url.pathname);
     if (payment)
       return handlePayment(request, response, url, payment, this.validateSession, this.client);

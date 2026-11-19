@@ -970,6 +970,11 @@
             "type": ["string", "null"],
             "pattern": "^[0-9A-HJKMNP-TV-Z]{4}$",
             "description": "4 ký tự cuối của mã mời (chỉ LINK); null với EMAIL hoặc lời mời cũ."
+          },
+          "invited_by_user_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Người đã tạo lời mời; người này (hoặc Owner) được gửi lại/thu hồi."
           }
         },
         "required": [
@@ -981,7 +986,8 @@
           "expires_at",
           "resolved_at",
           "version",
-          "code_hint"
+          "code_hint",
+          "invited_by_user_id"
         ]
       },
       "Preview": {
