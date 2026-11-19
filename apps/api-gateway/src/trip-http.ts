@@ -4,7 +4,7 @@ import { currentCorrelationId } from '@wolfari/common';
 
 export type RpcMessage = Record<string, unknown>;
 
-export type Session = { user_id?: string; system_role?: number };
+export type Session = { user_id?: string; system_role?: number; session_family_id?: string };
 
 export type SessionValidator = (accessToken: string, correlationId: string) => Promise<Session>;
 
@@ -144,6 +144,8 @@ export function domainFailure(
         'export_revision',
         'invitation_version',
         'current_version',
+        'activity_count',
+        'dress_code_count',
       ] as const) {
         const value = details[key];
         if (Number.isSafeInteger(value) && Number(value) >= 1) revisions[key] = Number(value);
@@ -161,6 +163,8 @@ export function domainFailure(
 export function grpcFailure(response: ServerResponse, cause: unknown, write: boolean) {
   const error = cause as Partial<ServiceError>;
   const domain = domainFailure(cause);
+  if (domain?.code === 'PAYMENT_PROVIDER_NOT_CONFIGURED')
+    return fail(response, 503, 'PAYMENT_PROVIDER_NOT_CONFIGURED', { retryable: false });
   if (domain?.code === 'VALIDATION_FAILED') return fail(response, 400, 'VALIDATION_FAILED');
   if (domain?.code === 'UNAUTHENTICATED') return fail(response, 401, 'UNAUTHENTICATED');
   if (domain?.code === 'PERMISSION_DENIED') return fail(response, 403, 'PERMISSION_DENIED');
@@ -270,7 +274,7 @@ export async function authenticate(
   response: ServerResponse,
   validateSession: SessionValidator,
   write: boolean,
-): Promise<{ actorUserId: string; correlationId: string } | null> {
+): Promise<{ actorUserId: string; correlationId: string; sessionFamilyId?: string } | null> {
   const authorization = request.headers.authorization;
   const bearer = typeof authorization === 'string' ? /^Bearer ([^\s]+)$/.exec(authorization) : null;
   if (!bearer) {
@@ -283,11 +287,16 @@ export async function authenticate(
     return null;
   }
   let actorUserId: string;
+  let sessionFamilyId: string | undefined;
   try {
     const session = await validateSession(bearer[1]!, correlationId);
     if (typeof session.user_id !== 'string' || !uuid.test(session.user_id))
       throw new Error('Invalid Identity response');
     actorUserId = session.user_id.toLowerCase();
+    if (session.session_family_id !== undefined) {
+      if (!uuid.test(session.session_family_id)) throw new Error("Invalid Identity session binding");
+      sessionFamilyId = session.session_family_id.toLowerCase();
+    }
   } catch (cause) {
     const code = (cause as { code?: number }).code;
     if (code === status.UNAUTHENTICATED) {
@@ -301,5 +310,5 @@ export async function authenticate(
     return null;
   }
 
-  return { actorUserId, correlationId };
+  return { actorUserId, correlationId, ...(sessionFamilyId ? { sessionFamilyId } : {}) };
 }

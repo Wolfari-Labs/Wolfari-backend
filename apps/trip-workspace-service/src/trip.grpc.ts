@@ -1,3 +1,8 @@
+import { TripManagementService } from './trip-management.service';
+import { PlanPdfService } from './plan-pdf.service';
+import { DressCodeImageService } from './planning/dress-code-image.service';
+import { TripCoverService } from './trip-cover.service';
+import { PlanItemsService } from './planning/plan-items.service';
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { LocationService } from './planning/location.service';
 import { LifecycleService } from './operations/lifecycle.service';
@@ -83,7 +88,10 @@ function protobufTrip(value: TripView): TripV1.Trip {
     permissions: {
       can_read: value.permissions.includes('TRIP_VIEW'),
       can_update: value.permissions.includes('TRIP_UPDATE_METADATA'),
+      can_invite: value.permissions.includes('TRIP_INVITE'),
     },
+    budget_amount: value.budget_amount ?? undefined,
+    cover_image_available: value.cover_image_available,
   };
 }
 
@@ -138,6 +146,11 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly financeOperations: FinanceOperationService,
     private readonly memberProfiles: MemberProfilesService,
     private readonly locations: LocationService,
+    private readonly planItems?: PlanItemsService,
+    private readonly management?: TripManagementService,
+    private readonly pdf?: PlanPdfService,
+    private readonly dressImages?: DressCodeImageService,
+    private readonly covers?: TripCoverService,
   ) {}
 
   saveSelectedLocation(request: TripV1.SaveSelectedLocationRequest, metadata?: Metadata) {
@@ -172,6 +185,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
           startAt: timestamp(request.start_at),
           endAt: timestamp(request.end_at),
           timezone: request.timezone,
+          budgetAmount: request.budget_amount,
           correlationId,
         }),
       ),
@@ -220,6 +234,11 @@ export class TripGrpcController implements TripV1.TripServiceController {
       if (request.public_description !== undefined) {
         fields.public_description = patchValue(request.public_description);
       }
+      if (request.start_at !== undefined) fields.start_at = timestamp(request.start_at);
+      if (request.end_at !== undefined) fields.end_at = timestamp(request.end_at);
+      if (request.timezone !== undefined) fields.timezone = request.timezone;
+      if (request.budget_amount !== undefined)
+        fields.budget_amount = patchValue(request.budget_amount);
       return {
         trip: protobufTrip(
           await this.trips.update({
@@ -233,6 +252,37 @@ export class TripGrpcController implements TripV1.TripServiceController {
           }),
         ),
       };
+    });
+  }
+
+  mutatePlanItem(
+    request: TripV1.MutatePlanItemRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.MutatePlanItemResponse> {
+    const correlation = this.authorize('MutatePlanItem', metadata);
+    return this.execute(async () => {
+      if (!this.planItems) throw new Error('Plan collection service missing');
+      const result = await this.planItems.mutate(request, correlation);
+      return {
+        version: result.version,
+        item_json: result.item ? JSON.stringify(result.item) : undefined,
+      };
+    });
+  }
+
+  manageTrip(request: TripV1.ManageTripRequest, metadata?: Metadata) {
+    const correlation = this.authorize('ManageTrip', metadata);
+    return this.execute(async () => {
+      if (!this.management) throw Error('Trip management unavailable');
+      return { result_json: JSON.stringify(await this.management.execute(request, correlation)) };
+    });
+  }
+
+  exportPlanPdf(request: TripV1.ExportPlanPdfRequest, metadata?: Metadata) {
+    this.authorize('ExportPlanPdf', metadata);
+    return this.execute(async () => {
+      if (!this.pdf) throw Error('PDF unavailable');
+      return this.pdf.export(request);
     });
   }
 
@@ -351,6 +401,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     this.authorize('GetOperationResult', metadata);
     return this.execute(async () => ({
       operation:
+        (await this.management?.operationResult(request.operation_id, request.actor_user_id)) ??
         (await this.financeOperations.getOperation(request.operation_id, request.actor_user_id)) ??
         (await this.lifecycle.getOperation(request.operation_id, request.actor_user_id)),
     }));
@@ -398,8 +449,12 @@ export class TripGrpcController implements TripV1.TripServiceController {
     }));
   }
 
-  getAutomationContext(): TripV1.GetAutomationContextResponse {
-    return this.unimplemented();
+  getAutomationContext(request: TripV1.GetAutomationContextRequest, metadata?: Metadata) {
+    this.authorize('GetAutomationContext', metadata);
+    return this.execute(async () => {
+      if (!this.management) throw Error('Reminder context unavailable');
+      return this.management.reminderContext(request);
+    });
   }
 
   getInvitationDelivery(
@@ -503,6 +558,43 @@ export class TripGrpcController implements TripV1.TripServiceController {
     );
   }
 
+  uploadDressCodeImage(request: TripV1.UploadDressCodeImageRequest, metadata?: Metadata): Promise<TripV1.UploadDressCodeImageResponse> {
+    this.authorize('UploadDressCodeImage', metadata);
+    return this.execute(async () => {
+      if (!this.dressImages) throw Error('Image service unavailable');
+      return this.dressImages.upload(request.trip_id ?? '', request.actor_user_id ?? '', request.content ?? new Uint8Array(), request.mime_type ?? '');
+    });
+  }
+  getDressCodeImage(request: TripV1.GetDressCodeImageRequest, metadata?: Metadata): Promise<TripV1.GetDressCodeImageResponse> {
+    this.authorize('GetDressCodeImage', metadata);
+    return this.execute(async () => {
+      if (!this.dressImages) throw Error('Image service unavailable');
+      return this.dressImages.download(request.trip_id ?? '', request.actor_user_id ?? '', request.dress_code_id ?? '');
+    });
+  }
+  uploadTripCover(request: TripV1.UploadTripCoverRequest, metadata?: Metadata): Promise<TripV1.UploadTripCoverResponse> {
+    this.authorize('UploadTripCover', metadata);
+    return this.execute(async () => {
+      if (!this.covers) throw Error('Cover service unavailable');
+      await this.covers.upload(request.trip_id ?? '', request.actor_user_id ?? '', request.content ?? new Uint8Array(), request.mime_type ?? '');
+      return { trip: protobufTrip(await this.trips.get(request.actor_user_id, request.trip_id)) };
+    });
+  }
+  getTripCover(request: TripV1.GetTripCoverRequest, metadata?: Metadata): Promise<TripV1.GetTripCoverResponse> {
+    this.authorize('GetTripCover', metadata);
+    return this.execute(async () => {
+      if (!this.covers) throw Error('Cover service unavailable');
+      return this.covers.download(request.trip_id ?? '', request.actor_user_id ?? '');
+    });
+  }
+  deleteTripCover(request: TripV1.DeleteTripCoverRequest, metadata?: Metadata): Promise<TripV1.DeleteTripCoverResponse> {
+    this.authorize('DeleteTripCover', metadata);
+    return this.execute(async () => {
+      if (!this.covers) throw Error('Cover service unavailable');
+      await this.covers.remove(request.trip_id ?? '', request.actor_user_id ?? '');
+      return { trip: protobufTrip(await this.trips.get(request.actor_user_id, request.trip_id)) };
+    });
+  }
   getExportWorkerContext(): TripV1.GetExportWorkerContextResponse {
     return this.unimplemented();
   }

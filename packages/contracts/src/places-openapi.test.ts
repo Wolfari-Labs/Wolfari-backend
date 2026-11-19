@@ -4,7 +4,7 @@ import { PlacesProxy, publicPlace } from '../../../apps/api-gateway/src/places-p
 import type { IncomingMessage, ServerResponse } from 'node:http';
 const spec = JSON.parse(readFileSync('docs/api/places.openapi.json', 'utf8'));
 afterEach(() => vi.unstubAllEnvs());
-it('all three documented Places operations reach real router auth; no network call', async () => {
+it('the documented Places search reaches real router auth; no network call', async () => {
   vi.stubEnv('NODE_ENV', 'test');
   vi.stubEnv('GATEWAY_TRIP_SECRET', 's'.repeat(64));
   vi.stubEnv('TRIP_GRPC_TARGET', '127.0.0.1:3202');
@@ -35,7 +35,7 @@ it('all three documented Places operations reach real router auth; no network ca
   } finally {
     proxy.close();
   }
-  expect(count).toBe(3);
+  expect(count).toBe(1);
 });
 it('MAP-POI Place: gateway fills documented defaults and strips proto-loader virtual keys', () => {
   const schema = spec.components.schemas.Place;

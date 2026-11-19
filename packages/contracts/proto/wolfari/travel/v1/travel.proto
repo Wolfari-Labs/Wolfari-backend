@@ -29,11 +29,13 @@ message ProviderMetadata {
   bool stale = 4;
   bool is_mock = 5;
   repeated string warnings = 6;
+  repeated ProviderAttribution attribution = 7;
   // POI-OVERTURE (Places search only): active POI snapshot and its data release.
-  string snapshot_id = 7;
-  string data_release = 8;
-  bool bbox_truncated = 9; // More POIs in the map frame than `limit`.
+  string snapshot_id = 8;
+  string data_release = 9;
+  bool bbox_truncated = 10; // More POIs in the map frame than `limit`.
 }
+message ProviderAttribution { string text = 1; string url = 2; }
 message Place {
   string id = 1; // External provider ID, not a Wolfari UUID.
   string name = 2;

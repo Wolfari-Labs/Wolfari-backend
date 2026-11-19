@@ -297,9 +297,10 @@ export class NotificationProxy {
         });
       }
       if (route.kind === 'register-device') {
+        if (!auth.sessionFamilyId) return fail(response, 503, 'SERVICE_UNAVAILABLE');
         const result = await this.client.call<RpcMessage, RpcMessage>(
           'RegisterDevice',
-          { actor_user_id: auth.actorUserId, ...deviceInput(await requestBody(request)) },
+          { actor_user_id: auth.actorUserId, session_family_id: auth.sessionFamilyId, ...deviceInput(await requestBody(request)) },
           auth.correlationId,
         );
         return json(response, 200, {

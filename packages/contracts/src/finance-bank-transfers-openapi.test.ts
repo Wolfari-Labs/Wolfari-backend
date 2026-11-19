@@ -15,8 +15,8 @@ const schema = (name: string) =>
 const id = '10000000-0000-4000-8000-000000000001';
 
 describe('Bank transfers OpenAPI', () => {
-  it('documents the webhook and the Holder read, resolving every local reference', () => {
-    expect(Object.keys(document.paths)).toHaveLength(2);
+  it('documents the webhook, the Holder read and resolve, resolving every local reference', () => {
+    expect(Object.keys(document.paths)).toHaveLength(3);
     const walk = (value: unknown): void => {
       if (!value || typeof value !== 'object') return;
       if ('$ref' in value) {
@@ -56,6 +56,25 @@ describe('Bank transfers OpenAPI', () => {
     });
     expect(validate(value), JSON.stringify(validate.errors)).toBe(true);
     expect(validate({ ...value, account_number: '0001234567' })).toBe(false);
+    const resolved = projectBankTransfer({
+      ...value,
+      transaction_at: { seconds: '1792000000', nanos: 0 },
+      received_at: { seconds: '1792000001', nanos: 0 },
+      processed_at: { seconds: '1792000001', nanos: 0 },
+      contribution_id: undefined,
+      review_reason: 'AMOUNT_MISMATCH',
+      processing_status: 'RESOLVED',
+      resolution: 'RETURNED_TO_SENDER',
+      resolution_note: 'Đã chuyển trả 300.000 đ',
+      resolved_by_user_id: id,
+      resolved_at: { seconds: '1792000100', nanos: 0 },
+    });
+    expect(validate(resolved), JSON.stringify(validate.errors)).toBe(true);
+    expect(() => projectBankTransfer({ ...value, transaction_at: undefined, received_at: { seconds: '1', nanos: 0 }, processed_at: undefined, resolution: 'NOT_OURS' })).toThrow();
+    const input = schema('ResolveBankTransferInput');
+    expect(input({ resolution: 'NOT_OURS', note: 'Chuyển nhầm', expected_finance_version: 3 })).toBe(true);
+    expect(input({ resolution: 'GUESS', note: 'x', expected_finance_version: 3 })).toBe(false);
+    expect(input({ resolution: 'NOT_OURS', note: '', expected_finance_version: 3 })).toBe(false);
     const payload = schema('SepayTransaction');
     expect(
       payload({

@@ -46,8 +46,30 @@ function invitation(value: unknown) {
     version: requiredInteger(row.version),
     expires_at: timestampToIso(row.expires_at),
     resolved_at: row.resolved_at ? timestampToIso(row.resolved_at) : null,
+    code_hint:
+      row.code_hint === undefined
+        ? null
+        : /^[0-9A-HJKMNP-TV-Z]{4}$/.test(String(row.code_hint))
+          ? String(row.code_hint)
+          : (() => {
+              throw new Error('Invalid code hint');
+            })(),
+    invited_by_user_id:
+      row.invited_by_user_id === undefined ? null : requiredString(row.invited_by_user_id),
   };
 }
+/** Normalized 8-character join code (Crockford base32), or undefined. */
+export function joinCode(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > 32) return undefined;
+  const code = value
+    .toUpperCase()
+    .replace(/[\s-]/g, '')
+    .replace(/O/g, '0')
+    .replace(/[IL]/g, '1');
+  return /^[0-9A-HJKMNP-TV-Z]{8}$/.test(code) ? code : undefined;
+}
+const CODE_WINDOW_MS = 15 * 60_000;
+const CODE_FAILURES = 10;
 function preview(value: Message) {
   if (!states.includes(String(value.status))) throw new Error('Invalid preview response');
   return {
@@ -61,6 +83,8 @@ function preview(value: Message) {
 
 export class InvitationProxy {
   private readonly client: TripClient;
+  /** Wrong join codes per user; short codes must not be guessable by repeated tries. */
+  private readonly codeFailures = new Map<string, { count: number; until: number }>();
   constructor(
     private readonly validateSession: (
       token: string,
@@ -118,6 +142,7 @@ export class InvitationProxy {
         { retryable: (cause as { code?: number }).code !== status.UNAUTHENTICATED, write },
       );
     }
+    let usedCode = false;
     try {
       const rpc: Message = { actor_user_id: actor };
       let method: string;
@@ -144,10 +169,22 @@ export class InvitationProxy {
         const body = await requestBody(request);
         if (write) rpc.operation_id = idempotencyKey(request, true);
         if (tokenRoute) {
-          onlyKeys(body, ['token']);
-          if (typeof body.token !== 'string' || !/^inv1_[A-Za-z0-9_-]{43}$/.test(body.token))
-            throw new RequestError('Invalid token');
-          rpc.token = body.token;
+          onlyKeys(body, ['token', 'code']);
+          if (Object.hasOwn(body, 'code')) {
+            if (Object.hasOwn(body, 'token')) throw new RequestError('Token or code');
+            const code = joinCode(body.code);
+            if (!code) throw new RequestError('Invalid code');
+            const now = Date.now();
+            const failures = this.codeFailures.get(actor);
+            if (failures && failures.until > now && failures.count >= CODE_FAILURES)
+              return fail(response, 429, 'RESOURCE_EXHAUSTED', { retryable: true, write });
+            usedCode = true;
+            rpc.token = code;
+          } else {
+            if (typeof body.token !== 'string' || !/^inv1_[A-Za-z0-9_-]{43}$/.test(body.token))
+              throw new RequestError('Invalid token');
+            rpc.token = body.token;
+          }
           method = {
             preview: 'PreviewInvitation',
             accept: 'AcceptInvitation',
@@ -181,7 +218,23 @@ export class InvitationProxy {
           method = 'CreateInvitation';
         }
       }
-      const result = await this.client.call<Message, Message>(method, rpc, correlation);
+      let result: Message;
+      try {
+        result = await this.client.call<Message, Message>(method, rpc, correlation);
+      } catch (cause) {
+        if (usedCode && (cause as { code?: number }).code === status.NOT_FOUND) {
+          const now = Date.now();
+          const previous = this.codeFailures.get(actor);
+          const current =
+            previous && previous.until > now ? previous : { count: 0, until: now + CODE_WINDOW_MS };
+          current.count++;
+          this.codeFailures.set(actor, current);
+          if (this.codeFailures.size > 10_000)
+            for (const [key, value] of this.codeFailures)
+              if (value.until <= now) this.codeFailures.delete(key);
+        }
+        throw cause;
+      }
       let data: unknown;
       if (method === 'ListInvitations') {
         if (result.items !== undefined && !Array.isArray(result.items))
@@ -208,6 +261,15 @@ export class InvitationProxy {
           ...(result.one_time_link === undefined
             ? {}
             : { one_time_link: requiredString(result.one_time_link) }),
+          ...(result.join_code === undefined
+            ? {}
+            : {
+                join_code: /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(String(result.join_code))
+                  ? String(result.join_code)
+                  : (() => {
+                      throw new Error('Invalid join code');
+                    })(),
+              }),
         };
       return json(response, method === 'CreateInvitation' ? 201 : 200, {
         data,

@@ -1,3 +1,4 @@
+import { ReminderService } from '../delivery/reminder.service';
 import { Controller } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { status, type Metadata } from '@grpc/grpc-js';
@@ -184,6 +185,7 @@ export class PriceWatchGrpcController implements AutomationV1.AutomationServiceC
     private readonly service: PriceWatchService,
     private readonly notifications: NotificationService,
     private readonly config: ConfigService,
+    private readonly reminders?: ReminderService,
   ) {}
 
   private authorize(method: string, metadata?: Metadata): string {
@@ -229,6 +231,30 @@ export class PriceWatchGrpcController implements AutomationV1.AutomationServiceC
         message: JSON.stringify({ code: 'SERVICE_UNAVAILABLE', details: null }),
       });
     }
+  }
+
+  listReminders(request: AutomationV1.ListRemindersRequest, metadata?: Metadata) {
+    const correlation = this.authorize('ListReminders', metadata);
+    return this.execute(async () => {
+      if (!this.reminders) throw Error('Reminders unavailable');
+      return { result_json: JSON.stringify(await this.reminders.list(request, correlation)) };
+    });
+  }
+
+  createReminder(request: AutomationV1.CreateReminderRequest, metadata?: Metadata) {
+    const correlation = this.authorize('CreateReminder', metadata);
+    return this.execute(async () => {
+      if (!this.reminders) throw Error('Reminders unavailable');
+      return { result_json: JSON.stringify(await this.reminders.create(request, correlation)) };
+    });
+  }
+
+  cancelReminder(request: AutomationV1.CancelReminderRequest, metadata?: Metadata) {
+    const correlation = this.authorize('CancelReminder', metadata);
+    return this.execute(async () => {
+      if (!this.reminders) throw Error('Reminders unavailable');
+      return { result_json: JSON.stringify(await this.reminders.cancel(request, correlation)) };
+    });
   }
 
   getNotificationPreferences(

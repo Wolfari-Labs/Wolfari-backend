@@ -17,11 +17,11 @@ export async function runLocationScenarios({request,query,bearer,tripBody,pass,o
   };
   await query('trip',"INSERT INTO trip_members(trip_id,user_id,role,joined_at) VALUES($1,$2,'MEMBER',now())",[trip.id,member.id]);
   await query('trip',"UPDATE trips SET plan_edit_policy='OWNER_ONLY' WHERE id=$1",[trip.id]);
-  status(await send('POST','/selected-locations',{name:'manual',latitude:16,longitude:108},member),403);
-  status(await send('POST','/selected-locations',{name:'manual',latitude:16,longitude:108},outsider),404);
-  status(await send('POST','/selected-locations',{name:'manual',latitude:'16',longitude:108}),400);
-  status(await send('POST','/selected-locations',{name:'manual',latitude:16,longitude:108},owner,randomUUID(),'1'),400);
-  const key=randomUUID(),initial=version,manual={name:'Manual pin',latitude:16.0544,longitude:108.2022};
+  status(await send('POST','/selected-locations',{name:'manual',latitude:'16.000000',longitude:'108.000000'},member),403);
+  status(await send('POST','/selected-locations',{name:'manual',latitude:'16.000000',longitude:'108.000000'},outsider),404);
+  status(await send('POST','/selected-locations',{name:'manual',latitude:'91',longitude:'108.000000'}),400);
+  status(await send('POST','/selected-locations',{name:'manual',latitude:'16.000000',longitude:'108.000000'},owner,randomUUID(),'1'),400);
+  const key=randomUUID(),initial=version,manual={name:'Manual pin',latitude:'16.054400',longitude:'108.202200'};
   const first=await send('POST','/selected-locations',manual,owner,key,initial);status(first,201);
   const replay=await send('POST','/selected-locations',manual,owner,key,initial);status(replay,201);assert.deepEqual(first.body.data,replay.body.data);
   status(await send('POST','/selected-locations',{...manual,name:'changed'},owner,key,initial),409);
@@ -42,7 +42,7 @@ export async function runLocationScenarios({request,query,bearer,tripBody,pass,o
   status(await send('DELETE',`/selected-locations/${location}`),409);
   const refreshed=await request(base+'/plan','GET',undefined,bearer(owner));
   assert.equal(refreshed.body.data.activities[0].selected_location_id,location);
-  status(await send('DELETE',`/selected-locations/${first.body.data.location_id}`),200);
+  status(await send('DELETE',`/selected-locations/${first.body.data.id}`),200);
   pass('locations: signed provider snapshot, 600-char ID, duplicate dedup, attach/reload and delete-used conflict');
   // MAP-POI: curated Wolfari catalogue token (provider_place_id = wolfari_key).
   const curated={actor:owner.id,trip:trip.id,expires:Date.now()+60000,place:{provider:'WOLFARI',provider_place_id:'dn-cho-han',name:'Chợ Hàn',address:'',latitude:16.068352,longitude:108.224283,categories:['market'],fetched_at:new Date().toISOString(),attribution:'© OpenStreetMap contributors'}};

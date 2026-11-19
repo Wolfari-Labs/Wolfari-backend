@@ -1,13 +1,19 @@
 import { handlePaymentInstruction } from './payment-instruction-http';
-import { bankRoute, handleBankTransfers, handleBankWebhook } from './bank-webhook-http';
+import { bankRoute, handleBankTransferResolve, handleBankTransfers, handleBankWebhook } from './bank-webhook-http';
 import { handoverRoute, handleHandover } from './handover-http';
 import { BANK_DIRECTORY_PATH, handleBankDirectory } from './bank-directory-http';
 import { expenseRoute, handleExpense } from './expense-http';
 import { financialNoteRoute, handleFinancialNote } from './financial-note-http';
 import { refundRoute, handleRefund } from './refund-http';
-import { closureRoute, handleClosure } from './closure-http';
+import {
+  closureReadinessRoute,
+  closureRoute,
+  handleClosure,
+  handleClosureReadiness,
+} from './closure-http';
 import { FinanceReceiptHttp, receiptRoute } from './finance-receipt-http';
 import { handlePayment, paymentRoute } from './payment-http';
+import { qrPaymentRoute, handleQrPayment } from './qr-payment-http';
 import {
   contributionManagementRoute,
   handleContributionManagement,
@@ -139,6 +145,7 @@ export class FinanceProxy {
   matches(request: Request) {
     const path = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname;
     return (
+      qrPaymentRoute(path) !== undefined ||
       path === BANK_DIRECTORY_PATH ||
       /^\/api\/v1\/trips\/[^/]+\/fund(?:\/|$)/.test(path) ||
       /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path) ||
@@ -153,6 +160,9 @@ export class FinanceProxy {
   }
   async handle(request: Request, response: ServerResponse) {
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+    const qrTrip = qrPaymentRoute(url.pathname);
+    if (qrTrip)
+      return handleQrPayment(request, response, url, qrTrip, this.validateSession, this.client);
     const handover = handoverRoute(url.pathname);
     if (handover)
       return handleHandover(request, response, url, handover, this.validateSession, this.client);
@@ -172,17 +182,29 @@ export class FinanceProxy {
     if (bank)
       return bank.kind === 'webhook'
         ? handleBankWebhook(request, response, url, this.client)
-        : handleBankTransfers(
-            request,
-            response,
-            url,
-            bank.fundId,
-            this.validateSession,
-            this.client,
-          );
+        : bank.kind === 'resolve'
+          ? handleBankTransferResolve(request, response, url, bank, this.validateSession, this.client)
+          : handleBankTransfers(
+              request,
+              response,
+              url,
+              bank.fundId,
+              this.validateSession,
+              this.client,
+            );
     const payment = paymentRoute(url.pathname);
     if (payment)
       return handlePayment(request, response, url, payment, this.validateSession, this.client);
+    const readinessFund = closureReadinessRoute(url.pathname);
+    if (readinessFund)
+      return handleClosureReadiness(
+        request,
+        response,
+        url,
+        readinessFund,
+        this.validateSession,
+        this.client,
+      );
     const closure = closureRoute(url.pathname);
     if (closure)
       return handleClosure(request, response, url, closure, this.validateSession, this.client);

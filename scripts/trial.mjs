@@ -90,9 +90,12 @@ export async function initTrial(directory) {
         TRAVELPAYOUTS_VND_VERIFIED: 'false',
         AUTOMATION_FINANCE_NOTIFICATION_ENABLED: 'false',
       });
-    if (['identity-service', 'finance-service'].includes(app.name)) {
-      values.MINIO_ACCESS_KEY =
-        app.name === 'identity-service' ? 'wolfari_identity' : 'wolfari_finance';
+    if (['identity-service', 'finance-service', 'trip-workspace-service'].includes(app.name)) {
+      values.MINIO_ACCESS_KEY = {
+        'identity-service': 'wolfari_identity',
+        'finance-service': 'wolfari_finance',
+        'trip-workspace-service': 'wolfari_trip',
+      }[app.name];
       values.MINIO_SECRET_KEY = randomBytes(32).toString('hex');
     }
     await writeEnv(path, values);

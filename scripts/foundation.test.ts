@@ -36,7 +36,7 @@ describe('development configuration', () => {
       expect(appEnvironment(app, {}, { [key]: 'true' })).not.toHaveProperty(key);
     }
   });
-  it('forwards private storage configuration only to Identity and Finance', () => {
+  it('forwards private storage configuration only to Identity, Trip and Finance', () => {
     const values = {
       MINIO_ENDPOINT: '127.0.0.1:9000',
       MINIO_ACCESS_KEY: 'test',
@@ -46,7 +46,7 @@ describe('development configuration', () => {
       const result = appEnvironment(app, values, {});
       for (const key of Object.keys(values))
         expect(result[key]).toBe(
-          ['identity-service', 'finance-service'].includes(app.name)
+          ['identity-service', 'trip-workspace-service', 'finance-service'].includes(app.name)
             ? values[key as keyof typeof values]
             : undefined,
         );
@@ -242,14 +242,16 @@ describe('development configuration', () => {
         (await migrationFiles(service)).map((file: { version: string }) => file.version),
       ).toEqual(
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008', 'V009']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003', 'V004']
+            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
             : service === 'finance'
-              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
-              : service === 'travel'
-                ? ['V001', 'V002', 'V003', 'V004', 'V005']
-                : ['V001'],
+              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
+              : service === 'identity'
+                ? ['V001', 'V002']
+                : service === 'travel'
+                  ? ['V001', 'V002', 'V003', 'V004', 'V005']
+                  : ['V001'],
       );
     }
   });

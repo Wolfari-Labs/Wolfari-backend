@@ -4,6 +4,9 @@ package wolfari.automation.v1;
 import "google/protobuf/timestamp.proto";
 
 service AutomationService {
+  rpc CancelReminder(CancelReminderRequest) returns (CancelReminderResponse);
+  rpc CreateReminder(CreateReminderRequest) returns (CreateReminderResponse);
+  rpc ListReminders(ListRemindersRequest) returns (ListRemindersResponse);
   rpc GetNotificationPreferences(GetNotificationPreferencesRequest) returns (GetNotificationPreferencesResponse);
   rpc UpdateNotificationPreferences(UpdateNotificationPreferencesRequest) returns (UpdateNotificationPreferencesResponse);
   rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
@@ -89,6 +92,7 @@ message RegisterDeviceRequest {
   string actor_user_id = 1;
   DevicePlatform platform = 2;
   string token = 3;
+  optional string session_family_id = 4; // Gateway supplies this from Identity, never from the HTTP body.
 }
 
 message DeleteDeviceRequest {
@@ -279,3 +283,21 @@ message ListPriceObservationsResponse {
   optional string next_check_at = 6;
   optional string last_check_status = 7;
 }
+
+message ListRemindersRequest { string actor_user_id = 1; string trip_id = 2; }
+message ListRemindersResponse { string result_json = 1; }
+message CreateReminderRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+  string operation_id = 3;
+  string source_type = 5;
+  string source_id = 6;
+  string remind_at = 7;
+}
+message CreateReminderResponse { string result_json = 1; }
+message CancelReminderRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+  string reminder_id = 4;
+}
+message CancelReminderResponse { string result_json = 1; }

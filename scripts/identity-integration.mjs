@@ -68,6 +68,12 @@ async function mail(recipient, subjectFragment, afterCount = 0) {
   }, 30000);
 }
 
+function codeFromMail(text) {
+  const match = text.match(/: ([0-9]{6})\r?\n/);
+  assert(match, 'email has a 6-digit code');
+  return match[1];
+}
+
 function tokenFromMail(text) {
   const match = text.match(/https?:\/\/[^\s]+/);
   assert(match, 'email has a local link');
@@ -343,6 +349,34 @@ async function main() {
   assert.equal(changed.status, 200);
   assert.equal((await request('/api/v1/me', 'GET', undefined, beforeResetAuth)).status, 401);
   pass('generic reset response, single-use reset, old session/password revoked');
+
+  // Typed 6-digit codes on a separate account, so the sessions/password used below stay intact:
+  // bound to email + purpose, single use, burned after five misses.
+  const codeEmail = `code-${randomUUID()}@example.test`;
+  assert.equal((await request('/api/v1/auth/register', 'POST', { email: codeEmail, password: originalPassword, full_name: 'Code Test' })).status, 202);
+  const verifyCode = codeFromMail(await mail(codeEmail, 'Xác minh'));
+  assert.equal((await request('/api/v1/auth/email-verifications/confirm', 'POST', { email: codeEmail, code: verifyCode })).status, 200);
+  const verifiedByCode = await request('/api/v1/auth/login', 'POST', { email: codeEmail, password: originalPassword }, mobileHeaders);
+  assert.notEqual(verifiedByCode.body.data.profile.email_verified_at, null);
+  assert.equal((await request('/api/v1/auth/password-reset-requests', 'POST', { email: codeEmail })).status, 202);
+  const resetCode = codeFromMail(await mail(codeEmail, 'Đặt lại'));
+  const wrongCode = resetCode === '000000' ? '000001' : '000000';
+  const codePassword = 'Code1234';
+  assert.equal((await request('/api/v1/auth/password-resets', 'POST', { email: codeEmail, code: wrongCode, new_password: codePassword })).status, 400);
+  assert.equal((await request('/api/v1/auth/password-resets', 'POST', { email: `missing-${randomUUID()}@example.test`, code: resetCode, new_password: codePassword })).status, 400);
+  assert.equal((await request('/api/v1/auth/password-resets', 'POST', { email: codeEmail, token: resetCode, code: resetCode, new_password: codePassword })).status, 400);
+  assert.equal((await request('/api/v1/auth/email-verifications/confirm', 'POST', { email: codeEmail, code: resetCode })).status, 400);
+  assert.equal((await request('/api/v1/auth/password-resets', 'POST', { email: ` ${codeEmail.toUpperCase()} `, code: resetCode, new_password: codePassword })).status, 200);
+  assert.equal((await request('/api/v1/auth/password-resets', 'POST', { email: codeEmail, code: resetCode, new_password: codePassword })).status, 400);
+  assert.equal((await request('/api/v1/auth/login', 'POST', { email: codeEmail, password: codePassword }, mobileHeaders)).status, 200);
+  assert.equal((await request('/api/v1/auth/password-reset-requests', 'POST', { email: codeEmail })).status, 202);
+  const lockedCode = codeFromMail(await mail(codeEmail, 'Đặt lại', 1));
+  const miss = lockedCode === '000000' ? '000001' : '000000';
+  for (let attempt = 0; attempt < 5; attempt++)
+    assert.equal((await request('/api/v1/auth/password-resets', 'POST', { email: codeEmail, code: miss, new_password: 'Locked123' })).status, 400);
+  assert.equal((await request('/api/v1/auth/password-resets', 'POST', { email: codeEmail, code: lockedCode, new_password: 'Locked123' })).status, 400);
+  assert.equal((await query('identity', "SELECT failed_attempts,revoked_at IS NOT NULL AS revoked FROM one_time_tokens WHERE user_id=(SELECT id FROM users WHERE email=$1) AND purpose='RESET_PASSWORD' ORDER BY created_at DESC LIMIT 1", [codeEmail]))[0].revoked, true);
+  pass('email + 6-digit code: verify and reset, uniform 400s, single use, five-miss lockout');
 
   const changeAuth = { ...mobileHeaders, authorization: `Bearer ${changed.body.data.access_token}` };
   const finalPassword = 'Change12';

@@ -501,14 +501,16 @@ async function main() {
       assert.deepEqual(
         await history(client, files[service]),
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008', 'V009']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003', 'V004']
+            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
             : service === 'finance'
-              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
-              : service === 'travel'
-                ? ['V001', 'V002', 'V003', 'V004', 'V005']
-                : ['V001'],
+              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
+              : service === 'identity'
+                ? ['V001', 'V002']
+                : service === 'travel'
+                  ? ['V001', 'V002', 'V003', 'V004', 'V005']
+                  : ['V001'],
       );
     });
   assert.equal(fks, 57);
@@ -540,6 +542,15 @@ async function main() {
     );
   });
   pass('Finance V006 bank transfer receipt uniqueness, status and contribution constraints');
+  await db('finance', async (client) => {
+    await client.query(
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V007_constraints.sql'),
+        'utf8',
+      ),
+    );
+  });
+  pass('Finance V007 bank transfer resolution is complete, known and only on RESOLVED rows');
   await db('trip', async (client) => {
     await client.query(
       await readFile(

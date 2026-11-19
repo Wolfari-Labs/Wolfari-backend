@@ -48,7 +48,7 @@ describe('Automation-only notification eligibility RPC', () => {
     expect(await s.controller.getNotificationEligibility(request, metadata())).toEqual({
       recipients: [{ user_id: userId, eligible: true }],
     });
-    expect(s.get).toHaveBeenCalledExactlyOnceWith(request.user_ids);
+    expect(s.get).toHaveBeenCalledExactlyOnceWith(request.user_ids, undefined);
     expect(s.profiles).not.toHaveBeenCalled();
   });
 

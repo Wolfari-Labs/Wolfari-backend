@@ -38,6 +38,7 @@ corepack pnpm demo:accounts
 - [Runbook demo Web + Backend](docs/architecture/local-demo.md): seed có chủ đích, build/preview Web và vận hành.
 - [Nghiệm thu demo](docs/architecture/local-demo-acceptance.md): API thật, fixture và provider mô phỏng.
 - [Single-host trial](deployment/README.md): cấu hình triển khai riêng và [giới hạn kiểm chứng](deployment/VERIFICATION.md). Không dùng cấu hình development để suy ra production đã an toàn.
+- [Mobile completion](docs/architecture/mobile-completion.md): quản lý chuyến đi, nhắc cá nhân, Expo push và PDF kế hoạch; cần cấu hình và nghiệm thu native trước khi xác nhận push tới thiết bị.
 
 ## Kho POI Đà Nẵng và OSRM (MAP-POI, local)
 

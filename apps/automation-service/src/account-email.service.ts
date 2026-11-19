@@ -1,3 +1,4 @@
+import { smtpConfiguration } from './smtp-config';
 import {
   Controller,
   Get,
@@ -10,14 +11,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { connect, type ChannelModel, type Channel, type ConsumeMessage } from 'amqplib';
 import { createTransport, type Transporter } from 'nodemailer';
-import { productionTransportBlocked, trialSmtpOptions, trialSmtpSender } from '@wolfari/common';
+import { productionTransportBlocked } from '@wolfari/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseProvider } from '@wolfari/database';
 import { EVENT_TOPOLOGY, parseEventForConsume } from '@wolfari/contracts/events';
 import { IdentityClient } from '@wolfari/contracts/identity-client';
 import type { PoolClient } from 'pg';
+import { accountEmailContent } from './account-email-content';
 
 type Delivery = { id: string; attempt_count: number; private_context: { token_id?: string } };
+
 const queue = 'wolfari.automation.account-email.v1';
 const deadLetterExchange = `${EVENT_TOPOLOGY.exchange.name}.dlx`;
 const retryDelays = EVENT_TOPOLOGY.retry_delays_ms;
@@ -47,8 +50,9 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
       'Automation',
       config.getOrThrow<string>('AUTOMATION_IDENTITY_SECRET'),
     );
-    this.smtp = createTransport(trialSmtpOptions(config));
-    this.sender = trialSmtpSender(config);
+    const smtp = smtpConfiguration(config);
+    this.smtp = createTransport(smtp.options);
+    this.sender = smtp.from;
     this.brokerUrl = config.getOrThrow<string>('RABBITMQ_URL');
   }
 
@@ -211,9 +215,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
       const info = await this.smtp.sendMail({
         from: this.sender,
         to: response.delivery.recipient_email,
-        subject:
-          response.delivery.purpose === 1 ? 'Xác minh email Wolfari' : 'Đặt lại mật khẩu Wolfari',
-        text: `Mở liên kết sau để tiếp tục: ${response.delivery.one_time_link}\nNếu bạn không yêu cầu, hãy bỏ qua email này.`,
+        ...accountEmailContent(response.delivery),
       });
       await this.db.query(
         `UPDATE notification_deliveries SET status='SENT',provider_reference=$3,sent_at=now(),

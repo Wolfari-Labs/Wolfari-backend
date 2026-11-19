@@ -149,11 +149,28 @@ export class FundQueryService {
     return { fund: fundResponse(fund) };
   }
 
-  /** Resolve the Fund and re-check current Trip membership on every read page. */
+  /** Outgoing checkout belongs to the current Holder of an open, active Trip fund. */
+  async authorizeQrSandbox(tripId: string, actor: string, correlation: string, deadline: number) {
+    const trip = readUuid(tripId),
+      user = readUuid(actor);
+    await this.access(trip, user, correlation, deadline, true, true);
+    const fund = await this.funds.findSummaryByTripId(trip);
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    if (fund.holderUserId !== user) throw new FinanceReadError('PERMISSION_DENIED');
+    if (fund.status !== 'OPEN') throw new FinanceReadError('STATE_CONFLICT');
+  }
+
   async authorizeFundRead(fundId: string, actor: string, correlation: string, deadline: number) {
     const fund = await this.funds.findScopeById(readUuid(fundId));
     if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
     return this.access(fund.tripId, readUuid(actor), correlation, deadline);
+  }
+
+  /** Active member of an ACTIVE (not archived) Trip; role checks stay with the caller. */
+  async authorizeActiveFundWrite(fundId: string, actor: string, correlation: string, deadline: number) {
+    const fund = await this.funds.findScopeById(readUuid(fundId));
+    if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    return this.access(fund.tripId, readUuid(actor), correlation, deadline, true);
   }
 
   async authorizePaymentInstruction(

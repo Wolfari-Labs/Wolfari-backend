@@ -1,3 +1,4 @@
+import { runMobileCompletion } from './mobile-completion-integration.mjs';
 import { runFinanceHistoryTests } from './finance-history-integration.mjs';
 import { runFinanceReadTests } from './finance-read-integration.mjs';
 import { runFinanceAutomationContextTests } from './finance-automation-context-integration.mjs';
@@ -27,6 +28,7 @@ import { runPriceWatchTests } from './price-watch-integration.mjs';
 import { runNotificationManagementTests } from './notification-management-integration.mjs';
 import { runFinanceNotificationTests } from './finance-notification-integration.mjs';
 
+const mobileCompletion = process.argv.includes('--mobile-completion');
 const historyOnly = process.argv.includes('--finance-history');
 const demo1Mode = process.argv.includes('--demo1');
 const automationContextOnly = process.argv.includes('--finance-automation-context');
@@ -44,6 +46,7 @@ const allFinance = process.argv.includes('--finance');
 const paymentTestMode = paymentsOnly || allFinance;
 const lifecycleTestMode = lifecycleOnly || allFinance || demo1Mode;
 const financeReadMode =
+  mobileCompletion ||
   historyOnly ||
   demo1Mode ||
   process.argv.includes('--finance-notifications') ||
@@ -62,7 +65,7 @@ const financeReadMode =
 const invitationMode = process.argv.includes('--invitations');
 const membershipMode = process.argv.includes('--members');
 const priceWatchMode = process.argv.includes('--price-watch');
-const notificationMode = process.argv.includes('--notifications');
+const notificationMode = mobileCompletion || process.argv.includes('--notifications');
 const financeNotificationMode = process.argv.includes('--finance-notifications');
 let financeFixture;
 function brokerUrl() {
@@ -193,15 +196,15 @@ async function stop(child) {
 async function request(path, method = 'GET', body, headers = {}) {
   const response = await fetch(`http://127.0.0.1:${ports.gateway}${path}`, {
     method,
-    headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { ...(body === undefined || body instanceof FormData ? {} : { 'content-type': 'application/json' }), ...headers },
+    body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     signal: AbortSignal.timeout(10_000),
   });
   const type = response.headers.get('content-type') ?? '';
   return {
     status: response.status,
     headers: response.headers,
-    body: type.includes('json') ? await response.json() : await response.text(),
+    body: type.includes('json') ? await response.json() : type.startsWith('image/') ? Buffer.from(await response.arrayBuffer()) : await response.text(),
   };
 }
 
@@ -311,7 +314,7 @@ async function main() {
     '--wait-timeout',
     '180',
     'postgres',
-    ...(financeReadMode ? ['minio'] : []),
+    'minio',
     ...(invitationMode || demo1Mode
       ? ['rabbitmq', 'mailpit']
       : membershipMode || priceWatchMode || notificationMode || financeNotificationMode
@@ -366,6 +369,9 @@ async function main() {
   });
   const tripValues = {
     PLACE_SELECTION_SECRET: randomBytes(32).toString('hex'),
+    MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
+    MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
+    MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
     ...(financeReadMode
       ? { FINANCE_GRPC_TARGET: `127.0.0.1:${financePort}`, TRIP_FINANCE_SECRET: financeSecret }
       : {}),
@@ -398,6 +404,7 @@ async function main() {
   if (priceWatchMode || notificationMode || demo1Mode || financeNotificationMode) {
     await start('automation-service', {
       AUTOMATION_PORT: String(automationHttpPort),
+      REMINDER_WORKER_ENABLED: mobileCompletion ? 'true' : 'false',
       AUTOMATION_GRPC_PORT: String(ports.automationGrpc),
       DATABASE_URL: databaseUrl(infra, 'automation'),
       GATEWAY_AUTOMATION_SECRET: secrets.GATEWAY_AUTOMATION_SECRET,
@@ -465,6 +472,23 @@ async function main() {
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');
+  if (mobileCompletion) {
+    await runMobileCompletion({
+      request,
+      query,
+      account,
+      bearer,
+      tripBody,
+      pass,
+      waitFor,
+      ports,
+      infra,
+      secrets,
+      databaseUrl,
+    });
+    console.log(`PASS mobile:completion:test completed ${checks} groups.`);
+    return;
+  }
   if (demo1Mode) {
     await runDemo1Acceptance({
       request,
@@ -860,7 +884,7 @@ async function main() {
   );
   const trip = creates[0].body.data;
   assert.equal(trip.current_membership.role, 'OWNER');
-  assert.deepEqual(trip.permissions, { can_read: true, can_update: true });
+  assert.deepEqual(trip.permissions, { can_read: true, can_update: true, can_invite: true });
   const aggregate = (
     await query(
       'trip',
@@ -968,7 +992,7 @@ async function main() {
     'PATCH',
     {
       ...patchInput,
-      timezone: 'UTC',
+      lifecycle: 'ARCHIVED',
     },
     { ...bearer(owner), 'idempotency-key': randomUUID() },
   );

@@ -48,6 +48,14 @@ export class LifecycleFinanceClient implements OnApplicationShutdown {
       ),
     );
   }
+  lifecycleState(tripId: string, correlation: string) {
+    return this.call<FinanceV1.GetTripLifecycleStateResponse>(
+      'GetTripLifecycleState',
+      { trip_id: tripId },
+      correlation,
+      Date.now() + 1600,
+    );
+  }
   private request(row: LifecycleRow) {
     const intent = row.command_payload;
     return {

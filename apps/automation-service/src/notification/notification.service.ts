@@ -57,6 +57,7 @@ export class NotificationService {
       userId: notificationUuid(request.actor_user_id),
       platform: normalizePlatform(request.platform),
       token: normalizeDeviceToken(request.token),
+      sessionFamilyId: notificationUuid(request.session_family_id),
     });
   }
 

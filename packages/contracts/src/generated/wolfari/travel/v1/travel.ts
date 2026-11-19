@@ -36,8 +36,9 @@ export interface ProviderMetadata {
   fetched_at?: Timestamp | undefined;
   stale?: boolean | undefined;
   is_mock?: boolean | undefined;
-  warnings?:
-    | string[]
+  warnings?: string[] | undefined;
+  attribution?:
+    | ProviderAttribution[]
     | undefined;
   /** POI-OVERTURE (Places search only): active POI snapshot and its data release. */
   snapshot_id?: string | undefined;
@@ -46,6 +47,11 @@ export interface ProviderMetadata {
     | undefined;
   /** More POIs in the map frame than `limit`. */
   bbox_truncated?: boolean | undefined;
+}
+
+export interface ProviderAttribution {
+  text?: string | undefined;
+  url?: string | undefined;
 }
 
 export interface Place {

@@ -80,7 +80,8 @@
     "finance:bank-webhook:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-bank-webhook",
     "finance:closures:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-closures",
     "finance:payments:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-payments",
-    "finance:lifecycle:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-lifecycle"
+    "finance:lifecycle:test": "corepack pnpm build && node scripts/trip-integration.mjs --finance-lifecycle",
+    "mobile:completion:test": "corepack pnpm build && node scripts/trip-integration.mjs --mobile-completion"
   },
   "devDependencies": {
     "@duckdb/node-api": "1.5.6-r.2",

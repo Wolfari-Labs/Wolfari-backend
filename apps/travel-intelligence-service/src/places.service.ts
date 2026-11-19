@@ -166,6 +166,18 @@ export function geoapifyPlaces(payload: unknown, fetchedAt: string): PlaceSnapsh
     ];
   });
 }
+/** Response-level credits for the sources actually used (catalogue rows carry their own too). */
+export function sourceAttribution(
+  overture: boolean,
+  geoapify: boolean,
+): TravelV1.ProviderAttribution[] {
+  return [
+    ...(overture ? [{ text: 'Overture Maps Foundation', url: 'https://overturemaps.org/' }] : []),
+    ...(geoapify ? [{ text: 'Geoapify', url: 'https://www.geoapify.com/' }] : []),
+    { text: '© OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' },
+  ];
+}
+
 @Injectable()
 export class PlacesService {
   private pending = new Map<
@@ -202,6 +214,7 @@ export class PlacesService {
           stale: false,
           is_mock: false,
           warnings: ['PROVIDER_NOT_CONFIGURED'],
+          attribution: [],
           snapshot_id: '',
           data_release: '',
           bbox_truncated: false,
@@ -300,6 +313,10 @@ export class PlacesService {
         stale: extra.length > 0 && external?.stale === true,
         is_mock: false,
         warnings: warning ? [warning] : [],
+        attribution: sourceAttribution(
+          curated.some((place) => place.source_dataset === 'overture'),
+          extra.length > 0,
+        ),
         snapshot_id: found.snapshot?.version ?? '',
         data_release: found.snapshot?.release ?? '',
         bbox_truncated: found.truncated,

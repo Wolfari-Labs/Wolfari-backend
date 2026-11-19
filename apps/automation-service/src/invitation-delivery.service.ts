@@ -1,3 +1,4 @@
+import { smtpConfiguration } from './smtp-config';
 import {
   Controller,
   Get,
@@ -14,7 +15,7 @@ import { EVENT_TOPOLOGY, parseEventForConsume } from '@wolfari/contracts/events'
 import { TripAccessClient, TripInvitationClient } from '@wolfari/contracts/trip-client';
 import { connect, type ChannelModel, type ConfirmChannel, type ConsumeMessage } from 'amqplib';
 import { createTransport, type Transporter } from 'nodemailer';
-import { productionTransportBlocked, trialSmtpOptions, trialSmtpSender } from '@wolfari/common';
+import { productionTransportBlocked } from '@wolfari/common';
 import { randomUUID } from 'node:crypto';
 
 const queue = 'wolfari.automation.invitations.v1';
@@ -63,8 +64,9 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
       throw new Error('Invalid Automation Trip configuration');
     this.trip = new TripInvitationClient(target, secret);
     this.access = new TripAccessClient(target, 'Automation', secret);
-    this.smtp = createTransport(trialSmtpOptions(config));
-    this.sender = trialSmtpSender(config);
+    const smtp = smtpConfiguration(config);
+    this.smtp = createTransport(smtp.options);
+    this.sender = smtp.from;
     this.brokerUrl = config.getOrThrow<string>('RABBITMQ_URL');
   }
   onApplicationBootstrap() {

@@ -26,6 +26,7 @@ import { ExpenseService } from './application/expense.service';
 import { FinancialNoteService } from './application/financial-note.service';
 import { RefundService } from './application/refund.service';
 import { ClosureService } from './application/closure.service';
+import { QrSandboxService } from './application/qr-sandbox.service';
 import { PaymentService } from './application/payment.service';
 import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
 import { HandoverService } from './application/handover.service';
@@ -61,7 +62,38 @@ export class FinanceGrpcController {
     private readonly history?: FinanceHistoryService,
     private readonly handovers?: HandoverService,
     private readonly bankTransfers?: BankTransferService,
+    private readonly qrSandbox?: QrSandboxService,
   ) {}
+
+  @GrpcMethod('FinanceService', 'CreateQrSandboxPayment')
+  createQrSandboxPayment(
+    request: FinanceV1.CreateQrSandboxPaymentRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute(
+      'CreateQrSandboxPayment',
+      metadata,
+      call,
+      (correlation, deadline) => {
+        if (!this.qrSandbox) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        return this.qrSandbox.create(request, correlation, deadline);
+      },
+      34000,
+    );
+  }
+
+  @GrpcMethod('FinanceService', 'GetTripLifecycleState')
+  getTripLifecycleState(
+    request: FinanceV1.GetTripLifecycleStateRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('GetTripLifecycleState', metadata, call, async () => {
+      if (!this.lifecycle) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.lifecycle.tripState(request.trip_id ?? '');
+    });
+  }
 
   @GrpcMethod('FinanceService', 'ListHolderHandovers')
   listHolderHandovers(
@@ -264,6 +296,17 @@ export class FinanceGrpcController {
       return this.bankTransfers.list(request, correlation, deadline);
     });
   }
+  @GrpcMethod('FinanceService', 'ResolveBankTransfer')
+  resolveBankTransfer(
+    request: FinanceV1.ResolveBankTransferRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ResolveBankTransfer', metadata, call, (correlation, deadline) => {
+      if (!this.bankTransfers) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.bankTransfers.resolve(request, correlation, deadline);
+    });
+  }
   @GrpcMethod('FinanceService', 'ReceiveMomoWebhook')
   receiveMomoWebhook(
     request: FinanceV1.ReceiveMomoWebhookRequest,
@@ -303,6 +346,17 @@ export class FinanceGrpcController {
     return this.execute('ListClosures', metadata, call, (correlation, deadline) => {
       if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
       return this.closures.list(request, correlation, deadline);
+    });
+  }
+  @GrpcMethod('FinanceService', 'GetClosureReadiness')
+  getClosureReadiness(
+    request: FinanceV1.GetClosureReadinessRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('GetClosureReadiness', metadata, call, (correlation, deadline) => {
+      if (!this.closures) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.closures.readiness(request, correlation, deadline);
     });
   }
   @GrpcMethod('FinanceService', 'GetClosure')
@@ -735,6 +789,7 @@ export class FinanceGrpcController {
           RESOURCE_NOT_FOUND: status.NOT_FOUND,
           PERMISSION_DENIED: status.PERMISSION_DENIED,
           SERVICE_UNAVAILABLE: status.UNAVAILABLE,
+          PAYMENT_PROVIDER_NOT_CONFIGURED: status.UNAVAILABLE,
           STATE_CONFLICT: status.FAILED_PRECONDITION,
           VERSION_CONFLICT: status.ABORTED,
           IDEMPOTENCY_CONFLICT: status.ALREADY_EXISTS,

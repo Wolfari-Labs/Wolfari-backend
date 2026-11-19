@@ -9,11 +9,8 @@ import {
   ensureQuery,
   fail,
   grpcFailure,
-  idempotencyKey,
   isLoopbackGrpcTarget,
   json,
-  onlyKeys,
-  requestBody,
   RequestError,
   responseRecord,
   timestampToIso,
@@ -125,7 +122,7 @@ export class PlacesProxy {
   }
   matches(request: IncomingMessage & { originalUrl?: string }) {
     try {
-      return /^\/api\/v1\/trips\/[^/]+\/(places|selected-locations)(\/|$)/.test(
+      return /^\/api\/v1\/trips\/[^/]+\/places(\/|$)/.test(
         new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname,
       );
     } catch {
@@ -166,28 +163,16 @@ export class PlacesProxy {
     response.setHeader('Cache-Control', 'no-store');
     try {
       const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
-      const match =
-        /^\/api\/v1\/trips\/([^/]+)\/(places\/search|selected-locations)(?:\/([^/]+))?$/.exec(
-          url.pathname,
-        );
-      if (!match || !uuid.test(match[1]!)) return fail(response, 404, 'RESOURCE_NOT_FOUND');
-      const tripId = match[1]!.toLowerCase(),
-        search = match[2] === 'places/search';
-      if (
-        (search && (request.method !== 'GET' || match[3])) ||
-        (!search &&
-          !(request.method === 'POST' && !match[3]) &&
-          !(request.method === 'DELETE' && uuid.test(match[3] ?? '')))
-      )
+      // Saving a picked place goes through PlanItemsProxy (POST selected-locations + selection_token).
+      const match = /^\/api\/v1\/trips\/([^/]+)\/places\/search$/.exec(url.pathname);
+      if (!match || !uuid.test(match[1]!) || request.method !== 'GET')
         return fail(response, 404, 'RESOURCE_NOT_FOUND');
-      const auth = await authenticate(request, response, this.validate, !search);
+      const tripId = match[1]!.toLowerCase();
+      const auth = await authenticate(request, response, this.validate, false);
       if (!auth) return;
-      const planResult = await this.trip.getPlan(
-        { actor_user_id: auth.actorUserId, trip_id: tripId },
-        auth.correlationId,
-      );
-      const plan = responseRecord(planResult.plan);
-      if (search) {
+      // Membership check; the Travel service trusts the Gateway.
+      await this.trip.getPlan({ actor_user_id: auth.actorUserId, trip_id: tripId }, auth.correlationId);
+      {
         ensureQuery(url, [
           'q',
           'latitude',
@@ -256,78 +241,6 @@ export class PlacesProxy {
           },
         });
       }
-      if (responseRecord(plan.permissions).can_edit !== true)
-        return fail(response, 403, 'PERMISSION_DENIED');
-      ensureQuery(url, []);
-      const body = await requestBody(request);
-      const deleting = request.method === 'DELETE';
-      onlyKeys(
-        body,
-        deleting
-          ? ['expected_plan_version']
-          : [
-              'expected_plan_version',
-              'selection_token',
-              'name',
-              'address',
-              'latitude',
-              'longitude',
-            ],
-      );
-      const expected = body.expected_plan_version;
-      if (
-        typeof expected !== 'number' ||
-        !Number.isInteger(expected) ||
-        expected < 1 ||
-        expected > 2147483647
-      )
-        throw new RequestError('Invalid version');
-      if (
-        !deleting &&
-        body.selection_token !== undefined &&
-        (typeof body.selection_token !== 'string' ||
-          !body.selection_token ||
-          body.selection_token.length > 16000)
-      )
-        throw new RequestError('Invalid selection');
-      if (
-        !deleting &&
-        body.selection_token !== undefined &&
-        ['name', 'address', 'latitude', 'longitude'].some((k) => body[k] !== undefined)
-      )
-        throw new RequestError('Ambiguous selection');
-      if (
-        !deleting &&
-        body.selection_token === undefined &&
-        (typeof body.name !== 'string' ||
-          !body.name.trim() ||
-          body.name.length > 255 ||
-          (body.address !== undefined &&
-            (typeof body.address !== 'string' || body.address.length > 1000)) ||
-          typeof body.latitude !== 'number' ||
-          !Number.isFinite(body.latitude) ||
-          Math.abs(body.latitude) > 90 ||
-          typeof body.longitude !== 'number' ||
-          !Number.isFinite(body.longitude) ||
-          Math.abs(body.longitude) > 180)
-      )
-        throw new RequestError('Invalid location');
-      const result = await this.trip.call(
-        deleting ? 'DeleteSelectedLocation' : 'SaveSelectedLocation',
-        {
-          ...body,
-          ...(deleting ? { location_id: match[3]!.toLowerCase() } : {}),
-          actor_user_id: auth.actorUserId,
-          trip_id: tripId,
-          operation_id: idempotencyKey(request, true),
-          expected_plan_version: expected,
-        },
-        auth.correlationId,
-      );
-      return json(response, deleting ? 200 : 201, {
-        data: result,
-        meta: { correlation_id: auth.correlationId },
-      });
     } catch (error) {
       if (error instanceof BboxError) return fail(response, 400, error.message);
       if (error instanceof RequestError) return fail(response, 400, 'VALIDATION_FAILED');

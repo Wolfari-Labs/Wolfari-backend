@@ -56,7 +56,7 @@ describe('Trip core validation', () => {
         tripId,
         expectedPlanVersion: 1,
         expectedExportRevision: 1,
-        fields: { timezone: 'UTC' },
+        fields: { lifecycle: 'ARCHIVED' },
         correlationId,
       }),
     ).rejects.toMatchObject<Partial<TripError>>({ code: 'VALIDATION_FAILED', status: 400 });

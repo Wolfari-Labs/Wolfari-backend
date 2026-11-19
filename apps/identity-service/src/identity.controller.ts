@@ -11,6 +11,13 @@ function strict(input: unknown, allowed: string[]): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !allowed.includes(key))) throw new IdentityError('VALIDATION_FAILED', 400);
   return input as Record<string, unknown>;
 }
+/** The body must have exactly one of the listed key sets (e.g. link token vs. email + code). */
+export function oneOf(input: unknown, shapes: string[][]): Record<string, unknown> {
+  const body = strict(input, [...new Set(shapes.flat())]);
+  const keys = Object.keys(body).sort().join();
+  if (!shapes.some(shape => [...shape].sort().join() === keys)) throw new IdentityError('VALIDATION_FAILED', 400);
+  return body;
+}
 
 @Catch()
 class SafeErrors implements ExceptionFilter {
@@ -54,13 +61,13 @@ export class IdentityController {
   }
 
   @Post('auth/email-verifications/confirm') @HttpCode(200)
-  async verify(@Body() input: unknown) { await this.identity.confirmEmail(strict(input, ['token']).token); return accepted(); }
+  async verify(@Body() input: unknown) { await this.identity.confirmEmail(oneOf(input, [['token'], ['email', 'code']])); return accepted(); }
 
   @Post('auth/password-reset-requests') @HttpCode(202)
   async resetRequest(@Body() input: unknown) { await this.identity.resetRequest(strict(input, ['email']).email); return accepted(); }
 
   @Post('auth/password-resets') @HttpCode(200)
-  async reset(@Body() input: unknown) { const body = strict(input, ['token', 'new_password']); await this.identity.resetPassword(body.token, body.new_password); return accepted(); }
+  async reset(@Body() input: unknown) { await this.identity.resetPassword(oneOf(input, [['token', 'new_password'], ['email', 'code', 'new_password']])); return accepted(); }
 
   @Get('me')
   async me(@Headers('authorization') authorization: string | undefined) { const { user } = await this.current(authorization); return data(await this.identity.profile(user.id)); }
@@ -129,13 +136,13 @@ export class IdentityController {
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'");
-    response.end(`<!doctype html><html lang="vi"><meta charset="utf-8"><title>${title}</title><h1>${title}</h1><p>Liên kết chỉ có hiệu lực một lần.</p><form id="form">${action === 'reset' ? '<label>Mật khẩu mới (8–128 ký tự)<input type="password" name="new_password" required autocomplete="new-password" autocapitalize="none" spellcheck="false"></label>' : ''}<button>Xác nhận</button></form><p id="message" role="status"></p><script>
+    response.end(`<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>${title}</title><style>body{font:16px system-ui,sans-serif;max-width:420px;margin:12vh auto;padding:24px;color:#173746;background:#f5faf9}h1{font-size:26px}p{line-height:1.6;color:#52646e}button,a{display:block;box-sizing:border-box;width:100%;padding:14px 16px;border:0;border-radius:12px;background:#167c78;color:white;font:inherit;text-align:center;text-decoration:none;cursor:pointer}button:disabled{opacity:.6}input{box-sizing:border-box;width:100%;margin:10px 0 18px;padding:12px;font:inherit;border:1px solid #b5c8c5;border-radius:10px}[hidden]{display:none!important}</style><h1>${title}</h1><p>Liên kết chỉ có hiệu lực một lần.</p><form id="form">${action === 'reset' ? '<label>Mật khẩu mới (8–128 ký tự)<input type="password" name="new_password" required autocomplete="new-password" autocapitalize="none" spellcheck="false"></label>' : ''}<button>Xác nhận</button></form><p id="message" role="status"></p><a id="return" hidden href="wolfarimobile://${action === 'verify' ? 'verify-email' : 'sign-in'}">Mở Wolfari</a><script>
 const token=${safeToken},form=document.getElementById('form'),message=document.getElementById('message'),button=form.querySelector('button');let locked=false;
 form.addEventListener('submit',async event=>{event.preventDefault();if(locked)return;const body={token};
 ${action === 'reset' ? "body.new_password=new FormData(form).get('new_password');const length=Array.from(body.new_password).length;if(length<8||length>128){message.textContent='Mật khẩu phải có từ 8 đến 128 ký tự.';return;}" : ''}
 locked=true;button.disabled=true;message.textContent='Đang xử lý…';
 try{const result=await fetch('${endpoint}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-if(result.ok){form.reset();message.textContent='Hoàn tất';}
+if(result.ok){form.reset();form.hidden=true;message.textContent='Hoàn tất. Bạn có thể trở lại Wolfari.';document.getElementById('return').hidden=false;}
 else if(result.status>=500){form.reset();message.textContent='Chưa xác định được kết quả. Hãy kiểm tra đăng nhập trước khi yêu cầu liên kết mới.';}
 else{locked=false;button.disabled=false;message.textContent=result.status===400?'Mã đã hết hạn, đã dùng hoặc thông tin chưa hợp lệ.':result.status===429?'Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.':'Chưa thể hoàn tất yêu cầu. Vui lòng thử lại sau.';}}
 catch{form.reset();message.textContent='Mất kết nối; chưa xác định được kết quả. Hãy kiểm tra đăng nhập trước khi yêu cầu liên kết mới.';}});</script></html>`);

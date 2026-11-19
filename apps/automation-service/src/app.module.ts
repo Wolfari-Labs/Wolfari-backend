@@ -1,3 +1,6 @@
+import { DeliveryContextClient } from './delivery/delivery-context.client';
+import { ReminderService } from './delivery/reminder.service';
+import { PushDeliveryService } from './delivery/push-delivery.service';
 import { Module } from '@nestjs/common';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
@@ -39,6 +42,9 @@ import { FinanceNotificationConsumer } from './finance-notification/finance-noti
     PriceWatchGrpcController,
   ],
   providers: [
+    DeliveryContextClient,
+    ReminderService,
+    PushDeliveryService,
     FinanceNotificationClient,
     FinanceNotificationRepository,
     FinanceNotificationService,

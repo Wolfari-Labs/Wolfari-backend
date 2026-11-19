@@ -2,9 +2,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseProvider } from '@wolfari/database';
 import { planBankTransfer, referencesInContent } from '../domain/bank-transfer';
+import { FinanceReadError, fundNotOpenReason } from '../finance.errors';
 import type { BankTransferRow } from '../projections/bank-transfer-response';
 
 type Client = Pick<DatabaseProvider, 'query'>;
+const MAX_INT32 = 2_147_483_647;
+export const BANK_TRANSFER_RESOLUTIONS = ['RETURNED_TO_SENDER', 'HANDLED_IN_APP', 'NOT_OURS'] as const;
+export type BankTransferResolution = (typeof BANK_TRANSFER_RESOLUTIONS)[number];
 
 export type BankTransferInput = Readonly<{
   provider: string;
@@ -28,7 +32,8 @@ export type BankTransferResult = Readonly<{
 }>;
 
 const columns = `id,provider,provider_transaction_id,transfer_type,amount::text,content,account_number,bank_gateway,
-processing_status,review_reason,fund_id,contribution_id,transaction_at,received_at,processed_at`;
+processing_status,review_reason,fund_id,contribution_id,transaction_at,received_at,processed_at,
+resolution,resolution_note,resolved_by_user_id,resolved_at`;
 
 type CandidateRow = {
   id: string;
@@ -259,6 +264,86 @@ export class BankTransferRepository {
         `BANK_WEBHOOK:${input.provider}`,
       ],
     );
+  }
+
+  /**
+   * Holder closes a NEEDS_REVIEW transfer with a recorded outcome. No ledger or balance effect;
+   * the Fund version moves so concurrent closure requests and other screens see the change.
+   * A repeated operation id returns the stored result instead of failing.
+   */
+  async resolve(
+    input: Readonly<{
+      fundId: string;
+      transferId: string;
+      actor: string;
+      operationId: string;
+      resolution: BankTransferResolution;
+      note: string;
+      expectedFinanceVersion: number;
+    }>,
+    correlation: string,
+  ): Promise<{ row: BankTransferRow; financeVersion: number }> {
+    return this.db.withTransaction(async (client) => {
+      const fund = (
+        await client.query<{ holder_user_id: string; status: string; finance_version: number }>(
+          'SELECT holder_user_id,status,finance_version FROM funds WHERE id=$1 FOR UPDATE',
+          [input.fundId],
+        )
+      ).rows[0];
+      if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+      const row = (
+        await client.query<BankTransferRow & { fund_id: string | null; resolution_operation_id: string | null }>(
+          `SELECT ${columns},resolution_operation_id FROM bank_transfer_receipts WHERE id=$1 FOR UPDATE`,
+          [input.transferId],
+        )
+      ).rows[0];
+      if (!row || row.fund_id !== input.fundId) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+      if (row.processing_status === 'RESOLVED' && row.resolution_operation_id === input.operationId) {
+        if (row.resolution !== input.resolution || row.resolution_note !== input.note)
+          throw new FinanceReadError('IDEMPOTENCY_CONFLICT');
+        return { row, financeVersion: fund.finance_version };
+      }
+      if (fund.holder_user_id !== input.actor) throw new FinanceReadError('PERMISSION_DENIED');
+      if (fund.status !== 'OPEN') throw new FinanceReadError('STATE_CONFLICT', fundNotOpenReason(fund.status));
+      if (row.processing_status !== 'NEEDS_REVIEW')
+        throw new FinanceReadError('STATE_CONFLICT', 'INVALID_TRANSITION');
+      if (fund.finance_version !== input.expectedFinanceVersion)
+        throw new FinanceReadError('VERSION_CONFLICT');
+      if (fund.finance_version >= MAX_INT32) throw new FinanceReadError('STATE_CONFLICT');
+      const resolved = (
+        await client.query<BankTransferRow>(
+          `UPDATE bank_transfer_receipts SET processing_status='RESOLVED',resolution=$2,resolution_note=$3,
+           resolved_by_user_id=$4,resolved_at=clock_timestamp(),resolution_operation_id=$5
+           WHERE id=$1 RETURNING ${columns}`,
+          [row.id, input.resolution, input.note, input.actor, input.operationId],
+        )
+      ).rows[0]!;
+      const financeVersion = (
+        await client.query<{ finance_version: number }>(
+          'UPDATE funds SET finance_version=finance_version+1,updated_at=clock_timestamp() WHERE id=$1 RETURNING finance_version',
+          [input.fundId],
+        )
+      ).rows[0]!.finance_version;
+      await client.query(
+        `INSERT INTO finance_audit_logs(fund_id,actor_user_id,system_actor,action,entity_type,entity_id,
+         from_version,to_version,correlation_id,details)
+         VALUES($1,$2,NULL,'RESOLVE_BANK_TRANSFER','BankTransferReceipt',$3,$4,$5,$6,$7::jsonb)`,
+        [
+          input.fundId,
+          input.actor,
+          row.id,
+          fund.finance_version,
+          financeVersion,
+          correlation,
+          JSON.stringify({
+            operation_id: input.operationId,
+            resolution: input.resolution,
+            review_reason: row.review_reason,
+          }),
+        ],
+      );
+      return { row: resolved, financeVersion };
+    });
   }
 
   async fundHolder(fundId: string): Promise<string | null> {

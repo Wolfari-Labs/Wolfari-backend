@@ -83,6 +83,10 @@ function plan(value: PlanView): TripV1.Plan {
   return {
     ...value,
     activities: value.activities.map(activity),
+    dress_codes_write: true,
+    packing_write: true,
+    locations_write: true,
+    dress_code_images_write: true,
     selected_locations: value.selected_locations.map(({ metadata, opening_hours, ...row }) => ({
       ...row,
       address: row.address ?? undefined,
@@ -252,7 +256,7 @@ export class PlanGrpcHandlers {
         scope_type: scopeName[request.scope_type ?? TripV1.DressScope.DRESS_SCOPE_UNSPECIFIED],
         label: request.label,
       };
-      for (const key of ['description', 'public_description', 'plan_date', 'activity_id'] as const)
+      for (const key of ['description', 'public_description', 'plan_date', 'activity_id', 'reference_image_id'] as const)
         if (request[key] !== undefined) fields[key] = request[key];
       return dressCodeResult(
         await this.dressCodes.createDressCode({ ...base(request, id), fields }),
@@ -268,7 +272,7 @@ export class PlanGrpcHandlers {
       // An unknown enum number becomes undefined and is rejected by field validation.
       if (request.scope_type !== undefined) fields.scope_type = scopeName[request.scope_type];
       if (request.label !== undefined) fields.label = request.label;
-      for (const key of ['description', 'public_description', 'plan_date', 'activity_id'] as const)
+      for (const key of ['description', 'public_description', 'plan_date', 'activity_id', 'reference_image_id'] as const)
         if (request[key] !== undefined) fields[key] = patchValue(request[key]!);
       return dressCodeResult(
         await this.dressCodes.updateDressCode({

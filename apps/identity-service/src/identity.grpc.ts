@@ -77,9 +77,10 @@ export class IdentityGrpcController implements IdentityV1.IdentityServiceControl
   ): Promise<IdentityV1.ValidateSessionResponse> {
     this.authorize('ValidateSession', metadata);
     return this.execute(async () => {
-      const { user, expiresAt } = await this.identity.validateAccess(request.access_token);
+      const { user, expiresAt, familyId } = await this.identity.validateAccess(request.access_token);
       return {
         user_id: user.id,
+        session_family_id: familyId,
         system_role: user.system_role === 'ADMIN' ? 2 : 1,
         status: 1,
         expires_at: { seconds: String(Math.floor(expiresAt.getTime() / 1000)), nanos: 0 },
@@ -146,7 +147,7 @@ export class IdentityGrpcController implements IdentityV1.IdentityServiceControl
   ): Promise<IdentityV1.GetNotificationEligibilityResponse> {
     this.authorizeNotificationEligibility(metadata);
     try {
-      return await this.notificationEligibility.get(request?.user_ids);
+      return await this.notificationEligibility.get(request?.user_ids, request?.session_family_id);
     } catch (error) {
       if (error instanceof NotificationEligibilityValidationError)
         throw new RpcException({ code: status.INVALID_ARGUMENT, message: 'VALIDATION_FAILED' });

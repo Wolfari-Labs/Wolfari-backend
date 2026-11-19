@@ -25,7 +25,7 @@ void bootstrapApp(AppModule, 'travel-intelligence-service', async (app) => {
     { inheritAppConfig: true },
   );
   await app.startAllMicroservices();
-}).catch((error: unknown) => {
-  process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`);
+}).catch(() => {
+  process.stderr.write('Travel startup failed; check service configuration.\n');
   process.exitCode = 1;
 });

@@ -22,13 +22,20 @@ async function mc(args) {
 try {
   if (process.argv[2] !== 'PROVISION_TRIAL_STORAGE')
     throw new Error('EXPLICIT_PROVISION_CONFIRMATION_REQUIRED');
-  for (const [app, bucket, policy] of [
-    ['identity-service', 'wolfari-identity-avatars', 'wolfari-identity'],
-    ['finance-service', 'wolfari-finance-receipts', 'wolfari-finance'],
+  for (const [app, buckets, policy] of [
+    ['identity-service', ['wolfari-identity-avatars'], 'wolfari-identity'],
+    ['finance-service', ['wolfari-finance-receipts'], 'wolfari-finance'],
+    [
+      'trip-workspace-service',
+      ['wolfari-trip-covers', 'wolfari-trip-dress-images'],
+      'wolfari-trip',
+    ],
   ]) {
     const config = configs.get(app);
-    await mc(['mb', '--ignore-existing', `trial/${bucket}`]);
-    await mc(['anonymous', 'set', 'none', `trial/${bucket}`]);
+    for (const bucket of buckets) {
+      await mc(['mb', '--ignore-existing', `trial/${bucket}`]);
+      await mc(['anonymous', 'set', 'none', `trial/${bucket}`]);
+    }
     await mc([
       'admin',
       'policy',

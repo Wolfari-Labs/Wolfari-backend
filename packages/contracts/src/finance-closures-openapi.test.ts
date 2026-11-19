@@ -3,17 +3,22 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import { closureRoute, projectClosure } from '../../../apps/api-gateway/src/closure-http';
+import {
+  CLOSURE_BLOCKER_KINDS,
+  closureRoute,
+  projectClosure,
+  projectClosureReadiness,
+} from '../../../apps/api-gateway/src/closure-http';
 
 const document = JSON.parse(
   readFileSync(resolve(process.cwd(), 'docs/api/finance-closures.openapi.json'), 'utf8'),
 );
 describe('Closure OpenAPI', () => {
-  it('documents API120-125 and resolves every local reference', () => {
-    expect(Object.keys(document.paths)).toHaveLength(5);
+  it('documents API120-125, API133 readiness and resolves every local reference', () => {
+    expect(Object.keys(document.paths)).toHaveLength(6);
     expect(
       Object.values(document.paths).flatMap((path) => Object.keys(path as object)),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
     const walk = (value: unknown): void => {
       if (!value || typeof value !== 'object') return;
       if ('$ref' in value) {
@@ -77,6 +82,37 @@ describe('Closure OpenAPI', () => {
     expect(schema('CancelClosureInput')({ reason: 'Điều chỉnh' })).toBe(true);
     expect(schema('EmptyInput')({})).toBe(true);
     expect(schema('EmptyInput')({ extra: true })).toBe(false);
+  });
+  it('documents the readiness projection exactly', () => {
+    const ajv = new Ajv({ strict: false, allErrors: true });
+    const validate = ajv.compile({
+      $ref: '#/components/schemas/ClosureReadiness',
+      components: document.components,
+    });
+    const blocked = projectClosureReadiness({
+      ready: false,
+      fund_status: 'OPEN',
+      current_balance: '150000',
+      blockers: [
+        { kind: 'BALANCE_NOT_ZERO', count: 1 },
+        { kind: 'CONTRIBUTIONS_OPEN', count: 2 },
+      ],
+      bank_transfers_needing_review: 1,
+    });
+    expect(validate(blocked), JSON.stringify(validate.errors)).toBe(true);
+    const ready = projectClosureReadiness({
+      ready: true,
+      fund_status: 'OPEN',
+      current_balance: '0',
+      blockers: [],
+    });
+    expect(validate(ready), JSON.stringify(validate.errors)).toBe(true);
+    expect(validate({ ...ready, extra: 1 })).toBe(false);
+    expect(
+      CLOSURE_BLOCKER_KINDS.every((kind) =>
+        document.components.schemas.ClosureBlocker.properties.kind.enum.includes(kind),
+      ),
+    ).toBe(true);
   });
   it('rejects extra action path segments', () => {
     expect(closureRoute('/api/v1/closures/id/confirm/extra')).toBeUndefined();

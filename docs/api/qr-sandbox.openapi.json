@@ -1,0 +1,164 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari isolated QR checkout sandbox",
+    "version": "1.0.0",
+    "description": "Test-only MoMo merchant checkout for the current Holder of an open fund on an active Trip. Never pays the scanned bank account or writes the fund ledger. Disabled in production."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/trips/{tripId}/qr-payments/momo-sandbox": {
+      "post": {
+        "operationId": "createQrSandboxPayment",
+        "summary": "Create an isolated MoMo test checkout for the current Holder of an open fund",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tripId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Must equal body request_id. Retry with identical amount/note and key.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["request_id", "amount", "note"],
+                "properties": {
+                  "request_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,7}$",
+                    "description": "Whole VND, inclusive range 1000..50000000"
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150,
+                    "description": "Trimmed single-line test order content"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sandbox link created. No payment-success claim or fund mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "meta"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "request_id",
+                        "order_id",
+                        "amount",
+                        "payment_url",
+                        "environment"
+                      ],
+                      "properties": {
+                        "request_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "order_id": {
+                          "type": "string",
+                          "pattern": "^wqr-[a-f0-9]{40}$"
+                        },
+                        "amount": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,7}$",
+                          "description": "Whole VND, inclusive range 1000..50000000"
+                        },
+                        "payment_url": {
+                          "type": "string",
+                          "format": "uri",
+                          "pattern": "^https://test-payment\\.momo\\.vn/"
+                        },
+                        "environment": {
+                          "type": "string",
+                          "enum": ["SANDBOX"]
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["correlation_id"],
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body/key/amount/note"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Denied"
+          },
+          "404": {
+            "description": "Trip unavailable to actor"
+          },
+          "409": {
+            "description": "Same request key with different content, or archived trip"
+          },
+          "503": {
+            "description": "Missing/invalid sandbox configuration returns PAYMENT_PROVIDER_NOT_CONFIGURED with retryable=false and no private details. Provider/transport/rate/capacity failures and production blocking return SERVICE_UNAVAILABLE."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

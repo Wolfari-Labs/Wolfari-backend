@@ -1,3 +1,6 @@
+import { TripManagementService } from './trip-management.service';
+import { PlanPdfService } from './plan-pdf.service';
+import { PlanItemsService } from './planning/plan-items.service';
 import { PlanService } from './planning/plan.service';
 import { LocationService } from './planning/location.service';
 import { MembershipRepository } from './membership/membership.repository';
@@ -8,6 +11,8 @@ import { FinanceOperationService } from './operations/finance-operation.service'
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { DressCodeService } from './planning/dress-code.service';
 import { Module } from '@nestjs/common';
+import { DressCodeImageService } from './planning/dress-code-image.service';
+import { TripCoverService } from './trip-cover.service';
 import { InfrastructureModule } from '@wolfari/common';
 import { DatabaseModule } from '@wolfari/database';
 import { TripAccessService } from './trip-access.service';
@@ -24,6 +29,8 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
   ],
   controllers: [TripGrpcController, TripDependenciesController],
   providers: [
+    TripManagementService,
+    PlanPdfService,
     MembershipRepository,
     MemberProfilesService,
     LifecycleFinanceClient,
@@ -32,7 +39,10 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     TripService,
     PlanService,
     LocationService,
+    PlanItemsService,
     DressCodeService,
+    DressCodeImageService,
+    TripCoverService,
     PlanGrpcHandlers,
     TripAccessService,
     TripPlanAccessService,
