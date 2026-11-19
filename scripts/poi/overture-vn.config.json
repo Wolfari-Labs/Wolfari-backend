@@ -1,0 +1,12 @@
+{
+  "$comment": "POI-OVERTURE O1: Vietnam = three disjoint lon/lat boxes, merged after download. Country and province are decided later by polygon (O3), never by addresses.country.",
+  "bucket": "s3://overturemaps-us-west-2/release",
+  "region": "us-west-2",
+  "stacCatalog": "https://stac.overturemaps.org/catalog.json",
+  "boxes": [
+    { "name": "mainland", "minLon": 102.1, "minLat": 8.4, "maxLon": 109.5, "maxLat": 23.4 },
+    { "name": "hoang-sa", "minLon": 111.0, "minLat": 15.6, "maxLon": 113.0, "maxLat": 17.2 },
+    { "name": "truong-sa", "minLon": 111.4, "minLat": 6.0, "maxLon": 117.9, "maxLat": 12.0 }
+  ],
+  "duckdb": { "memoryLimit": "3GB", "threads": 6 }
+}

@@ -1,5 +1,13 @@
 # Protobuf và event contract Wolfari
 
+## Đồng bộ main — 16/11/2026
+
+Catalog hợp nhất có **130 RPC**: giữ Places/selected locations của trial và nhận Finance handover, bank transfers, Dress Code từ main `fdf83d6`. Generated TypeScript phải sinh lại bằng `contracts:generate`; không sửa tay để che drift.
+
+`SaveSelectedLocation` và `DeleteSelectedLocation` dùng response riêng theo tên RPC, cùng field numbers/types như `LocationMutationResponse` cũ. REST payload và protobuf wire fields không đổi; tên generated response thay đổi nên client gRPC của nhánh trial cần regenerate. Giữ message cũ để không xóa type đã có. Compatibility với remote main được kiểm riêng; đây không phải lời khẳng định source compatibility với trial cũ.
+
+Các số RPC, migration và kết quả trong các mục có ngày bên dưới là **lịch sử**, không phải tổng hiện tại. Migration hợp nhất: Identity V001, Trip V001–V004, Travel V001–V002, Finance V001–V006, Automation V001–V007. Giữ checksum migration đã áp dụng; không reset database.
+
 ## Cập nhật demo1 — 28/10/2026
 
 Catalog hiện có112 RPC, thêm `GetPlanPolicy` (ApiGateway→Trip), Membership optional `display_name=7` và Plan day-only fields. Không đổi event schema. Trip yêu cầu V003. [Phụ lục v1.0](demo-1-addendum-v1.0.md) ghi field numbers/null/omission/replay và ảnh hưởng Mobile. Các đợt bên dưới là lịch sử, không phải tổng kết runtime hiện tại.

@@ -9,15 +9,6 @@ import type {
   ExpenseWrite,
 } from '../inputs/expense.input';
 
-export type ExpenseScope =
-  | 'CREATE_EXPENSE'
-  | 'UPDATE_EXPENSE'
-  | 'DELETE_EXPENSE'
-  | 'SUBMIT_EXPENSE'
-  | 'WITHDRAW_EXPENSE'
-  | 'CONFIRM_EXPENSE'
-  | 'REJECT_EXPENSE'
-  | 'REVERSE_EXPENSE';
 type ExpenseDraftMutationScope =
   'UPDATE_EXPENSE' | 'DELETE_EXPENSE' | 'SUBMIT_EXPENSE' | 'WITHDRAW_EXPENSE';
 export type ExpenseState = {

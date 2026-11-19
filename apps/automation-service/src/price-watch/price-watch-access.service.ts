@@ -1,3 +1,4 @@
+import { productionTransportBlockedFor } from '@wolfari/common';
 import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { status, type ServiceError } from '@grpc/grpc-js';
@@ -21,7 +22,7 @@ export class PriceWatchAccessService implements OnApplicationShutdown {
     const secret = config.get<string>('AUTOMATION_TRIP_SECRET') ?? '';
     if (!/^127\.0\.0\.1:\d+$/.test(target) || secret.length < 32)
       throw new Error('Automation Trip configuration invalid');
-    if ((config.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production')
+    if (productionTransportBlockedFor(config))
       throw new Error('Automation Trip transport requires TLS in production');
     this.client = new TripAccessClient(target, 'Automation', secret);
   }

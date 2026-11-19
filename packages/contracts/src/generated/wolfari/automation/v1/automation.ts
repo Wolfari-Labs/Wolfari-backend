@@ -307,6 +307,9 @@ export interface ListPriceObservationsResponse {
   next_cursor?: string | undefined;
   stale?: boolean | undefined;
   last_error?: string | undefined;
+  last_checked_at?: string | undefined;
+  next_check_at?: string | undefined;
+  last_check_status?: string | undefined;
 }
 
 export interface ListRemindersRequest {

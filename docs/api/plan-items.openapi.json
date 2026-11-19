@@ -411,7 +411,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateLocation"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateLocation"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateSignedLocation"
+                  }
+                ]
               }
             }
           }
@@ -426,7 +433,14 @@
                   "required": ["data", "meta"],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/Location"
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/Location"
+                        },
+                        {
+                          "$ref": "#/components/schemas/SignedLocationResult"
+                        }
+                      ]
                     },
                     "meta": {
                       "type": "object"
@@ -1223,6 +1237,49 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          }
+        }
+      },
+      "CreateSignedLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["selection_token", "expected_plan_version"],
+        "description": "Kết quả từ Places search (`selection_token` do server ký, hết hạn sau 24 giờ). Trip kiểm chữ ký, gộp trùng theo provider ID; lưu lại cùng nơi trả về cùng location.",
+        "properties": {
+          "selection_token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16000
+          },
+          "expected_plan_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "SignedLocationResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "location_id", "trip_id", "plan_version", "export_revision"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "location_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trip_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plan_version": {
+            "type": "integer"
+          },
+          "export_revision": {
+            "type": "integer"
           }
         }
       }

@@ -16,7 +16,7 @@ Giữ nguyên nội dung nghiệp vụ của ba bản đã duyệt, bao gồm 80
 
 ## Dọn tài liệu và source
 
-- Đưa ba DOCX gốc và ba bản dự thảo khỏi danh mục đang dùng, giữ bản khôi phục local tại `.cache/docx-update/approval-backup/`. Ba DOCX gốc còn nguyên trong Git tại commit `4ea61ca4dd338d33641da4c915841e357fab3994`; xem [cách khôi phục](../history/README.md).
+- Đưa ba DOCX gốc và ba bản dự thảo khỏi danh mục đang dùng. Ba DOCX gốc còn nguyên trong Git tại commit `4ea61ca4dd338d33641da4c915841e357fab3994`; xem [cách khôi phục](../history/README.md). Bản sao local trong `.cache` không phải artifact runtime và đã được dọn khỏi checkout.
 - Chuyển guide cũ thành [hồ sơ lịch sử đồng bộ](../history/documentation-update-2026-10-02.md), giữ nội dung thay thế và bằng chứng theo ngày. Không dùng guide này như yêu cầu sửa lại bản chính thức.
 - Cập nhật README, baseline kiến trúc, hướng dẫn cấu trúc repo, database, contract và các liên kết validation/handoff liên quan. Sửa mô tả lỗi thời về số RPC Identity, trạng thái Invitations trong Trip core/handoff Planning và thứ tự build trước unit tests. [Danh mục tài liệu](../README.md) là điểm bắt đầu để đọc bộ hiện hành.
 - Bỏ 12 `.gitkeep` đã dư: `docs/api`, `docs/event-catalog`, `docs/grpc`, `docs/sequence`, `docs/state-machine`, `packages/contracts/events`, năm thư mục proto cũ `automation`, `finance`, `identity`, `travel`, `trip` và `scripts`. Contract thật ở `packages/contracts/proto/wolfari`, `schemas` và `catalog`.

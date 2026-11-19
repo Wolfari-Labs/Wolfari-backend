@@ -5,6 +5,7 @@ import { runFinanceAutomationContextTests } from './finance-automation-context-i
 import { runFinanceWriteTests } from './finance-write-integration.mjs';
 import { runFinanceLedgerTests } from './finance-ledger-integration.mjs';
 import { runPlanScenarios } from './plan-integration.mjs';
+import { runLocationScenarios } from './locations-integration.mjs';
 import { runDressCodeScenarios } from './dress-code-integration.mjs';
 import { runDemo1Acceptance } from './demo1-acceptance.mjs';
 import { startLifecycleFinanceFixture } from './trip-members-fixture.mjs';
@@ -367,6 +368,7 @@ async function main() {
     EXPORT_IDENTITY_SECRET: secrets.EXPORT_IDENTITY_SECRET,
   });
   const tripValues = {
+    PLACE_SELECTION_SECRET: randomBytes(32).toString('hex'),
     MINIO_ENDPOINT: `127.0.0.1:${infra.MINIO_API_PORT}`,
     MINIO_ACCESS_KEY: infra.MINIO_ROOT_USER,
     MINIO_SECRET_KEY: infra.MINIO_ROOT_PASSWORD,
@@ -1839,6 +1841,18 @@ async function main() {
     tripBody,
     pass,
     users: { owner, member, outsider },
+  });
+
+  await runLocationScenarios({
+    request,
+    query,
+    bearer,
+    tripBody,
+    pass,
+    owner,
+    member,
+    outsider,
+    secret: tripValues.PLACE_SELECTION_SECRET,
   });
 
   await query('identity', 'UPDATE refresh_sessions SET revoked_at=now() WHERE user_id=$1', [

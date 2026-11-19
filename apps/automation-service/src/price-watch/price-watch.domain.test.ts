@@ -39,6 +39,26 @@ function code(work: () => unknown, expected: string) {
 }
 
 describe('price watch domain', () => {
+  it('limits cached fares to one adult, one way and economy with VND', () => {
+    const single = {
+      ...input(),
+      provider: 'TRAVELPAYOUTS_CACHE',
+      return_date: undefined,
+      journey_type: AutomationV1.JourneyType.JOURNEY_TYPE_ONE_WAY,
+      passengers: { adults: 1, children: 0, infants: 0 },
+      cabin_class: 'ECONOMY',
+    };
+    expect(normalizeWatch(single, context, now).query.provider).toBe('TRAVELPAYOUTS_CACHE');
+    for (const patch of [
+      { passengers: { adults: 2, children: 0, infants: 0 } },
+      { passengers: { adults: 1, children: 1, infants: 0 } },
+      { passengers: { adults: 1, children: 0, infants: 1 } },
+      { cabin_class: 'BUSINESS' },
+      { currency: 'USD' },
+      { journey_type: AutomationV1.JourneyType.JOURNEY_TYPE_ROUND_TRIP, return_date: '2026-11-03' },
+    ])
+      expect(() => normalizeWatch({ ...single, ...patch }, context, now)).toThrow();
+  });
   it('normalizes every price-affecting field into a stable shared key', () => {
     const first = normalizeWatch(input(), context, now);
     const second = normalizeWatch({ ...input(), provider: ' MOCK_FLIGHT ' }, context, now);

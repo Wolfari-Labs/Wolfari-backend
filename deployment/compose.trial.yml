@@ -1,0 +1,18 @@
+# Always combine with infrastructure/docker-compose.yml; project must be wolfari-trial.
+x-runtime: &runtime
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+services:
+  postgres:
+    <<: *runtime
+  rabbitmq:
+    <<: *runtime
+    hostname: wolfari-trial-rabbitmq
+  minio:
+    <<: *runtime
+  mailpit:
+    profiles: [local-mail-only]

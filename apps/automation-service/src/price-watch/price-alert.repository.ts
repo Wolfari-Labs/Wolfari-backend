@@ -1,5 +1,7 @@
 import { withPriceWatchTransaction } from './price-watch-transaction';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { referencePriceFresh } from './price-watch-worker.domain';
 import { DatabaseProvider } from '@wolfari/database';
 import {
   PRICE_ALERT_MAX_ATTEMPTS,
@@ -49,6 +51,7 @@ interface CandidateDetailRow extends ClaimedPriceAlert {
   alert_armed: boolean;
   observation_query_group_id: string;
   observation_provider: string;
+  fare_metadata: Record<string, unknown>;
   price: string;
   observed_at: Date | string;
 }
@@ -127,7 +130,10 @@ export async function recordPriceAlertCandidates(
 
 @Injectable()
 export class PriceAlertRepository {
-  constructor(private readonly database: DatabaseProvider) {}
+  constructor(
+    private readonly database: DatabaseProvider,
+    @Optional() private readonly config?: ConfigService,
+  ) {}
 
   async failExhaustedLeases(batchSize: number): Promise<number> {
     const result = await this.database.query(
@@ -255,7 +261,7 @@ export class PriceAlertRepository {
              w.query_group_id,w.status AS watch_status,w.version,
              w.threshold_price::text,w.expires_at,w.last_alert_price::text,
              w.last_alert_at,w.alert_armed,o.query_group_id AS observation_query_group_id,
-             o.provider AS observation_provider,o.price::text,o.observed_at
+             o.provider AS observation_provider,o.price::text,o.observed_at,o.fare_metadata
            FROM price_alert_candidates c
            JOIN price_watches w ON w.id=c.watch_id
            JOIN price_observations o ON o.id=c.observation_id
@@ -294,8 +300,17 @@ export class PriceAlertRepository {
         row.query_group_id !== row.observation_query_group_id
       )
         return finish('SUPPRESSED', 'WATCH_CHANGED');
-      if (row.observation_provider !== 'MOCK_FLIGHT')
+      if (
+        (this.config?.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production' &&
+        row.observation_provider !== 'TRAVELPAYOUTS_CACHE'
+      )
+        return finish('SUPPRESSED', 'PROVIDER_NOT_SUPPORTED');
+      if (!['MOCK_FLIGHT', 'TRAVELPAYOUTS_CACHE'].includes(row.observation_provider))
         return finish('FAILED', 'PROVIDER_NOT_SUPPORTED');
+      if (
+        !referencePriceFresh(row.observation_provider, row.fare_metadata ?? {}, date(now).getTime())
+      )
+        return finish('SUPPRESSED', 'SOURCE_STALE');
       if (row.version >= 2_147_483_647) return finish('FAILED', 'WATCH_VERSION_EXHAUSTED');
 
       const latest = (
@@ -329,14 +344,19 @@ export class PriceAlertRepository {
       await client.query(
         `INSERT INTO notifications(
            user_id,trip_id,type,title,body,source_id,status,dedupe_key
-         ) VALUES($1,$2,'PRICE_ALERT','Mô phỏng: giá vé đã giảm',$3,$4,'AVAILABLE',$5)
+         ) VALUES($1,$2,'PRICE_ALERT',$6,$3,$4,'AVAILABLE',$5)
          ON CONFLICT(dedupe_key) DO NOTHING`,
         [
           row.user_id,
           row.trip_id,
-          `Dữ liệu mô phỏng MOCK_FLIGHT: ${String(row.price)} VND thấp hơn ngưỡng bạn đặt; không phải giá vé thực tế.`,
+          row.observation_provider === 'MOCK_FLIGHT'
+            ? `Dữ liệu mô phỏng MOCK_FLIGHT: ${String(row.price)} VND thấp hơn ngưỡng bạn đặt; không phải giá vé thực tế.`
+            : `Giá cache Travelpayouts: ${String(row.price)} VND thấp hơn ngưỡng; giá tham khảo, không bảo đảm còn mua được.`,
           row.watch_id,
           dedupeKey,
+          row.observation_provider === 'MOCK_FLIGHT'
+            ? 'Mô phỏng: giá vé đã giảm'
+            : 'Giá tham khảo dưới ngưỡng',
         ],
       );
       await client.query(

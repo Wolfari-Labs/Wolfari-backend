@@ -6,7 +6,7 @@ export type WatchStatus = 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'STOPPED';
 export type Journey = 'ONE_WAY' | 'ROUND_TRIP';
 
 export interface NormalizedPriceQuery {
-  provider: 'MOCK_FLIGHT';
+  provider: 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE';
   transport_type: 'FLIGHT';
   origin: string;
   destination: string;
@@ -141,7 +141,8 @@ export function normalizeWatch(
   now = new Date(),
 ): NormalizedWatchWrite {
   const provider = text(value.provider, 50);
-  if (provider !== 'MOCK_FLIGHT') return priceWatchFail('VALIDATION_FAILED');
+  if (provider !== 'MOCK_FLIGHT' && provider !== 'TRAVELPAYOUTS_CACHE')
+    return priceWatchFail('VALIDATION_FAILED');
   const origin = text(value.origin, 3);
   const destination = text(value.destination, 3);
   if (!IATA.test(origin) || !IATA.test(destination) || origin === destination)
@@ -164,6 +165,15 @@ export function normalizeWatch(
   if (new Date(departureAt).getTime() <= now.getTime()) return priceWatchFail('VALIDATION_FAILED');
   if (departureAt.slice(0, 10) !== departureDate) return priceWatchFail('VALIDATION_FAILED');
   const mix = passengers(value.passengers);
+  if (
+    provider === 'TRAVELPAYOUTS_CACHE' &&
+    (tripJourney !== 'ONE_WAY' ||
+      cabin !== 'ECONOMY' ||
+      mix.adults !== 1 ||
+      mix.children !== 0 ||
+      mix.infants !== 0)
+  )
+    return priceWatchFail('VALIDATION_FAILED');
   const query: NormalizedPriceQuery = {
     provider,
     transport_type: 'FLIGHT',

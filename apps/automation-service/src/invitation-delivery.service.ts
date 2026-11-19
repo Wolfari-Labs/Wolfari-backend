@@ -15,6 +15,7 @@ import { EVENT_TOPOLOGY, parseEventForConsume } from '@wolfari/contracts/events'
 import { TripAccessClient, TripInvitationClient } from '@wolfari/contracts/trip-client';
 import { connect, type ChannelModel, type ConfirmChannel, type ConsumeMessage } from 'amqplib';
 import { createTransport, type Transporter } from 'nodemailer';
+import { productionTransportBlocked } from '@wolfari/common';
 import { randomUUID } from 'node:crypto';
 
 const queue = 'wolfari.automation.invitations.v1';
@@ -55,7 +56,7 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
     private readonly db: DatabaseProvider,
     config: ConfigService,
   ) {
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Invitation transport requires TLS in production');
     const target = config.getOrThrow<string>('TRIP_GRPC_TARGET'),
       secret = config.getOrThrow<string>('AUTOMATION_TRIP_SECRET');

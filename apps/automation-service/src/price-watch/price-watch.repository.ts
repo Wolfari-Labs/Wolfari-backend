@@ -111,6 +111,16 @@ function project(row: WatchRow): PriceWatchRecord {
 }
 
 async function queryGroup(client: PoolClient, value: NormalizedWatchWrite): Promise<string> {
+  if (value.query.provider === 'TRAVELPAYOUTS_CACHE') {
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('travelpayouts-active-limit',0))",
+    );
+    const count = await client.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM price_query_groups WHERE provider='TRAVELPAYOUTS_CACHE' AND active=true AND canonical_key<>$1`,
+      [value.canonical_key],
+    );
+    if (count.rows[0]!.count >= 100) return priceWatchFail('STATE_CONFLICT');
+  }
   const inserted = await client.query<{ id: string; params: NormalizedPriceQuery | string }>(
     `INSERT INTO price_query_groups(
        provider,transport_type,canonical_key,origin,destination,departure_date,return_date,
@@ -145,6 +155,21 @@ async function queryGroup(client: PoolClient, value: NormalizedWatchWrite): Prom
 }
 
 async function wakeQueryGroup(client: PoolClient, id: string): Promise<void> {
+  // Also enforce admission on resume; serializes against new cache query groups.
+  const query = await client.query<{ provider: string }>(
+    'SELECT provider FROM price_query_groups WHERE id=$1',
+    [id],
+  );
+  if (query.rows[0]?.provider === 'TRAVELPAYOUTS_CACHE') {
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('travelpayouts-active-limit',0))",
+    );
+    const count = await client.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM price_query_groups WHERE provider='TRAVELPAYOUTS_CACHE' AND active=true AND id<>$1",
+      [id],
+    );
+    if (count.rows[0]!.count >= 100) return priceWatchFail('STATE_CONFLICT');
+  }
   await client.query(
     `UPDATE price_query_groups SET active=true,
        next_check_at=LEAST(COALESCE(next_check_at,clock_timestamp()),clock_timestamp()),
@@ -367,9 +392,17 @@ export class PriceWatchRepository {
   ) {
     // Read the page and provider state from the same PostgreSQL snapshot, including empty pages.
     const result = await this.database.query<
-      ObservationRow & { stale: boolean; last_error: string | null }
+      ObservationRow & {
+        stale: boolean;
+        last_error: string | null;
+        last_checked_at: Date | null;
+        next_check_at: Date | null;
+        last_check_status: string | null;
+      }
     >(
-      `SELECT page.*, q.last_error, (q.last_error IS NOT NULL AND EXISTS
+      `SELECT page.*, q.last_error, q.last_checked_at, q.next_check_at,
+         (SELECT status FROM price_query_attempts WHERE query_group_id=q.id ORDER BY scheduled_slot DESC LIMIT 1) AS last_check_status,
+         (q.last_error IS NOT NULL AND EXISTS
          (SELECT 1 FROM price_observations WHERE query_group_id=q.id)) AS stale
        FROM price_query_groups q LEFT JOIN LATERAL (
          SELECT id,price::text,currency,provider,fare_metadata,observed_at,fetched_at
@@ -386,10 +419,16 @@ export class PriceWatchRepository {
       'PROVIDER_NOT_SUPPORTED',
       'PROVIDER_RESPONSE_INVALID',
       'PROVIDER_UNAVAILABLE',
+      'PROVIDER_AUTH_FAILED',
+      'PROVIDER_RATE_LIMITED',
+      'PROVIDER_NOT_CONFIGURED',
       'LEASE_EXHAUSTED',
     ];
     return {
       stale: state?.stale ?? false,
+      last_checked_at: state?.last_checked_at ? iso(state.last_checked_at) : null,
+      next_check_at: state?.next_check_at ? iso(state.next_check_at) : null,
+      last_check_status: state?.last_check_status ?? null,
       last_error: code ? (publicCodes.includes(code) ? code : 'PROVIDER_UNAVAILABLE') : null,
       items: result.rows
         .filter((row) => row.id !== null)

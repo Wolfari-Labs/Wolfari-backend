@@ -2,6 +2,7 @@ import { TripManagementService } from './trip-management.service';
 import { PlanPdfService } from './plan-pdf.service';
 import { PlanItemsService } from './planning/plan-items.service';
 import { PlanService } from './planning/plan.service';
+import { LocationService } from './planning/location.service';
 import { MembershipRepository } from './membership/membership.repository';
 import { MemberProfilesService } from './membership/member-profiles.service';
 import { LifecycleFinanceClient } from './operations/lifecycle-finance.client';
@@ -37,6 +38,7 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     FinanceOperationService,
     TripService,
     PlanService,
+    LocationService,
     PlanItemsService,
     DressCodeService,
     DressCodeImageService,

@@ -164,15 +164,6 @@ export class PaymentRepository {
       )
     ).rows[0];
   }
-  async getException(id: string, client: Client = this.db) {
-    return (
-      await client.query<PaymentExceptionRow>(
-        `SELECT id,payment_attempt_id,processing_status,review_reason,received_at,reviewed_at
-         FROM payment_webhook_receipts WHERE id=$1 AND signature_valid AND review_reason IS NOT NULL`,
-        [id],
-      )
-    ).rows[0];
-  }
   async listExceptions(page: PaymentExceptionPage): Promise<{
     items: FinanceV1.PaymentExceptionView[];
     nextCursor?: string;

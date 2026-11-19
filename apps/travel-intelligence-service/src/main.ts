@@ -1,15 +1,17 @@
 import 'reflect-metadata';
-import { bootstrapApp } from '@wolfari/common';
+import { bootstrapApp, productionTransportBlocked } from '@wolfari/common';
 import { GRPC_LOADER_OPTIONS, GRPC_PACKAGES, PROTO_PATHS } from '@wolfari/contracts/grpc';
 import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 
 void bootstrapApp(AppModule, 'travel-intelligence-service', async (app) => {
-  if (process.env.NODE_ENV === 'production')
-    throw Error('Travel internal gRPC requires TLS in production');
+  // Keep an unconfigured existing installation available; discovery returns unavailable.
+  if (!process.env.GATEWAY_TRAVEL_SECRET) return;
+  if (productionTransportBlocked() || process.env.GATEWAY_TRAVEL_SECRET.length < 32)
+    throw new Error('Travel transport configuration invalid');
   const port = Number(process.env.TRAVEL_GRPC_PORT ?? 3203);
   if (!Number.isInteger(port) || port < 1024 || port > 65535)
-    throw Error('Invalid Travel gRPC port');
+    throw new Error('TRAVEL_GRPC_PORT invalid');
   app.connectMicroservice<MicroserviceOptions>(
     {
       transport: Transport.GRPC,

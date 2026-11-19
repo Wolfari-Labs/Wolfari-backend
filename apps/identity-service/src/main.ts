@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import 'reflect-metadata';
 import { bootstrapApp } from '@wolfari/common';
 import { AppModule } from './app.module';
@@ -12,7 +13,7 @@ function secureEqual(first: string, second: string): boolean {
 }
 
 void bootstrapApp(AppModule, 'identity-service', async app => {
-  if (process.env.NODE_ENV === 'production') throw new Error('Identity internal HTTP/gRPC requires TLS in production');
+  if (productionTransportBlocked()) throw new Error('Identity internal HTTP/gRPC requires TLS in production');
   const secret = process.env.GATEWAY_IDENTITY_SECRET;
   if (!secret || secret.length < 32) throw new Error('GATEWAY_IDENTITY_SECRET missing');
   app.use('/internal/identity', (request: IncomingMessage, response: ServerResponse, next: () => void) => {

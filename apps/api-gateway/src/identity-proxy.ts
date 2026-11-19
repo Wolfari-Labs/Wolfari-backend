@@ -2,7 +2,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { IdentityClient } from '@wolfari/contracts/identity-client';
 import type { IdentityV1 } from '@wolfari/contracts/grpc';
-import { currentCorrelationId } from '@wolfari/common';
+import { currentCorrelationId, gatewayClientIp, productionTransportBlocked } from '@wolfari/common';
+import { isLoopbackGrpcTarget } from './trip-http';
 
 const cookieName = 'wolfari_refresh';
 const allowed: Array<[string, RegExp]> = [
@@ -16,13 +17,6 @@ const allowed: Array<[string, RegExp]> = [
   ['POST', /^\/api\/v1\/me\/(password-change|avatar)$/],
   ['DELETE', /^\/api\/v1\/me\/sessions\/[0-9a-f-]{36}$/i],
 ];
-
-function isLoopbackGrpcTarget(value: string): boolean {
-  const match = /^127\.0\.0\.1:(\d+)$/.exec(value);
-  if (!match) return false;
-  const port = Number(match[1]);
-  return Number.isInteger(port) && port >= 1024 && port <= 65535;
-}
 
 function cookie(request: IncomingMessage): string | undefined {
   return request.headers.cookie
@@ -81,7 +75,10 @@ export class IdentityProxy {
     this.csrfKey = process.env.GATEWAY_CSRF_KEY ?? '';
     this.origin = process.env.WEB_ORIGIN ?? '';
     const multiplier = process.env.GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER ?? '1';
-    if (!/^(?:[1-9]|1[0-9]|20)$/.test(multiplier) || (process.env.NODE_ENV === 'production' && multiplier !== '1'))
+    if (
+      !/^(?:[1-9]|1[0-9]|20)$/.test(multiplier) ||
+      (process.env.NODE_ENV === 'production' && multiplier !== '1')
+    )
       throw new Error('Invalid local rate limit multiplier');
     this.limitMultiplier = Number(multiplier);
     const grpcTarget = process.env.IDENTITY_GRPC_TARGET ?? '127.0.0.1:3201';
@@ -93,7 +90,7 @@ export class IdentityProxy {
       !this.origin
     )
       throw new Error('Gateway Identity configuration invalid');
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Gateway Identity transport requires TLS in production');
     this.client = new IdentityClient(grpcTarget, 'ApiGateway', this.secret);
   }
@@ -185,7 +182,12 @@ export class IdentityProxy {
       )
         return error(response, 403, 'PERMISSION_DENIED');
     }
-    const ip = request.socket.remoteAddress ?? 'unknown';
+    let ip: string;
+    try {
+      ip = gatewayClientIp(request);
+    } catch {
+      return error(response, 403, 'PERMISSION_DENIED');
+    }
     // Typed codes get a few retries per window; the service also burns a code after 5 misses.
     const limit =
       path === '/api/v1/auth/email-verifications/confirm' || path === '/api/v1/auth/password-resets'

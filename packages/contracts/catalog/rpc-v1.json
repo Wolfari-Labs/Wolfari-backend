@@ -122,6 +122,22 @@
   {
     "package": "wolfari.trip.v1",
     "service": "TripService",
+    "method": "SaveSelectedLocation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "POI provider integration 2026-11-12"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "DeleteSelectedLocation",
+    "callers": ["ApiGateway"],
+    "deadline_ms": 2000,
+    "source": "POI provider integration 2026-11-12"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
     "method": "GetPlanPolicy",
     "callers": [
       "ApiGateway"

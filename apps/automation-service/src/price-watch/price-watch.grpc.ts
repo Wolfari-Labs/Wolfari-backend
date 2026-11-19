@@ -82,6 +82,10 @@ export function safeFareMetadata(value: unknown): string {
     'carrier_code',
     'fare_class',
     'baggage_summary',
+    'provider_found_at',
+    'provider_expires_at',
+    'data_kind',
+    'source_freshness',
   ] as const) {
     const item = source[key];
     if (item === null || typeof item === 'string') result[key] = item;
@@ -358,6 +362,9 @@ export class PriceWatchGrpcController implements AutomationV1.AutomationServiceC
         next_cursor: result.next_cursor ?? undefined,
         stale: result.stale,
         last_error: result.last_error ?? undefined,
+        last_checked_at: result.last_checked_at ?? undefined,
+        next_check_at: result.next_check_at ?? undefined,
+        last_check_status: result.last_check_status ?? undefined,
       };
     });
   }

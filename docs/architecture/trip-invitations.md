@@ -67,4 +67,27 @@ corepack pnpm trip:replay-invitation --event-id <uuid> --reason <ticket>
 
 Delivery replay chỉ lỗi SMTP retry đã hết; không replay source invalid/suppressed hoặc SENT. Event replay giữ nguyên ID/payload và cho phép FAILED/PUBLISHED để phục hồi consumer DLQ sau khi đã sửa nguyên nhân; inbox và source validation chống lặp side effect. Không xóa inbox hoặc tạo invitation mới để replay. Công cụ local từ chối production, DB/role/host sai. Khi chuyển deployment có general queue cũ, cần vận hành gỡ hai binding cũ theo catalog; không tự xóa message/queue.
 
-Xem [bàn giao](trip-invitations-handoff.md) và [kiểm chứng](trip-invitations-validation.md).
+## Tích hợp và bàn giao
+
+Gộp hướng dẫn từ `trip-invitations-handoff.md`; trạng thái nhánh/CI của mốc review
+01/10/2026 là lịch sử, không đại diện checkout hiện tại. Xem [kiểm chứng](trip-invitations-validation.md)
+và [hồ sơ chốt 02/10](../releases/2026-10-02-documentation-baseline.md).
+
+- Frontend dùng OpenAPI, không tự khai actor/role/email verification; retry 503
+  với cùng Idempotency-Key. Không kỳ vọng link ở replay create và không log token.
+- Identity `GetInvitationIdentity` chỉ dành Trip, không mở REST. Recipient path
+  từ chối khi không xác minh được Identity; Gateway vẫn lấy actor từ ValidateSession.
+- Automation dùng consumer riêng, exact invitation version, SENT trước ACK;
+  ACK lỗi không gửi SMTP lại. Không lấy token từ event.
+- Planning giữ policy và fresh-snapshot sau khóa; không copy editor assignments
+  khi accept. Rejoin luôn tạo membership ID mới; `accepted_member_id` giữ lần gia
+  nhập gốc và replay cũ trả 404 nếu membership đó đã rời.
+- Leave/remove/transfer phối hợp khóa Trip trước member/invitation và revisions
+  theo contract lifecycle. Xem [membership runbook](trip-member-lifecycle-handoff.md)
+  và [Finance lifecycle](finance-member-lifecycle.md); Trip-side guard riêng lẻ
+  không chứng minh closure phân tán đã nghiệm thu.
+
+Trước khi dùng môi trường chung: kiểm CI đúng SHA, backup/kiểm legacy trước V002,
+provision caller secrets/key/binding/link đúng môi trường và nghiệm thu TLS/SMTP,
+frontend, DLQ/key rotation cùng protocol Finance. Không sửa V001 để né preflight.
+Các giới hạn transport của triển khai thử được ghi riêng trong [single-host trial](../../deployment/README.md).

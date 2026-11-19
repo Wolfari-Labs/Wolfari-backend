@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AutomationClient } from '@wolfari/contracts/automation-client';
 import {
@@ -221,7 +222,7 @@ export class PriceWatchProxy {
     const secret = process.env.GATEWAY_AUTOMATION_SECRET ?? '';
     if (!isLoopbackGrpcTarget(target) || secret.length < 32)
       throw new Error('Gateway Automation configuration invalid');
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Gateway Automation transport requires TLS in production');
     this.client = new AutomationClient(target, secret);
   }
@@ -276,7 +277,13 @@ export class PriceWatchProxy {
             correlation_id: auth.correlationId,
             next_cursor: optionalString(result.next_cursor),
             ...(parsed.kind === 'observations'
-              ? { stale: result.stale === true, last_error: optionalString(result.last_error) }
+              ? {
+                  stale: result.stale === true,
+                  last_error: optionalString(result.last_error),
+                  last_checked_at: optionalString(result.last_checked_at),
+                  next_check_at: optionalString(result.next_check_at),
+                  last_check_status: optionalString(result.last_check_status),
+                }
               : {}),
           },
         });
