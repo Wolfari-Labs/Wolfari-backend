@@ -50,6 +50,9 @@ components:
         can_update:
           type: boolean
           description: True only for the active Owner while the Trip is not archived.
+        can_invite:
+          type: boolean
+          description: True for the Owner and for members allowed to edit the plan (plan_edit_policy).
     Trip:
       type: object
       additionalProperties: false
@@ -69,6 +72,8 @@ components:
         - export_revision
         - current_membership
         - permissions
+        - budget_amount
+        - cover_image_available
       properties:
         id: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 200 }
@@ -89,6 +94,13 @@ components:
         export_revision: { type: integer, minimum: 1, maximum: 2147483647 }
         current_membership: { $ref: '#/components/schemas/Membership' }
         permissions: { $ref: '#/components/schemas/TripPermissions' }
+        budget_amount:
+          type: [string, 'null']
+          pattern: '^[1-9][0-9]{0,11}$'
+          description: Expected trip budget in whole VND; not the confirmed fund balance.
+        cover_image_available:
+          type: boolean
+          description: True when GET /trips/{trip_id}/cover returns an image.
     TripResponse:
       type: object
       additionalProperties: false
@@ -178,6 +190,17 @@ components:
                     plan_version: { type: integer, minimum: 1, maximum: 2147483647 }
                     membership_revision: { type: integer, minimum: 1, maximum: 2147483647 }
                     export_revision: { type: integer, minimum: 1, maximum: 2147483647 }
+                    reason:
+                      type: string
+                      description: STATE_CONFLICT sub-reason, e.g. TRIP_RANGE_CONFLICT.
+                    activity_count:
+                      type: integer
+                      minimum: 1
+                      description: Activities that would fall outside the new date range.
+                    dress_code_count:
+                      type: integer
+                      minimum: 1
+                      description: Dated dress codes that would fall outside the new date range.
             retryable: { type: boolean }
         meta:
           type: object
@@ -242,6 +265,10 @@ paths:
                   default: Asia/Ho_Chi_Minh
                   description: Valid IANA time zone name.
                 client_request_id: { type: string, format: uuid }
+                budget_amount:
+                  type: string
+                  pattern: '^[1-9][0-9]{0,11}$'
+                  description: Optional expected budget in whole VND.
       responses:
         '201':
           description: Trip committed together with its Owner membership and receipt.
@@ -294,7 +321,11 @@ paths:
         '503': { $ref: '#/components/responses/Unavailable' }
     patch:
       tags: [Trips]
-      summary: Update Trip metadata as the current active Owner.
+      summary: Update Trip metadata, dates, time zone or budget as the current active Owner.
+      description: >-
+        Changing start_at, end_at or timezone is rejected with 409 STATE_CONFLICT (details.reason
+        TRIP_RANGE_CONFLICT, activity_count, dress_code_count) when scheduled activities or dated dress
+        codes would fall outside the new range; a schedule change advances plan_version.
       security: [{ bearer: [] }]
       parameters: [{ $ref: '#/components/parameters/idempotencyKey' }]
       requestBody:
@@ -309,12 +340,30 @@ paths:
                 name: { type: string, minLength: 1, maxLength: 200 }
                 description: { type: [string, 'null'] }
                 public_description: { type: [string, 'null'] }
+                start_at: { type: string, format: date-time }
+                end_at:
+                  type: string
+                  format: date-time
+                  description: Must be after the resulting start_at.
+                timezone:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                  description: Valid IANA time zone name.
+                budget_amount:
+                  type: [string, 'null']
+                  pattern: '^[1-9][0-9]{0,11}$'
+                  description: Whole VND; null clears the budget.
                 expected_plan_version: { type: integer, minimum: 1, maximum: 2147483647 }
                 expected_export_revision: { type: integer, minimum: 1, maximum: 2147483647 }
               anyOf:
                 - required: [name]
                 - required: [description]
                 - required: [public_description]
+                - required: [start_at]
+                - required: [end_at]
+                - required: [timezone]
+                - required: [budget_amount]
       responses:
         '200':
           description: Updated or idempotently replayed Trip projection.
@@ -383,4 +432,61 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /trips/{trip_id}/cover:
+    parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Trips]
+      summary: Replace the Trip cover image (Owner or plan editor).
+      description: >-
+        Multipart field `file`, JPEG or PNG up to 5 MB. The image is re-encoded to JPEG without metadata.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200':
+          description: Trip projection with cover_image_available true.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TripResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    get:
+      tags: [Trips]
+      summary: Stream the Trip cover image to an active member.
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: JPEG cover image.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    delete:
+      tags: [Trips]
+      summary: Remove the Trip cover image (Owner or plan editor).
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: Trip projection with cover_image_available false.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TripResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '503': { $ref: '#/components/responses/Unavailable' }

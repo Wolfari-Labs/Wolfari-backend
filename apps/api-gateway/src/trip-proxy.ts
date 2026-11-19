@@ -65,7 +65,7 @@ function projectMembership(value: unknown) {
   };
 }
 
-function projectTrip(value: unknown) {
+export function projectTrip(value: unknown) {
   const trip = responseRecord(value);
   const permissions = responseRecord(trip.permissions);
   if (
@@ -93,8 +93,20 @@ function projectTrip(value: unknown) {
     membership_revision: requiredInteger(trip.membership_revision),
     export_revision: requiredInteger(trip.export_revision),
     current_membership: projectMembership(trip.current_membership),
-    permissions: { can_read: permissions.can_read, can_update: permissions.can_update },
+    permissions: {
+      can_read: permissions.can_read,
+      can_update: permissions.can_update,
+      can_invite: permissions.can_invite === true,
+    },
+    budget_amount: trip.budget_amount === undefined ? null : budgetValue(trip.budget_amount),
+    cover_image_available: trip.cover_image_available === true,
   };
+}
+
+function budgetValue(value: unknown): string {
+  if (typeof value !== 'string' || !/^[1-9][0-9]{0,11}$/.test(value))
+    throw new Error('Invalid budget');
+  return value;
 }
 
 function projectPlanPolicy(value: unknown) {
@@ -204,7 +216,20 @@ function planPolicyRequest(
 }
 
 function createRequest(body: RpcMessage, actorUserId: string, headerKey?: string): RpcMessage {
-  onlyKeys(body, ['name', 'description', 'start_at', 'end_at', 'timezone', 'client_request_id']);
+  onlyKeys(body, [
+    'name',
+    'description',
+    'start_at',
+    'end_at',
+    'timezone',
+    'client_request_id',
+    'budget_amount',
+  ]);
+  if (
+    body.budget_amount !== undefined &&
+    (typeof body.budget_amount !== 'string' || !/^[1-9][0-9]{0,11}$/.test(body.budget_amount))
+  )
+    throw new RequestError('Invalid budget');
   if (typeof body.name !== 'string') throw new RequestError('Invalid name');
   const name = body.name.trim();
   if (name.length < 1 || name.length > 200) throw new RequestError('Invalid name');
@@ -232,6 +257,7 @@ function createRequest(body: RpcMessage, actorUserId: string, headerKey?: string
     end_at: endAt,
     timezone,
     ...(typeof body.description === 'string' ? { description: body.description } : {}),
+    ...(typeof body.budget_amount === 'string' ? { budget_amount: body.budget_amount } : {}),
   };
 }
 
@@ -247,12 +273,21 @@ function updateRequest(
     'public_description',
     'expected_plan_version',
     'expected_export_revision',
+    'start_at',
+    'end_at',
+    'timezone',
+    'budget_amount',
   ]);
-  const hasName = Object.hasOwn(body, 'name');
-  const hasDescription = Object.hasOwn(body, 'description');
-  const hasPublicDescription = Object.hasOwn(body, 'public_description');
-  if (!hasName && !hasDescription && !hasPublicDescription)
-    throw new RequestError('Missing update');
+  const updatable = [
+    'name',
+    'description',
+    'public_description',
+    'start_at',
+    'end_at',
+    'timezone',
+    'budget_amount',
+  ];
+  if (!updatable.some((key) => Object.hasOwn(body, key))) throw new RequestError('Missing update');
   if (
     !Number.isSafeInteger(body.expected_plan_version) ||
     Number(body.expected_plan_version) < 1 ||
@@ -272,7 +307,7 @@ function updateRequest(
     expected_plan_version: body.expected_plan_version,
     expected_export_revision: body.expected_export_revision,
   };
-  if (hasName) {
+  if (Object.hasOwn(body, 'name')) {
     if (typeof body.name !== 'string') throw new RequestError('Invalid name');
     const name = body.name.trim();
     if (name.length < 1 || name.length > 200) throw new RequestError('Invalid name');
@@ -283,6 +318,18 @@ function updateRequest(
     if (body[field] === null) request[field] = { clear: true };
     else if (typeof body[field] === 'string') request[field] = { value: body[field] };
     else throw new RequestError(`Invalid ${field}`);
+  }
+  if (Object.hasOwn(body, 'start_at')) request.start_at = parseTimestamp(body.start_at);
+  if (Object.hasOwn(body, 'end_at')) request.end_at = parseTimestamp(body.end_at);
+  if (Object.hasOwn(body, 'timezone')) {
+    if (!validTimezone(body.timezone)) throw new RequestError('Invalid timezone');
+    request.timezone = body.timezone;
+  }
+  if (Object.hasOwn(body, 'budget_amount')) {
+    if (body.budget_amount === null) request.budget_amount = { clear: true };
+    else if (typeof body.budget_amount === 'string' && /^[1-9][0-9]{0,11}$/.test(body.budget_amount))
+      request.budget_amount = { value: body.budget_amount };
+    else throw new RequestError('Invalid budget');
   }
   return request;
 }

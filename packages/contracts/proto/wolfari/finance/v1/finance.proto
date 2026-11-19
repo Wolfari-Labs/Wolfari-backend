@@ -4,6 +4,7 @@ import "google/protobuf/timestamp.proto";
 import "wolfari/common/v1/types.proto";
 
 service FinanceService {
+  rpc CreateQrSandboxPayment(CreateQrSandboxPaymentRequest) returns (CreateQrSandboxPaymentResponse);
   rpc GetTripLifecycleState(GetTripLifecycleStateRequest) returns (GetTripLifecycleStateResponse);
   rpc ListFundHistory(ListFundHistoryRequest) returns (ListFundHistoryResponse);
   rpc CreatePaymentAttempt(CreatePaymentAttemptRequest) returns (CreatePaymentAttemptResponse);
@@ -14,6 +15,7 @@ service FinanceService {
   rpc ResolvePaymentException(ResolvePaymentExceptionRequest) returns (ResolvePaymentExceptionResponse);
   rpc ListClosures(ListClosuresRequest) returns (ListClosuresResponse);
   rpc GetClosure(GetClosureRequest) returns (GetClosureResponse);
+  rpc GetClosureReadiness(GetClosureReadinessRequest) returns (GetClosureReadinessResponse);
   rpc CreateClosure(CreateClosureRequest) returns (CreateClosureResponse);
   rpc ConfirmClosure(ConfirmClosureRequest) returns (ConfirmClosureResponse);
   rpc CancelClosure(CancelClosureRequest) returns (CancelClosureResponse);
@@ -78,6 +80,7 @@ service FinanceService {
   rpc CancelHolderHandover(CancelHolderHandoverRequest) returns (CancelHolderHandoverResponse);
   rpc ReceiveBankTransfer(ReceiveBankTransferRequest) returns (ReceiveBankTransferResponse);
   rpc ListBankTransfers(ListBankTransfersRequest) returns (ListBankTransfersResponse);
+  rpc ResolveBankTransfer(ResolveBankTransferRequest) returns (ResolveBankTransferResponse);
 }
 
 // Incoming bank transfers reported by an aggregation provider (SePay). Gateway verified the signature.
@@ -114,9 +117,27 @@ message BankTransferView {
   google.protobuf.Timestamp transaction_at = 12;
   google.protobuf.Timestamp received_at = 13;
   google.protobuf.Timestamp processed_at = 14;
+  optional string resolution = 15;
+  optional string resolution_note = 16;
+  optional string resolved_by_user_id = 17;
+  google.protobuf.Timestamp resolved_at = 18;
 }
 message ListBankTransfersRequest { string actor_user_id = 1; string fund_id = 2; }
 message ListBankTransfersResponse { repeated BankTransferView items = 1; }
+// Holder records how a NEEDS_REVIEW transfer was handled; no ledger or balance effect.
+message ResolveBankTransferRequest {
+  string operation_id = 1;
+  string actor_user_id = 2;
+  string fund_id = 3;
+  string bank_transfer_id = 4;
+  string resolution = 5;
+  string note = 6;
+  int32 expected_finance_version = 7;
+}
+message ResolveBankTransferResponse {
+  BankTransferView bank_transfer = 1;
+  int32 finance_version = 2;
+}
 
 // Public Member audit metadata only; raw details and provider data are excluded.
 // Handover snapshots are business data; no bank credentials or receipt storage keys.
@@ -340,6 +361,16 @@ message ListClosuresResponse {
 }
 message GetClosureRequest { string actor_user_id = 1; string closure_id = 2; }
 message GetClosureResponse { ClosureView closure = 1; }
+// Same counts the closure writers enforce; kind is a ClosureBlockerKind string.
+message ClosureBlocker { string kind = 1; int32 count = 2; }
+message GetClosureReadinessRequest { string actor_user_id = 1; string fund_id = 2; }
+message GetClosureReadinessResponse {
+  bool ready = 1;
+  string fund_status = 2;
+  string current_balance = 3;
+  repeated ClosureBlocker blockers = 4;
+  int32 bank_transfers_needing_review = 5;
+}
 message CreateClosureRequest {
   string operation_id = 1;
   string actor_user_id = 2;
@@ -748,6 +779,9 @@ message ContributionView {
   int32 finance_version = 14;
   // Latest Holder rejection reason. Absent on never-rejected/legacy receipt snapshots.
   optional string rejected_reason = 15;
+  // Payment rail only; recipient snapshot remains private.
+  optional string destination_type = 16;
+  optional string latest_payment_attempt_id = 17;
 }
 message ListContributionRequestsRequest {
   string actor_user_id = 1;
@@ -1275,4 +1309,20 @@ message GetTripLifecycleStateRequest { string trip_id = 1; }
 message GetTripLifecycleStateResponse {
   bool can_archive = 1;
   bool can_transfer = 2;
+}
+
+// Test checkout only. No fund ledger or actual scanned-bank transfer is created.
+message CreateQrSandboxPaymentRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+  string request_id = 3;
+  string amount = 4;
+  string note = 5;
+}
+message CreateQrSandboxPaymentResponse {
+  string request_id = 1;
+  string order_id = 2;
+  string amount = 3;
+  string payment_url = 4;
+  string environment = 5;
 }

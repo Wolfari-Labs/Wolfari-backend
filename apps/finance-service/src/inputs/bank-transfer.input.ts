@@ -1,5 +1,5 @@
-import { FinanceReadError } from '../finance.errors';
-import type { BankTransferInput } from '../repositories/bank-transfer.repository';
+import { FinanceReadError, readUuid } from '../finance.errors';
+import { BANK_TRANSFER_RESOLUTIONS, type BankTransferInput } from '../repositories/bank-transfer.repository';
 
 const invalid = (): never => {
   throw new FinanceReadError('VALIDATION_FAILED');
@@ -60,5 +60,39 @@ export function parseBankTransferInput(input: {
     subAccount: text(input.sub_account, 80, false),
     transactionAt: parseTransactionDate(text(input.transaction_date, 40, false)),
     payload,
+  };
+}
+
+/** Holder resolution of a NEEDS_REVIEW transfer: known outcome, a short note and the Fund version seen. */
+export function parseBankTransferResolution(input: {
+  operation_id?: unknown;
+  actor_user_id?: unknown;
+  fund_id?: unknown;
+  bank_transfer_id?: unknown;
+  resolution?: unknown;
+  note?: unknown;
+  expected_finance_version?: unknown;
+}) {
+  const uuid = (value: unknown) => {
+    try {
+      return readUuid(value);
+    } catch {
+      return invalid();
+    }
+  };
+  const resolution = BANK_TRANSFER_RESOLUTIONS.find((item) => item === input.resolution);
+  if (!resolution) return invalid();
+  const note = text(input.note, 500, true)!.trim();
+  const version = input.expected_finance_version;
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1 || version > 2147483647)
+    return invalid();
+  return {
+    operationId: uuid(input.operation_id),
+    actor: uuid(input.actor_user_id),
+    fundId: uuid(input.fund_id),
+    transferId: uuid(input.bank_transfer_id),
+    resolution,
+    note,
+    expectedFinanceVersion: version,
   };
 }

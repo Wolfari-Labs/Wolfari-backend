@@ -15,6 +15,10 @@ export type BankTransferRow = {
   transaction_at: Date | string | null;
   received_at: Date | string;
   processed_at: Date | string | null;
+  resolution?: string | null;
+  resolution_note?: string | null;
+  resolved_by_user_id?: string | null;
+  resolved_at?: Date | string | null;
 };
 
 function timestamp(value: Date | string | null) {
@@ -43,5 +47,9 @@ export function bankTransferResponse(row: BankTransferRow): FinanceV1.BankTransf
     transaction_at: timestamp(row.transaction_at),
     received_at: timestamp(row.received_at),
     processed_at: timestamp(row.processed_at),
+    resolution: row.resolution ?? undefined,
+    resolution_note: row.resolution_note ?? undefined,
+    resolved_by_user_id: row.resolved_by_user_id ?? undefined,
+    resolved_at: timestamp(row.resolved_at ?? null),
   };
 }

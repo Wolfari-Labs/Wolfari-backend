@@ -5,11 +5,14 @@ import { DatabaseProvider } from '@wolfari/database';
 import { currentCorrelationId } from '@wolfari/common';
 import { parseEventForPublish } from '@wolfari/contracts/events';
 import type { PoolClient } from 'pg';
-import { IdentityCrypto, digest, hashPassword, newSecret, passwordPolicy, verifyPassword } from './identity-crypto';
+import { IdentityCrypto, digest, emailCodeHash, emailCodeMatches, hashPassword, newEmailCode, newSecret, openDelivery, passwordPolicy, sealDelivery, verifyPassword } from './identity-crypto';
 
 type User = { id: string; email: string; full_name: string; avatar_object_key: string | null; system_role: string; status: string; email_verified_at: Date | null; version: number; password_hash?: string };
 type Session = { id: string; user_id: string; family_id: string; token_hash: string; expires_at: Date; revoked_at: Date | null; replaced_by_session_id: string | null };
-type OneTime = { id: string; user_id: string; purpose: string; expires_at: Date; used_at: Date | null; revoked_at: Date | null; delivery_token_ciphertext: string | null };
+type OneTime = { id: string; user_id: string; purpose: string; expires_at: Date; used_at: Date | null; revoked_at: Date | null; delivery_token_ciphertext: string | null; code_hash: string | null; failed_attempts: number };
+type Purpose = 'VERIFY_EMAIL' | 'RESET_PASSWORD';
+/** A token stops accepting codes after this many wrong guesses (V002 CHECK caps the column). */
+export const MAX_CODE_ATTEMPTS = 5;
 
 export class IdentityError extends Error {
   constructor(public readonly code: string, public readonly status: number, public readonly publicMessage = 'Không thể hoàn tất yêu cầu') { super(code); }
@@ -62,10 +65,11 @@ export class IdentityService {
 
   private async issueEmail(client: PoolClient, user: User, purpose: 'VERIFY_EMAIL' | 'RESET_PASSWORD', actorId: string | null): Promise<void> {
     const token = newSecret();
+    const code = newEmailCode();
     const tokenId = randomUUID();
     const expires = new Date(Date.now() + (purpose === 'VERIFY_EMAIL' ? 24 * 3600_000 : 30 * 60_000));
     await client.query('UPDATE one_time_tokens SET revoked_at=now(), delivery_token_ciphertext=NULL WHERE user_id=$1 AND purpose=$2 AND used_at IS NULL AND revoked_at IS NULL', [user.id, purpose]);
-    await client.query('INSERT INTO one_time_tokens(id,user_id,purpose,token_hash,expires_at,delivery_token_ciphertext,delivery_token_expires_at) VALUES($1,$2,$3,$4,$5,$6,$5)', [tokenId, user.id, purpose, digest(token), expires, this.crypto.encrypt(token)]);
+    await client.query('INSERT INTO one_time_tokens(id,user_id,purpose,token_hash,expires_at,delivery_token_ciphertext,delivery_token_expires_at,code_hash) VALUES($1,$2,$3,$4,$5,$6,$5,$7)', [tokenId, user.id, purpose, digest(token), expires, this.crypto.encrypt(sealDelivery(token, code)), emailCodeHash(purpose, user.id, code)]);
     const eventId = randomUUID();
     const occurredAt = new Date().toISOString();
     const envelope = parseEventForPublish({
@@ -193,18 +197,66 @@ export class IdentityService {
       const user = (await client.query<User>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [found.user_id])).rows[0];
       const token = (await client.query<OneTime>('SELECT * FROM one_time_tokens WHERE id=$1 FOR UPDATE', [found.id])).rows[0];
       if (!user || !token || token.used_at || token.revoked_at || token.expires_at <= new Date() || user.status !== 'ACTIVE') return fail('VALIDATION_FAILED', 400);
-      await client.query('UPDATE one_time_tokens SET used_at=now(),delivery_token_ciphertext=NULL WHERE id=$1', [token.id]);
-      if (purpose === 'VERIFY_EMAIL') await client.query('UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()),version=version+1,updated_at=now() WHERE id=$1', [user.id]);
-      else {
-        await client.query('UPDATE credentials SET password_hash=$2,password_changed_at=now(),updated_at=now() WHERE user_id=$1', [user.id, newHash]);
-        await client.query('UPDATE refresh_sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1', [user.id]);
-        await client.query("UPDATE one_time_tokens SET revoked_at=COALESCE(revoked_at,now()),delivery_token_ciphertext=NULL WHERE user_id=$1 AND purpose='RESET_PASSWORD' AND id<>$2 AND used_at IS NULL", [user.id, token.id]);
-      }
+      await this.applyToken(client, user, token, purpose, newHash);
     });
   }
 
-  confirmEmail(raw: unknown) { return this.consumeToken(raw, 'VERIFY_EMAIL'); }
-  resetPassword(raw: unknown, password: unknown) { passwordPolicy(password); return this.consumeToken(raw, 'RESET_PASSWORD', password); }
+  /**
+   * Email + 6-digit code path. Every miss answers the same 400 so the endpoint
+   * reveals neither whether the email exists nor whether a code was issued.
+   */
+  private async consumeCode(emailInput: unknown, codeInput: unknown, purpose: Purpose, newPassword?: string) {
+    if (typeof codeInput !== 'string' || !/^[0-9]{6}$/.test(codeInput)) return fail('VALIDATION_FAILED', 400);
+    const email = normalizeEmail(emailInput);
+    const newHash = newPassword === undefined ? null : await hashPassword(newPassword);
+    // A wrong guess must be committed even though the request fails.
+    const accepted = await this.db.withTransaction(async client => {
+      const user = (await client.query<User>('SELECT * FROM users WHERE lower(email)=$1 FOR UPDATE', [email])).rows[0];
+      if (!user || user.status !== 'ACTIVE') return false;
+      const token = (await client.query<OneTime>(
+        'SELECT * FROM one_time_tokens WHERE user_id=$1 AND purpose=$2 AND code_hash IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
+        [user.id, purpose],
+      )).rows[0];
+      if (!token || token.expires_at <= new Date() || token.failed_attempts >= MAX_CODE_ATTEMPTS) return false;
+      if (!emailCodeMatches(token.code_hash!, purpose, user.id, codeInput)) {
+        const attempts = token.failed_attempts + 1;
+        await client.query(
+          attempts >= MAX_CODE_ATTEMPTS
+            ? 'UPDATE one_time_tokens SET failed_attempts=$2,revoked_at=now(),delivery_token_ciphertext=NULL WHERE id=$1'
+            : 'UPDATE one_time_tokens SET failed_attempts=$2 WHERE id=$1',
+          [token.id, attempts],
+        );
+        return false;
+      }
+      await this.applyToken(client, user, token, purpose, newHash);
+      return true;
+    });
+    if (!accepted) fail('VALIDATION_FAILED', 400);
+  }
+
+  private async applyToken(client: PoolClient, user: User, token: OneTime, purpose: Purpose, newHash: string | null) {
+    await client.query('UPDATE one_time_tokens SET used_at=now(),delivery_token_ciphertext=NULL WHERE id=$1', [token.id]);
+    if (purpose === 'VERIFY_EMAIL') await client.query('UPDATE users SET email_verified_at=COALESCE(email_verified_at,now()),version=version+1,updated_at=now() WHERE id=$1', [user.id]);
+    else {
+      await client.query('UPDATE credentials SET password_hash=$2,password_changed_at=now(),updated_at=now() WHERE user_id=$1', [user.id, newHash]);
+      await client.query('UPDATE refresh_sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1', [user.id]);
+      await client.query("UPDATE one_time_tokens SET revoked_at=COALESCE(revoked_at,now()),delivery_token_ciphertext=NULL WHERE user_id=$1 AND purpose='RESET_PASSWORD' AND id<>$2 AND used_at IS NULL", [user.id, token.id]);
+    }
+  }
+
+  /** Accepts {token} (email link) or {email, code} (code typed in the app). */
+  confirmEmail(input: Record<string, unknown>) {
+    return 'token' in input
+      ? this.consumeToken(input.token, 'VERIFY_EMAIL')
+      : this.consumeCode(input.email, input.code, 'VERIFY_EMAIL');
+  }
+  resetPassword(input: Record<string, unknown>) {
+    const password = input.new_password;
+    passwordPolicy(password);
+    return 'token' in input
+      ? this.consumeToken(input.token, 'RESET_PASSWORD', password)
+      : this.consumeCode(input.email, input.code, 'RESET_PASSWORD', password);
+  }
 
   async changePassword(userId: string, current: unknown, next: unknown) {
     passwordPolicy(next);
@@ -273,9 +325,9 @@ export class IdentityService {
       await this.db.query('UPDATE one_time_tokens SET delivery_token_ciphertext=NULL WHERE id=$1 AND expires_at<=now()', [token.id]);
     }
     if (!token || token.status !== 'ACTIVE' || token.used_at || token.revoked_at || token.expires_at <= new Date() || !token.delivery_token_ciphertext) return { valid: false };
-    const raw = this.crypto.decrypt(token.delivery_token_ciphertext);
+    const { token: raw, code } = openDelivery(this.crypto.decrypt(token.delivery_token_ciphertext));
     const route = token.purpose === 'VERIFY_EMAIL' ? 'verify' : 'reset';
-    return { valid: true, delivery: { user_id: token.user_id, recipient_email: token.recipient_email, purpose: token.purpose === 'VERIFY_EMAIL' ? 1 : 2, one_time_link: `${this.linkBase}${this.linkPaths[route]}?token=${encodeURIComponent(raw)}`, expires_at: { seconds: String(Math.floor(token.expires_at.getTime() / 1000)), nanos: 0 } } };
+    return { valid: true, delivery: { user_id: token.user_id, recipient_email: token.recipient_email, purpose: token.purpose === 'VERIFY_EMAIL' ? 1 : 2, one_time_link: `${this.linkBase}${this.linkPaths[route]}?token=${encodeURIComponent(raw)}`, expires_at: { seconds: String(Math.floor(token.expires_at.getTime() / 1000)), nanos: 0 }, code: code ?? '' } };
   }
 
   async cleanupExpiredTokens() {

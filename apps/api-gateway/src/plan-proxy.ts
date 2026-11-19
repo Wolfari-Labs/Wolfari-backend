@@ -1,5 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TripClient } from './trip-client';
+import { DressCodeImageHttp, dressImageRoute } from './dress-code-image-http';
+import { TripCoverHttp, tripCoverRoute } from './trip-cover-http';
+import { projectTrip } from './trip-proxy';
 import { isCalendarDate } from '@wolfari/common';
 import {
   authenticate,
@@ -168,6 +171,7 @@ export function projectDressCode(value: unknown) {
     public_description: optionalString(row.public_description),
     source: enumValue(row.source, sources),
     plan_version: requiredInteger(row.plan_version),
+    ...(row.reference_image_available === true ? { reference_image_available: true } : {}),
   };
 }
 export function projectPackingItem(value: unknown) {
@@ -211,7 +215,7 @@ export function projectPlan(value: unknown) {
       can_edit: bool(permissions.can_edit),
       can_complete: bool(permissions.can_complete),
     },
-    capabilities: { ...PLAN_CAPABILITIES },
+    capabilities: { ...PLAN_CAPABILITIES, ...(row.dress_code_images_write === true ? { dress_code_images_write: true } : {}) },
   };
 }
 function revision(value: unknown): number {
@@ -341,6 +345,7 @@ export function dressCodeRequest(
     'label',
     'description',
     'public_description',
+    'reference_image_id',
   ]);
   const create = route.kind === 'dress-create';
   if (!create && Object.keys(body).length < 2) throw new RequestError('Missing update');
@@ -354,7 +359,7 @@ export function dressCodeRequest(
       throw new RequestError('Invalid label');
     request.label = body.label.trim();
   }
-  for (const key of ['description', 'public_description', 'plan_date', 'activity_id'] as const) {
+  for (const key of ['description', 'public_description', 'plan_date', 'activity_id', 'reference_image_id'] as const) {
     if (!Object.hasOwn(body, key)) continue;
     const value = body[key];
     if (value === null) {
@@ -363,19 +368,21 @@ export function dressCodeRequest(
     }
     if (typeof value !== 'string') throw new RequestError(`Invalid ${key}`);
     if (key === 'plan_date' && !isCalendarDate(value)) throw new RequestError('Invalid plan_date');
-    if (key === 'activity_id' && !uuid.test(value)) throw new RequestError('Invalid activity id');
+    if ((key === 'activity_id' || key === 'reference_image_id') && !uuid.test(value)) throw new RequestError('Invalid activity id');
     if (
       (key === 'description' || key === 'public_description') &&
       [...value].length > DRESS_TEXT_MAX
     )
       throw new RequestError(`Invalid ${key}`);
-    const normalized = key === 'activity_id' ? value.toLowerCase() : value;
+    const normalized = key === 'activity_id' || key === 'reference_image_id' ? value.toLowerCase() : value;
     request[key] = create ? normalized : { value: normalized };
   }
   return request;
 }
 export class PlanProxy {
   private readonly client: TripClient;
+  private readonly images: DressCodeImageHttp;
+  private readonly covers: TripCoverHttp;
   constructor(private readonly validateSession: SessionValidator) {
     const target = process.env.TRIP_GRPC_TARGET ?? '127.0.0.1:3202',
       secret = process.env.GATEWAY_TRIP_SECRET ?? '';
@@ -384,10 +391,12 @@ export class PlanProxy {
     if (process.env.NODE_ENV === 'production')
       throw new Error('Gateway Trip transport requires TLS in production');
     this.client = new TripClient(target, secret);
+    this.images = new DressCodeImageHttp(validateSession, this.client);
+    this.covers = new TripCoverHttp(validateSession, this.client, projectTrip);
   }
   matches(request: IncomingMessage & { originalUrl?: string }): boolean {
     try {
-      return /^\/api\/v1\/trips\/[^/]+\/(plan|activities|dress-codes)(\/.*)?$/.test(
+      return /^\/api\/v1\/trips\/[^/]+\/(plan|activities|dress-codes|dress-code-images|cover)(\/.*)?$/.test(
         new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname,
       );
     } catch {
@@ -400,6 +409,10 @@ export class PlanProxy {
     let route: Route | null, url: URL;
     try {
       url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+      const imageRoute = dressImageRoute(url.pathname);
+      if (imageRoute) return this.images.handle(request, response, url, imageRoute);
+      const coverTrip = tripCoverRoute(url.pathname);
+      if (coverTrip) return this.covers.handle(request, response, url, coverTrip);
       route = planRoute(request.method ?? '', url.pathname);
     } catch (error) {
       return fail(

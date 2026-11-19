@@ -50,7 +50,7 @@ const packingFields = [
 const locationFields = ['name', 'address', 'latitude', 'longitude', 'attribution'];
 const locationColumns = 'id,trip_id,name,address,latitude::text,longitude::text,provider,provider_place_id,source,opening_hours,fetched_at,metadata';
 const dressColumns =
-  "id,trip_id,scope_type,to_char(plan_date,'YYYY-MM-DD') AS plan_date,activity_id,label,description,public_description,source";
+  "id,trip_id,scope_type,to_char(plan_date,'YYYY-MM-DD') AS plan_date,activity_id,label,description,public_description,reference_image_key,source";
 const packingColumns =
   'id,trip_id,name,quantity::text,unit,note,category,assigned_member_id,due_at,status,source,completed_by_user_id,completed_at';
 

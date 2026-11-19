@@ -14,6 +14,7 @@ import {
   projectFund,
   projectDestination,
 } from '../../../apps/api-gateway/src/finance-proxy';
+import { dressImageRoute } from '../../../apps/api-gateway/src/dress-code-image-http';
 import { projectLedgerPage } from '../../../apps/api-gateway/src/ledger-projection';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
@@ -53,19 +54,21 @@ describe('Demo 1 executable REST contracts', () => {
         components: spec.components,
       });
   });
-  it('maps all ten documented Plan and Dress code operations to the real router', () => {
+  it('maps all twelve documented Plan, Dress code and image operations to the real router', () => {
     let count = 0;
     for (const [path, item] of Object.entries(specs[0].paths)) {
       for (const method of Object.keys(item as object).filter((key) =>
         /^(get|post|put|patch|delete)$/.test(key),
       )) {
         const target = path.replace(/\{[^}]+\}/g, id);
-        expect(planRoute(method.toUpperCase(), target)).not.toBeNull();
+        const imageRoute = dressImageRoute(target);
+        if (imageRoute) expect(method).toBe(imageRoute.dressCodeId ? 'get' : 'post');
+        else expect(planRoute(method.toUpperCase(), target)).not.toBeNull();
         expect(planRoute(method.toUpperCase(), target + '/unexpected')).toBeNull();
         count++;
       }
     }
-    expect(count).toBe(10);
+    expect(count).toBe(12);
   });
   it('reaches authentication for all nine documented Fund operations (no service/network call)', async () => {
     let count = 0;

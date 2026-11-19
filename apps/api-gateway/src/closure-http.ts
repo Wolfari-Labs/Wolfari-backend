@@ -372,3 +372,80 @@ export async function handleClosure(
     return grpcFailure(response, error, write);
   }
 }
+
+/** API133: what still blocks a closure, for the Owner's checklist and every member. */
+export function closureReadinessRoute(path: string): string | undefined {
+  return /^\/api\/v1\/funds\/([^/]+)\/closure-readiness$/.exec(path)?.[1];
+}
+export const CLOSURE_BLOCKER_KINDS = [
+  'BALANCE_NOT_ZERO',
+  'CONTRIBUTIONS_OPEN',
+  'EXPENSES_OPEN',
+  'REFUNDS_OPEN',
+  'PAYMENTS_OPEN',
+  'PAYMENT_WEBHOOKS_OPEN',
+  'BANK_TRANSFERS_REVIEW',
+  'HOLDER_HANDOVER_OPEN',
+] as const;
+// gRPC sends proto3 zero defaults, so 0 is a real count here (requiredInteger rejects it).
+const count = (value: unknown) => {
+  if (value === undefined) return 0;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 2147483647)
+    throw new Error('Invalid readiness count');
+  return value;
+};
+export function projectClosureReadiness(value: unknown) {
+  const row = responseRecord(value);
+  const balance = requiredString(row.current_balance);
+  if (!/^-?\d{1,19}$/.test(balance)) throw new Error('Invalid readiness balance');
+  const rawBlockers = row.blockers ?? [];
+  if (!Array.isArray(rawBlockers)) throw new Error('Invalid readiness blockers');
+  const blockers = rawBlockers.map((item) => {
+    const blocker = responseRecord(item);
+    const kind = requiredString(blocker.kind);
+    if (!(CLOSURE_BLOCKER_KINDS as readonly string[]).includes(kind))
+      throw new Error('Invalid readiness blocker');
+    const total = count(blocker.count);
+    if (total < 1) throw new Error('Invalid readiness blocker');
+    return { kind, count: total };
+  });
+  const fundStatus = requiredString(row.fund_status);
+  if (!['OPEN', 'CLOSING', 'CLOSED'].includes(fundStatus)) throw new Error('Invalid fund status');
+  const ready = row.ready === true;
+  if (ready && (blockers.length || fundStatus !== 'OPEN')) throw new Error('Inconsistent readiness');
+  return {
+    ready,
+    fund_status: fundStatus,
+    current_balance: balance,
+    blockers,
+    bank_transfers_needing_review: count(row.bank_transfers_needing_review),
+  };
+}
+export async function handleClosureReadiness(
+  request: Request,
+  response: ServerResponse,
+  url: URL,
+  fundId: string,
+  validateSession: SessionValidator,
+  client: Pick<FinanceClient, 'call'>,
+) {
+  if (request.method !== 'GET') return fail(response, 404, 'RESOURCE_NOT_FOUND');
+  const auth = await authenticate(request, response, validateSession, false);
+  if (!auth) return;
+  try {
+    ensureQuery(url, []);
+    if (!uuid.test(fundId)) throw new RequestError('Invalid Fund ID');
+    const result = await client.call(
+      'GetClosureReadiness',
+      { actor_user_id: auth.actorUserId, fund_id: fundId.toLowerCase() },
+      auth.correlationId,
+    );
+    return json(response, 200, {
+      data: projectClosureReadiness(result),
+      meta: { correlation_id: auth.correlationId },
+    });
+  } catch (error) {
+    if (error instanceof RequestError) return fail(response, 400, 'VALIDATION_FAILED');
+    return grpcFailure(response, error, false);
+  }
+}

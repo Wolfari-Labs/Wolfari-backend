@@ -186,11 +186,14 @@ export class IdentityProxy {
         return error(response, 403, 'PERMISSION_DENIED');
     }
     const ip = request.socket.remoteAddress ?? 'unknown';
+    // Typed codes get a few retries per window; the service also burns a code after 5 misses.
     const limit =
-      path.includes('password-reset-requests') ||
-      path.includes('email-verifications') ||
-      path.includes('register')
-        ? [5, 3600_000]
+      path === '/api/v1/auth/email-verifications/confirm' || path === '/api/v1/auth/password-resets'
+        ? [10, 900_000]
+        : path.includes('password-reset-requests') ||
+            path.includes('email-verifications') ||
+            path.includes('register')
+          ? [5, 3600_000]
         : path.includes('login')
           ? [10, 60_000]
           : path.includes('refresh')

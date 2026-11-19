@@ -38,9 +38,14 @@ service TripService {
   rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
   rpc ReorderActivities(ReorderActivitiesRequest) returns (ReorderActivitiesResponse);
   rpc SetActivityCompletion(SetActivityCompletionRequest) returns (SetActivityCompletionResponse);
+  rpc UploadDressCodeImage(UploadDressCodeImageRequest) returns (UploadDressCodeImageResponse);
+  rpc GetDressCodeImage(GetDressCodeImageRequest) returns (GetDressCodeImageResponse);
   rpc CreateDressCode(CreateDressCodeRequest) returns (CreateDressCodeResponse);
   rpc UpdateDressCode(UpdateDressCodeRequest) returns (UpdateDressCodeResponse);
   rpc DeleteDressCode(DeleteDressCodeRequest) returns (DeleteDressCodeResponse);
+  rpc UploadTripCover(UploadTripCoverRequest) returns (UploadTripCoverResponse);
+  rpc GetTripCover(GetTripCoverRequest) returns (GetTripCoverResponse);
+  rpc DeleteTripCover(DeleteTripCoverRequest) returns (DeleteTripCoverResponse);
 }
 
 enum TripLifecycle {
@@ -62,6 +67,7 @@ message StringPatch {
 message TripPermissions {
   bool can_read = 1;
   bool can_update = 2;
+  bool can_invite = 3;
 }
 
 // Public application projection. Internal receipt and audit data are excluded.
@@ -81,6 +87,8 @@ message Trip {
   int32 export_revision = 13;
   wolfari.common.v1.Membership current_membership = 14;
   TripPermissions permissions = 15;
+  optional string budget_amount = 16; // VND integer string.
+  bool cover_image_available = 17;
 }
 
 message CreateTripRequest {
@@ -91,6 +99,7 @@ message CreateTripRequest {
   google.protobuf.Timestamp end_at = 5;
   optional string timezone = 6;
   optional string description = 7;
+  optional string budget_amount = 8;
 }
 message CreateTripResponse {
   Trip trip = 1;
@@ -124,6 +133,10 @@ message UpdateTripRequest {
   optional string name = 6;
   StringPatch description = 7;
   StringPatch public_description = 8;
+  google.protobuf.Timestamp start_at = 9;
+  google.protobuf.Timestamp end_at = 10;
+  optional string timezone = 11;
+  StringPatch budget_amount = 12;
 }
 message UpdateTripResponse {
   Trip trip = 1;
@@ -257,6 +270,8 @@ message Invitation {
   google.protobuf.Timestamp expires_at = 6;
   google.protobuf.Timestamp resolved_at = 7;
   int32 version = 8;
+  optional string code_hint = 9; // Last 4 characters of a LINK join code.
+  optional string invited_by_user_id = 10; // Lets an inviter manage the invitations they created.
 }
 message CreateInvitationRequest {
   string operation_id = 1;
@@ -270,6 +285,7 @@ message CreateInvitationRequest {
 message CreateInvitationResponse {
   Invitation invitation = 1;
   optional string one_time_link = 2;
+  optional string join_code = 3; // XXXX-XXXX, returned once for LINK invitations.
 }
 message ListInvitationsRequest {
   string actor_user_id = 1;
@@ -466,6 +482,7 @@ message PlanDressCode {
   string id = 1; string trip_id = 2; DressScope scope_type = 3; optional string plan_date = 4;
   optional string activity_id = 5; string label = 6; optional string description = 7;
   optional string public_description = 8; EntitySource source = 9; int32 plan_version = 10;
+  optional bool reference_image_available = 11;
 }
 message PlanPackingItem {
   string id = 1; string trip_id = 2; string name = 3; string quantity = 4; optional string unit = 5;
@@ -482,6 +499,7 @@ message Plan {
   bool dress_codes_write = 9;
   bool packing_write = 10;
   bool locations_write = 11;
+  bool dress_code_images_write = 12;
 }
 message PlanVersion { string trip_id = 1; int32 plan_version = 2; int32 export_revision = 3; }
 
@@ -571,6 +589,7 @@ message CreateDressCodeRequest {
   optional string description = 7; optional string public_description = 8;
   optional string plan_date = 9; // YYYY-MM-DD in the Trip timezone.
   optional string activity_id = 10;
+  optional string reference_image_id = 11;
 }
 message CreateDressCodeResponse { PlanDressCode dress_code = 1; int32 export_revision = 2; }
 
@@ -580,6 +599,7 @@ message UpdateDressCodeRequest {
   optional DressScope scope_type = 6; optional string label = 7;
   StringPatch description = 8; StringPatch public_description = 9;
   StringPatch plan_date = 10; StringPatch activity_id = 11;
+  StringPatch reference_image_id = 12;
 }
 message UpdateDressCodeResponse { PlanDressCode dress_code = 1; int32 export_revision = 2; }
 
@@ -588,3 +608,14 @@ message DeleteDressCodeRequest {
   int32 expected_plan_version = 5;
 }
 message DeleteDressCodeResponse { PlanVersion version = 1; }
+
+message UploadDressCodeImageRequest { string actor_user_id = 1; string trip_id = 2; bytes content = 3; string mime_type = 4; }
+message UploadDressCodeImageResponse { string image_id = 1; string mime_type = 2; int32 size_bytes = 3; }
+message GetDressCodeImageRequest { string actor_user_id = 1; string trip_id = 2; string dress_code_id = 3; }
+message GetDressCodeImageResponse { bytes content = 1; string mime_type = 2; int32 size_bytes = 3; }
+message UploadTripCoverRequest { string actor_user_id = 1; string trip_id = 2; bytes content = 3; string mime_type = 4; }
+message UploadTripCoverResponse { Trip trip = 1; }
+message GetTripCoverRequest { string actor_user_id = 1; string trip_id = 2; }
+message GetTripCoverResponse { bytes content = 1; string mime_type = 2; int32 size_bytes = 3; }
+message DeleteTripCoverRequest { string actor_user_id = 1; string trip_id = 2; }
+message DeleteTripCoverResponse { Trip trip = 1; }

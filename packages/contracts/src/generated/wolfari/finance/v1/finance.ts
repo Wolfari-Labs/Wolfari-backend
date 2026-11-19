@@ -81,6 +81,10 @@ export interface BankTransferView {
   transaction_at?: Timestamp | undefined;
   received_at?: Timestamp | undefined;
   processed_at?: Timestamp | undefined;
+  resolution?: string | undefined;
+  resolution_note?: string | undefined;
+  resolved_by_user_id?: string | undefined;
+  resolved_at?: Timestamp | undefined;
 }
 
 export interface ListBankTransfersRequest {
@@ -90,6 +94,22 @@ export interface ListBankTransfersRequest {
 
 export interface ListBankTransfersResponse {
   items?: BankTransferView[] | undefined;
+}
+
+/** Holder records how a NEEDS_REVIEW transfer was handled; no ledger or balance effect. */
+export interface ResolveBankTransferRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+  bank_transfer_id?: string | undefined;
+  resolution?: string | undefined;
+  note?: string | undefined;
+  expected_finance_version?: number | undefined;
+}
+
+export interface ResolveBankTransferResponse {
+  bank_transfer?: BankTransferView | undefined;
+  finance_version?: number | undefined;
 }
 
 /**
@@ -406,6 +426,25 @@ export interface GetClosureRequest {
 
 export interface GetClosureResponse {
   closure?: ClosureView | undefined;
+}
+
+/** Same counts the closure writers enforce; kind is a ClosureBlockerKind string. */
+export interface ClosureBlocker {
+  kind?: string | undefined;
+  count?: number | undefined;
+}
+
+export interface GetClosureReadinessRequest {
+  actor_user_id?: string | undefined;
+  fund_id?: string | undefined;
+}
+
+export interface GetClosureReadinessResponse {
+  ready?: boolean | undefined;
+  fund_status?: string | undefined;
+  current_balance?: string | undefined;
+  blockers?: ClosureBlocker[] | undefined;
+  bank_transfers_needing_review?: number | undefined;
 }
 
 export interface CreateClosureRequest {
@@ -900,7 +939,12 @@ export interface ContributionView {
     | number
     | undefined;
   /** Latest Holder rejection reason. Absent on never-rejected/legacy receipt snapshots. */
-  rejected_reason?: string | undefined;
+  rejected_reason?:
+    | string
+    | undefined;
+  /** Payment rail only; recipient snapshot remains private. */
+  destination_type?: string | undefined;
+  latest_payment_attempt_id?: string | undefined;
 }
 
 export interface ListContributionRequestsRequest {
@@ -1458,9 +1502,31 @@ export interface GetTripLifecycleStateResponse {
   can_transfer?: boolean | undefined;
 }
 
+/** Test checkout only. No fund ledger or actual scanned-bank transfer is created. */
+export interface CreateQrSandboxPaymentRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  request_id?: string | undefined;
+  amount?: string | undefined;
+  note?: string | undefined;
+}
+
+export interface CreateQrSandboxPaymentResponse {
+  request_id?: string | undefined;
+  order_id?: string | undefined;
+  amount?: string | undefined;
+  payment_url?: string | undefined;
+  environment?: string | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
+  createQrSandboxPayment(
+    request: CreateQrSandboxPaymentRequest,
+    metadata?: Metadata,
+  ): Observable<CreateQrSandboxPaymentResponse>;
+
   getTripLifecycleState(
     request: GetTripLifecycleStateRequest,
     metadata?: Metadata,
@@ -1495,6 +1561,11 @@ export interface FinanceServiceClient {
   listClosures(request: ListClosuresRequest, metadata?: Metadata): Observable<ListClosuresResponse>;
 
   getClosure(request: GetClosureRequest, metadata?: Metadata): Observable<GetClosureResponse>;
+
+  getClosureReadiness(
+    request: GetClosureReadinessRequest,
+    metadata?: Metadata,
+  ): Observable<GetClosureReadinessResponse>;
 
   createClosure(request: CreateClosureRequest, metadata?: Metadata): Observable<CreateClosureResponse>;
 
@@ -1728,9 +1799,22 @@ export interface FinanceServiceClient {
   ): Observable<ReceiveBankTransferResponse>;
 
   listBankTransfers(request: ListBankTransfersRequest, metadata?: Metadata): Observable<ListBankTransfersResponse>;
+
+  resolveBankTransfer(
+    request: ResolveBankTransferRequest,
+    metadata?: Metadata,
+  ): Observable<ResolveBankTransferResponse>;
 }
 
 export interface FinanceServiceController {
+  createQrSandboxPayment(
+    request: CreateQrSandboxPaymentRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<CreateQrSandboxPaymentResponse>
+    | Observable<CreateQrSandboxPaymentResponse>
+    | CreateQrSandboxPaymentResponse;
+
   getTripLifecycleState(
     request: GetTripLifecycleStateRequest,
     metadata?: Metadata,
@@ -1786,6 +1870,11 @@ export interface FinanceServiceController {
     request: GetClosureRequest,
     metadata?: Metadata,
   ): Promise<GetClosureResponse> | Observable<GetClosureResponse> | GetClosureResponse;
+
+  getClosureReadiness(
+    request: GetClosureReadinessRequest,
+    metadata?: Metadata,
+  ): Promise<GetClosureReadinessResponse> | Observable<GetClosureReadinessResponse> | GetClosureReadinessResponse;
 
   createClosure(
     request: CreateClosureRequest,
@@ -2151,11 +2240,17 @@ export interface FinanceServiceController {
     request: ListBankTransfersRequest,
     metadata?: Metadata,
   ): Promise<ListBankTransfersResponse> | Observable<ListBankTransfersResponse> | ListBankTransfersResponse;
+
+  resolveBankTransfer(
+    request: ResolveBankTransferRequest,
+    metadata?: Metadata,
+  ): Promise<ResolveBankTransferResponse> | Observable<ResolveBankTransferResponse> | ResolveBankTransferResponse;
 }
 
 export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "createQrSandboxPayment",
       "getTripLifecycleState",
       "listFundHistory",
       "createPaymentAttempt",
@@ -2166,6 +2261,7 @@ export function FinanceServiceControllerMethods() {
       "resolvePaymentException",
       "listClosures",
       "getClosure",
+      "getClosureReadiness",
       "createClosure",
       "confirmClosure",
       "cancelClosure",
@@ -2230,6 +2326,7 @@ export function FinanceServiceControllerMethods() {
       "cancelHolderHandover",
       "receiveBankTransfer",
       "listBankTransfers",
+      "resolveBankTransfer",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

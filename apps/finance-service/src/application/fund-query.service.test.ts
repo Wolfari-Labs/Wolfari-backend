@@ -302,3 +302,77 @@ describe('Payment instruction lifecycle authorization', () => {
     await expect(read()).rejects.toThrow('RESOURCE_NOT_FOUND');
   });
 });
+
+describe('outgoing QR checkout authorization', () => {
+  function qr(role = CommonV1.MembershipRole.MEMBERSHIP_ROLE_MEMBER) {
+    const s = setup(role);
+    s.trip.getAccessContext.mockResolvedValue({
+      context: s.context,
+      finance_closure_locked: false,
+    });
+    s.funds.findSummaryByTripId.mockResolvedValue({ ...fund, holderUserId: actor });
+    return s;
+  }
+  it.each([
+    CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER,
+    CommonV1.MembershipRole.MEMBERSHIP_ROLE_MEMBER,
+  ])('accepts an active current Holder regardless of membership role %s', async (role) => {
+    const s = qr(role);
+    await expect(
+      s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+    ).resolves.toBeUndefined();
+  });
+  it.each([
+    CommonV1.MembershipRole.MEMBERSHIP_ROLE_OWNER,
+    CommonV1.MembershipRole.MEMBERSHIP_ROLE_MEMBER,
+  ])('denies a non-Holder even for membership role %s', async (role) => {
+    const s = qr(role);
+    s.funds.findSummaryByTripId.mockResolvedValue(fund);
+    await expect(
+      s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+  });
+  it.each(['CLOSING', 'CLOSED'] as const)(
+    'denies the Holder when fund status is %s',
+    async (status) => {
+      const s = qr();
+      s.funds.findSummaryByTripId.mockResolvedValue({ ...fund, holderUserId: actor, status });
+      await expect(
+        s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+      ).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+    },
+  );
+  it('requires an existing Fund and checks membership before reading it', async () => {
+    const s = qr();
+    s.context.membership!.left_at = { seconds: '1', nanos: 0 };
+    await expect(
+      s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+    ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+    expect(s.funds.findSummaryByTripId).not.toHaveBeenCalled();
+    s.context.membership!.left_at = undefined;
+    s.funds.findSummaryByTripId.mockResolvedValue(null);
+    await expect(
+      s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+    ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' });
+  });
+  it('denies archived Trips and closure locks', async () => {
+    const s = qr();
+    s.context.trip_state = CommonV1.TripState.TRIP_STATE_ARCHIVED;
+    await expect(
+      s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+    ).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+    s.context.trip_state = CommonV1.TripState.TRIP_STATE_ACTIVE;
+    s.trip.getAccessContext.mockResolvedValue({ context: s.context, finance_closure_locked: true });
+    await expect(
+      s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+    ).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+  });
+  it('rechecks the current Holder on every retry', async () => {
+    const s = qr();
+    await s.service.authorizeQrSandbox(tripId, actor, actor, deadline());
+    s.funds.findSummaryByTripId.mockResolvedValue(fund);
+    await expect(
+      s.service.authorizeQrSandbox(tripId, actor, actor, deadline()),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+  });
+});

@@ -63,6 +63,7 @@ export interface DressCodeRow {
   label: string;
   description: string | null;
   public_description: string | null;
+  reference_image_key?: string | null;
   source: EntitySource;
 }
 export interface PackingRow {
@@ -117,7 +118,8 @@ export function projectLocation(row: LocationRow, version: number) {
   return { ...row, fetched_at: time(row.fetched_at), metadata, plan_version: version };
 }
 export function projectDressCode(row: DressCodeRow, version: number) {
-  return { ...row, plan_version: version };
+  const { reference_image_key, ...publicRow } = row;
+  return { ...publicRow, ...(reference_image_key ? { reference_image_available: true } : {}), plan_version: version };
 }
 export function projectPackingItem(row: PackingRow, version: number) {
   return {
@@ -140,7 +142,7 @@ export async function readPlanLists(client: QueryClient, tripId: string, version
   );
   const dress = await client.query<DressCodeRow>(
     `SELECT id,trip_id,scope_type,
-    to_char(plan_date,'YYYY-MM-DD') AS plan_date,activity_id,label,description,public_description,source
+    to_char(plan_date,'YYYY-MM-DD') AS plan_date,activity_id,label,description,public_description,reference_image_key,source
     FROM dress_codes WHERE trip_id=$1
     ORDER BY CASE scope_type WHEN 'TRIP' THEN 0 WHEN 'DAY' THEN 1 ELSE 2 END,plan_date,created_at,id`,
     [tripId],

@@ -10,53 +10,95 @@
       "get": {
         "summary": "API121 List fund closures",
         "parameters": [
-          { "$ref": "#/components/parameters/FundId" },
-          { "$ref": "#/components/parameters/Limit" },
-          { "$ref": "#/components/parameters/Cursor" }
+          {
+            "$ref": "#/components/parameters/FundId"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
         ],
-        "responses": { "200": { "$ref": "#/components/responses/ClosurePage" } }
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ClosurePage"
+          }
+        }
       },
       "post": {
         "summary": "API120 Owner creates a closure snapshot",
         "parameters": [
-          { "$ref": "#/components/parameters/FundId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" }
+          {
+            "$ref": "#/components/parameters/FundId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/CreateClosureInput" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClosureInput"
+              }
+            }
           }
         },
         "responses": {
-          "201": { "$ref": "#/components/responses/Closure" },
-          "202": { "$ref": "#/components/responses/Operation" }
+          "201": {
+            "$ref": "#/components/responses/Closure"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
         }
       }
     },
     "/api/v1/closures/{closure_id}": {
       "get": {
         "summary": "API122 Get one closure",
-        "parameters": [{ "$ref": "#/components/parameters/ClosureId" }],
-        "responses": { "200": { "$ref": "#/components/responses/Closure" } }
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClosureId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Closure"
+          }
+        }
       }
     },
     "/api/v1/closures/{closure_id}/confirm": {
       "post": {
         "summary": "API123 Snapshotted member confirms the exact snapshot hash",
         "parameters": [
-          { "$ref": "#/components/parameters/ClosureId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" }
+          {
+            "$ref": "#/components/parameters/ClosureId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/ConfirmClosureInput" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmClosureInput"
+              }
+            }
           }
         },
         "responses": {
-          "200": { "$ref": "#/components/responses/Closure" },
-          "202": { "$ref": "#/components/responses/Operation" }
+          "200": {
+            "$ref": "#/components/responses/Closure"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
         }
       }
     },
@@ -64,18 +106,30 @@
       "post": {
         "summary": "API124 Owner cancels a pending closure",
         "parameters": [
-          { "$ref": "#/components/parameters/ClosureId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" }
+          {
+            "$ref": "#/components/parameters/ClosureId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/CancelClosureInput" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelClosureInput"
+              }
+            }
           }
         },
         "responses": {
-          "200": { "$ref": "#/components/responses/Closure" },
-          "202": { "$ref": "#/components/responses/Operation" }
+          "200": {
+            "$ref": "#/components/responses/Closure"
+          },
+          "202": {
+            "$ref": "#/components/responses/Operation"
+          }
         }
       }
     },
@@ -83,17 +137,50 @@
       "post": {
         "summary": "API125 Owner requests a durable reminder signal",
         "parameters": [
-          { "$ref": "#/components/parameters/ClosureId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" }
+          {
+            "$ref": "#/components/parameters/ClosureId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/EmptyInput" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyInput"
+              }
+            }
           }
         },
         "responses": {
-          "202": { "$ref": "#/components/responses/ReminderAccepted" }
+          "202": {
+            "$ref": "#/components/responses/ReminderAccepted"
+          }
+        }
+      }
+    },
+    "/api/v1/funds/{fund_id}/closure-readiness": {
+      "get": {
+        "summary": "API133 What still blocks creating a fund closure",
+        "description": "Any active trip member may read it. Counts come from the same query that rejects API120, so the checklist and the server rule cannot drift.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FundId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Closure readiness checklist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClosureReadinessEnvelope"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -104,18 +191,27 @@
         "name": "fund_id",
         "in": "path",
         "required": true,
-        "schema": { "$ref": "#/components/schemas/Uuid" }
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
       },
       "ClosureId": {
         "name": "closure_id",
         "in": "path",
         "required": true,
-        "schema": { "$ref": "#/components/schemas/Uuid" }
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
       },
       "Limit": {
         "name": "limit",
         "in": "query",
-        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
       },
       "Cursor": {
         "name": "cursor",
@@ -131,39 +227,67 @@
         "name": "Idempotency-Key",
         "in": "header",
         "required": true,
-        "schema": { "$ref": "#/components/schemas/Uuid" }
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
       }
     },
     "responses": {
       "Closure": {
         "description": "Current immutable closure projection",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/ClosureEnvelope" } }
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ClosureEnvelope"
+            }
+          }
         }
       },
       "ClosurePage": {
         "description": "Fund-scoped closure history",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/ClosurePageEnvelope" } }
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ClosurePageEnvelope"
+            }
+          }
         }
       },
       "Operation": {
         "description": "Durable operation accepted for recovery",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/OperationEnvelope" } }
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OperationEnvelope"
+            }
+          }
         }
       },
       "ReminderAccepted": {
         "description": "Reminder signal committed to the Finance outbox",
         "content": {
-          "application/json": { "schema": { "$ref": "#/components/schemas/ReminderEnvelope" } }
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ReminderEnvelope"
+            }
+          }
         }
       }
     },
     "schemas": {
-      "Uuid": { "type": "string", "format": "uuid" },
-      "Version": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
-      "Sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+      "Uuid": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "Version": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647
+      },
+      "Sha256": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
       "ClosureStatus": {
         "type": "string",
         "enum": ["PENDING_CONFIRMATIONS", "CANCELLED", "COMPLETED"]
@@ -173,22 +297,37 @@
         "additionalProperties": false,
         "required": ["expected_finance_version"],
         "properties": {
-          "expected_finance_version": { "$ref": "#/components/schemas/Version" }
+          "expected_finance_version": {
+            "$ref": "#/components/schemas/Version"
+          }
         }
       },
       "ConfirmClosureInput": {
         "type": "object",
         "additionalProperties": false,
         "required": ["snapshot_hash"],
-        "properties": { "snapshot_hash": { "$ref": "#/components/schemas/Sha256" } }
+        "properties": {
+          "snapshot_hash": {
+            "$ref": "#/components/schemas/Sha256"
+          }
+        }
       },
       "CancelClosureInput": {
         "type": "object",
         "additionalProperties": false,
         "required": ["reason"],
-        "properties": { "reason": { "type": "string", "minLength": 1, "maxLength": 1024 } }
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
       },
-      "EmptyInput": { "type": "object", "additionalProperties": false },
+      "EmptyInput": {
+        "type": "object",
+        "additionalProperties": false
+      },
       "ClosureFundSnapshot": {
         "type": "object",
         "additionalProperties": false,
@@ -202,13 +341,31 @@
           "finance_version"
         ],
         "properties": {
-          "id": { "$ref": "#/components/schemas/Uuid" },
-          "trip_id": { "$ref": "#/components/schemas/Uuid" },
-          "holder_user_id": { "$ref": "#/components/schemas/Uuid" },
-          "currency": { "type": "string", "enum": ["VND"] },
-          "budget_amount": { "type": "string", "nullable": true, "pattern": "^(0|[1-9][0-9]*)$" },
-          "current_balance": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
-          "finance_version": { "$ref": "#/components/schemas/Version" }
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "trip_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "holder_user_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["VND"]
+          },
+          "budget_amount": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "current_balance": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "finance_version": {
+            "$ref": "#/components/schemas/Version"
+          }
         }
       },
       "ClosureSnapshot": {
@@ -226,20 +383,57 @@
           "ledger"
         ],
         "properties": {
-          "schema_version": { "type": "integer", "enum": [1] },
-          "fund": { "$ref": "#/components/schemas/ClosureFundSnapshot" },
+          "schema_version": {
+            "type": "integer",
+            "enum": [1]
+          },
+          "fund": {
+            "$ref": "#/components/schemas/ClosureFundSnapshot"
+          },
           "required_user_ids": {
             "type": "array",
             "minItems": 1,
             "uniqueItems": true,
-            "items": { "$ref": "#/components/schemas/Uuid" }
+            "items": {
+              "$ref": "#/components/schemas/Uuid"
+            }
           },
-          "contribution_requests": { "type": "array", "items": { "type": "object" } },
-          "contributions": { "type": "array", "items": { "type": "object" } },
-          "expenses": { "type": "array", "items": { "type": "object" } },
-          "financial_notes": { "type": "array", "items": { "type": "object" } },
-          "refunds": { "type": "array", "items": { "type": "object" } },
-          "ledger": { "type": "array", "items": { "type": "object" } }
+          "contribution_requests": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "contributions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "expenses": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "financial_notes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "ledger": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
         }
       },
       "ClosureConfirmation": {
@@ -247,8 +441,14 @@
         "additionalProperties": false,
         "required": ["user_id", "confirmed_at"],
         "properties": {
-          "user_id": { "$ref": "#/components/schemas/Uuid" },
-          "confirmed_at": { "type": "string", "format": "date-time", "nullable": true }
+          "user_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "confirmed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
         }
       },
       "Closure": {
@@ -271,39 +471,82 @@
           "finance_version"
         ],
         "properties": {
-          "id": { "$ref": "#/components/schemas/Uuid" },
-          "fund_id": { "$ref": "#/components/schemas/Uuid" },
-          "requested_by_user_id": { "$ref": "#/components/schemas/Uuid" },
-          "status": { "$ref": "#/components/schemas/ClosureStatus" },
-          "snapshot_finance_version": { "$ref": "#/components/schemas/Version" },
-          "snapshot_schema_version": { "type": "integer", "enum": [1] },
-          "snapshot": { "$ref": "#/components/schemas/ClosureSnapshot" },
-          "snapshot_hash": { "$ref": "#/components/schemas/Sha256" },
-          "requested_at": { "type": "string", "format": "date-time" },
-          "cancelled_at": { "type": "string", "format": "date-time", "nullable": true },
-          "cancelled_reason": { "type": "string", "nullable": true },
-          "closed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "fund_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "requested_by_user_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ClosureStatus"
+          },
+          "snapshot_finance_version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "snapshot_schema_version": {
+            "type": "integer",
+            "enum": [1]
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ClosureSnapshot"
+          },
+          "snapshot_hash": {
+            "$ref": "#/components/schemas/Sha256"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancelled_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cancelled_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "confirmations": {
             "type": "array",
             "minItems": 1,
-            "items": { "$ref": "#/components/schemas/ClosureConfirmation" }
+            "items": {
+              "$ref": "#/components/schemas/ClosureConfirmation"
+            }
           },
-          "finance_version": { "$ref": "#/components/schemas/Version" }
+          "finance_version": {
+            "$ref": "#/components/schemas/Version"
+          }
         }
       },
       "Meta": {
         "type": "object",
         "additionalProperties": false,
         "required": ["correlation_id"],
-        "properties": { "correlation_id": { "$ref": "#/components/schemas/Uuid" } }
+        "properties": {
+          "correlation_id": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
       },
       "ClosureEnvelope": {
         "type": "object",
         "additionalProperties": false,
         "required": ["data", "meta"],
         "properties": {
-          "data": { "$ref": "#/components/schemas/Closure" },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "data": {
+            "$ref": "#/components/schemas/Closure"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       },
       "ClosurePageEnvelope": {
@@ -316,11 +559,21 @@
             "additionalProperties": false,
             "required": ["items", "next_cursor"],
             "properties": {
-              "items": { "type": "array", "items": { "$ref": "#/components/schemas/Closure" } },
-              "next_cursor": { "type": "string", "nullable": true }
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Closure"
+                }
+              },
+              "next_cursor": {
+                "type": "string",
+                "nullable": true
+              }
             }
           },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       },
       "OperationEnvelope": {
@@ -328,8 +581,12 @@
         "additionalProperties": false,
         "required": ["data", "meta"],
         "properties": {
-          "data": { "type": "object" },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "data": {
+            "type": "object"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       },
       "ReminderEnvelope": {
@@ -342,12 +599,96 @@
             "additionalProperties": false,
             "required": ["accepted", "operation_id", "closure_id"],
             "properties": {
-              "accepted": { "type": "boolean", "enum": [true] },
-              "operation_id": { "$ref": "#/components/schemas/Uuid" },
-              "closure_id": { "$ref": "#/components/schemas/Uuid" }
+              "accepted": {
+                "type": "boolean",
+                "enum": [true]
+              },
+              "operation_id": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "closure_id": {
+                "$ref": "#/components/schemas/Uuid"
+              }
             }
           },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "ClosureBlocker": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "count"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "BALANCE_NOT_ZERO",
+              "CONTRIBUTIONS_OPEN",
+              "EXPENSES_OPEN",
+              "REFUNDS_OPEN",
+              "PAYMENTS_OPEN",
+              "PAYMENT_WEBHOOKS_OPEN",
+              "BANK_TRANSFERS_REVIEW",
+              "HOLDER_HANDOVER_OPEN"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "ClosureReadiness": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ready",
+          "fund_status",
+          "current_balance",
+          "blockers",
+          "bank_transfers_needing_review"
+        ],
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "description": "True only when the fund is OPEN and no blocker remains; the same check gates API120."
+          },
+          "fund_status": {
+            "type": "string",
+            "enum": ["OPEN", "CLOSING", "CLOSED"]
+          },
+          "current_balance": {
+            "type": "string",
+            "pattern": "^-?[0-9]{1,19}$"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClosureBlocker"
+            }
+          },
+          "bank_transfers_needing_review": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Bank transfers still in NEEDS_REVIEW; while above zero the BANK_TRANSFERS_REVIEW blocker is present and the Holder resolves them via POST /funds/{fund_id}/bank-transfers/{bank_transfer_id}/resolve."
+          }
+        }
+      },
+      "ClosureReadinessEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ClosureReadiness"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       }
     }

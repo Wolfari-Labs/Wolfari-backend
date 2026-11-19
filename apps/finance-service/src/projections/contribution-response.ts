@@ -48,6 +48,8 @@ export type ContributionReadRow = {
   waived_reason: string | null;
   cancelled_reason: string | null;
   rejected_reason: string | null;
+  destination_type?: 'VIETQR' | 'MOMO_SANDBOX';
+  latest_payment_attempt_id?: string;
 };
 export type ContributionRequestReadRow = Omit<
   NewContributionRequestRow,
@@ -82,6 +84,8 @@ export function contributionResponse(
     waived_reason: row.waived_reason ?? undefined,
     cancelled_reason: row.cancelled_reason ?? undefined,
     rejected_reason: row.rejected_reason ?? undefined,
+    destination_type: row.destination_type,
+    latest_payment_attempt_id: row.latest_payment_attempt_id ?? undefined,
   };
 }
 export function contributionRequestReadResponse(

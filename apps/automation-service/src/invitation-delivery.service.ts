@@ -1,3 +1,4 @@
+import { smtpConfiguration } from './smtp-config';
 import {
   Controller,
   Get,
@@ -40,6 +41,7 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
   private readonly trip: TripInvitationClient;
   private readonly access: TripAccessClient;
   private readonly smtp: Transporter;
+  private readonly sender: string;
   private readonly brokerUrl: string;
   private connection?: ChannelModel;
   private channel?: ConfirmChannel;
@@ -61,13 +63,9 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
       throw new Error('Invalid Automation Trip configuration');
     this.trip = new TripInvitationClient(target, secret);
     this.access = new TripAccessClient(target, 'Automation', secret);
-    this.smtp = createTransport({
-      host: config.getOrThrow<string>('SMTP_HOST'),
-      port: Number(config.getOrThrow<string>('SMTP_PORT')),
-      secure: false,
-      connectionTimeout: 2000,
-      socketTimeout: 5000,
-    });
+    const smtp = smtpConfiguration(config);
+    this.smtp = createTransport(smtp.options);
+    this.sender = smtp.from;
     this.brokerUrl = config.getOrThrow<string>('RABBITMQ_URL');
   }
   onApplicationBootstrap() {
@@ -353,7 +351,7 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
           return;
         }
         const info = await this.smtp.sendMail({
-          from: 'Wolfari <no-reply@wolfari.local>',
+          from: this.sender,
           to: source.delivery.recipient_email,
           subject: 'Lời mời chuyến đi Wolfari',
           text: `Bạn được mời tham gia chuyến đi. Đăng nhập và xem trước lời mời: ${source.delivery.link}\nMở liên kết không tự động chấp nhận lời mời.`,

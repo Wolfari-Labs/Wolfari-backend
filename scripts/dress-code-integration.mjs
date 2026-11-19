@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+const sharp = createRequire(new URL('../apps/trip-workspace-service/package.json', import.meta.url))('sharp');
 
 /** Calendar day of an instant in the Trip timezone, shifted by whole days. */
 function localDate(instant, timezone, addDays = 0) {
@@ -59,6 +61,7 @@ export async function runDressCodeScenarios({ request, query, bearer, tripBody, 
 
   assert.deepEqual((await plan()).capabilities, {
     dress_codes_write: true,
+    dress_code_images_write: true,
     packing_write: true,
     locations_write: true,
   });
@@ -289,7 +292,48 @@ export async function runDressCodeScenarios({ request, query, bearer, tripBody, 
   assert.deepEqual((await plan()).dress_codes, []);
   pass('Dress code delete: tombstone event, replay after deletion, cascade with its Activity');
 
+  // Real private storage: upload -> attach -> member download -> replace/remove.
+  const bytes = await sharp({ create: { width: 32, height: 24, channels: 3, background: '#50a090' } }).png().toBuffer();
+  const upload = async (user = owner, photo = bytes, mime = 'image/png') => {
+    const data = new FormData(); data.append('file', new Blob([photo], { type: mime }), 'dress.png');
+    return request(root + '/dress-code-images', 'POST', data, bearer(user));
+  };
+  assertStatus(await upload(member), 403);
+  assertStatus(await upload(outsider), 404);
+  assertStatus(await upload(owner, Buffer.from('invalid')), 400);
+  const staged = await upload(); assertStatus(staged, 201);
+  assert.equal(staged.body.data.mime_type, 'image/jpeg');
+  assert.equal(Object.hasOwn(staged.body.data, 'object_key'), false);
+  const imageKey = randomUUID();
+  const imageFields = { scope_type: 'TRIP', label: 'Dress reference', reference_image_id: staged.body.data.image_id };
+  const beforeImage = version;
+  const attached = await send('POST', 'dress-codes', imageFields, owner, imageKey); assertStatus(attached, 201);
+  const imageDress = attached.body.data.id;
+  assert.equal(attached.body.data.reference_image_available, true);
+  assert.equal(Object.hasOwn(attached.body.data, 'reference_image_key'), false);
+  const imagePath = root + '/dress-codes/' + imageDress + '/reference-image';
+  const downloaded = await request(imagePath, 'GET', undefined, bearer(member)); assertStatus(downloaded, 200);
+  assert.equal(downloaded.headers.get('cache-control'), 'no-store');
+  assert.equal(downloaded.body[0], 255); assert.equal(downloaded.body[1], 216);
+  assertStatus(await request(imagePath, 'GET', undefined, bearer(outsider)), 404);
+  const retained = await send('PATCH', 'dress-codes/' + imageDress, { label: 'Reference retained' }); assertStatus(retained, 200);
+  assert.equal(retained.body.data.reference_image_available, true);
+  // Even another editor cannot claim an image uploaded by a different actor.
+  await query('trip', "UPDATE trips SET plan_edit_policy='ALL_MEMBERS' WHERE id=$1", [trip.id]);
+  assertStatus(await send('POST', 'dress-codes', imageFields, member), 404);
+  await query('trip', "UPDATE trips SET plan_edit_policy='OWNER_ONLY' WHERE id=$1", [trip.id]);
+  const replacement = await upload(); assertStatus(replacement, 201);
+  assertStatus(await send('PATCH', 'dress-codes/' + imageDress, { reference_image_id: replacement.body.data.image_id }), 200);
+  const cleared = await send('PATCH', 'dress-codes/' + imageDress, { reference_image_id: null }); assertStatus(cleared, 200);
+  assert.equal(cleared.body.data.reference_image_available, undefined);
+  assertStatus(await request(imagePath, 'GET', undefined, bearer(member)), 404);
   await query('trip', 'UPDATE trips SET archived_at=now() WHERE id=$1', [trip.id]);
+  assertStatus(await upload(), 409);
+  // A historical receipt remains replayable after archive and image removal.
+  const imageReplay = await send('POST', 'dress-codes', imageFields, owner, imageKey, beforeImage); assertStatus(imageReplay, 201);
+  assert.deepEqual(imageReplay.body.data, attached.body.data);
+  pass('Dress reference image: MinIO persistence, editor/member isolation, private JPEG, retain/replace/remove, archived replay');
+
   const archived = await send('POST', 'dress-codes', { scope_type: 'TRIP', label: 'Archived' });
   assertStatus(archived, 409);
   assert.equal(archived.body.error.code, 'STATE_CONFLICT');

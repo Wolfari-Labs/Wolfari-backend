@@ -1,10 +1,26 @@
-import { createCipheriv, createDecipheriv, createHash, createPrivateKey, createPublicKey, randomBytes, randomUUID, sign, verify } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createPrivateKey, createPublicKey, randomBytes, randomInt, randomUUID, sign, timingSafeEqual, verify } from 'node:crypto';
 import * as argon2 from 'argon2';
 
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const decode = (value: string) => JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>;
 export const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 export const newSecret = () => randomBytes(32).toString('base64url');
+
+/** Six digits typed from the email; only its purpose/user-bound hash is stored. */
+export const newEmailCode = () => String(randomInt(0, 1_000_000)).padStart(6, '0');
+export const emailCodeHash = (purpose: string, userId: string, code: string) => digest(`${purpose}:${userId}:${code}`);
+export function emailCodeMatches(stored: string, purpose: string, userId: string, code: string): boolean {
+  const expected = Buffer.from(stored, 'utf8');
+  const actual = Buffer.from(emailCodeHash(purpose, userId, code), 'utf8');
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+// The delivery ciphertext carries "token|code"; base64url tokens never contain "|".
+// Rows written before V002 hold only the token.
+export const sealDelivery = (token: string, code: string) => `${token}|${code}`;
+export function openDelivery(value: string): { token: string; code?: string } {
+  const [token, code] = value.split('|');
+  return code && /^[0-9]{6}$/.test(code) ? { token: token!, code } : { token: token! };
+}
 
 export function passwordPolicy(password: unknown): asserts password is string {
   if (typeof password !== 'string' || [...password].length < 8 || [...password].length > 128) {

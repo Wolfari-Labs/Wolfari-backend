@@ -100,6 +100,7 @@ export function appEnvironment(app, values, inherited = process.env) {
     'IDENTITY_RESET_LINK_PATH',
   ];
   const tripKeys = [
+    'MINIO_ENDPOINT', 'MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY',
     'TRIP_MEMBERSHIP_LIFECYCLE_ENABLED',
     'FINANCE_GRPC_TARGET',
     'TRIP_FINANCE_SECRET',
@@ -158,6 +159,11 @@ export function appEnvironment(app, values, inherited = process.env) {
     'RABBITMQ_URL',
     'SMTP_HOST',
     'SMTP_PORT',
+    'SMTP_SECURE',
+    'SMTP_REQUIRE_TLS',
+    'SMTP_USER',
+    'SMTP_PASSWORD',
+    'SMTP_FROM',
   ];
   const financeKeys = [
     'FINANCE_OUTBOX_ENABLED',

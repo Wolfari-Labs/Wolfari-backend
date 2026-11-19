@@ -69,6 +69,7 @@ export interface StringPatch {
 export interface TripPermissions {
   can_read?: boolean | undefined;
   can_update?: boolean | undefined;
+  can_invite?: boolean | undefined;
 }
 
 /** Public application projection. Internal receipt and audit data are excluded. */
@@ -87,7 +88,12 @@ export interface Trip {
   membership_revision?: number | undefined;
   export_revision?: number | undefined;
   current_membership?: Membership | undefined;
-  permissions?: TripPermissions | undefined;
+  permissions?:
+    | TripPermissions
+    | undefined;
+  /** VND integer string. */
+  budget_amount?: string | undefined;
+  cover_image_available?: boolean | undefined;
 }
 
 export interface CreateTripRequest {
@@ -99,6 +105,7 @@ export interface CreateTripRequest {
   end_at?: Timestamp | undefined;
   timezone?: string | undefined;
   description?: string | undefined;
+  budget_amount?: string | undefined;
 }
 
 export interface CreateTripResponse {
@@ -136,6 +143,10 @@ export interface UpdateTripRequest {
   name?: string | undefined;
   description?: StringPatch | undefined;
   public_description?: StringPatch | undefined;
+  start_at?: Timestamp | undefined;
+  end_at?: Timestamp | undefined;
+  timezone?: string | undefined;
+  budget_amount?: StringPatch | undefined;
 }
 
 export interface UpdateTripResponse {
@@ -303,7 +314,15 @@ export interface Invitation {
   status?: string | undefined;
   expires_at?: Timestamp | undefined;
   resolved_at?: Timestamp | undefined;
-  version?: number | undefined;
+  version?:
+    | number
+    | undefined;
+  /** Last 4 characters of a LINK join code. */
+  code_hint?:
+    | string
+    | undefined;
+  /** Lets an inviter manage the invitations they created. */
+  invited_by_user_id?: string | undefined;
 }
 
 export interface CreateInvitationRequest {
@@ -318,7 +337,11 @@ export interface CreateInvitationRequest {
 
 export interface CreateInvitationResponse {
   invitation?: Invitation | undefined;
-  one_time_link?: string | undefined;
+  one_time_link?:
+    | string
+    | undefined;
+  /** XXXX-XXXX, returned once for LINK invitations. */
+  join_code?: string | undefined;
 }
 
 export interface ListInvitationsRequest {
@@ -561,6 +584,7 @@ export interface PlanDressCode {
   public_description?: string | undefined;
   source?: EntitySource | undefined;
   plan_version?: number | undefined;
+  reference_image_available?: boolean | undefined;
 }
 
 export interface PlanPackingItem {
@@ -592,6 +616,7 @@ export interface Plan {
   dress_codes_write?: boolean | undefined;
   packing_write?: boolean | undefined;
   locations_write?: boolean | undefined;
+  dress_code_images_write?: boolean | undefined;
 }
 
 export interface PlanVersion {
@@ -759,6 +784,7 @@ export interface CreateDressCodeRequest {
   /** YYYY-MM-DD in the Trip timezone. */
   plan_date?: string | undefined;
   activity_id?: string | undefined;
+  reference_image_id?: string | undefined;
 }
 
 export interface CreateDressCodeResponse {
@@ -778,6 +804,7 @@ export interface UpdateDressCodeRequest {
   public_description?: StringPatch | undefined;
   plan_date?: StringPatch | undefined;
   activity_id?: StringPatch | undefined;
+  reference_image_id?: StringPatch | undefined;
 }
 
 export interface UpdateDressCodeResponse {
@@ -795,6 +822,62 @@ export interface DeleteDressCodeRequest {
 
 export interface DeleteDressCodeResponse {
   version?: PlanVersion | undefined;
+}
+
+export interface UploadDressCodeImageRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  content?: Uint8Array | undefined;
+  mime_type?: string | undefined;
+}
+
+export interface UploadDressCodeImageResponse {
+  image_id?: string | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+}
+
+export interface GetDressCodeImageRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  dress_code_id?: string | undefined;
+}
+
+export interface GetDressCodeImageResponse {
+  content?: Uint8Array | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+}
+
+export interface UploadTripCoverRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  content?: Uint8Array | undefined;
+  mime_type?: string | undefined;
+}
+
+export interface UploadTripCoverResponse {
+  trip?: Trip | undefined;
+}
+
+export interface GetTripCoverRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+}
+
+export interface GetTripCoverResponse {
+  content?: Uint8Array | undefined;
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
+}
+
+export interface DeleteTripCoverRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+}
+
+export interface DeleteTripCoverResponse {
+  trip?: Trip | undefined;
 }
 
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
@@ -884,11 +967,24 @@ export interface TripServiceClient {
     metadata?: Metadata,
   ): Observable<SetActivityCompletionResponse>;
 
+  uploadDressCodeImage(
+    request: UploadDressCodeImageRequest,
+    metadata?: Metadata,
+  ): Observable<UploadDressCodeImageResponse>;
+
+  getDressCodeImage(request: GetDressCodeImageRequest, metadata?: Metadata): Observable<GetDressCodeImageResponse>;
+
   createDressCode(request: CreateDressCodeRequest, metadata?: Metadata): Observable<CreateDressCodeResponse>;
 
   updateDressCode(request: UpdateDressCodeRequest, metadata?: Metadata): Observable<UpdateDressCodeResponse>;
 
   deleteDressCode(request: DeleteDressCodeRequest, metadata?: Metadata): Observable<DeleteDressCodeResponse>;
+
+  uploadTripCover(request: UploadTripCoverRequest, metadata?: Metadata): Observable<UploadTripCoverResponse>;
+
+  getTripCover(request: GetTripCoverRequest, metadata?: Metadata): Observable<GetTripCoverResponse>;
+
+  deleteTripCover(request: DeleteTripCoverRequest, metadata?: Metadata): Observable<DeleteTripCoverResponse>;
 }
 
 export interface TripServiceController {
@@ -1063,6 +1159,16 @@ export interface TripServiceController {
     metadata?: Metadata,
   ): Promise<SetActivityCompletionResponse> | Observable<SetActivityCompletionResponse> | SetActivityCompletionResponse;
 
+  uploadDressCodeImage(
+    request: UploadDressCodeImageRequest,
+    metadata?: Metadata,
+  ): Promise<UploadDressCodeImageResponse> | Observable<UploadDressCodeImageResponse> | UploadDressCodeImageResponse;
+
+  getDressCodeImage(
+    request: GetDressCodeImageRequest,
+    metadata?: Metadata,
+  ): Promise<GetDressCodeImageResponse> | Observable<GetDressCodeImageResponse> | GetDressCodeImageResponse;
+
   createDressCode(
     request: CreateDressCodeRequest,
     metadata?: Metadata,
@@ -1077,6 +1183,21 @@ export interface TripServiceController {
     request: DeleteDressCodeRequest,
     metadata?: Metadata,
   ): Promise<DeleteDressCodeResponse> | Observable<DeleteDressCodeResponse> | DeleteDressCodeResponse;
+
+  uploadTripCover(
+    request: UploadTripCoverRequest,
+    metadata?: Metadata,
+  ): Promise<UploadTripCoverResponse> | Observable<UploadTripCoverResponse> | UploadTripCoverResponse;
+
+  getTripCover(
+    request: GetTripCoverRequest,
+    metadata?: Metadata,
+  ): Promise<GetTripCoverResponse> | Observable<GetTripCoverResponse> | GetTripCoverResponse;
+
+  deleteTripCover(
+    request: DeleteTripCoverRequest,
+    metadata?: Metadata,
+  ): Promise<DeleteTripCoverResponse> | Observable<DeleteTripCoverResponse> | DeleteTripCoverResponse;
 }
 
 export function TripServiceControllerMethods() {
@@ -1115,9 +1236,14 @@ export function TripServiceControllerMethods() {
       "deleteActivity",
       "reorderActivities",
       "setActivityCompletion",
+      "uploadDressCodeImage",
+      "getDressCodeImage",
       "createDressCode",
       "updateDressCode",
       "deleteDressCode",
+      "uploadTripCover",
+      "getTripCover",
+      "deleteTripCover",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

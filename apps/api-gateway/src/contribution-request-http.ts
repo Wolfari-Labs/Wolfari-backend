@@ -95,6 +95,8 @@ export function projectContribution(value: unknown) {
     waived_reason: nullableString(row.waived_reason),
     cancelled_reason: nullableString(row.cancelled_reason),
     rejected_reason: nullableString(row.rejected_reason),
+    ...(row.latest_payment_attempt_id ? { latest_payment_attempt_id: identifier(row.latest_payment_attempt_id) } : {}),
+    ...(['VIETQR', 'MOMO_SANDBOX'].includes(String(row.destination_type)) ? { destination_type: String(row.destination_type) } : {}),
   };
 }
 export function projectContributionRequest(value: unknown, created = true) {
