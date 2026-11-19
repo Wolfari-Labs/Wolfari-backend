@@ -343,6 +343,10 @@ export async function initEnvironment(
               FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
               TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
               AUTOMATION_TRIP_SECRET: shared.AUTOMATION_TRIP_SECRET,
+              // Trip covers and dress-code reference images are private MinIO objects.
+              MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
+              MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
+              MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,
             }
           : app.name === 'api-gateway'
             ? {
