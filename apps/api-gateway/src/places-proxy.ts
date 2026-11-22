@@ -4,6 +4,7 @@ import { GRPC_LOADER_OPTIONS, PROTO_PATHS } from '@wolfari/contracts/grpc';
 import { productionTransportBlocked } from '@wolfari/common';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TripClient } from './trip-client';
+import { publicPlaceImage } from './poi-image-http';
 import {
   authenticate,
   ensureQuery,
@@ -108,6 +109,8 @@ export function publicPlace(value: unknown): Record<string, unknown> {
     confidence: typeof confidence === 'number' && Number.isFinite(confidence) ? confidence : null,
     data_release: text('data_release') || null,
     fetched_at: row.fetched_at ? timestampToIso(row.fetched_at) : null,
+    // POI-IMAGES (additive, nullable): licensed photo with credits.
+    hero_image: publicPlaceImage(row.hero_image),
   };
 }
 export class PlacesProxy {

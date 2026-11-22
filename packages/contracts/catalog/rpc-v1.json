@@ -528,6 +528,16 @@
     "source": "DDL/API/Event v1.0 section 6 - Travel.GetRecommendation"
   },
   {
+    "package": "wolfari.travel.v1",
+    "service": "TravelService",
+    "method": "GetPoiImage",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 5000,
+    "source": "POI-IMAGES: docs/architecture/poi-images.md"
+  },
+  {
     "package": "wolfari.trip.v1",
     "service": "TripService",
     "method": "GetPlan",

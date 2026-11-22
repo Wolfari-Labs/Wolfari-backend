@@ -9,6 +9,8 @@ service TravelService {
   rpc GetRoute(GetRouteRequest) returns (GetRouteResponse);
   rpc GetWeather(GetWeatherRequest) returns (GetWeatherResponse);
   rpc GetRecommendation(GetRecommendationRequest) returns (GetRecommendationResponse);
+  // POI-IMAGES: one stored WebP variant of a licensed POI photo (public, content-addressed).
+  rpc GetPoiImage(GetPoiImageRequest) returns (GetPoiImageResponse);
 }
 enum ProviderStatus {
   PROVIDER_STATUS_UNSPECIFIED = 0;
@@ -62,6 +64,29 @@ message Place {
   optional double confidence = 21; // Provider confidence; absent for golden and Geoapify.
   string data_release = 22; // Provider data release, e.g. Overture 2026-10-21.0.
   google.protobuf.Timestamp fetched_at = 23;
+  // POI-IMAGES (additive): best licensed photo of the place; absent when none was found.
+  PlaceImage hero_image = 24;
+}
+// A licensed photo stored by Wolfari; `sha256` names it, variants are 320/640/1280 px wide WebP.
+message PlaceImage {
+  string sha256 = 1;
+  int32 width = 2; // 1280 variant
+  int32 height = 3;
+  string author = 4;
+  string license = 5; // CC0-1.0 | PD | CC-BY-x.y | CC-BY-SA-x.y
+  string license_url = 6;
+  string source_url = 7; // File page on Wikimedia Commons
+  string attribution = 8; // Line to show next to the photo
+  string source = 9; // manual | wikidata | wikipedia | commons_category | commons_geo | osm_tag
+}
+message GetPoiImageRequest {
+  string sha256 = 1;
+  int32 width = 2; // 320 | 640 | 1280
+}
+message GetPoiImageResponse {
+  bytes content = 1;
+  string mime_type = 2; // image/webp
+  int32 size_bytes = 3;
 }
 // Map frame for POI exploration, WGS84 degrees.
 message BoundingBox {

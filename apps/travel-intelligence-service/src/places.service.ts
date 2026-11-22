@@ -24,6 +24,7 @@ import {
   type CatalogPoi,
   type CatalogResult,
 } from './poi-catalog';
+import { heroImages } from './poi-media';
 
 /** Public search group → Geoapify categories ('' = the group is never sent to Geoapify). */
 export const PLACE_CATEGORIES: Record<PlaceSearchCategory, string> = {
@@ -234,6 +235,11 @@ export class PlacesService {
       seconds: String(Math.floor(date.getTime() / 1000)),
       nanos: 0,
     });
+    // POI-IMAGES: photos are optional; a storage or batch problem never fails the search.
+    const heroes = await heroImages(this.database, catalog.slice(0, limit).map((poi) => poi.poi_id)).catch((error) => {
+      this.logger.warn(`POI photos unavailable: ${error instanceof Error ? error.message : 'error'}`);
+      return new Map<string, TravelV1.PlaceImage>();
+    });
     const curated: TravelV1.Place[] = catalog.slice(0, limit).map((poi) => {
       const place = catalogSnapshot(poi);
       const golden = poi.source_dataset !== 'overture';
@@ -261,6 +267,7 @@ export class PlacesService {
         ...(!golden && poi.confidence !== null ? { confidence: poi.confidence } : {}),
         data_release: poi.source_release ?? '',
         fetched_at: timestamp(new Date(place.fetched_at)),
+        ...(heroes.has(poi.poi_id) ? { hero_image: heroes.get(poi.poi_id) } : {}),
       };
     });
     const extra: TravelV1.Place[] = (external?.rows ?? [])
