@@ -14,6 +14,10 @@ import {
 import { PriceWatchAccessService } from './price-watch/price-watch-access.service';
 import { PriceWatchGrpcController } from './price-watch/price-watch.grpc';
 import { MockFlightPriceProvider } from './price-watch/price-watch-provider';
+import {
+  ConfiguredFlightPriceProvider,
+  FLIGHT_PRICE_PROVIDER,
+} from './price-watch/travelpayouts.provider';
 import { PriceAlertRepository } from './price-watch/price-alert.repository';
 import { PriceAlertService } from './price-watch/price-alert.service';
 import { PriceWatchRepository } from './price-watch/price-watch.repository';
@@ -55,6 +59,8 @@ import { FinanceNotificationConsumer } from './finance-notification/finance-noti
     PriceWatchLifecycleRepository,
     PriceWatchLifecycleConsumer,
     MockFlightPriceProvider,
+    ConfiguredFlightPriceProvider,
+    { provide: FLIGHT_PRICE_PROVIDER, useExisting: ConfiguredFlightPriceProvider },
     PriceWatchRepository,
     PriceWatchService,
     PriceWatchWorkerRepository,

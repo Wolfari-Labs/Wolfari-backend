@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import 'reflect-metadata';
 import { bootstrapApp } from '@wolfari/common';
 import { GRPC_LOADER_OPTIONS, GRPC_PACKAGES, PROTO_PATHS } from '@wolfari/contracts/grpc';
@@ -5,7 +6,7 @@ import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 
 void bootstrapApp(AppModule, 'trip-workspace-service', async (app) => {
-  if (process.env.NODE_ENV === 'production') {
+  if (productionTransportBlocked()) {
     throw new Error('Trip internal gRPC requires TLS in production');
   }
   for (const key of [

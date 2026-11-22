@@ -29,8 +29,11 @@ SVG như ảnh hoặc cho sao chép `qr_payload`; không cần thư viện QR ph
 `environment=LIVE`: đây là tài khoản thật của Holder, quét bằng ứng dụng ngân hàng là chuyển
 tiền thật. Luồng thực tế: người góp quét mã, giữ nguyên số tiền và nội dung; sau khi chuyển
 bấm Báo đã chuyển (API087); Holder đối chiếu `reference` trên sao kê rồi xác nhận (API088).
-Wolfari không thấy tiền về và không xác nhận tự động; nhận biết tiền về qua webhook ngân
-hàng của bên thứ ba là đề xuất riêng, chưa triển khai.
+Endpoint hướng dẫn không chứng minh tiền đã về. Luồng thủ công cần Holder đối chiếu và xác
+nhận. Backend cũng có [luồng webhook ngân hàng SePay](finance-bank-transfers.md) riêng để
+đối soát khi được cấu hình; integration dùng dữ liệu tổng hợp chưa chứng minh provider thật.
+Web trial chỉ hiển thị chi tiết văn bản, phân biệt `LIVE` với `TEST`, không tải URL provider
+hay nhúng SVG. Trong đợt thử nghiệm không chuyển tiền thật.
 
 ## Danh mục ngân hàng và kiểm tra đích nhận
 

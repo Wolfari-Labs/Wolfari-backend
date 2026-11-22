@@ -1,0 +1,356 @@
+{
+  "generated_at": "2026-11-18T12:40:10.544Z",
+  "attribution": "© OpenStreetMap contributors (ODbL)",
+  "targets": {
+    "dn-cau-tinh-yeu": {
+      "group": "missing",
+      "goal": "cầu tàu khóa tình yêu bờ đông sông Hàn",
+      "queries": [
+        "Cầu Tình Yêu Đà Nẵng",
+        "Love Lock Bridge Da Nang",
+        "Cầu tàu Tình Yêu",
+        "Love Bridge Da Nang"
+      ],
+      "candidates": [
+        {
+          "lat": "16.051313",
+          "lon": "108.230905",
+          "osm": "node/5072875821",
+          "name": "Love Bridge",
+          "tags": ["tourism=attraction"],
+          "found_by": "Nominatim \"Love Bridge Da Nang\" + Overpass (1500 m quanh ghim dn-cau-rong)",
+          "distance_m": 1142,
+          "distance_from": "ghim dn-cau-rong"
+        }
+      ]
+    },
+    "dn-nha-co-tan-ky": {
+      "group": "missing",
+      "goal": "nhà cổ Tấn Ký, 101 Nguyễn Thái Học, phố cổ Hội An",
+      "queries": ["Tan Ky Old House", "Nhà cổ Tấn Ký Hội An", "Tấn Ký", "Tan Ky House Hoi An"],
+      "candidates": [
+        {
+          "lat": "15.876455",
+          "lon": "108.327831",
+          "osm": "way/595299310",
+          "name": "Tan Ky",
+          "tags": ["tourism=museum"],
+          "found_by": "Nominatim \"Tấn Ký\" + Nominatim \"Tan Ky House Hoi An\" + Overpass (1500 m quanh ghim dn-pho-co-hoi-an)",
+          "distance_m": 116,
+          "distance_from": "ghim dn-pho-co-hoi-an"
+        }
+      ]
+    },
+    "dn-bien-pham-van-dong": {
+      "group": "missing",
+      "goal": "bãi tắm công cộng cuối đường Phạm Văn Đồng",
+      "queries": [
+        "Pham Van Dong Beach",
+        "Bãi tắm Phạm Văn Đồng",
+        "Bãi biển Phạm Văn Đồng Đà Nẵng",
+        "Phạm Văn Đồng beach Da Nang"
+      ],
+      "candidates": [
+        {
+          "lat": "16.075610",
+          "lon": "108.254735",
+          "osm": "relation/19000664",
+          "name": "Bãi biển Mỹ Khê",
+          "tags": ["natural=beach"],
+          "found_by": "Overpass (3000 m quanh ghim dn-bien-my-khe)",
+          "distance_m": 840,
+          "distance_from": "ghim dn-bien-my-khe"
+        },
+        {
+          "lat": "16.099021",
+          "lon": "108.254985",
+          "osm": "node/12647208262",
+          "name": "Bãi Biển Sơn Trà",
+          "tags": ["natural=beach"],
+          "found_by": "Overpass (3000 m quanh ghim dn-bien-my-khe)",
+          "distance_m": 2742,
+          "distance_from": "ghim dn-bien-my-khe"
+        },
+        {
+          "lat": "16.032471",
+          "lon": "108.256934",
+          "osm": "way/399595722",
+          "name": "",
+          "tags": ["natural=beach"],
+          "found_by": "Overpass (3000 m quanh ghim dn-bien-my-khe)",
+          "distance_m": 4917,
+          "distance_from": "ghim dn-bien-my-khe"
+        }
+      ]
+    },
+    "dn-hoa-phu-thanh": {
+      "group": "missing",
+      "goal": "khu du lịch sinh thái/vượt thác Hòa Phú Thành (Hòa Vang)",
+      "queries": [
+        "Hoa Phu Thanh",
+        "Hòa Phú Thành",
+        "Khu du lịch sinh thái Hòa Phú Thành",
+        "Hoa Phu Thanh rafting"
+      ],
+      "overpass_error": "Overpass không phản hồi: HTTP 504",
+      "candidates": []
+    },
+    "dn-cay-da-nghin-nam": {
+      "group": "missing",
+      "goal": "cây đa di sản trên bán đảo Sơn Trà",
+      "queries": [
+        "cây đa Sơn Trà",
+        "Cây đa ngàn năm Sơn Trà",
+        "Thousand Year Old Banyan Tree",
+        "Banyan Tree Son Tra",
+        "Cây đa di sản Sơn Trà"
+      ],
+      "overpass_error": "Overpass không phản hồi: timeout",
+      "candidates": [
+        {
+          "lat": "16.122616",
+          "lon": "108.331678",
+          "osm": "node/6346486685",
+          "name": "Cây đa đại thụ",
+          "tags": ["natural=tree"],
+          "found_by": "Nominatim \"cây đa Sơn Trà\" + Nominatim \"Banyan Tree Son Tra\"",
+          "distance_m": 7158,
+          "distance_from": "ghim dn-ban-dao-son-tra"
+        }
+      ]
+    },
+    "dn-bien-an-bang": {
+      "group": "mismatch",
+      "goal": "bãi biển An Bàng (lối xuống biển/bãi xe), không phải quán cà phê",
+      "queries": ["Bãi biển An Bàng", "Bãi tắm An Bàng", "An Bang Beach Hoi An"],
+      "candidates": [
+        {
+          "lat": "15.903799",
+          "lon": "108.357235",
+          "osm": "relation/7456917",
+          "name": "",
+          "tags": ["tourism=attraction", "natural=beach"],
+          "found_by": "Overpass (1500 m quanh ghim hiện tại)",
+          "distance_m": 1931,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "15.926716",
+          "lon": "108.324423",
+          "osm": "way/1340661759",
+          "name": "",
+          "tags": ["natural=beach"],
+          "found_by": "Overpass (1500 m quanh ghim hiện tại)",
+          "distance_m": 2447,
+          "distance_from": "ghim hiện tại"
+        }
+      ]
+    },
+    "dn-sun-world-danang-wonders": {
+      "group": "mismatch",
+      "goal": "cổng chính/quầy vé Sun World Danang Wonders (Asia Park cũ)",
+      "queries": [
+        "Sun World Danang Wonders",
+        "Sun World Đà Nẵng Wonders",
+        "Công viên Châu Á Đà Nẵng",
+        "Asia Park Da Nang",
+        "Sun Wheel Da Nang",
+        "Vòng quay Mặt Trời"
+      ],
+      "candidates": [
+        {
+          "lat": "16.040468",
+          "lon": "108.228471",
+          "osm": "node/12319954780",
+          "name": "Sun Wheel",
+          "tags": ["attraction=big_wheel"],
+          "found_by": "Overpass (1200 m quanh ghim hiện tại)",
+          "distance_m": 238,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "16.038153",
+          "lon": "108.225404",
+          "osm": "node/11882946634",
+          "name": "Công viên Châu Á",
+          "tags": [],
+          "found_by": "Nominatim \"Công viên Châu Á Đà Nẵng\"",
+          "distance_m": 357,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "16.041626",
+          "lon": "108.227854",
+          "osm": "node/6369459188",
+          "name": "The Flying Kirins",
+          "tags": ["attraction=amusement_ride"],
+          "found_by": "Overpass (1200 m quanh ghim hiện tại)",
+          "distance_m": 163,
+          "distance_from": "ghim hiện tại"
+        }
+      ]
+    },
+    "dn-ran-nam-o": {
+      "group": "mismatch",
+      "goal": "ghềnh/rạn đá ven biển Nam Ô, không phải tổ dân phố",
+      "queries": ["Rạn Nam Ô", "Ghềnh Nam Ô", "Nam O Reef", "Bãi đá Nam Ô", "Rạn đá Nam Ô"],
+      "overpass_error": "Overpass không phản hồi: HTTP 504",
+      "candidates": []
+    },
+    "dn-rung-dua-bay-mau": {
+      "group": "mismatch",
+      "goal": "bến thuyền thúng rừng dừa Bảy Mẫu, không phải tên đường",
+      "queries": [
+        "Rừng dừa Bảy Mẫu",
+        "Bay Mau Coconut Forest",
+        "Rừng dừa Cẩm Thanh",
+        "Bến thuyền thúng Bảy Mẫu",
+        "Coconut forest Hoi An"
+      ],
+      "overpass_error": "Overpass không phản hồi: timeout",
+      "candidates": []
+    },
+    "dn-ngu-hanh-son": {
+      "group": "center",
+      "goal": "cổng bán vé chính (Thủy Sơn) hoặc thang máy",
+      "queries": [
+        "Cổng Ngũ Hành Sơn",
+        "Quầy vé Ngũ Hành Sơn",
+        "Marble Mountains ticket office",
+        "Thủy Sơn Ngũ Hành Sơn",
+        "Thang máy Ngũ Hành Sơn"
+      ],
+      "candidates": [
+        {
+          "lat": "16.002823",
+          "lon": "108.262473",
+          "osm": "node/2183689441",
+          "name": "Gate 1",
+          "tags": ["barrier=gate"],
+          "found_by": "Overpass (900 m quanh ghim hiện tại)",
+          "distance_m": 137,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "16.002783",
+          "lon": "108.262462",
+          "osm": "node/5570601627",
+          "name": "Trạm điều hành Cóng 1",
+          "tags": ["shop=ticket"],
+          "found_by": "Overpass (900 m quanh ghim hiện tại)",
+          "distance_m": 142,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "16.003328",
+          "lon": "108.264562",
+          "osm": "node/5922491525",
+          "name": "Trạm điều hành Cóng 2",
+          "tags": ["shop=ticket"],
+          "found_by": "Overpass (900 m quanh ghim hiện tại)",
+          "distance_m": 206,
+          "distance_from": "ghim hiện tại"
+        }
+      ]
+    },
+    "dn-ban-dao-son-tra": {
+      "group": "center",
+      "goal": "lối vào bán đảo trên đường Hoàng Sa",
+      "queries": [
+        "Cổng Bán đảo Sơn Trà",
+        "Ban quản lý Bán đảo Sơn Trà",
+        "Son Tra Peninsula entrance",
+        "Trạm kiểm soát Sơn Trà"
+      ],
+      "overpass_error": "Overpass không phản hồi: HTTP 504",
+      "candidates": [
+        {
+          "lat": "16.101761",
+          "lon": "108.223956",
+          "osm": "way/1378252042",
+          "name": "Trạm kiểm soát biên phòng Sông Hàn",
+          "tags": ["building=yes"],
+          "found_by": "Nominatim \"Trạm kiểm soát Sơn Trà\"",
+          "distance_m": 4826,
+          "distance_from": "ghim hiện tại"
+        }
+      ]
+    },
+    "dn-cu-lao-cham": {
+      "group": "center",
+      "goal": "bến Bãi Làng trên đảo (bến đi: Cửa Đại)",
+      "queries": [
+        "Bến tàu Cửa Đại",
+        "Cảng Cửa Đại",
+        "Bãi Làng Cù Lao Chàm",
+        "Bến Bãi Làng",
+        "Cu Lao Cham ferry"
+      ],
+      "overpass_error": "Overpass không phản hồi: timeout",
+      "candidates": [
+        {
+          "lat": "15.878649",
+          "lon": "108.388253",
+          "osm": "node/4822079922",
+          "name": "bến cảng cửa đại",
+          "tags": ["tourism=artwork"],
+          "found_by": "Nominatim \"Cảng Cửa Đại\"",
+          "distance_m": 16469,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "15.878212",
+          "lon": "108.388204",
+          "osm": "way/514538921",
+          "name": "Cảng Du Lịch Cửa Đại - Hội An",
+          "tags": [],
+          "found_by": "Nominatim \"Cảng Cửa Đại\"",
+          "distance_m": 16497,
+          "distance_from": "ghim hiện tại"
+        }
+      ]
+    },
+    "dn-pho-co-hoi-an": {
+      "group": "center",
+      "goal": "quầy bán vé tham quan phố cổ",
+      "queries": [
+        "Quầy vé phố cổ Hội An",
+        "Hoi An Ancient Town ticket booth",
+        "Quầy bán vé tham quan Hội An",
+        "Hoi An ticket office"
+      ],
+      "candidates": [
+        {
+          "lat": "15.878337",
+          "lon": "108.325662",
+          "osm": "node/6933203485",
+          "name": "Ticket Office for Old Town",
+          "tags": ["shop=ticket"],
+          "found_by": "Nominatim \"Hoi An ticket office\" + Overpass (800 m quanh ghim hiện tại)",
+          "distance_m": 348,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "15.877512",
+          "lon": "108.323968",
+          "osm": "node/5566923922",
+          "name": "Ticket Office for Old Town",
+          "tags": ["shop=ticket"],
+          "found_by": "Nominatim \"Hoi An ticket office\" + Overpass (800 m quanh ghim hiện tại)",
+          "distance_m": 504,
+          "distance_from": "ghim hiện tại"
+        },
+        {
+          "lat": "15.877055",
+          "lon": "108.326177",
+          "osm": "node/4611160407",
+          "name": "Old Town Ticket Booth",
+          "tags": ["shop=ticket"],
+          "found_by": "Overpass (800 m quanh ghim hiện tại)",
+          "distance_m": 266,
+          "distance_from": "ghim hiện tại"
+        }
+      ]
+    }
+  }
+}

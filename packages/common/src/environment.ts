@@ -1,3 +1,5 @@
+import { validateDeploymentEnvironment } from './deployment';
+
 export const appPorts = {
   'api-gateway': 'GATEWAY_PORT',
   'identity-service': 'IDENTITY_PORT',
@@ -39,5 +41,6 @@ export function validateAppEnvironment(
     throw new Error('NODE_ENV must be development, test, or production');
   }
 
+  validateDeploymentEnvironment({ ...values, NODE_ENV: nodeEnv }, appName);
   return { ...values, NODE_ENV: nodeEnv, [portKey]: port };
 }

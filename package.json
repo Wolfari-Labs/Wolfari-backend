@@ -8,6 +8,12 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "trial:init": "node scripts/trial.mjs init",
+    "trial:check": "node scripts/trial.mjs check",
+    "trial:health": "node scripts/trial.mjs health",
+    "trial:migrate": "node scripts/trial.mjs migrate",
+    "trial:compose": "node scripts/trial.mjs compose",
+    "trial:storage": "node scripts/trial-storage.mjs",
     "demo:init": "node scripts/demo.mjs init",
     "demo:start": "node scripts/demo.mjs start",
     "demo:check": "node scripts/demo.mjs check",
@@ -45,6 +51,15 @@
     "trip:retry-finance": "node scripts/trip-retry-finance.mjs",
     "trip:replay-invitation": "node scripts/trip-replay-invitation.mjs",
     "identity:replay-email": "node scripts/identity-replay-email.mjs",
+    "poi:fetch": "node --env-file=.env scripts/poi/fetch-coordinates.mjs",
+    "poi:candidates": "node --env-file=.env scripts/poi/find-candidates.mjs",
+    "poi:review": "node scripts/poi/review.mjs",
+    "poi:load": "corepack pnpm --filter @wolfari/common build && node scripts/poi/load-golden.mjs",
+    "poi:overture": "corepack pnpm --filter @wolfari/common build && node scripts/poi/overture.mjs",
+    "poi:snapshots": "node scripts/poi/snapshots.mjs list",
+    "poi:activate": "node scripts/poi/snapshots.mjs activate",
+    "poi:prune": "node scripts/poi/snapshots.mjs prune",
+    "poi:gates": "node scripts/poi/gates.mjs",
     "contracts:lint": "node scripts/contracts.mjs lint",
     "contracts:rest": "node scripts/rest-contracts.mjs && corepack pnpm exec vitest run packages/contracts/src/demo1-openapi.test.ts",
     "contracts:generate": "node scripts/contracts.mjs generate",
@@ -69,6 +84,7 @@
     "mobile:completion:test": "corepack pnpm build && node scripts/trip-integration.mjs --mobile-completion"
   },
   "devDependencies": {
+    "@duckdb/node-api": "1.5.6-r.2",
     "@types/node": "24.13.5",
     "@types/pg": "8.23.1",
     "amqplib": "2.0.1",
@@ -79,6 +95,6 @@
     "tsx": "4.23.13",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",
-    "vitest": "5.0.1"
+    "vitest": "5.0.4"
   }
 }

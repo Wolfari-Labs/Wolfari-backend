@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import {
   type RpcMessage,
   type SessionValidator,
@@ -342,7 +343,7 @@ export class TripProxy {
     const secret = process.env.GATEWAY_TRIP_SECRET ?? '';
     if (!isLoopbackGrpcTarget(target) || secret.length < 32)
       throw new Error('Gateway Trip configuration invalid');
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Gateway Trip transport requires TLS in production');
     this.client = new TripClient(target, secret);
   }

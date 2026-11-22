@@ -9,6 +9,7 @@ import {
   nextPriceWatchSlot,
   priceWatchSlot,
   retryDelay,
+  referencePriceFresh,
   type ClaimedPriceAttempt,
   type ValidPriceObservation,
 } from './price-watch-worker.domain';
@@ -211,7 +212,7 @@ export class PriceWatchWorkerRepository {
         await client.query<{ id: string; observed_at: Date }>(
           `INSERT INTO price_observations(
            query_group_id,query_attempt_id,price,currency,provider,fare_metadata,observed_at,fetched_at
-         ) VALUES($1,$2,$3,$4,$5,$6::jsonb,clock_timestamp(),clock_timestamp())
+         ) VALUES($1,$2,$3,$4,$5,$6::jsonb,clock_timestamp(),COALESCE($7::timestamptz,clock_timestamp()))
          RETURNING id,observed_at`,
           [
             attempt.query_group_id,
@@ -220,15 +221,17 @@ export class PriceWatchWorkerRepository {
             observation.currency,
             observation.provider,
             JSON.stringify(observation.fare_metadata),
+            observation.fetched_at ?? null,
           ],
         )
       ).rows[0]!;
-      await recordPriceAlertCandidates(client, {
-        id: saved.id,
-        queryGroupId: attempt.query_group_id,
-        price: observation.price,
-        observedAt: saved.observed_at,
-      });
+      if (referencePriceFresh(observation.provider, observation.fare_metadata))
+        await recordPriceAlertCandidates(client, {
+          id: saved.id,
+          queryGroupId: attempt.query_group_id,
+          price: observation.price,
+          observedAt: saved.observed_at,
+        });
       await updateGroupResult(client, {
         queryGroupId: attempt.query_group_id,
         scheduledSlot: attempt.scheduled_slot,

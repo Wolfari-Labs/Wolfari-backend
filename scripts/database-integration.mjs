@@ -20,6 +20,12 @@ import { checkPriceWatchWorkerRepository } from '../apps/automation-service/test
 import { checkPriceAlertRepository } from '../apps/automation-service/tests/database/price-alert-repository.integration.mjs';
 import { checkNotificationRepository } from '../apps/automation-service/tests/database/notification-repository.integration.mjs';
 import { checkPriceWatchConcurrency } from './price-watch-concurrency.integration.mjs';
+import {
+  checkPlacesCache,
+  checkPoiCatalog,
+  checkCachedPriceAlerts,
+} from './provider-cache-integration.mjs';
+import { checkOvertureSnapshots } from './poi-overture-integration.mjs';
 
 const require = createRequire(import.meta.url);
 const { DatabaseProvider, databaseConfig } = require('../packages/database/dist/index.js');
@@ -478,7 +484,7 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 4, 20, 14];
+  const counts = [8, 18, 8, 20, 15];
   let fks = 0;
   for (const [index, service] of services.entries())
     await db(service, async (client) => {
@@ -495,18 +501,20 @@ async function main() {
       assert.deepEqual(
         await history(client, files[service]),
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008', 'V009']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003', 'V004', 'V005']
+            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
             : service === 'finance'
               ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
               : service === 'identity'
                 ? ['V001', 'V002']
-                : ['V001'],
+                : service === 'travel'
+                  ? ['V001', 'V002', 'V003', 'V004', 'V005']
+                  : ['V001'],
       );
     });
-  assert.equal(fks, 55);
-  pass('59 bảng mô hình + 5 lịch sử, 55 FK');
+  assert.equal(fks, 57);
+  pass('64 bảng mô hình + 5 lịch sử, 57 FK');
   await db('finance', async (client) => {
     await client.query(
       await readFile(
@@ -576,6 +584,17 @@ async function main() {
   );
   stage = 'price-alert-repository';
   await db('automation', checkPriceAlertRepository);
+  await db('travel', checkPlacesCache);
+  await db('travel', checkPoiCatalog);
+  await db('automation', checkCachedPriceAlerts);
+  pass(
+    'provider adapters: real cache DB TTL/stale + cached VND stale suppression, fresh alert and observation dedup (HTTP mock only)',
+  );
+  stage = 'poi-overture-snapshots';
+  await db('travel', (client) => checkOvertureSnapshots(client, databaseUrl(env, 'travel')));
+  pass(
+    'POI Overture: nạp snapshot inactive (golden giữ nguyên), poi:snapshots, poi:activate hai chiều, chặn snapshot đang nạp',
+  );
   pass('Automation PriceAlertRepository: rule, cooldown, lease, notification and lifecycle');
   await db('automation', checkNotificationRepository);
   pass('Automation NotificationRepository: preference, device isolation, inbox and read state');
@@ -650,12 +669,14 @@ async function main() {
     }
   });
   pass('runner timeout khi khóa đang bận');
+  // The probe takes the next free travel version, so new real migrations never collide with it.
+  const probeVersion = `V${String(files.travel.length + 1).padStart(3, '0')}`;
   await assert.rejects(
     migrate('travel', databaseUrl(env, 'travel'), [
       ...files.travel,
       {
-        version: 'V002',
-        sql: "BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('V002'); COMMIT;",
+        version: probeVersion,
+        sql: `BEGIN; CREATE TABLE rollback_probe(id int); SELECT 1/0; INSERT INTO schema_migrations(version) VALUES('${probeVersion}'); COMMIT;`,
       },
     ]),
     (error) => error.code === '22012',
@@ -665,7 +686,7 @@ async function main() {
       (await client.query("SELECT to_regclass('public.rollback_probe') AS name")).rows[0].name,
       null,
     );
-    assert.deepEqual(await history(client, files.travel), ['V001']);
+    assert.deepEqual(await history(client, files.travel), ['V001', 'V002', 'V003', 'V004', 'V005']);
     await client.query("INSERT INTO schema_migrations(version) VALUES('V999')");
     try {
       await assert.rejects(history(client, files.travel), /UNKNOWN_OR_INVALID/);

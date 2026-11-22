@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import 'reflect-metadata';
 import { bootstrapApp } from '@wolfari/common';
 import { AppModule } from './app.module';
@@ -6,7 +7,7 @@ import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { loopbackTarget } from './finance.errors';
 
 void bootstrapApp(AppModule, 'finance-service', async (app) => {
-  if (process.env.NODE_ENV === 'production')
+  if (productionTransportBlocked())
     throw new Error('Finance internal gRPC requires TLS in production');
   for (const key of ['GATEWAY_FINANCE_SECRET', 'FINANCE_TRIP_SECRET', 'TRIP_FINANCE_SECRET']) {
     if ((process.env[key]?.length ?? 0) < 32) throw new Error(`${key} missing`);

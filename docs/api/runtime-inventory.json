@@ -513,6 +513,11 @@
       "document": "notification.openapi.yaml"
     },
     {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/places/search",
+      "document": "places.openapi.json"
+    },
+    {
       "method": "POST",
       "path": "/api/v1/trips/{id}/packing-items",
       "document": "plan-items.openapi.json"
@@ -659,6 +664,11 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/travel/route",
+      "document": "travel-route.openapi.json"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/trips",
       "document": "trip-core.openapi.yaml"
     },
@@ -771,22 +781,24 @@
     "finance-receipt-http.ts": "5b2eb52dc9fc3cc3e5863ac901b1c23c51be0c6a0f2940283c66ac69aa4fc461",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "00431d6965eaba03ce5ec16468219005b5ce91da7faf937eb2f70be9076707c9",
-    "identity-proxy.ts": "0c50ed98ea2813d07b9a0d26430cf8e888e7ca5186f47ad7693c24c7d31a2f4a",
-    "invitation-proxy.ts": "c03e3df37e57e950c1b9408e3454322e592f85b5dfe279e692ec03f48509159c",
-    "membership-proxy.ts": "dc907460ee56e0b4427dd3c40e2c15749fa6afe7719ecea1d8e6e0c8f689af9b",
-    "notification-proxy.ts": "0e8ea8fc82c66f43953bc40f457ae7895c33f99883d9ea40cfc0824fe1841d55",
+    "identity-proxy.ts": "f6c62651f5d03161740531e46f8df4f92b074149c3c2b47fa4d1c0d73af041db",
+    "invitation-proxy.ts": "ce29d4da295327a4c09794232f38c3c8f103aeea8a4325e4f581fb4e9122794d",
+    "membership-proxy.ts": "85828e59c60f1c85ebb7ea26fac85b6c6bad0ef7e05b01f0da020ff2260dbc34",
+    "notification-proxy.ts": "f5a5f2086b0c1270c2701db35a6e1d9fe2f1f113769161f9d427c81b79fa2e03",
     "payment-http.ts": "e36d12ce5249aeebd599a281c1bf713c371d051e5971a243f1135c4cb11c1adc",
     "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
-    "plan-items-proxy.ts": "0e3b805c49d801b9a57328d49eceb5e0e6171609f3b1eaf67d6eea2fd4b0bf95",
-    "plan-proxy.ts": "cb2a5e0b170f315458ef9be3ac489ccac92970ae4ad35f1bcfe84ddd49ef5f8f",
-    "price-watch-proxy.ts": "977060944e08d16654e7ad8c206c8d0174f2139c403e4bb5db20b1b41c0aceba",
+    "places-proxy.ts": "eb5eefec761c69a408f438e06b4750eaf15137e26a96fa6e0f87981cc9aa6924",
+    "plan-items-proxy.ts": "96d7aef5e3cb6af0319728eb702b3e8b019118156ece492d3c162982006d29ce",
+    "plan-proxy.ts": "8dcb7bd8db2521018460a0b9cb18bed5ff31363ae67b1b74dd3de46972b2f21b",
+    "price-watch-proxy.ts": "9cb75318eeccbca77faa5afd4de506a0478a94038131f749a0082719bbd1bdaf",
     "qr-payment-http.ts": "7484f5ef923f799574eefe45303aea8b97271b4a8c718e8b0265006dc43e89f7",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
-    "travel-proxy.ts": "7a70969b7367da8ab85ed616c01cafc8487f737fac4f8578af493f1d9a6de83e",
+    "travel-places-proxy.ts": "4c30cd91e69a0ccadddeedbda41bb9715251b2ee6c17bd3b004f5de162ff5705",
+    "travel-proxy.ts": "7e8e4adfbd0e65500f00a4e1e38ca495d6a8e0bc0d4b5954121bc0c57789f56d",
     "trip-cover-http.ts": "abfb427c83eb760a7e8a91a5e84b503755fe9b7d8febd300358d71ea22238d96",
     "trip-http.ts": "96802ba5a8a2f05547fc4463e14098e7facd54676916c225547f72c6d0c9a8e0",
-    "trip-proxy.ts": "1627ecff77da959738e2eec25b9a8f69507bb40e37d78ba8e57fed46916990cf",
+    "trip-proxy.ts": "6c56809d0bf0a94c76dce227059767db4c1c50a6cb3fff73943b905f3e752e0e",
     "trip-tools-proxy.ts": "c823930aeefead5755e43adcb6b414879d6bd6d6d1ed1bdbab5124ef888ce18c"
   }
 }

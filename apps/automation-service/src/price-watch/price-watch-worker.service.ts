@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import { MockFlightPriceProvider } from './price-watch-provider';
+import { Inject } from '@nestjs/common';
+import { FLIGHT_PRICE_PROVIDER, type FlightPriceProvider } from './travelpayouts.provider';
 import {
   PriceProviderFailure,
   safeProviderFailure,
@@ -54,7 +55,7 @@ export class PriceWatchWorkerService implements OnApplicationBootstrap, OnApplic
   constructor(
     config: ConfigService,
     private readonly repository: PriceWatchWorkerRepository,
-    private readonly provider: MockFlightPriceProvider,
+    @Inject(FLIGHT_PRICE_PROVIDER) private readonly provider: FlightPriceProvider,
   ) {
     this.workerEnabled = enabled(config.get<string>('PRICE_WATCH_WORKER_ENABLED'));
     this.pollMs = integer(
@@ -87,7 +88,13 @@ export class PriceWatchWorkerService implements OnApplicationBootstrap, OnApplic
     );
     if (this.providerTimeoutMs >= this.leaseMs)
       throw new Error('PRICE_WATCH_PROVIDER_TIMEOUT_MS must be shorter than the lease');
-    if (this.workerEnabled && config.get<string>('NODE_ENV') === 'production')
+    if (
+      this.workerEnabled &&
+      config.get<string>('NODE_ENV') === 'production' &&
+      (config.get<string>('PRICE_WATCH_PROVIDER') !== 'TRAVELPAYOUTS_CACHE' ||
+        !config.get<string>('TRAVELPAYOUTS_TOKEN') ||
+        config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') !== 'true')
+    )
       throw new Error('MOCK_FLIGHT worker cannot run in production');
   }
 

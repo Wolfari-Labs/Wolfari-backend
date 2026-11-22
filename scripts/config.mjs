@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -98,8 +98,10 @@ export function appEnvironment(app, values, inherited = process.env) {
     'IDENTITY_LINK_BASE_URL',
     'IDENTITY_VERIFY_LINK_PATH',
     'IDENTITY_RESET_LINK_PATH',
+    'IDENTITY_REGISTRATION_ALLOWLIST',
   ];
   const tripKeys = [
+    'PLACE_SELECTION_SECRET',
     'MINIO_ENDPOINT', 'MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY',
     'TRIP_MEMBERSHIP_LIFECYCLE_ENABLED',
     'FINANCE_GRPC_TARGET',
@@ -117,6 +119,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRIP_GRPC_PORT',
   ];
   const gatewayKeys = [
+    'GATEWAY_TRAVEL_SECRET',
+    'TRAVEL_GRPC_TARGET',
     'FINANCE_GRPC_TARGET',
     'GATEWAY_FINANCE_SECRET',
     'GATEWAY_TRAVEL_SECRET',
@@ -138,6 +142,9 @@ export function appEnvironment(app, values, inherited = process.env) {
     'BANK_WEBHOOK_SEPAY_API_KEY',
   ];
   const automationKeys = [
+    'PRICE_WATCH_PROVIDER',
+    'TRAVELPAYOUTS_TOKEN',
+    'TRAVELPAYOUTS_VND_VERIFIED',
     'REMINDER_WORKER_ENABLED',
     'PUSH_DELIVERY_ENABLED',
     'EXPO_PUSH_ACCESS_TOKEN',
@@ -192,11 +199,13 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRAVEL_TRIP_SECRET',
     'TRAVEL_GRPC_PORT',
     'GATEWAY_TRAVEL_SECRET',
+    'PLACE_SELECTION_SECRET',
     'GEOAPIFY_API_KEY',
   ];
   const allowed = [
     'NODE_ENV',
     'WOLFARI_ISOLATED_ENV',
+    'WOLFARI_DEPLOYMENT_PROFILE',
     app.portKey,
     ...(app.service
       ? [
@@ -255,6 +264,7 @@ export async function initEnvironment(
     GATEWAY_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRIP_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_TRAVEL_SECRET: randomBytes(32).toString('hex'),
+    PLACE_SELECTION_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_AUTOMATION_SECRET: randomBytes(32).toString('hex'),
     GATEWAY_FINANCE_SECRET: randomBytes(32).toString('hex'),
     AUTOMATION_FINANCE_SECRET: randomBytes(32).toString('hex'),
@@ -298,6 +308,7 @@ export async function initEnvironment(
       '\n';
     const path = resolve(target, 'apps', app.name, '.env');
     await createOnce(path, content);
+    await enforceOverrides(path, appOverrides[app.name] ?? {});
     const runtime =
       app.name === 'identity-service'
         ? {
@@ -320,6 +331,7 @@ export async function initEnvironment(
         : app.name === 'trip-workspace-service'
           ? {
               TRIP_GRPC_PORT: '3202',
+              PLACE_SELECTION_SECRET: shared.PLACE_SELECTION_SECRET,
               TRIP_INVITATION_TOKEN_KEY: shared.TRIP_INVITATION_TOKEN_KEY,
               TRIP_MEMBERSHIP_LIFECYCLE_ENABLED: 'false',
               FINANCE_GRPC_TARGET: '127.0.0.1:3204',
@@ -332,6 +344,10 @@ export async function initEnvironment(
               FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
               TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
               AUTOMATION_TRIP_SECRET: shared.AUTOMATION_TRIP_SECRET,
+              // Trip covers and dress-code reference images are private MinIO objects.
+              MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
+              MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
+              MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,
             }
           : app.name === 'api-gateway'
             ? {
@@ -344,6 +360,8 @@ export async function initEnvironment(
                 TRAVEL_GRPC_TARGET: '127.0.0.1:3203',
                 GATEWAY_TRAVEL_SECRET: shared.GATEWAY_TRAVEL_SECRET,
                 TRIP_GRPC_TARGET: '127.0.0.1:3202',
+                TRAVEL_GRPC_TARGET: '127.0.0.1:3203',
+                GATEWAY_TRAVEL_SECRET: shared.GATEWAY_TRAVEL_SECRET,
                 GATEWAY_TRIP_SECRET: shared.GATEWAY_TRIP_SECRET,
                 AUTOMATION_GRPC_TARGET: '127.0.0.1:3205',
                 GATEWAY_AUTOMATION_SECRET: shared.GATEWAY_AUTOMATION_SECRET,
@@ -392,6 +410,7 @@ export async function initEnvironment(
                   ? {
                       TRAVEL_GRPC_PORT: '3203',
                       GATEWAY_TRAVEL_SECRET: shared.GATEWAY_TRAVEL_SECRET,
+                      PLACE_SELECTION_SECRET: shared.PLACE_SELECTION_SECRET,
                       TRIP_GRPC_TARGET: '127.0.0.1:3202',
                       TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
                     }
@@ -424,6 +443,24 @@ function brokerUrl(env) {
   url.username = env.RABBITMQ_DEFAULT_USER;
   url.password = env.RABBITMQ_DEFAULT_PASS;
   return url.href;
+}
+
+/**
+ * Overrides are fixed ports/URLs/flags (never secrets) that the target must use; an env file
+ * created by an older version keeps its secrets but gets these values rewritten on rerun.
+ */
+async function enforceOverrides(path, overrides) {
+  const current = await readEnv(path);
+  const changed = Object.entries(overrides).filter(([key, value]) => current[key] !== value);
+  if (!changed.length) return;
+  let text = await readFile(path, 'utf8');
+  for (const [key, value] of changed) {
+    const line = new RegExp(`^${key}=.*$`, 'gm');
+    text = text.match(line)
+      ? text.replace(line, () => `${key}=${value}`)
+      : `${text.endsWith('\n') ? text : `${text}\n`}${key}=${value}\n`;
+  }
+  await writeFile(path, text, { mode: 0o600 });
 }
 
 async function createOnce(path, content) {

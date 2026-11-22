@@ -11,6 +11,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { connect, type ChannelModel, type Channel, type ConsumeMessage } from 'amqplib';
 import { createTransport, type Transporter } from 'nodemailer';
+import { productionTransportBlocked } from '@wolfari/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseProvider } from '@wolfari/database';
 import { EVENT_TOPOLOGY, parseEventForConsume } from '@wolfari/contracts/events';
@@ -42,7 +43,7 @@ export class AccountEmailService implements OnApplicationBootstrap, OnApplicatio
     private readonly db: DatabaseProvider,
     config: ConfigService,
   ) {
-    if (process.env.NODE_ENV === 'production')
+    if (productionTransportBlocked())
       throw new Error('Automation gRPC/AMQP/SMTP transport requires TLS in production');
     this.identity = new IdentityClient(
       config.getOrThrow<string>('IDENTITY_GRPC_TARGET'),

@@ -1,0 +1,7 @@
+[Unit]
+Description=Wolfari single-host trial applications
+Wants=wolfari@api-gateway.service wolfari@identity-service.service wolfari@trip-workspace-service.service wolfari@travel-intelligence-service.service wolfari@finance-service.service wolfari@automation-service.service wolfari@export-worker.service
+After=docker.service
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { DatabaseProvider } from '@wolfari/database';
-import { currentCorrelationId } from '@wolfari/common';
+import { currentCorrelationId, trialEmails } from '@wolfari/common';
 import { parseEventForPublish } from '@wolfari/contracts/events';
 import type { PoolClient } from 'pg';
 import { IdentityCrypto, digest, emailCodeHash, emailCodeMatches, hashPassword, newEmailCode, newSecret, openDelivery, passwordPolicy, sealDelivery, verifyPassword } from './identity-crypto';
@@ -38,7 +38,10 @@ export class IdentityService {
   readonly crypto: IdentityCrypto;
   private readonly linkBase: string;
   private readonly linkPaths: Record<string, string>;
+  private readonly registrationAllowlist?: Set<string>;
   constructor(private readonly db: DatabaseProvider, config: ConfigService) {
+    if (config.get('NODE_ENV') === 'production' || process.env.NODE_ENV === 'production')
+      this.registrationAllowlist = trialEmails(config.get('IDENTITY_REGISTRATION_ALLOWLIST'));
     this.crypto = new IdentityCrypto({
       IDENTITY_ACCESS_PRIVATE_KEY: config.get('IDENTITY_ACCESS_PRIVATE_KEY'),
       IDENTITY_ACCESS_PUBLIC_KEY: config.get('IDENTITY_ACCESS_PUBLIC_KEY'),
@@ -85,6 +88,7 @@ export class IdentityService {
 
   async register(input: Record<string, unknown>): Promise<void> {
     const email = normalizeEmail(input.email);
+    if (this.registrationAllowlist && !this.registrationAllowlist.has(email)) return fail('PERMISSION_DENIED', 403);
     const name = validName(input.full_name);
     passwordPolicy(input.password);
     const passwordHash = await hashPassword(input.password);

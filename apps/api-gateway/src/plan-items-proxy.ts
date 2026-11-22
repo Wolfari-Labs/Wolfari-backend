@@ -44,6 +44,49 @@ export function planItemRoute(method: string, path: string) {
 
 export class PlanItemsProxy {
   private readonly client: TripClient;
+  /**
+   * A place picked from Places search arrives as a server-signed snapshot instead of free
+   * fields; Trip verifies the signature and deduplicates by provider ID. The response keeps the
+   * same envelope as a manual save; clients reload the Plan for the full location row.
+   */
+  private async saveSignedSelection(
+    tripId: string,
+    body: Record<string, unknown>,
+    request: IncomingMessage,
+    response: ServerResponse,
+    auth: { actorUserId: string; correlationId: string },
+  ) {
+    onlyKeys(body, ['expected_plan_version', 'selection_token']);
+    const revision = body.expected_plan_version;
+    if (
+      typeof revision !== 'number' ||
+      !Number.isInteger(revision) ||
+      revision < 1 ||
+      revision > 2147483647
+    )
+      throw new RequestError('Invalid version');
+    const token = body.selection_token;
+    if (typeof token !== 'string' || !token || token.length > 16000)
+      throw new RequestError('Invalid selection');
+    const result = await this.client.call(
+      'SaveSelectedLocation',
+      {
+        operation_id: idempotencyKey(request, true),
+        actor_user_id: auth.actorUserId,
+        trip_id: tripId,
+        expected_plan_version: revision,
+        selection_token: token,
+      },
+      auth.correlationId,
+    );
+    const version = projectPlanVersion(result.version);
+    const id = String(result.location_id ?? '');
+    if (!uuid.test(id)) throw new Error('Invalid location response');
+    json(response, 201, {
+      data: { id, location_id: id, ...version },
+      meta: { correlation_id: auth.correlationId, export_revision: version.export_revision },
+    });
+  }
   constructor(private readonly validateSession: SessionValidator) {
     const target = process.env.TRIP_GRPC_TARGET ?? '127.0.0.1:3202',
       secret = process.env.GATEWAY_TRIP_SECRET ?? '';
@@ -66,6 +109,12 @@ export class PlanItemsProxy {
       if (!auth) return;
       ensureQuery(url, []);
       const body = record(await requestBody(request));
+      if (
+        route.entity_type === 'SELECTED_LOCATION' &&
+        route.action === 'CREATE' &&
+        Object.hasOwn(body, 'selection_token')
+      )
+        return await this.saveSignedSelection(route.trip_id, body, request, response, auth);
       const fields =
         route.action === 'DELETE'
           ? []

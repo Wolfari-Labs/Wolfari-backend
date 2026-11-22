@@ -340,7 +340,7 @@ trả destination snapshot/evidence. Bổ sung demo1 ngày 28/10/2026 trả
 `rejected_reason` nullable trong contribution và children của request: lý do Holder
 từ chối gần nhất, vẫn giữ sau report lại/confirm. Quyền đọc không đổi. Receipt cũ
 thiếu field trả null, không lấy live row thay receipt lịch sử. Xem
-[phụ lục phản hồi từ chối](../../docs/architecture/demo-1-rejection-feedback.md).
+[phản hồi từ chối](../../docs/architecture/finance-contribution-requests.md#phản-hồi-từ-chối-demo-1).
 GET không ghi dữ liệu. Response078 mới lưu
 allocations/version tại commit vào receipt; replay cũ giữ shape metadata cũ, không
 đọc dữ liệu live để bổ sung. Chi tiết và giới hạn transport ở architecture liên kết
@@ -400,9 +400,9 @@ liên kết bản ghi. File đã thay vẫn giữ lịch sử, file chưa gắn 
   `corepack pnpm db:migrate --service finance` để nâng database phát triển.
 - `corepack pnpm finance:test` kiểm tra toàn bộ Finance hiện có trong database/MinIO cô lập.
 
-## API086 TEST payment instruction
+## API086 VietQR payment instruction
 
-GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable reference. No money/state writes or bank verification. External QuickLink SVG is TEST-only and discloses transfer details to Casso when loaded. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).
+GET `/api/v1/contributions/{id}/vietqr` returns a private Self-only instruction for an eligible PENDING contribution. Uses the issued recipient snapshot, current amount and a stable 25-character reference. Finance generates the NAPAS payload and SVG locally; Gateway validates their consistency and returns `environment=LIVE`. This read does not move money, verify the bank account or confirm receipt. The trial Web displays text details and the LIVE warning without loading provider URLs or embedding QR SVG. See [rules and limits](../../docs/architecture/finance-payment-instructions.md).
 
 ## Payment Sandbox API090–095
 

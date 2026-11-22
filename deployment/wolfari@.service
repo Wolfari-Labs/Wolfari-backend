@@ -1,0 +1,30 @@
+[Unit]
+Description=Wolfari trial %i
+After=network-online.target docker.service
+Wants=network-online.target
+PartOf=wolfari.target
+
+[Service]
+Type=simple
+User=wolfari
+Group=wolfari
+WorkingDirectory=/srv/wolfari/current/Wolfari-backend
+Environment=WOLFARI_CONFIG_DIR=/etc/wolfari
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/node /srv/wolfari/current/Wolfari-backend/scripts/trial.mjs start %i
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=mixed
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictSUIDSGID=true
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=wolfari.target

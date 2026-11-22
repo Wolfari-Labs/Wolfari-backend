@@ -1,3 +1,4 @@
+import { productionTransportBlockedFor } from '@wolfari/common';
 import { Inject, Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CommonV1, type FinanceV1, type TripV1 } from '@wolfari/contracts/grpc';
@@ -24,7 +25,7 @@ export class FinanceTripAccess implements OnApplicationShutdown {
       if (
         !loopbackTarget(target) ||
         secret.length < 32 ||
-        this.config.get('NODE_ENV') === 'production'
+        productionTransportBlockedFor(this.config)
       )
         throw new FinanceReadError('SERVICE_UNAVAILABLE');
       this.client = new TripAccessClient(target, 'Finance', secret);

@@ -1,0 +1,6 @@
+[Unit]
+Description=Encrypted cold Wolfari trial backup (requires provisioned recipient)
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/wolfari-backup.env
+ExecStart=/bin/bash -c 'exec /bin/bash /srv/wolfari/current/Wolfari-backend/deployment/backup.sh "/var/backups/wolfari/$(date -u +%%Y%%m%%dT%%H%%M%%SZ).age" "$AGE_RECIPIENT"'

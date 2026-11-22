@@ -1,3 +1,4 @@
+import { productionTransportBlocked } from '@wolfari/common';
 import { Client, credentials, Metadata, type ServiceError } from '@grpc/grpc-js';
 import { loadSync, type MethodDefinition, type ServiceDefinition } from '@grpc/proto-loader';
 import { GRPC_LOADER_OPTIONS, PROTO_PATHS } from '@wolfari/contracts/grpc';
@@ -88,7 +89,7 @@ export class FinanceClient {
     if (
       !isLoopbackGrpcTarget(this.target) ||
       this.secret.length < 32 ||
-      process.env.NODE_ENV === 'production'
+      productionTransportBlocked()
     )
       return Promise.reject(new Error('Finance transport unavailable'));
     this.client ??= new Client(this.target, credentials.createInsecure());
@@ -119,7 +120,7 @@ export class FinanceClient {
     if (
       !isLoopbackGrpcTarget(this.target) ||
       this.secret.length < 32 ||
-      process.env.NODE_ENV === 'production' ||
+      productionTransportBlocked() ||
       signal.aborted
     )
       return Promise.reject(new Error('Finance transport unavailable'));

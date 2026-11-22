@@ -60,6 +60,41 @@ export enum DressScope {
   UNRECOGNIZED = -1,
 }
 
+export interface SaveSelectedLocationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  selection_token?: string | undefined;
+  name?: string | undefined;
+  address?: string | undefined;
+  latitude?: number | undefined;
+  longitude?: number | undefined;
+}
+
+export interface DeleteSelectedLocationRequest {
+  operation_id?: string | undefined;
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  expected_plan_version?: number | undefined;
+  location_id?: string | undefined;
+}
+
+export interface LocationMutationResponse {
+  location_id?: string | undefined;
+  version?: PlanVersion | undefined;
+}
+
+export interface SaveSelectedLocationResponse {
+  location_id?: string | undefined;
+  version?: PlanVersion | undefined;
+}
+
+export interface DeleteSelectedLocationResponse {
+  location_id?: string | undefined;
+  version?: PlanVersion | undefined;
+}
+
 /** A message field supplies outer presence; the oneof preserves set-versus-clear. */
 export interface StringPatch {
   value?: string | undefined;
@@ -883,6 +918,16 @@ export interface DeleteTripCoverResponse {
 export const WOLFARI_TRIP_V1_PACKAGE_NAME = "wolfari.trip.v1";
 
 export interface TripServiceClient {
+  saveSelectedLocation(
+    request: SaveSelectedLocationRequest,
+    metadata?: Metadata,
+  ): Observable<SaveSelectedLocationResponse>;
+
+  deleteSelectedLocation(
+    request: DeleteSelectedLocationRequest,
+    metadata?: Metadata,
+  ): Observable<DeleteSelectedLocationResponse>;
+
   exportPlanPdf(request: ExportPlanPdfRequest, metadata?: Metadata): Observable<ExportPlanPdfResponse>;
 
   manageTrip(request: ManageTripRequest, metadata?: Metadata): Observable<ManageTripResponse>;
@@ -988,6 +1033,19 @@ export interface TripServiceClient {
 }
 
 export interface TripServiceController {
+  saveSelectedLocation(
+    request: SaveSelectedLocationRequest,
+    metadata?: Metadata,
+  ): Promise<SaveSelectedLocationResponse> | Observable<SaveSelectedLocationResponse> | SaveSelectedLocationResponse;
+
+  deleteSelectedLocation(
+    request: DeleteSelectedLocationRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<DeleteSelectedLocationResponse>
+    | Observable<DeleteSelectedLocationResponse>
+    | DeleteSelectedLocationResponse;
+
   exportPlanPdf(
     request: ExportPlanPdfRequest,
     metadata?: Metadata,
@@ -1203,6 +1261,8 @@ export interface TripServiceController {
 export function TripServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
+      "saveSelectedLocation",
+      "deleteSelectedLocation",
       "exportPlanPdf",
       "manageTrip",
       "listMembers",

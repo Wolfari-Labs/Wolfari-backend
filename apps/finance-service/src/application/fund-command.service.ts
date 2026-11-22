@@ -1,3 +1,4 @@
+import { productionTransportBlockedFor } from '@wolfari/common';
 import { Injectable, type OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client, credentials, Metadata } from '@grpc/grpc-js';
@@ -97,7 +98,7 @@ export class FundTripClient implements OnApplicationShutdown {
       !loopbackTarget(target) ||
       secret.length < 32 ||
       Date.now() >= deadline ||
-      this.config.get('NODE_ENV') === 'production'
+      productionTransportBlockedFor(this.config)
     )
       return Promise.reject(new FinanceReadError('SERVICE_UNAVAILABLE'));
     this.client ??= new Client(target, credentials.createInsecure());

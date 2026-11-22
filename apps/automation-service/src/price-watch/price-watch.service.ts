@@ -24,7 +24,7 @@ export class PriceWatchService {
   private readonly cursor: PriceWatchCursor;
 
   constructor(
-    config: ConfigService,
+    private readonly config: ConfigService,
     private readonly access: PriceWatchAccessService,
     private readonly repository: PriceWatchRepository,
   ) {
@@ -45,6 +45,7 @@ export class PriceWatchService {
       userId,
       membershipId: context.membershipId,
     });
+    this.validateProvider(value);
     return this.repository.create({
       userId,
       tripId,
@@ -92,6 +93,7 @@ export class PriceWatchService {
       userId,
       membershipId: context.membershipId,
     });
+    this.validateProvider(next);
     return this.repository.update(id, version, next, (locked) =>
       this.creator(locked, userId, context),
     );
@@ -109,6 +111,7 @@ export class PriceWatchService {
     const id = watchUuid(request.watch_id);
     const version = expectedVersion(request.expected_version);
     const current = await this.requiredWatch(id);
+    if (command === 'RESUME') this.validateProvider(this.normalized(current));
     const context = await this.writeContext(current.trip_id, userId, correlationId);
     const authorize = (locked: PriceWatchRecord) => {
       if (command === 'STOP' && context.role === 'OWNER') return;
@@ -127,6 +130,22 @@ export class PriceWatchService {
     );
   }
 
+  private validateProvider(value: NormalizedWatchWrite) {
+    if (
+      this.config.get<string>('NODE_ENV') === 'production' &&
+      value.query.provider !== 'TRAVELPAYOUTS_CACHE'
+    )
+      return priceWatchFail('VALIDATION_FAILED');
+    if (
+      value.query.provider === 'TRAVELPAYOUTS_CACHE' &&
+      (this.config.get<string>('PRICE_WATCH_PROVIDER') !== 'TRAVELPAYOUTS_CACHE' ||
+        this.config.get<string>('PRICE_WATCH_WORKER_ENABLED') !== 'true' ||
+        !this.config.get<string>('TRAVELPAYOUTS_TOKEN') ||
+        this.config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') !== 'true')
+    )
+      return priceWatchFail('SERVICE_UNAVAILABLE');
+  }
+
   async observations(
     request: AutomationV1.ListPriceObservationsRequest,
     correlationId: string,
@@ -135,6 +154,9 @@ export class PriceWatchService {
     next_cursor: string | null;
     stale: boolean;
     last_error: string | null;
+    last_checked_at: string | null;
+    next_check_at: string | null;
+    last_check_status: string | null;
   }> {
     const userId = watchUuid(request.actor_user_id);
     const id = watchUuid(request.watch_id);
@@ -149,6 +171,9 @@ export class PriceWatchService {
       items: rows,
       stale,
       last_error,
+      last_checked_at,
+      next_check_at,
+      last_check_status,
     } = await this.repository.listObservations(watch.query_group_id, limit + 1, after);
     const items = rows.slice(0, limit);
     const last = items.at(-1);
@@ -156,6 +181,9 @@ export class PriceWatchService {
       items,
       stale,
       last_error,
+      last_checked_at,
+      next_check_at,
+      last_check_status,
       next_cursor:
         rows.length > limit && last
           ? this.cursor.encode({

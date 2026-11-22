@@ -1,0 +1,435 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wolfari Places and Selected Locations",
+    "version": "1.2.0",
+    "description": "Lưu một kết quả tìm kiếm: POST /api/v1/trips/{trip_id}/selected-locations với `selection_token` (xem plan-items.openapi.json)."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000"
+    }
+  ],
+  "security": [
+    {
+      "bearer": []
+    },
+    {
+      "cookie": []
+    }
+  ],
+  "paths": {
+    "/api/v1/trips/{tripId}/places/search": {
+      "get": {
+        "operationId": "searchTripPlaces",
+        "description": "Authenticated trip reader only. Explicit submit; no autocomplete. Wolfari POI catalogue first: the active snapshot holds the curated golden list plus (POI-OVERTURE) nationwide Overture Places. With q, the search looks within 50 km of latitude/longitude first and widens nationwide when that yields fewer than 3 good matches; golden POIs always rank first on an exact or contained name. Without q, points within radius_m. With bbox (map exploration), up to limit points in the frame by tier then confidence; radius_m and q are ignored, Geoapify is never called and coordinate pile-ups (≥ 20 POIs on one exact coordinate) are hidden. Geoapify is consulted only when the catalogue falls short (fewer than 3 good matches, none nearby, or geocode=true) and its results are appended without duplicates. Without category only tourism is searched (unchanged default until the web ships the 4-group UI; then tourism, restaurant, cafe and accommodation).",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90,
+              "default": 16.0544
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180,
+              "default": 108.2022
+            }
+          },
+          {
+            "name": "radius_m",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 20000,
+              "default": 5000
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "tourism",
+                "restaurant",
+                "cafe",
+                "accommodation",
+                "nightlife",
+                "shopping",
+                "entertainment",
+                "wellness",
+                "transport",
+                "services",
+                "other",
+                "all"
+              ]
+            },
+            "description": "Search group. Omitted: tourism (for now; later tourism + restaurant + cafe + accommodation). all: every group. Earlier values keep their meaning."
+          },
+          {
+            "name": "geocode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "bbox",
+            "in": "query",
+            "required": false,
+            "description": "Map frame minLon,minLat,maxLon,maxLat (WGS84). At most 2 degrees per side, else 400 BBOX_TOO_LARGE; malformed: 400 INVALID_BBOX.",
+            "schema": {
+              "type": "string",
+              "pattern": "^-?\\d{1,3}(\\.\\d{1,8})?(,-?\\d{1,3}(\\.\\d{1,8})?){3}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum results: default 20 (q/nearby) or 150 (bbox).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Normalized search results; empty and provider failure are explicit meta states.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED, INVALID_BBOX or BBOX_TOO_LARGE. Authentication, authorization, conflict and availability use the other codes. No upstream secrets."
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state/version conflict or unavailable service. No upstream secrets."
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state/version conflict or unavailable service. No upstream secrets."
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state/version conflict or unavailable service. No upstream secrets."
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state/version conflict or unavailable service. No upstream secrets."
+          },
+          "503": {
+            "description": "Validation, authentication, authorization, state/version conflict or unavailable service. No upstream secrets."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "wolfari_access"
+      }
+    },
+    "schemas": {
+      "ManualSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_plan_version", "name", "latitude", "longitude"],
+        "properties": {
+          "expected_plan_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        }
+      },
+      "ProviderSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expected_plan_version", "selection_token"],
+        "properties": {
+          "expected_plan_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "selection_token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16000,
+            "description": "Signed token from a search result of provider GEOAPIFY or WOLFARI. Saving the same provider place twice returns the existing location without a new plan_version."
+          }
+        }
+      },
+      "LocationMutation": {
+        "type": "object",
+        "required": ["location_id", "version"],
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "object",
+            "required": ["trip_id", "plan_version", "export_revision"],
+            "properties": {
+              "trip_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "plan_version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "export_revision": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "Place": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "coordinates",
+          "selection_token",
+          "attribution",
+          "provider",
+          "category",
+          "category_label",
+          "tier",
+          "coord_verified",
+          "activity_type",
+          "dress_code_hint"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "coordinates": {
+            "type": "object",
+            "required": ["latitude", "longitude"],
+            "properties": {
+              "latitude": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90
+              },
+              "longitude": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              }
+            }
+          },
+          "selection_token": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string",
+            "description": "Always present: OpenStreetMap (WOLFARI) or Geoapify + OpenStreetMap."
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provider": {
+            "enum": ["WOLFARI", "GEOAPIFY"],
+            "description": "Result source. WOLFARI: id is the curated wolfari_key."
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Wolfari taxonomy code (MAP-POI section 8); empty for Geoapify."
+          },
+          "category_label": {
+            "type": "string",
+            "description": "Vietnamese label of category; empty for Geoapify."
+          },
+          "tier": {
+            "enum": [1, 2, 3, 9],
+            "description": "1-3 curated golden list; 9 bulk (Overture) or external (Geoapify)."
+          },
+          "coord_verified": {
+            "type": "boolean",
+            "description": "Coordinates were checked by a human reviewer."
+          },
+          "typical_duration_min": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Suggested visit duration; omitted when unknown."
+          },
+          "activity_type": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Suggested Plan activity type (SIGHTSEEING, BEACH, ...); may be empty. Clients show unknown values as \"Khác\"."
+          },
+          "dress_code_hint": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "source_dataset": {
+            "enum": ["golden", "overture", "geoapify"],
+            "description": "Dataset the place comes from (POI-OVERTURE). Optional for older servers."
+          },
+          "category_group": {
+            "type": ["string", "null"],
+            "description": "Public search group of category; null when unknown."
+          },
+          "province_code": {
+            "type": ["string", "null"],
+            "pattern": "^\\d{2}$",
+            "description": "Province code of the 34 units in force since 2025-07-01; null for Geoapify."
+          },
+          "province_name": {
+            "type": ["string", "null"],
+            "description": "Vietnamese province name, e.g. \"Đà Nẵng\"; null when unknown."
+          },
+          "confidence": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Overture confidence; null for golden and Geoapify."
+          },
+          "data_release": {
+            "type": ["string", "null"],
+            "description": "Data release of the record, e.g. Overture 2026-10-21.0; null otherwise."
+          },
+          "fetched_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "When the record was fetched from its provider."
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/Place"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": ["provider", "status", "stale", "is_mock"],
+            "properties": {
+              "provider": {
+                "enum": ["WOLFARI", "GEOAPIFY", "WOLFARI+GEOAPIFY"],
+                "description": "Sources that contributed data; GEOAPIFY also when nothing was found."
+              },
+              "status": {
+                "enum": ["SUCCESS", "NO_RESULT", "ERROR"]
+              },
+              "stale": {
+                "type": "boolean"
+              },
+              "is_mock": {
+                "const": false
+              },
+              "fetched_at": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "warnings": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "snapshot_id": {
+                "type": ["string", "null"],
+                "description": "Active POI snapshot version answering the search."
+              },
+              "data_release": {
+                "type": ["string", "null"],
+                "description": "Overture release of the active snapshot; null for golden-only."
+              },
+              "bbox_truncated": {
+                "type": "boolean",
+                "description": "bbox search: more points in the frame than limit."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

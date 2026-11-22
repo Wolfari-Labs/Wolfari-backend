@@ -2,3 +2,17 @@ packages:
   - apps/*
   - packages/*
 
+# Node24 supports synchronous require(ESM). The scoped adapter keeps query-string7's
+# public API for MinIO while consuming the patched decoder's default export.
+overrides:
+  '@nestjs/platform-express': 11.2.9
+  'body-parser': 2.4.0
+  'fast-uri': 3.1.9
+  'qs': 6.16.1
+  'fast-xml-parser': 5.12.0
+  'query-string@7.1.3>decode-uri-component': 0.5.1
+  vite: 8.3.4
+  source-map-js: 1.2.2
+patchedDependencies:
+  query-string@7.1.3: patches/query-string@7.1.3.patch
+
