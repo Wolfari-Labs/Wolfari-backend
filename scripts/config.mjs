@@ -308,6 +308,7 @@ export async function initEnvironment(
       '\n';
     const path = resolve(target, 'apps', app.name, '.env');
     await createOnce(path, content);
+    await enforceOverrides(path, appOverrides[app.name] ?? {});
     const runtime =
       app.name === 'identity-service'
         ? {
@@ -442,6 +443,24 @@ function brokerUrl(env) {
   url.username = env.RABBITMQ_DEFAULT_USER;
   url.password = env.RABBITMQ_DEFAULT_PASS;
   return url.href;
+}
+
+/**
+ * Overrides are fixed ports/URLs/flags (never secrets) that the target must use; an env file
+ * created by an older version keeps its secrets but gets these values rewritten on rerun.
+ */
+async function enforceOverrides(path, overrides) {
+  const current = await readEnv(path);
+  const changed = Object.entries(overrides).filter(([key, value]) => current[key] !== value);
+  if (!changed.length) return;
+  let text = await readFile(path, 'utf8');
+  for (const [key, value] of changed) {
+    const line = new RegExp(`^${key}=.*$`, 'gm');
+    text = text.match(line)
+      ? text.replace(line, () => `${key}=${value}`)
+      : `${text.endsWith('\n') ? text : `${text}\n`}${key}=${value}\n`;
+  }
+  await writeFile(path, text, { mode: 0o600 });
 }
 
 async function createOnce(path, content) {

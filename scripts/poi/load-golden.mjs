@@ -189,11 +189,13 @@ async function main() {
     return;
   }
 
-  const env = await readEnv(resolve(root, 'apps/travel-intelligence-service/.env'));
+  // --env <travel .env> targets another travel_db (e.g. .local/demo), like poi:snapshots.
+  const envPath = args.includes('--env')
+    ? resolve(args[args.indexOf('--env') + 1])
+    : resolve(root, 'apps/travel-intelligence-service/.env');
+  const env = await readEnv(envPath);
   if (!env.DATABASE_URL)
-    throw new Error(
-      'Thiếu cấu hình DATABASE_URL trong apps/travel-intelligence-service/.env; chạy pnpm env:init.',
-    );
+    throw new Error(`Thiếu cấu hình DATABASE_URL trong ${envPath}; chạy pnpm env:init.`);
   const client = await connectDatabase('travel', env.DATABASE_URL);
   try {
     const migrated = await client.query("SELECT 1 FROM schema_migrations WHERE version='V003'");
