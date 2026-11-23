@@ -18,6 +18,8 @@ describe('development configuration', () => {
       GATEWAY_TRAVEL_SECRET: ['api-gateway', 'travel-intelligence-service'],
       BANK_WEBHOOK_SEPAY_SECRET: ['api-gateway'],
       BANK_WEBHOOK_SEPAY_API_KEY: ['api-gateway'],
+      OSRM_PUBLIC_DEMO: ['travel-intelligence-service'],
+      OSRM_WALKING_URL: ['travel-intelligence-service'],
     };
     for (const app of apps)
       for (const [key, names] of Object.entries(owners)) {

@@ -2,6 +2,7 @@ import { fork } from 'node:child_process';
 import { watch } from 'node:fs';
 import { resolve } from 'node:path';
 import { apps, root, readEnv, appEnvironment } from './config.mjs';
+import { demoProviderEnv } from './demo-config.mjs';
 import { run } from './infrastructure.mjs';
 import { safeError } from './migrations.mjs';
 
@@ -42,7 +43,9 @@ async function buildShared() {
 }
 async function start(app) {
   if (stopping) return;
-  const env = appEnvironment(app, await readEnv(resolve(configRoot, 'apps', app.name, '.env')));
+  const values = await readEnv(resolve(configRoot, 'apps', app.name, '.env'));
+  // Demo only: live provider keys exported by the operator override the demo env file.
+  const env = appEnvironment(app, demo ? { ...values, ...demoProviderEnv(app.name) } : values);
   const child = fork(resolve(root, 'apps', app.name, 'dist/main.js'), [], { cwd: root, env, stdio: ['inherit', 'inherit', 'inherit', 'ipc'], windowsHide: true });
   children.set(app.name, child);
   child.on('error', () => { process.exitCode = 1; void stop(); });

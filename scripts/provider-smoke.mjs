@@ -38,7 +38,7 @@ export async function main() {
     for (const origin of ['HAN', 'SGN']) for (const days of [14, 30]) {
       const date = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
       const url = new URL('https://api.travelpayouts.com/aviasales/v3/get_latest_prices');
-      url.search = new URLSearchParams({ origin, destination: 'DAD', period_type: 'day', beginning_of_period: date, one_way: 'true', trip_class: '0', currency: 'vnd', sorting: 'price', limit: '20', page: '1' }).toString();
+      url.search = new URLSearchParams({ origin, destination: 'DAD', period_type: 'day', beginning_of_period: date, one_way: 'true', trip_class: '0', currency: 'vnd', sorting: 'price', show_to_affiliates: 'false', limit: '20', page: '1' }).toString();
       results.push({ origin, destination: 'DAD', date, requested_currency: 'VND', ...await probe('TRAVELPAYOUTS_CACHE', url, { 'X-Access-Token': token }) });
       await new Promise(resolve => setTimeout(resolve, 1000));
     }

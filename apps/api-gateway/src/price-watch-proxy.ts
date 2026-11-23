@@ -4,6 +4,7 @@ import { AutomationClient } from '@wolfari/contracts/automation-client';
 import {
   authenticate,
   ensureQuery,
+  domainFailure,
   fail,
   grpcFailure,
   idempotencyKey,
@@ -99,7 +100,8 @@ export function priceWatchWrite(body: RpcMessage, patch: boolean): RpcMessage {
   ]);
   const result: RpcMessage = {};
   for (const key of ['provider', 'origin', 'destination', 'departure_date', 'currency'] as const) {
-    if (patch && !Object.hasOwn(body, key)) continue;
+    // A new watch may omit the provider; Automation then uses the deployment's configured source.
+    if ((patch || key === 'provider') && !Object.hasOwn(body, key)) continue;
     if (typeof body[key] !== 'string') throw new RequestError(`Invalid ${key}`);
     result[key] = body[key];
   }
@@ -124,6 +126,33 @@ export function priceWatchWrite(body: RpcMessage, patch: boolean): RpcMessage {
     if (Object.keys(result).length === 1) throw new RequestError('Missing update');
   }
   return result;
+}
+
+/**
+ * Price-source failures the client can act on (change the query, or stop retrying) keep their
+ * machine-readable reason; every other Automation error goes through the shared mapping.
+ */
+export function priceSourceFailure(cause: unknown): {
+  statusCode: 400 | 503;
+  code: 'VALIDATION_FAILED' | 'SERVICE_UNAVAILABLE';
+  reason: 'PROVIDER_QUERY_UNSUPPORTED' | 'PRICE_PROVIDER_NOT_CONFIGURED';
+} | null {
+  const domain = domainFailure(cause);
+  if (
+    domain?.code === 'VALIDATION_FAILED' &&
+    domain.details?.reason === 'PROVIDER_QUERY_UNSUPPORTED'
+  )
+    return { statusCode: 400, code: 'VALIDATION_FAILED', reason: 'PROVIDER_QUERY_UNSUPPORTED' };
+  if (
+    domain?.code === 'SERVICE_UNAVAILABLE' &&
+    domain.details?.reason === 'PRICE_PROVIDER_NOT_CONFIGURED'
+  )
+    return {
+      statusCode: 503,
+      code: 'SERVICE_UNAVAILABLE',
+      reason: 'PRICE_PROVIDER_NOT_CONFIGURED',
+    };
+  return null;
 }
 
 function enumName(value: unknown, names: Record<number, string>): string {
@@ -342,6 +371,12 @@ export class PriceWatchProxy {
       });
     } catch (error) {
       if (error instanceof RequestError) return fail(response, 400, 'VALIDATION_FAILED');
+      const source = priceSourceFailure(error);
+      if (source)
+        return fail(response, source.statusCode, source.code, {
+          retryable: false,
+          details: { reason: source.reason },
+        });
       return grpcFailure(response, error, writeRequest);
     }
   }

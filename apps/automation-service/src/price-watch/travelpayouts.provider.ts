@@ -15,6 +15,32 @@ export interface FlightPriceProvider {
   fetch(request: PriceProviderRequest): Promise<PriceProviderResult>;
 }
 
+/**
+ * Aviasales Data API v3 `get_latest_prices` for one departure day (period_type=day, documented at
+ * support.travelpayouts.com article 203956163, checked 2026-11-23). It returns `found_at`, which the
+ * alert freshness rule needs. `show_to_affiliates=false` asks for every cached price, not only those
+ * found through partner links, so Vietnamese domestic routes are not needlessly empty.
+ */
+export function travelpayoutsUrl(
+  query: Pick<NormalizedPriceQuery, 'origin' | 'destination' | 'departure_date'>,
+): URL {
+  const url = new URL('https://api.travelpayouts.com/aviasales/v3/get_latest_prices');
+  url.search = new URLSearchParams({
+    origin: query.origin,
+    destination: query.destination,
+    period_type: 'day',
+    beginning_of_period: query.departure_date,
+    one_way: 'true',
+    trip_class: '0',
+    currency: 'vnd',
+    sorting: 'price',
+    show_to_affiliates: 'false',
+    limit: '20',
+    page: '1',
+  }).toString();
+  return url;
+}
+
 export function parseTravelpayouts(
   payload: unknown,
   query: NormalizedPriceQuery,
@@ -41,14 +67,17 @@ export function parseTravelpayouts(
       row.destination !== query.destination ||
       row.depart_date !== query.departure_date ||
       (row.return_date !== '' && row.return_date !== null && row.return_date !== undefined) ||
-      row.trip_class !== 0 ||
+      // The documented response omits trip_class on some rows; the request already asks for 0.
+      (row.trip_class !== undefined && row.trip_class !== 0) ||
       row.actual === false
     )
       continue;
     if (row.currency !== undefined && String(row.currency).toUpperCase() !== 'VND') return fail();
-    if (typeof row.value !== 'number' || !Number.isSafeInteger(row.value) || row.value <= 0)
-      return fail();
-    rows.push({ price: row.value, row });
+    if (typeof row.value !== 'number' || !Number.isFinite(row.value)) return fail();
+    // Prices are converted from the cache currency; VND has no minor unit, so keep whole dong.
+    const price = Math.round(row.value);
+    if (!Number.isSafeInteger(price) || price <= 0) return fail();
+    rows.push({ price, row });
   }
   const best = rows.sort((a, b) => a.price - b.price)[0];
   if (!best) return { kind: 'NO_RESULT' };
@@ -127,19 +156,7 @@ export class ConfiguredFlightPriceProvider implements FlightPriceProvider {
       }
     }
     if (!permit.rowCount) throw new PriceProviderFailure('PROVIDER_RATE_LIMITED', true);
-    const url = new URL('https://api.travelpayouts.com/aviasales/v3/get_latest_prices');
-    url.search = new URLSearchParams({
-      origin: request.query.origin,
-      destination: request.query.destination,
-      period_type: 'day',
-      beginning_of_period: request.query.departure_date,
-      one_way: 'true',
-      trip_class: '0',
-      currency: 'vnd',
-      sorting: 'price',
-      limit: '20',
-      page: '1',
-    }).toString();
+    const url = travelpayoutsUrl(request.query);
     let response: Response;
     try {
       response = await fetch(url, {

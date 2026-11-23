@@ -31,8 +31,9 @@ xác nhận/đã hủy, Fund/đợt thu không mở). Holder đối chiếu bằ
   thử lại. Gửi lại cùng id → trả kết quả đã lưu, không ghi sổ hai lần.
 - `GET /api/v1/funds/{fundId}/bank-transfers` chỉ cho Owner hoặc Holder hiện tại; số tài khoản được che
   còn 4 ký tự cuối; payload thô không rời Finance.
-- Test mode của SePay gửi webhook y hệt live với giao dịch mô phỏng; khi demo trên LAN cần tunnel công
-  khai tới Gateway (ví dụ `cloudflared tunnel --url http://127.0.0.1:13000`).
+- Test mode của SePay gửi webhook y hệt live với giao dịch mô phỏng; khi demo trên LAN dùng
+  `corepack pnpm demo:tunnel`: relay chỉ chuyển đúng đường dẫn webhook rồi mở Cloudflare quick tunnel, không
+  công khai các API khác của Gateway (xem [demo-live-providers.md](demo-live-providers.md)).
 
 ## Kiểm thử
 

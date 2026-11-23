@@ -165,6 +165,7 @@ export function normalizeWatch(
   if (new Date(departureAt).getTime() <= now.getTime()) return priceWatchFail('VALIDATION_FAILED');
   if (departureAt.slice(0, 10) !== departureDate) return priceWatchFail('VALIDATION_FAILED');
   const mix = passengers(value.passengers);
+  // The Travelpayouts cache only answers one-way economy fares for one adult.
   if (
     provider === 'TRAVELPAYOUTS_CACHE' &&
     (tripJourney !== 'ONE_WAY' ||
@@ -173,7 +174,7 @@ export function normalizeWatch(
       mix.children !== 0 ||
       mix.infants !== 0)
   )
-    return priceWatchFail('VALIDATION_FAILED');
+    return priceWatchFail('VALIDATION_FAILED', { reason: 'PROVIDER_QUERY_UNSUPPORTED' });
   const query: NormalizedPriceQuery = {
     provider,
     transport_type: 'FLIGHT',

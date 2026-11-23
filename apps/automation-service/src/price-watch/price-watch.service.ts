@@ -40,7 +40,11 @@ export class PriceWatchService {
     const clientRequestId = watchUuid(request.client_request_id);
     if (!request.watch) return priceWatchFail('VALIDATION_FAILED');
     const context = await this.writeContext(tripId, userId, correlationId);
-    const value = normalizeWatch(request.watch, {
+    // Clients may omit the provider; the server then uses the one this deployment is configured for.
+    const watch = request.watch.provider
+      ? request.watch
+      : { ...request.watch, provider: this.configuredProvider() };
+    const value = normalizeWatch(watch, {
       tripId,
       userId,
       membershipId: context.membershipId,
@@ -130,6 +134,12 @@ export class PriceWatchService {
     );
   }
 
+  private configuredProvider(): 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE' {
+    return this.config.get<string>('PRICE_WATCH_PROVIDER') === 'TRAVELPAYOUTS_CACHE'
+      ? 'TRAVELPAYOUTS_CACHE'
+      : 'MOCK_FLIGHT';
+  }
+
   private validateProvider(value: NormalizedWatchWrite) {
     if (
       this.config.get<string>('NODE_ENV') === 'production' &&
@@ -143,7 +153,7 @@ export class PriceWatchService {
         !this.config.get<string>('TRAVELPAYOUTS_TOKEN') ||
         this.config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') !== 'true')
     )
-      return priceWatchFail('SERVICE_UNAVAILABLE');
+      return priceWatchFail('SERVICE_UNAVAILABLE', { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' });
   }
 
   async observations(
