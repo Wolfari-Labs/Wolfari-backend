@@ -3,7 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import { Metadata } from '@grpc/grpc-js';
 import type { DatabaseProvider } from '@wolfari/database';
 import { TravelV1 } from '@wolfari/contracts/grpc';
-import { RouteService, normalizeRoute, osrmRoute, ROUTE_TTL_MS } from './route.service';
+import {
+  RouteService,
+  normalizeRoute,
+  osrmBase,
+  osrmRoute,
+  publicSlot,
+  resetPublicSlots,
+  ROUTE_TTL_MS,
+} from './route.service';
 import { RouteController } from './route.grpc';
 
 const hanMarket = { latitude: 16.068352, longitude: 108.224283 };
@@ -28,7 +36,10 @@ const okBody = {
     },
   ],
 };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  resetPublicSlots();
+});
 
 const service = (cached?: Record<string, unknown>, config: Record<string, string> = {}) => {
   const db = {
@@ -63,8 +74,50 @@ describe('route input', () => {
         { latitude: 16.06835, longitude: 108.22428 },
         { latitude: 16.06117, longitude: 108.2279 },
       ],
-      driving: true,
+      profile: 'DRIVING',
     }));
+  it('maps WALKING and CYCLING to their own profiles', () => {
+    expect(
+      normalizeRoute({ ...request, mode: TravelV1.RouteMode.ROUTE_MODE_WALKING }).profile,
+    ).toBe('WALKING');
+    expect(
+      normalizeRoute({ ...request, mode: TravelV1.RouteMode.ROUTE_MODE_CYCLING }).profile,
+    ).toBe('CYCLING');
+  });
+});
+
+describe('OSRM base per profile', () => {
+  const config = (values: Record<string, string>) => new ConfigService(values);
+  it('uses the per-profile URLs and adds a trailing slash', () => {
+    const values = {
+      OSRM_URL: 'http://127.0.0.1:5001',
+      OSRM_WALKING_URL: 'http://127.0.0.1:5002/',
+    };
+    expect(osrmBase(config(values), 'DRIVING')).toBe('http://127.0.0.1:5001/');
+    expect(osrmBase(config(values), 'WALKING')).toBe('http://127.0.0.1:5002/');
+    expect(osrmBase(config(values), 'CYCLING')).toBeUndefined();
+  });
+  it('switches every profile to the public demo servers outside production only', () => {
+    const demo = { OSRM_PUBLIC_DEMO: 'true', OSRM_URL: 'http://127.0.0.1:5001' };
+    expect(osrmBase(config(demo), 'DRIVING')).toBe('https://router.project-osrm.org/');
+    expect(osrmBase(config(demo), 'WALKING')).toBe('https://routing.openstreetmap.de/routed-foot/');
+    expect(osrmBase(config(demo), 'CYCLING')).toBe('https://routing.openstreetmap.de/routed-bike/');
+    expect(osrmBase(config({ ...demo, NODE_ENV: 'production' }), 'DRIVING')).toBe(
+      'http://127.0.0.1:5001/',
+    );
+    expect(osrmBase(config({ ...demo, NODE_ENV: 'production' }), 'WALKING')).toBeUndefined();
+  });
+  it('spaces public calls 1.1 s apart and refuses to queue longer than 1.5 s', async () => {
+    const sleep = vi.fn(async () => undefined);
+    await publicSlot('router.project-osrm.org', 0, sleep);
+    await publicSlot('router.project-osrm.org', 0, sleep);
+    expect(sleep).toHaveBeenCalledWith(1100);
+    await expect(publicSlot('router.project-osrm.org', 0, sleep)).rejects.toThrow(
+      'PROVIDER_RATE_LIMITED',
+    );
+    await publicSlot('127.0.0.1', 0, sleep);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('OSRM adapter', () => {
@@ -160,6 +213,59 @@ describe('RouteService', () => {
       status: TravelV1.ProviderStatus.PROVIDER_STATUS_ERROR,
       warnings: [code],
     });
+  });
+  it('returns OpenStreetMap attribution with every road route', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(okBody))),
+    );
+    const result = await service().svc.route(request);
+    expect(result.meta?.attribution).toEqual([
+      { text: '© OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' },
+      { text: 'Góp ý sửa bản đồ', url: 'https://www.openstreetmap.org/fixthemap' },
+    ]);
+  });
+  it('routes WALKING with its own server, cache key and no car-estimate warning', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(okBody)));
+    vi.stubGlobal('fetch', fetcher);
+    const walking = service(undefined, { OSRM_WALKING_URL: 'http://127.0.0.1:5002' });
+    const result = await walking.svc.route({
+      ...request,
+      mode: TravelV1.RouteMode.ROUTE_MODE_WALKING,
+    });
+    expect(String((fetcher.mock.calls as unknown[][])[0]![0])).toBe(
+      'http://127.0.0.1:5002/route/v1/foot/108.22428,16.06835;108.2279,16.06117?overview=full&geometries=geojson',
+    );
+    expect(result.meta).toMatchObject({
+      status: TravelV1.ProviderStatus.PROVIDER_STATUS_SUCCESS,
+      warnings: [],
+    });
+    const driving = service();
+    await driving.svc.route(request);
+    const key = (db: typeof walking.db) =>
+      (
+        db.query.mock.calls.find(([sql]) => String(sql).startsWith('INSERT')) as unknown as [
+          string,
+          string[],
+        ]
+      )[1][0];
+    expect(key(walking.db)).not.toBe(key(driving.db));
+  });
+  it('sends a descriptive User-Agent to the public CYCLING server', async () => {
+    const fetcher = vi.fn<(url: unknown, init?: RequestInit) => Promise<Response>>(
+      async () => new Response(JSON.stringify(okBody)),
+    );
+    vi.stubGlobal('fetch', fetcher);
+    const result = await service(undefined, { OSRM_PUBLIC_DEMO: 'true' }).svc.route({
+      ...request,
+      mode: TravelV1.RouteMode.ROUTE_MODE_CYCLING,
+    });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(String(url)).toMatch(
+      /^https:\/\/routing\.openstreetmap\.de\/routed-bike\/route\/v1\/bike\//,
+    );
+    expect((init?.headers as Record<string, string>)['User-Agent']).toMatch(/^Wolfari\/1\.0 \(/);
+    expect(result.data?.distance_m).toBe(1234);
   });
   it('does not route WALKING with the car profile', async () => {
     const fetcher = vi.fn();

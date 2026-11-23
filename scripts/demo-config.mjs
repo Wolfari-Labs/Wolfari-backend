@@ -90,6 +90,34 @@ export function appOverrides() {
   });
   return result;
 }
+/**
+ * Live provider settings an operator may export in the shell that runs `demo:start` instead of
+ * editing `.local/demo/apps/<app>/.env`. Only these keys, only for their owning app, only when
+ * non-empty; nothing is written to disk.
+ */
+export const demoProviderKeys = {
+  'automation-service': [
+    'PRICE_WATCH_PROVIDER',
+    'TRAVELPAYOUTS_TOKEN',
+    'TRAVELPAYOUTS_VND_VERIFIED',
+  ],
+  'travel-intelligence-service': [
+    'OSRM_URL',
+    'OSRM_WALKING_URL',
+    'OSRM_CYCLING_URL',
+    'OSRM_PUBLIC_DEMO',
+    'OSRM_USER_AGENT',
+  ],
+  'api-gateway': ['BANK_WEBHOOK_SEPAY_SECRET', 'BANK_WEBHOOK_SEPAY_API_KEY'],
+};
+export function demoProviderEnv(appName, inherited = process.env) {
+  return Object.fromEntries(
+    (demoProviderKeys[appName] ?? []).flatMap((key) => {
+      const value = inherited[key]?.trim();
+      return value ? [[key, value]] : [];
+    }),
+  );
+}
 async function createOnce(path, value) {
   try {
     await writeFile(path, JSON.stringify(value, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
