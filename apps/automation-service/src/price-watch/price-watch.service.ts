@@ -40,11 +40,20 @@ export class PriceWatchService {
     const clientRequestId = watchUuid(request.client_request_id);
     if (!request.watch) return priceWatchFail('VALIDATION_FAILED');
     const context = await this.writeContext(tripId, userId, correlationId);
-    const value = normalizeWatch(request.watch, {
-      tripId,
-      userId,
-      membershipId: context.membershipId,
-    });
+    const configuredProvider = this.config.get<string>('PRICE_WATCH_PROVIDER');
+    const production = this.config.get<string>('NODE_ENV') === 'production';
+    const provider =
+      request.watch.provider ??
+      configuredProvider ??
+      (production ? 'TRAVELPAYOUTS_CACHE' : 'MOCK_FLIGHT');
+    const value = normalizeWatch(
+      { ...request.watch, provider },
+      {
+        tripId,
+        userId,
+        membershipId: context.membershipId,
+      },
+    );
     this.validateProvider(value);
     return this.repository.create({
       userId,
@@ -132,8 +141,9 @@ export class PriceWatchService {
 
   private validateProvider(value: NormalizedWatchWrite) {
     if (
-      this.config.get<string>('NODE_ENV') === 'production' &&
-      value.query.provider !== 'TRAVELPAYOUTS_CACHE'
+      value.query.provider === 'MOCK_FLIGHT' &&
+      (this.config.get<string>('NODE_ENV') === 'production' ||
+        this.config.get<string>('PRICE_WATCH_PROVIDER') === 'TRAVELPAYOUTS_CACHE')
     )
       return priceWatchFail('VALIDATION_FAILED');
     if (

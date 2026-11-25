@@ -48,7 +48,6 @@ components:
       additionalProperties: false
       required:
         [
-          provider,
           origin,
           destination,
           departure_date,
@@ -59,7 +58,10 @@ components:
           departure_at,
         ]
       properties:
-        provider: { type: string, enum: [MOCK_FLIGHT, TRAVELPAYOUTS_CACHE] }
+        provider:
+          type: string
+          enum: [MOCK_FLIGHT, TRAVELPAYOUTS_CACHE]
+          description: Defaults to the configured source on the Automation service.
         origin: { type: string, pattern: '^[A-Za-z]{3}$' }
         destination: { type: string, pattern: '^[A-Za-z]{3}$' }
         departure_date: { type: string, format: date }
@@ -259,8 +261,7 @@ components:
               type: [object, 'null']
               properties:
                 current_version: { type: integer, minimum: 1 }
-                reason:
-                  { type: string, enum: [MEMBER_ACTIVE_WATCH_LIMIT, TRIP_ACTIVE_WATCH_LIMIT] }
+                reason: { type: string, enum: [MEMBER_ACTIVE_WATCH_LIMIT, TRIP_ACTIVE_WATCH_LIMIT] }
             retryable: { type: boolean }
         meta:
           type: object

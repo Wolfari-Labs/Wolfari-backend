@@ -58,6 +58,23 @@ describe('price watch HTTP boundary', () => {
     });
   });
 
+  it('passes through a create with no provider for Automation to select', () => {
+    const value = priceWatchWrite(
+      {
+        origin: 'DAD',
+        destination: 'SGN',
+        departure_date: '2099-11-01',
+        journey_type: 'ONE_WAY',
+        passengers: { adults: 1 },
+        currency: 'VND',
+        threshold_price: '2000000',
+        departure_at: '2099-11-01T02:00:00Z',
+      },
+      false,
+    );
+    expect(value).not.toHaveProperty('provider');
+  });
+
   it('encodes nullable patch fields as explicit oneof changes', () => {
     expect(
       priceWatchWrite({ expected_version: 4, return_date: null, cabin_class: 'business' }, true),

@@ -99,7 +99,7 @@ export function priceWatchWrite(body: RpcMessage, patch: boolean): RpcMessage {
   ]);
   const result: RpcMessage = {};
   for (const key of ['provider', 'origin', 'destination', 'departure_date', 'currency'] as const) {
-    if (patch && !Object.hasOwn(body, key)) continue;
+    if ((patch || key === 'provider') && !Object.hasOwn(body, key)) continue;
     if (typeof body[key] !== 'string') throw new RequestError(`Invalid ${key}`);
     result[key] = body[key];
   }

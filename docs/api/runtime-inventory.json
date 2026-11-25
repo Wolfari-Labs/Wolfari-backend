@@ -790,7 +790,7 @@
     "places-proxy.ts": "eb5eefec761c69a408f438e06b4750eaf15137e26a96fa6e0f87981cc9aa6924",
     "plan-items-proxy.ts": "96d7aef5e3cb6af0319728eb702b3e8b019118156ece492d3c162982006d29ce",
     "plan-proxy.ts": "8dcb7bd8db2521018460a0b9cb18bed5ff31363ae67b1b74dd3de46972b2f21b",
-    "price-watch-proxy.ts": "9cb75318eeccbca77faa5afd4de506a0478a94038131f749a0082719bbd1bdaf",
+    "price-watch-proxy.ts": "abec19826b0e6b18bbe9edeafa5057e4ba1dc83e1dc2747ae24a1636908dbb64",
     "qr-payment-http.ts": "7484f5ef923f799574eefe45303aea8b97271b4a8c718e8b0265006dc43e89f7",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
