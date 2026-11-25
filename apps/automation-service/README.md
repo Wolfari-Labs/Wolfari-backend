@@ -8,7 +8,7 @@ Notification I1 cung cấp API126–131 qua Gateway: preference version hóa, đ
 
 Price Watch H1 hỗ trợ tạo, list, cập nhật, pause, resume, stop và đọc observation. Gateway là caller duy nhất của bảy RPC công khai; Automation gọi Trip Access cho mọi request.
 
-Price Watch H2 bổ sung worker theo slot UTC sáu giờ. Scheduler tạo tối đa một attempt cho mỗi query group/slot, worker claim bằng lease và retry cùng attempt sau 10/30/120/300/900 giây. H2 chỉ dùng adapter `MOCK_FLIGHT` xác định, không gọi mạng và không đại diện cho giá thật. Success ghi một best-fare observation; no-result và lỗi không ghi giá 0.
+Price Watch có worker theo slot UTC sáu giờ. Scheduler tạo tối đa một attempt cho mỗi query group/slot, worker claim bằng lease và retry cùng attempt sau 10/30/120/300/900 giây. Worker dùng `MOCK_FLIGHT` cho dữ liệu mô phỏng hoặc `TRAVELPAYOUTS_CACHE` cho giá tham khảo từ Aviasales. Khi tìm được vé phù hợp, worker ghi giá thấp nhất. [Cấu hình giá vé thật và kiểm tra token](../../docs/architecture/demo-live-providers.md)
 
 Price Watch H3 đánh giá từng watch ngay trong transaction ghi observation. Giá phải nhỏ hơn ngưỡng; giá bằng hoặc cao hơn ngưỡng chỉ bật lại điều kiện cảnh báo. Sau lần đầu, watch được cảnh báo khi đã re-arm hoặc giá giảm thêm ít nhất 5%, đồng thời phải qua cooldown 24 giờ. Candidate được claim bằng lease; trước khi tạo notification in-app `AVAILABLE`, worker luôn đọc quyền Trip hiện tại và đối chiếu đúng `owner_membership_id`.
 

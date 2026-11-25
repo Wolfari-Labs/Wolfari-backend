@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { DatabaseProvider } from '@wolfari/database';
 import { createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { MockFlightPriceProvider, type PriceProviderRequest } from './price-watch-provider';
+import {
+  configuredFlightProvider,
+  MockFlightPriceProvider,
+  type PriceProviderRequest,
+} from './price-watch-provider';
 import {
   PriceProviderFailure,
   referencePriceFresh,
@@ -121,7 +125,7 @@ export class ConfiguredFlightPriceProvider implements FlightPriceProvider {
     private readonly mock: MockFlightPriceProvider,
   ) {}
   async fetch(request: PriceProviderRequest): Promise<PriceProviderResult> {
-    const provider = this.config.get<string>('PRICE_WATCH_PROVIDER') ?? 'MOCK_FLIGHT';
+    const provider = configuredFlightProvider(this.config);
     if (request.query.provider !== provider)
       throw new PriceProviderFailure('PROVIDER_NOT_SUPPORTED', false);
     if (provider === 'MOCK_FLIGHT') {
@@ -129,7 +133,7 @@ export class ConfiguredFlightPriceProvider implements FlightPriceProvider {
         throw new PriceProviderFailure('PROVIDER_NOT_SUPPORTED', false);
       return this.mock.fetch(request);
     }
-    const token = this.config.get<string>('TRAVELPAYOUTS_TOKEN');
+    const token = this.config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim();
     if (
       provider !== 'TRAVELPAYOUTS_CACHE' ||
       !token ||

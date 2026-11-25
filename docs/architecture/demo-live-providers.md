@@ -23,16 +23,18 @@ demo, chỉ các khóa dưới đây, không ghi ra đĩa). Không đưa token/k
   `normalized_query.provider`; observation có `provider` và `fare_metadata.source_freshness`.
   Chọn Travelpayouts mà thiếu token/worker/xác nhận VND thì trả
   `503 SERVICE_UNAVAILABLE`, `details.reason = PRICE_PROVIDER_NOT_CONFIGURED`, `retryable=false`.
-- Kiểm tra token trước khi bật (một request, không in token):
+- Đặt `TRAVELPAYOUTS_TOKEN` trong `apps/automation-service/.env` khi chạy local, hoặc đặt trong terminal khi chạy demo. Lệnh kiểm tra ưu tiên token trong terminal, sau đó đọc token của Automation local. Chạy lệnh để thử một chuyến SGN → HAN bằng một request.
 
 ```powershell
-$env:TRAVELPAYOUTS_TOKEN="<token>"
 corepack pnpm price-watch:live-check
 # tùy chọn: $env:PRICE_CHECK_ORIGIN="HAN"; $env:PRICE_CHECK_DESTINATION="DAD"; $env:PRICE_CHECK_DATE="2026-12-20"
 ```
 
-`status: OK` và `response_currency: VND` → đặt `TRAVELPAYOUTS_VND_VERIFIED=true`. `NO_CACHED_PRICE` nghĩa là
-cache chưa có giá cho ngày đó (worker ghi NO_RESULT, không bao giờ ghi giá 0).
+Khi lệnh trả `OK` và `response_currency` là `VND`, đặt `TRAVELPAYOUTS_VND_VERIFIED=true` và `PRICE_WATCH_WORKER_ENABLED=true` trong cấu hình Automation rồi khởi động lại service. Nếu cấu hình cũ có `PRICE_WATCH_PROVIDER=MOCK_FLIGHT`, đổi thành `TRAVELPAYOUTS_CACHE`. Production yêu cầu chọn rõ `TRAVELPAYOUTS_CACHE`.
+
+`NO_CACHED_PRICE` nghĩa là cache chưa có giá cho chặng và ngày đã chọn. `CURRENCY_UNCONFIRMED` nghĩa là có giá nhưng phản hồi chưa xác nhận đơn vị tiền. Xác minh VND với nhà cung cấp trước khi bật worker.
+
+Tạo lượt theo dõi qua `POST /api/v1/trips/{trip_id}/price-watches` và bỏ trường `provider` để dùng cấu hình server. Kiểm tra `normalized_query.provider` trong kết quả. Sau khi worker thu được giá, đọc lịch sử qua `GET /api/v1/price-watches/{watch_id}/observations`. [OpenAPI Price Watch](../api/price-watch.openapi.yaml)
 
 ## Đường đi thật (OSRM)
 

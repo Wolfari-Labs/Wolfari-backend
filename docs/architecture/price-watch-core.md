@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-H1 hiện thực API133–139 cho việc cấu hình và quản lý theo dõi giá. H2 chạy scheduler và adapter `MOCK_FLIGHT` xác định để sinh observation thử nghiệm. H3 đánh giá alert bền vững, tạo notification in-app để bàn giao và phản ứng với lifecycle Trip/membership. Hệ thống chưa gọi hãng/nhà cung cấp thật và chưa gửi push/email.
+API133–139 quản lý lượt theo dõi và lịch sử giá. Worker hiện hỗ trợ `MOCK_FLIGHT` để thử nghiệm và `TRAVELPAYOUTS_CACHE` để lấy giá tham khảo từ Aviasales Data API. Các mục H1–H3 dưới đây ghi lại các mốc triển khai ban đầu. [Cấu hình và kiểm tra API giá vé thật](demo-live-providers.md)
 
 ## Luồng và quyền
 
@@ -82,7 +82,7 @@ Event lifecycle giảm cửa sổ xử lý nền nhưng không thay thế kiểm
 ## Các mốc sau
 
 - Notification I1 đã tiếp quản phần preference/device/inbox/read cho bản ghi `AVAILABLE`; push/email delivery và receipt runtime vẫn thuộc I2.
-- Provider thật chỉ thêm sau khi chốt điều khoản, rate limit, dữ liệu giá và cách đánh dấu nguồn; không dùng mock để tuyên bố giá thực.
+- Adapter Travelpayouts đã được bổ sung sau H3. Giá tham khảo lưu kèm nguồn và thời điểm nhà cung cấp tìm thấy giá. [Hướng dẫn bật nguồn thật](demo-live-providers.md)
 - Cần bổ sung quan sát vận hành cho backlog/DLQ và kiểm thử production transport; H3 hiện chỉ chứng minh local với provider mock.
 
 ## Dispatch eligibility and database contention
@@ -93,4 +93,4 @@ Price Watch repository transactions retry once only after a definite PostgreSQL 
 
 This is bounded deadlock recovery, not proof that all deadlocks are eliminated. The existing two-second Automation RPC deadline is unchanged; a transaction may finish after the caller times out. Retry does not make cross-service access checks atomic. PostgreSQL documents consistent lock ordering and retry after a deadlock in its [locking guidance](https://www.postgresql.org/docs/17/explicit-locking.html); the narrow retry policy above is this project's implementation choice.
 
-All current observations come from MOCK_FLIGHT. Price alert notifications explicitly identify simulated data in Vietnamese. An unsupported observation provider is rejected before notification creation, preventing an unknown provider from being labelled as the approved mock. This checkpoint does not integrate a real price provider or send push/email.
+At the H3 checkpoint, observations came from MOCK_FLIGHT and price alerts identified simulated data in Vietnamese. The current worker also accepts TRAVELPAYOUTS_CACHE observations and checks their freshness before creating alerts.

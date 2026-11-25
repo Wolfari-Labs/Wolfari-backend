@@ -1,8 +1,10 @@
-// One real Travelpayouts call with TRAVELPAYOUTS_TOKEN from the environment, parsed exactly as the
+// One real Travelpayouts call with the Automation token, parsed exactly as the
 // price worker would. Never prints the token or the upstream body; never enables the worker.
 //   PowerShell: $env:TRAVELPAYOUTS_TOKEN="..."; corepack pnpm price-watch:live-check
 //   Optional:   PRICE_CHECK_ORIGIN=SGN PRICE_CHECK_DESTINATION=HAN PRICE_CHECK_DATE=2026-12-14
 import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import { parseEnv } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
@@ -75,6 +77,13 @@ export function summarize(query, httpStatus, payload, provider, now = Date.now()
       next_step:
         'The cache has no fare for this exact day yet (it only holds prices found by Aviasales users). Try another date or a busier route; the worker records NO_RESULT, never price 0.',
     };
+  if (!currency)
+    return {
+      ...base,
+      status: 'CURRENCY_UNCONFIRMED',
+      next_step:
+        'The response did not identify its currency. Verify VND with the provider before enabling the worker.',
+    };
   return {
     ...base,
     status: 'OK',
@@ -101,7 +110,15 @@ export async function main(env = process.env, fetcher = fetch) {
     return;
   }
   const query = checkInput(env);
-  const token = env.TRAVELPAYOUTS_TOKEN?.trim();
+  let token = env.TRAVELPAYOUTS_TOKEN?.trim();
+  if (!token) {
+    try {
+      const file = new URL('../apps/automation-service/.env', import.meta.url);
+      token = parseEnv(await readFile(file, 'utf8')).TRAVELPAYOUTS_TOKEN?.trim();
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
   if (!token) {
     process.stdout.write(
       JSON.stringify(
@@ -109,7 +126,7 @@ export async function main(env = process.env, fetcher = fetch) {
           status: 'NOT_RUN',
           request: query,
           next_step:
-            'Sign up free at https://www.travelpayouts.com, open Profile → API token, then set TRAVELPAYOUTS_TOKEN in this shell and run again.',
+            'Set TRAVELPAYOUTS_TOKEN from your Travelpayouts profile in the shell or apps/automation-service/.env, then run again.',
         },
         null,
         2,

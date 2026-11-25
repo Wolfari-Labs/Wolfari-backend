@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import type { NormalizedPriceQuery } from './price-watch.domain';
 import { PriceProviderFailure, type PriceProviderResult } from './price-watch-worker.domain';
@@ -8,6 +9,14 @@ export interface PriceProviderRequest {
   scheduledSlot: string;
   query: NormalizedPriceQuery;
   signal: AbortSignal;
+}
+
+export function configuredFlightProvider(config: ConfigService): string | undefined {
+  const selected = config.get<string>('PRICE_WATCH_PROVIDER')?.trim();
+  if (selected) return selected;
+  // Production deployments require an explicit provider before the worker can start.
+  if (config.get<string>('NODE_ENV') === 'production') return undefined;
+  return config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim() ? 'TRAVELPAYOUTS_CACHE' : 'MOCK_FLIGHT';
 }
 
 @Injectable()

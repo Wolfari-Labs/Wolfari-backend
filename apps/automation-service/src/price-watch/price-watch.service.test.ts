@@ -110,11 +110,13 @@ describe('PriceWatchService source selection', () => {
     },
   } as Parameters<PriceWatchService['create']>[0];
 
-  it('uses the configured real provider when mobile omits it', async () => {
+  it.each([
+    { NODE_ENV: 'production', PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE' },
+    { NODE_ENV: 'development', PRICE_WATCH_PROVIDER: '' },
+  ])('selects the real provider when mobile omits it in $NODE_ENV', async (deployment) => {
     const { service, repository } = setup({
       config: {
-        NODE_ENV: 'production',
-        PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE',
+        ...deployment,
         PRICE_WATCH_WORKER_ENABLED: 'true',
         TRAVELPAYOUTS_TOKEN: 'test-provider-token',
         TRAVELPAYOUTS_VND_VERIFIED: 'true',
@@ -128,6 +130,17 @@ describe('PriceWatchService source selection', () => {
         }),
       }),
     );
+  });
+
+  it('requires VND verification before creating a watch with a local token', async () => {
+    const { service, repository } = setup({
+      config: { TRAVELPAYOUTS_TOKEN: 'test-token', PRICE_WATCH_WORKER_ENABLED: 'true' },
+    });
+    await expect(service.create(request, 'c')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      details: { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' },
+    });
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   it('reports an unavailable source on production without provider credentials', async () => {

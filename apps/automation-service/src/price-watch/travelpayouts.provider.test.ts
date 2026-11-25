@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { parseTravelpayouts, travelpayoutsUrl } from './travelpayouts.provider';
+import { ConfigService } from '@nestjs/config';
+import type { DatabaseProvider } from '@wolfari/database';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  ConfiguredFlightPriceProvider,
+  parseTravelpayouts,
+  travelpayoutsUrl,
+} from './travelpayouts.provider';
+import { MockFlightPriceProvider } from './price-watch-provider';
 import { referencePriceFresh } from './price-watch-worker.domain';
 const now = Date.parse('2026-11-12T12:00:00Z');
 const query = {
@@ -20,6 +27,47 @@ const row = {
 };
 const parse = (data: unknown[], extra = {}) =>
   parseTravelpayouts({ success: true, data, ...extra }, query, true, now);
+
+describe('configured flight price source', () => {
+  it('calls Aviasales with the configured token when local provider selection is automatic', async () => {
+    const config = new ConfigService({
+      NODE_ENV: 'development',
+      PRICE_WATCH_PROVIDER: '',
+      TRAVELPAYOUTS_TOKEN: 'fixture-token',
+      TRAVELPAYOUTS_VND_VERIFIED: 'true',
+    });
+    const database = { query: vi.fn().mockResolvedValue({ rowCount: 1 }) };
+    const provider = new ConfiguredFlightPriceProvider(
+      config,
+      database as unknown as DatabaseProvider,
+      new MockFlightPriceProvider(),
+    );
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({
+        success: true,
+        currency: 'vnd',
+        data: [row],
+      }),
+    );
+    const signal = new AbortController().signal;
+    try {
+      await expect(
+        provider.fetch({ canonicalKey: 'query', scheduledSlot: 'slot', query, signal }),
+      ).resolves.toMatchObject({
+        provider: 'TRAVELPAYOUTS_CACHE',
+        price: '1234000',
+        currency: 'VND',
+      });
+      expect(fetcher).toHaveBeenCalledWith(travelpayoutsUrl(query), {
+        headers: { 'X-Access-Token': 'fixture-token' },
+        signal,
+        redirect: 'error',
+      });
+    } finally {
+      fetcher.mockRestore();
+    }
+  });
+});
 describe('cached price contract', () => {
   it('keeps integer VND, provenance and cheapest matching returned record', () =>
     expect(parse([{ ...row, value: 2000000 }, row])).toMatchObject({
