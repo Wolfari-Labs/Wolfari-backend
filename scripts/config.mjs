@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|OSRM_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|SEARCHAPI_|OSRM_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -146,6 +146,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const automationKeys = [
     'PRICE_WATCH_PROVIDER',
     'TRAVELPAYOUTS_TOKEN',
+    'SEARCHAPI_API_KEY',
     'TRAVELPAYOUTS_VND_VERIFIED',
     'REMINDER_WORKER_ENABLED',
     'PUSH_DELIVERY_ENABLED',

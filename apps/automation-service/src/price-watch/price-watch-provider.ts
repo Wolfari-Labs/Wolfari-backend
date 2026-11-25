@@ -16,7 +16,23 @@ export function configuredFlightProvider(config: ConfigService): string | undefi
   if (selected) return selected;
   // Production deployments require an explicit provider before the worker can start.
   if (config.get<string>('NODE_ENV') === 'production') return undefined;
-  return config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim() ? 'TRAVELPAYOUTS_CACHE' : 'MOCK_FLIGHT';
+  if (config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim()) return 'TRAVELPAYOUTS_CACHE';
+  return config.get<string>('SEARCHAPI_API_KEY')?.trim()
+    ? 'SEARCHAPI_GOOGLE_FLIGHTS'
+    : 'MOCK_FLIGHT';
+}
+
+export function liveFlightProviderReady(
+  config: ConfigService,
+  provider: string | undefined,
+): boolean {
+  if (provider === 'SEARCHAPI_GOOGLE_FLIGHTS')
+    return Boolean(config.get<string>('SEARCHAPI_API_KEY')?.trim());
+  return (
+    provider === 'TRAVELPAYOUTS_CACHE' &&
+    Boolean(config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim()) &&
+    config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') === 'true'
+  );
 }
 
 @Injectable()

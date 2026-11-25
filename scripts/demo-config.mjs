@@ -99,6 +99,7 @@ export const demoProviderKeys = {
   'automation-service': [
     'PRICE_WATCH_PROVIDER',
     'TRAVELPAYOUTS_TOKEN',
+    'SEARCHAPI_API_KEY',
     'TRAVELPAYOUTS_VND_VERIFIED',
   ],
   'travel-intelligence-service': [

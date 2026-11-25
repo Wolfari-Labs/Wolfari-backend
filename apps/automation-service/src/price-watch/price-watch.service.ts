@@ -13,7 +13,7 @@ import {
   type NormalizedWatchWrite,
 } from './price-watch.domain';
 import { priceWatchFail } from './price-watch.errors';
-import { configuredFlightProvider } from './price-watch-provider';
+import { configuredFlightProvider, liveFlightProviderReady } from './price-watch-provider';
 import {
   PriceWatchRepository,
   type ObservationRecord,
@@ -140,15 +140,14 @@ export class PriceWatchService {
     const configured = configuredFlightProvider(this.config);
     if (
       value.query.provider === 'MOCK_FLIGHT' &&
-      (this.config.get<string>('NODE_ENV') === 'production' || configured === 'TRAVELPAYOUTS_CACHE')
+      (this.config.get<string>('NODE_ENV') === 'production' || configured !== 'MOCK_FLIGHT')
     )
       return priceWatchFail('VALIDATION_FAILED');
     if (
-      value.query.provider === 'TRAVELPAYOUTS_CACHE' &&
-      (configured !== 'TRAVELPAYOUTS_CACHE' ||
+      value.query.provider !== 'MOCK_FLIGHT' &&
+      (configured !== value.query.provider ||
         this.config.get<string>('PRICE_WATCH_WORKER_ENABLED') !== 'true' ||
-        !this.config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim() ||
-        this.config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') !== 'true')
+        !liveFlightProviderReady(this.config, configured))
     )
       return priceWatchFail('SERVICE_UNAVAILABLE', { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' });
   }

@@ -302,10 +302,14 @@ export class PriceAlertRepository {
         return finish('SUPPRESSED', 'WATCH_CHANGED');
       if (
         (this.config?.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production' &&
-        row.observation_provider !== 'TRAVELPAYOUTS_CACHE'
+        !['TRAVELPAYOUTS_CACHE', 'SEARCHAPI_GOOGLE_FLIGHTS'].includes(row.observation_provider)
       )
         return finish('SUPPRESSED', 'PROVIDER_NOT_SUPPORTED');
-      if (!['MOCK_FLIGHT', 'TRAVELPAYOUTS_CACHE'].includes(row.observation_provider))
+      if (
+        !['MOCK_FLIGHT', 'TRAVELPAYOUTS_CACHE', 'SEARCHAPI_GOOGLE_FLIGHTS'].includes(
+          row.observation_provider,
+        )
+      )
         return finish('FAILED', 'PROVIDER_NOT_SUPPORTED');
       if (
         !referencePriceFresh(row.observation_provider, row.fare_metadata ?? {}, date(now).getTime())
@@ -351,7 +355,7 @@ export class PriceAlertRepository {
           row.trip_id,
           row.observation_provider === 'MOCK_FLIGHT'
             ? `Dữ liệu mô phỏng MOCK_FLIGHT: ${String(row.price)} VND thấp hơn ngưỡng bạn đặt; không phải giá vé thực tế.`
-            : `Giá cache Travelpayouts: ${String(row.price)} VND thấp hơn ngưỡng; giá tham khảo, không bảo đảm còn mua được.`,
+            : `Giá ${row.observation_provider === 'TRAVELPAYOUTS_CACHE' ? 'cache Travelpayouts' : 'Google Flights qua SearchApi'}: ${String(row.price)} VND thấp hơn ngưỡng; giá tham khảo, không bảo đảm còn mua được.`,
           row.watch_id,
           dedupeKey,
           row.observation_provider === 'MOCK_FLIGHT'

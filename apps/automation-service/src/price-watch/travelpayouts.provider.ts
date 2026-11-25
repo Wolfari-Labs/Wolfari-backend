@@ -14,6 +14,7 @@ import {
   type PriceProviderResult,
 } from './price-watch-worker.domain';
 import type { NormalizedPriceQuery } from './price-watch.domain';
+import { fetchSearchApiFare } from './searchapi.provider';
 export const FLIGHT_PRICE_PROVIDER = 'FLIGHT_PRICE_PROVIDER';
 export interface FlightPriceProvider {
   fetch(request: PriceProviderRequest): Promise<PriceProviderResult>;
@@ -132,6 +133,11 @@ export class ConfiguredFlightPriceProvider implements FlightPriceProvider {
       if (this.config.get<string>('NODE_ENV') === 'production')
         throw new PriceProviderFailure('PROVIDER_NOT_SUPPORTED', false);
       return this.mock.fetch(request);
+    }
+    if (provider === 'SEARCHAPI_GOOGLE_FLIGHTS') {
+      const key = this.config.get<string>('SEARCHAPI_API_KEY')?.trim();
+      if (!key) throw new PriceProviderFailure('PROVIDER_NOT_CONFIGURED', false);
+      return fetchSearchApiFare(request.query, key, request.signal);
     }
     const token = this.config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim();
     if (

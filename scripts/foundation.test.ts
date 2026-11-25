@@ -14,6 +14,7 @@ describe('development configuration', () => {
     const owners: Record<string, string[]> = {
       GEOAPIFY_API_KEY: ['travel-intelligence-service'],
       TRAVELPAYOUTS_TOKEN: ['automation-service'],
+      SEARCHAPI_API_KEY: ['automation-service'],
       PLACE_SELECTION_SECRET: ['trip-workspace-service', 'travel-intelligence-service'],
       GATEWAY_TRAVEL_SECRET: ['api-gateway', 'travel-intelligence-service'],
       BANK_WEBHOOK_SEPAY_SECRET: ['api-gateway'],

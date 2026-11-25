@@ -6,7 +6,7 @@ export type WatchStatus = 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'STOPPED';
 export type Journey = 'ONE_WAY' | 'ROUND_TRIP';
 
 export interface NormalizedPriceQuery {
-  provider: 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE';
+  provider: 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE' | 'SEARCHAPI_GOOGLE_FLIGHTS';
   transport_type: 'FLIGHT';
   origin: string;
   destination: string;
@@ -141,7 +141,11 @@ export function normalizeWatch(
   now = new Date(),
 ): NormalizedWatchWrite {
   const provider = text(value.provider, 50);
-  if (provider !== 'MOCK_FLIGHT' && provider !== 'TRAVELPAYOUTS_CACHE')
+  if (
+    provider !== 'MOCK_FLIGHT' &&
+    provider !== 'TRAVELPAYOUTS_CACHE' &&
+    provider !== 'SEARCHAPI_GOOGLE_FLIGHTS'
+  )
     return priceWatchFail('VALIDATION_FAILED');
   const origin = text(value.origin, 3);
   const destination = text(value.destination, 3);
@@ -165,9 +169,9 @@ export function normalizeWatch(
   if (new Date(departureAt).getTime() <= now.getTime()) return priceWatchFail('VALIDATION_FAILED');
   if (departureAt.slice(0, 10) !== departureDate) return priceWatchFail('VALIDATION_FAILED');
   const mix = passengers(value.passengers);
-  // The Travelpayouts cache only answers one-way economy fares for one adult.
+  // Compare published reference fares for the same passenger mix and cabin.
   if (
-    provider === 'TRAVELPAYOUTS_CACHE' &&
+    provider !== 'MOCK_FLIGHT' &&
     (tripJourney !== 'ONE_WAY' ||
       cabin !== 'ECONOMY' ||
       mix.adults !== 1 ||

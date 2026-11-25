@@ -198,12 +198,15 @@ export function validateDeploymentEnvironment(values: Values, app: AppName): voi
   )
     invalid('FINANCE_FEATURE_FLAGS');
   if (app === 'automation-service') {
-    if (
-      values.PRICE_WATCH_WORKER_ENABLED === 'true' &&
-      (values.PRICE_WATCH_PROVIDER !== 'TRAVELPAYOUTS_CACHE' ||
-        !values.TRAVELPAYOUTS_TOKEN ||
-        values.TRAVELPAYOUTS_VND_VERIFIED !== 'true')
-    )
+    const searchApiReady =
+      values.PRICE_WATCH_PROVIDER === 'SEARCHAPI_GOOGLE_FLIGHTS' &&
+      typeof values.SEARCHAPI_API_KEY === 'string' &&
+      values.SEARCHAPI_API_KEY.trim();
+    const travelpayoutsReady =
+      values.PRICE_WATCH_PROVIDER === 'TRAVELPAYOUTS_CACHE' &&
+      values.TRAVELPAYOUTS_TOKEN &&
+      values.TRAVELPAYOUTS_VND_VERIFIED === 'true';
+    if (values.PRICE_WATCH_WORKER_ENABLED === 'true' && !searchApiReady && !travelpayoutsReady)
       invalid('PRICE_WATCH_PROVIDER');
     if (
       !['true', 'false'].includes(String(values.PRICE_WATCH_WORKER_ENABLED)) ||

@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-API133–139 quản lý lượt theo dõi và lịch sử giá. Worker hiện hỗ trợ `MOCK_FLIGHT` để thử nghiệm và `TRAVELPAYOUTS_CACHE` để lấy giá tham khảo từ Aviasales Data API. Các mục H1–H3 dưới đây ghi lại các mốc triển khai ban đầu. [Cấu hình và kiểm tra API giá vé thật](demo-live-providers.md)
+API133–139 quản lý lượt theo dõi và lịch sử giá. Worker hỗ trợ Google Flights qua SearchApi.io, cache Aviasales qua Travelpayouts và `MOCK_FLIGHT` cho dữ liệu mô phỏng. Các mục H1–H3 dưới đây ghi lại các mốc triển khai ban đầu. [Cấu hình và kiểm tra API giá vé thật](demo-live-providers.md)
 
 ## Luồng và quyền
 

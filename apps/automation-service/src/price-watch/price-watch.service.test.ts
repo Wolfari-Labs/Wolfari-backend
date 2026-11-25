@@ -143,6 +143,20 @@ describe('PriceWatchService source selection', () => {
     expect(repository.create).not.toHaveBeenCalled();
   });
 
+  it('creates a SearchApi watch with an enabled worker and a key', async () => {
+    const { service, repository } = setup({
+      config: {
+        PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS',
+        SEARCHAPI_API_KEY: 'test-key',
+        PRICE_WATCH_WORKER_ENABLED: 'true',
+      },
+    });
+    await service.create(request, 'c');
+    expect(repository.create.mock.calls[0]?.[0]).toMatchObject({
+      value: { query: { provider: 'SEARCHAPI_GOOGLE_FLIGHTS' } },
+    });
+  });
+
   it('reports an unavailable source on production without provider credentials', async () => {
     const { service, repository } = setup({ config: { NODE_ENV: 'production' } });
     await expect(service.create(request, 'c')).rejects.toMatchObject({
