@@ -206,6 +206,10 @@ export function appEnvironment(app, values, inherited = process.env) {
     'OSRM_CYCLING_URL',
     'OSRM_PUBLIC_DEMO',
     'OSRM_USER_AGENT',
+    // POI-IMAGES: licensed POI photos are stored in MinIO (bucket wolfari-poi-images).
+    'MINIO_ENDPOINT',
+    'MINIO_ACCESS_KEY',
+    'MINIO_SECRET_KEY',
   ];
   const allowed = [
     'NODE_ENV',
@@ -418,6 +422,9 @@ export async function initEnvironment(
                       PLACE_SELECTION_SECRET: shared.PLACE_SELECTION_SECRET,
                       TRIP_GRPC_TARGET: '127.0.0.1:3202',
                       TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
+                      MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
+                      MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
+                      MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,
                     }
                   : {};
     const current = await readEnv(path);

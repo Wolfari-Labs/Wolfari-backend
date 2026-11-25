@@ -484,7 +484,7 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 8, 20, 15];
+  const counts = [8, 18, 11, 20, 15];
   let fks = 0;
   for (const [index, service] of services.entries())
     await db(service, async (client) => {
@@ -509,11 +509,11 @@ async function main() {
               : service === 'identity'
                 ? ['V001', 'V002']
                 : service === 'travel'
-                  ? ['V001', 'V002', 'V003', 'V004', 'V005']
+                  ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
                   : ['V001'],
       );
     });
-  assert.equal(fks, 57);
+  assert.equal(fks, 59);
   pass('64 bảng mô hình + 5 lịch sử, 57 FK');
   await db('finance', async (client) => {
     await client.query(
@@ -686,7 +686,14 @@ async function main() {
       (await client.query("SELECT to_regclass('public.rollback_probe') AS name")).rows[0].name,
       null,
     );
-    assert.deepEqual(await history(client, files.travel), ['V001', 'V002', 'V003', 'V004', 'V005']);
+    assert.deepEqual(await history(client, files.travel), [
+      'V001',
+      'V002',
+      'V003',
+      'V004',
+      'V005',
+      'V006',
+    ]);
     await client.query("INSERT INTO schema_migrations(version) VALUES('V999')");
     try {
       await assert.rejects(history(client, files.travel), /UNKNOWN_OR_INVALID/);

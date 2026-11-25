@@ -73,6 +73,19 @@ Trên Windows dùng đường dẫn tuyệt đối cho `-v` nếu `$PWD` không 
 
 `WALKING`/`CYCLING` dùng `OSRM_WALKING_URL`/`OSRM_CYCLING_URL` (chạy thêm container với `/opt/foot.lua`, `/opt/bicycle.lua`). Demo không có OSRM local có thể đặt `OSRM_PUBLIC_DEMO=true` để dùng máy chủ OSRM công khai (tối đa 1 request/giây, phi thương mại, cache 7 ngày); xem [nguồn thật cho demo](docs/architecture/demo-live-providers.md), cùng chỗ hướng dẫn giá vé Travelpayouts và tiền về SePay.
 
+### Ảnh POI (POI-IMAGES)
+
+Ảnh có giấy phép mở (CC0, PD, CC BY, CC BY-SA) từ Wikidata, Wikipedia, Wikimedia Commons và thẻ OSM, khớp cục bộ rồi tự lưu (WebP 320/640/1280 trong MinIO, bucket `wolfari-poi-images`). Thiết kế, quyết định và kết quả pilot: [docs/architecture/poi-images.md](docs/architecture/poi-images.md).
+
+```sh
+corepack pnpm db:migrate --service travel                  # travel_db V006 (poi_media, poi_entity_links, poi_media_batches)
+export POI_IMAGES_USER_AGENT="TenNhom/1.0 (https://...; email-lien-he)"   # bắt buộc với lượt chạy lớn (chính sách Wikimedia)
+corepack pnpm poi:images all --batch img-dn-1 --activate   # pull → harvest → select → load → gates
+corepack pnpm poi:images gates --batch img-dn-1            # báo cáo .local/poi/reports/images-<batch>.md
+```
+
+Mặc định chỉ chạy các điểm golden; thêm `--tiers all --province <mã>` để chạy POI Overture của một tỉnh. Ảnh chọn tay ghi vào `data/poi/image_overrides.csv` (`key,commons_file,note`) và luôn thắng nguồn khác. Đổi hoặc quay lại batch: `corepack pnpm poi:images activate --batch <batch>`.
+
 ## Cấu trúc
 
 | Thư mục                                    | Trách nhiệm                                           |

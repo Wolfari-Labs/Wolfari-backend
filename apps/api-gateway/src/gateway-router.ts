@@ -13,6 +13,7 @@ import { InvitationProxy } from './invitation-proxy';
 import { PriceWatchProxy } from './price-watch-proxy';
 import { NotificationProxy } from './notification-proxy';
 import { FinanceProxy } from './finance-proxy';
+import { PoiImageHttp } from './poi-image-http';
 
 @Injectable()
 export class GatewayRouter implements OnApplicationShutdown {
@@ -56,7 +57,10 @@ export class GatewayRouter implements OnApplicationShutdown {
     this.identity.validateSession(accessToken, correlationId),
   );
 
+  private readonly poiImages = new PoiImageHttp();
+
   handle(request: IncomingMessage & { originalUrl?: string }, response: ServerResponse) {
+    if (this.poiImages.matches(request)) return this.poiImages.handle(request, response);
     if (this.places.matches(request)) return this.places.handle(request, response);
     if (this.tripTools.matches(request)) return this.tripTools.handle(request, response);
     if (this.travel.matches(request)) return this.travel.handle(request, response);
@@ -73,6 +77,7 @@ export class GatewayRouter implements OnApplicationShutdown {
   }
 
   onApplicationShutdown() {
+    this.poiImages.close();
     this.places.close();
     this.travel.close();
     this.notifications.close();

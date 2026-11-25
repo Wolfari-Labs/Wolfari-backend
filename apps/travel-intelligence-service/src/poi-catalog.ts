@@ -3,6 +3,8 @@ import type { DatabaseProvider } from '@wolfari/database';
 
 /** A POI row from the active snapshot (travel_db V003–V005). */
 export type CatalogPoi = {
+  /** pois.id of the active snapshot (used to attach POI-IMAGES photos). */
+  poi_id: string;
   wolfari_key: string;
   tier: number;
   name_vi: string;
@@ -59,7 +61,7 @@ const DISTANCE_SQL = `(2 * 6371000 * asin(sqrt(
   power(sin(radians(p.latitude::float8 - $LAT) / 2), 2) +
   cos(radians($LAT)) * cos(radians(p.latitude::float8)) *
   power(sin(radians(p.longitude::float8 - $LON) / 2), 2))))`;
-const COLUMNS = `p.wolfari_key, p.tier, p.name_vi, p.name_en, p.aliases, p.category,
+const COLUMNS = `p.id AS poi_id, p.wolfari_key, p.tier, p.name_vi, p.name_en, p.aliases, p.category,
   p.latitude::float8 AS latitude, p.longitude::float8 AS longitude, p.coord_verified, p.address,
   p.typical_duration_min, p.activity_type, p.dress_code_hint, p.attribution, p.province_code,
   p.confidence::float8 AS confidence, p.source_dataset, p.source_release, p.fetched_at, p.coord_pileup`;

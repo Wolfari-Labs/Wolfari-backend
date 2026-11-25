@@ -10,7 +10,7 @@ This profile is an explicit single-host trust boundary, not a TLS/mTLS implement
 
 Keep `/etc/wolfari/.env` (infrastructure admin credentials) root-owned mode0600; operator preflight/migrate/storage/Compose run as root. App configs and marker use root:wolfari0640, directories0750. App startup validates only its own config/marker and never needs the infrastructure env. App processes still share one OS account, so cross-app secret access is not OS-isolated.
 
-`trial-storage.mjs PROVISION_TRIAL_STORAGE` creates private buckets and applies scoped app users using an operator-installed `mc`. It may reapply the trial users' passwords from the config. Only run it intentionally on this dedicated trial instance. No password is printed, but the short-lived mc process arguments are visible to privileged local users.
+`trial-storage.mjs PROVISION_TRIAL_STORAGE` creates private buckets (including `wolfari-poi-images` for the Travel service's licensed POI photos) and applies scoped app users using an operator-installed `mc`. It may reapply the trial users' passwords from the config. Only run it intentionally on this dedicated trial instance. No password is printed, but the short-lived mc process arguments are visible to privileged local users.
 
 ## Dependency changes
 
