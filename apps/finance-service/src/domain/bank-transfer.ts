@@ -1,4 +1,5 @@
 import { UUID } from '../finance.errors';
+import { VIETQR_BANKS, findVietQrBank } from './vietqr-banks';
 
 /**
  * Pure rules for incoming bank transfers reported by an aggregation provider (SePay).
@@ -43,6 +44,20 @@ export function referencesInContent(content: string): string[] {
 
 export const normalizeAccountNumber = (value: string) => value.replace(/\s+/g, '').toUpperCase();
 
+// SePay reports names such as Vietcombank and MBBank in the gateway field.
+export function resolveSepayBankCode(gateway: string | null): string | undefined {
+  const value = gateway?.trim().normalize('NFC').toUpperCase();
+  if (!value) return undefined;
+  const matches = VIETQR_BANKS.filter(
+    (bank) =>
+      bank.transfer_supported &&
+      [bank.code, bank.bin, bank.short_name, bank.name].some(
+        (name) => name.normalize('NFC').toUpperCase() === value,
+      ),
+  );
+  return matches.length === 1 ? matches[0]?.code : undefined;
+}
+
 export type BankTransferReview =
   | 'OUTGOING'
   | 'NO_REFERENCE'
@@ -70,6 +85,7 @@ export type BankTransferCandidate = Readonly<{
   version: number;
   destinationType: string;
   destinationAccountNumber: string;
+  destinationBankCode: string;
   requestStatus: string;
   fundStatus: string;
   financeVersion: number;
@@ -82,7 +98,12 @@ export type BankTransferCandidate = Readonly<{
  * still be confirmed. Everything else is recorded for the Holder instead of guessed.
  */
 export function planBankTransfer(
-  receipt: Readonly<{ transferType: 'IN' | 'OUT'; amount: bigint; accountNumber: string }>,
+  receipt: Readonly<{
+    transferType: 'IN' | 'OUT';
+    amount: bigint;
+    accountNumber: string;
+    bankCode?: string;
+  }>,
   candidates: ReadonlyArray<string>,
   candidate: BankTransferCandidate | undefined,
 ): BankTransferDecision {
@@ -92,6 +113,8 @@ export function planBankTransfer(
   if (!candidate) return { status: 'UNMATCHED', reason: 'UNKNOWN_REFERENCE' };
   if (
     candidate.destinationType !== 'VIETQR' ||
+    !receipt.bankCode ||
+    findVietQrBank(candidate.destinationBankCode)?.code !== receipt.bankCode ||
     normalizeAccountNumber(candidate.destinationAccountNumber) !==
       normalizeAccountNumber(receipt.accountNumber)
   )
