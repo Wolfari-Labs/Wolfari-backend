@@ -42,10 +42,9 @@ export class PriceWatchService {
     const context = await this.writeContext(tripId, userId, correlationId);
     const configuredProvider = this.config.get<string>('PRICE_WATCH_PROVIDER');
     const production = this.config.get<string>('NODE_ENV') === 'production';
-    const provider =
-      request.watch.provider ??
-      configuredProvider ??
-      (production ? 'TRAVELPAYOUTS_CACHE' : 'MOCK_FLIGHT');
+    const defaultProvider =
+      configuredProvider ?? (production ? 'TRAVELPAYOUTS_CACHE' : 'MOCK_FLIGHT');
+    const provider = request.watch.provider || defaultProvider;
     const value = normalizeWatch(
       { ...request.watch, provider },
       {
@@ -153,7 +152,7 @@ export class PriceWatchService {
         !this.config.get<string>('TRAVELPAYOUTS_TOKEN') ||
         this.config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') !== 'true')
     )
-      return priceWatchFail('SERVICE_UNAVAILABLE');
+      return priceWatchFail('SERVICE_UNAVAILABLE', { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' });
   }
 
   async observations(

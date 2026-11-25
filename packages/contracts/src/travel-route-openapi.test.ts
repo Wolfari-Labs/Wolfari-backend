@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   TravelProxy,
   allowRouteRequest,
+  routeAttribution,
   routeRequest,
 } from '../../../apps/api-gateway/src/travel-proxy';
 
@@ -51,6 +52,12 @@ describe('POST /api/v1/travel/route (MAP-POI 4.4)', () => {
       mode: 2,
     });
     expect(routeRequest({ coordinates: [point, point], mode: 'WALKING' }).mode).toBe(1);
+    expect(routeRequest({ coordinates: [point, point], mode: 'CYCLING' }).mode).toBe(3);
+    expect(spec.components.schemas.RouteRequest.properties.mode.enum).toEqual([
+      'DRIVING',
+      'WALKING',
+      'CYCLING',
+    ]);
     const schema = spec.components.schemas.RouteRequest;
     expect(schema.properties.coordinates.minItems).toBe(2);
     expect(schema.properties.coordinates.maxItems).toBe(25);
@@ -64,6 +71,23 @@ describe('POST /api/v1/travel/route (MAP-POI 4.4)', () => {
       { coordinates: [point, point], other: true },
     ])
       expect(() => routeRequest(body as Record<string, unknown>)).toThrow();
+  });
+  it('passes only well-formed OpenStreetMap credits to the client', () => {
+    expect(
+      routeAttribution([
+        { text: '© OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' },
+        { text: 'Góp ý sửa bản đồ', url: 'javascript:alert(1)' },
+        { text: '' },
+        'bad',
+      ]),
+    ).toEqual([
+      { text: '© OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' },
+      { text: 'Góp ý sửa bản đồ', url: null },
+    ]);
+    expect(routeAttribution(undefined)).toEqual([]);
+    expect(
+      spec.components.schemas.RouteResponse.properties.meta.properties.attribution,
+    ).toBeDefined();
   });
   it('allows 60 requests per minute per user', () => {
     const user = `rate-${Math.random()}`;

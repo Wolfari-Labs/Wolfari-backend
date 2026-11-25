@@ -97,6 +97,9 @@ Vitest xuất `.local/demo/reports/finance-price-watch-unit.xml` theo định d�
 
 Hai bộ hồi quy sâu chạy riêng bằng `corepack pnpm finance:test` và `corepack pnpm price-watch:test`. Demo dùng đóng góp thủ công TEST, worker thật, nguồn giá MOCK_FLIGHT và thông báo trong ứng dụng. Web, Android, camera, thanh toán ngoài hệ thống và benchmark NFR-P01 cần bằng chứng ở lượt kiểm thử tương ứng.
 
+Giá vé thật (Travelpayouts), đường đi thật (OSRM) và tiền về thật (SePay qua `demo:tunnel`) bật theo
+[nguồn thật cho demo](demo-live-providers.md); mặc định demo vẫn dùng MOCK_FLIGHT và không gọi dịch vụ ngoài.
+
 ## Đo PERF01 và PERF02 bằng JMeter
 
 Mạnh chạy trên Gateway demo ở 127.0.0.1:13000, với PostgreSQL demo đang hoạt động. Cài Java 17 hoặc 21 và [Apache JMeter 5.6.3](https://jmeter.apache.org/download_jmeter.cgi). Đặt `JMETER_HOME` trỏ vào thư mục JMeter đã giải nén hoặc giải nén vào `.local/demo/tools/apache-jmeter-5.6.3`. Nếu cần chọn Java khác với PATH, đặt `JMETER_JAVA` bằng đường dẫn tuyệt đối tới java.exe. Từ gốc backend, chạy lần lượt `corepack pnpm demo:perf:smoke` và `corepack pnpm demo:perf:load`.

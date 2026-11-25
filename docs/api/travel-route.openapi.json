@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Wolfari Travel Route (MAP-POI)",
-    "version": "1.0.0",
-    "description": "Driving route estimate between ordered points via the self-hosted OSRM car profile. Clients must fall back to a dashed straight line labelled \"Đường chim bay — chưa kiểm tra di chuyển\" on 503."
+    "version": "1.1.0",
+    "description": "Road route between ordered points via OSRM: DRIVING uses OSRM_URL (car profile); WALKING and CYCLING use OSRM_WALKING_URL / OSRM_CYCLING_URL. A non-production deployment may opt in to the public OSRM demo servers with OSRM_PUBLIC_DEMO=true. Clients must show meta.attribution with the route and fall back to a dashed straight line labelled \"Đường chim bay — chưa kiểm tra di chuyển\" on 503."
   },
   "servers": [{ "url": "http://127.0.0.1:3000" }],
   "security": [{ "bearer": [] }, { "cookie": [] }],
@@ -33,7 +33,7 @@
           "401": { "$ref": "#/components/responses/Error" },
           "429": { "$ref": "#/components/responses/Error" },
           "503": {
-            "description": "OSRM not configured/unreachable or mode not supported (WALKING: details.reason = PROVIDER_NOT_CONFIGURED, retryable false).",
+            "description": "OSRM not configured/unreachable or the requested mode has no server (details.reason = PROVIDER_NOT_CONFIGURED, retryable false; PROVIDER_RATE_LIMITED and PROVIDER_UNAVAILABLE are retryable).",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
@@ -81,7 +81,11 @@
             "items": { "$ref": "#/components/schemas/Coordinate" },
             "description": "Ordered stops; each must lie inside Vietnam (lat 8-23.5, lon 102-110)."
           },
-          "mode": { "enum": ["DRIVING", "WALKING"], "default": "DRIVING" }
+          "mode": {
+            "enum": ["DRIVING", "WALKING", "CYCLING"],
+            "default": "DRIVING",
+            "description": "WALKING and CYCLING are answered only by their own OSRM profile, never by the car profile."
+          }
         }
       },
       "RouteResponse": {
@@ -117,7 +121,19 @@
               "warnings": {
                 "type": "array",
                 "items": { "type": "string" },
-                "description": "Always contains ESTIMATED_BY_CAR_PROFILE; a stale result adds the provider error code."
+                "description": "DRIVING answers contain ESTIMATED_BY_CAR_PROFILE (car durations, no live traffic); WALKING and CYCLING answers do not. A stale result adds the provider error code."
+              },
+              "attribution": {
+                "type": "array",
+                "description": "Credits to show with the route (OpenStreetMap data and a fix-the-map link). Empty when the server sent none.",
+                "items": {
+                  "type": "object",
+                  "required": ["text", "url"],
+                  "properties": {
+                    "text": { "type": "string" },
+                    "url": { "type": ["string", "null"], "format": "uri" }
+                  }
+                }
               }
             }
           }
