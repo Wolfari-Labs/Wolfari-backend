@@ -40,7 +40,6 @@ export async function runPriceWatchTests({
   const departure = new Date(Date.now() + 30 * 86_400_000);
   departure.setUTCHours(2, 0, 0, 0);
   const body = {
-    provider: 'MOCK_FLIGHT',
     origin: 'DAD',
     destination: 'SGN',
     departure_date: departure.toISOString().slice(0, 10),
@@ -65,12 +64,13 @@ export async function runPriceWatchTests({
   });
   const [first, replay] = await Promise.all([
     createWatch(firstTrip, firstOwner, firstKey),
-    createWatch(firstTrip, firstOwner, firstKey),
+    createWatch(firstTrip, firstOwner, firstKey, { ...body, provider: 'MOCK_FLIGHT' }),
   ]);
   assert.equal(first.status, 201);
   assert.equal(replay.status, 201);
   assert.equal(second.status, 201);
   assert.equal(first.body.data.id, replay.body.data.id);
+  assert.equal(first.body.data.normalized_query.provider, 'MOCK_FLIGHT');
   assert.equal(
     (
       await createWatch(firstTrip, firstOwner, firstKey, {

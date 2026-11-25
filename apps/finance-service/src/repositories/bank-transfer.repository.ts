@@ -1,13 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DatabaseProvider } from '@wolfari/database';
-import { planBankTransfer, referencesInContent } from '../domain/bank-transfer';
+import {
+  planBankTransfer,
+  referencesInContent,
+  resolveSepayBankCode,
+} from '../domain/bank-transfer';
 import { FinanceReadError, fundNotOpenReason } from '../finance.errors';
 import type { BankTransferRow } from '../projections/bank-transfer-response';
 
 type Client = Pick<DatabaseProvider, 'query'>;
 const MAX_INT32 = 2_147_483_647;
-export const BANK_TRANSFER_RESOLUTIONS = ['RETURNED_TO_SENDER', 'HANDLED_IN_APP', 'NOT_OURS'] as const;
+export const BANK_TRANSFER_RESOLUTIONS = [
+  'RETURNED_TO_SENDER',
+  'HANDLED_IN_APP',
+  'NOT_OURS',
+] as const;
 export type BankTransferResolution = (typeof BANK_TRANSFER_RESOLUTIONS)[number];
 
 export type BankTransferInput = Readonly<{
@@ -43,7 +51,7 @@ type CandidateRow = {
   version: number;
   destination_snapshot: {
     destination_type?: unknown;
-    recipient?: { account_number?: unknown };
+    recipient?: { account_number?: unknown; bank_code?: unknown };
   } | null;
   request_status: string;
   fund_status: string;
@@ -127,11 +135,13 @@ export class BankTransferRepository {
           ).rows[0];
         }
       }
+      const bankCode = resolveSepayBankCode(input.bankGateway);
       const decision = planBankTransfer(
         {
           transferType: input.transferType,
           amount: input.amount,
           accountNumber: input.accountNumber,
+          bankCode,
         },
         candidates,
         candidate && {
@@ -142,6 +152,7 @@ export class BankTransferRepository {
           destinationAccountNumber: String(
             candidate.destination_snapshot?.recipient?.account_number ?? '',
           ),
+          destinationBankCode: String(candidate.destination_snapshot?.recipient?.bank_code ?? ''),
           requestStatus: candidate.request_status,
           fundStatus: candidate.fund_status,
           financeVersion: candidate.finance_version,
@@ -149,7 +160,8 @@ export class BankTransferRepository {
         },
       );
       let fundId: string | null = candidate?.fund_id ?? null;
-      if (!fundId) fundId = await this.fundByAccount(client, input.accountNumber);
+      if (!fundId && bankCode)
+        fundId = await this.fundByAccount(client, input.accountNumber, bankCode);
       if (decision.status === 'MATCHED' && candidate)
         await this.settle(client, candidate, inserted.id, input, correlation);
       await client.query(
@@ -173,12 +185,12 @@ export class BankTransferRepository {
   }
 
   /** Attribute money without a usable reference to the one Fund whose destination owns the account. */
-  private async fundByAccount(client: Client, accountNumber: string) {
+  private async fundByAccount(client: Client, accountNumber: string, bankCode: string) {
     const rows = (
       await client.query<{ fund_id: string }>(
         `SELECT DISTINCT fund_id FROM payment_destinations
-         WHERE destination_type='VIETQR' AND upper(regexp_replace(account_number,'\\s','','g'))=upper(regexp_replace($1,'\\s','','g'))`,
-        [accountNumber],
+         WHERE destination_type='VIETQR' AND bank_code=$2 AND upper(regexp_replace(account_number,'\\s','','g'))=upper(regexp_replace($1,'\\s','','g'))`,
+        [accountNumber, bankCode],
       )
     ).rows;
     return rows.length === 1 ? rows[0]!.fund_id : null;
@@ -292,19 +304,25 @@ export class BankTransferRepository {
       ).rows[0];
       if (!fund) throw new FinanceReadError('RESOURCE_NOT_FOUND');
       const row = (
-        await client.query<BankTransferRow & { fund_id: string | null; resolution_operation_id: string | null }>(
+        await client.query<
+          BankTransferRow & { fund_id: string | null; resolution_operation_id: string | null }
+        >(
           `SELECT ${columns},resolution_operation_id FROM bank_transfer_receipts WHERE id=$1 FOR UPDATE`,
           [input.transferId],
         )
       ).rows[0];
       if (!row || row.fund_id !== input.fundId) throw new FinanceReadError('RESOURCE_NOT_FOUND');
-      if (row.processing_status === 'RESOLVED' && row.resolution_operation_id === input.operationId) {
+      if (
+        row.processing_status === 'RESOLVED' &&
+        row.resolution_operation_id === input.operationId
+      ) {
         if (row.resolution !== input.resolution || row.resolution_note !== input.note)
           throw new FinanceReadError('IDEMPOTENCY_CONFLICT');
         return { row, financeVersion: fund.finance_version };
       }
       if (fund.holder_user_id !== input.actor) throw new FinanceReadError('PERMISSION_DENIED');
-      if (fund.status !== 'OPEN') throw new FinanceReadError('STATE_CONFLICT', fundNotOpenReason(fund.status));
+      if (fund.status !== 'OPEN')
+        throw new FinanceReadError('STATE_CONFLICT', fundNotOpenReason(fund.status));
       if (row.processing_status !== 'NEEDS_REVIEW')
         throw new FinanceReadError('STATE_CONFLICT', 'INVALID_TRANSITION');
       if (fund.finance_version !== input.expectedFinanceVersion)

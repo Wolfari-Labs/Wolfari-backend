@@ -220,7 +220,11 @@ export interface Weather {
   forecast_at?: Timestamp | undefined;
   temperature_c?: number | undefined;
   rain_probability?: number | undefined;
-  uv_index?: number | undefined;
+  uv_index?:
+    | number
+    | undefined;
+  /** Lowest of the day; temperature_c is the highest. */
+  temperature_min_c?: number | undefined;
 }
 
 export interface GetWeatherResponse {
@@ -246,7 +250,11 @@ export interface ProposalItem {
   dress_code?: DressCode | undefined;
   packing_item?: PackingItem | undefined;
   reason?: string | undefined;
-  rule_ids?: string[] | undefined;
+  rule_ids?:
+    | string[]
+    | undefined;
+  /** e.g. ALREADY_IN_PLAN: shown, never applied silently. */
+  warnings?: string[] | undefined;
 }
 
 export interface GetRecommendationResponse {

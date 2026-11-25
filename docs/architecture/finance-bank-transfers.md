@@ -8,7 +8,7 @@ dưới khóa Fund:
 
 1. Nội dung chuyển khoản chứa đúng một `reference` (25 ký tự base36 mà API086 in cho thành viên; giải mã
    ngược ra ID khoản góp và phải khớp lại nguyên vẹn).
-2. Tiền vào đúng số tài khoản đã chốt trong snapshot đích của khoản góp đó (so sánh bỏ khoảng trắng,
+2. Tiền vào đúng ngân hàng và số tài khoản đã chốt trong snapshot đích của khoản góp đó (so sánh bỏ khoảng trắng,
    không phân biệt hoa thường) và đích là VietQR.
 3. Khoản góp đang `PENDING` hoặc `TRANSFER_REPORTED`, đợt thu và Fund `OPEN`, chưa có bút toán IN.
 4. Số tiền bằng đúng số tiền khoản góp.

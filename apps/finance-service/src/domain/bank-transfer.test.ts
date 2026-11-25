@@ -4,6 +4,7 @@ import {
   decodeTransferReference,
   planBankTransfer,
   referencesInContent,
+  resolveSepayBankCode,
   type BankTransferCandidate,
 } from './bank-transfer';
 
@@ -15,12 +16,18 @@ const candidate: BankTransferCandidate = {
   version: 1,
   destinationType: 'VIETQR',
   destinationAccountNumber: '0011012345678',
+  destinationBankCode: 'VCB',
   requestStatus: 'OPEN',
   fundStatus: 'OPEN',
   financeVersion: 3,
   hasLedgerEntry: false,
 };
-const receipt = { transferType: 'IN' as const, amount: 300000n, accountNumber: '0011012345678' };
+const receipt = {
+  transferType: 'IN' as const,
+  amount: 300000n,
+  accountNumber: '0011012345678',
+  bankCode: 'VCB',
+};
 
 describe('bank transfer references', () => {
   it('round-trips the API086 reference and rejects anything else', () => {
@@ -40,6 +47,18 @@ describe('bank transfer references', () => {
 });
 
 describe('bank transfer decision', () => {
+  it('requires a known and matching receiving bank even when account and amount match', () => {
+    expect(resolveSepayBankCode(' Vietcombank ')).toBe('VCB');
+    expect(resolveSepayBankCode('MBBank')).toBe('MB');
+    expect(resolveSepayBankCode('unknown gateway')).toBeUndefined();
+    for (const bankCode of ['MB', undefined]) {
+      expect(planBankTransfer({ ...receipt, bankCode }, [id], candidate)).toEqual({
+        status: 'NEEDS_REVIEW',
+        reason: 'ACCOUNT_MISMATCH',
+      });
+    }
+  });
+
   it('matches only an exact, payable contribution on the instructed account', () => {
     expect(planBankTransfer(receipt, [id], candidate)).toEqual({ status: 'MATCHED', reason: null });
     expect(

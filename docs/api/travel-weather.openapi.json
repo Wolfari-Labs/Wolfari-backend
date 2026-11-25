@@ -1,0 +1,202 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wolfari Travel Weather (FR-TI01)",
+    "version": "1.0.0",
+    "description": "Daily forecast for one point and date via Open-Meteo (free, non-commercial, CC BY 4.0: clients must show the attribution). Up to 16 days ahead. Cached 3 h per point; stale cache is served with stale=true when Open-Meteo is down. TRAVEL_WEATHER_MOCK=true returns deterministic mock data with is_mock=true."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000"
+    }
+  ],
+  "security": [
+    {
+      "bearer": []
+    },
+    {
+      "cookie": []
+    }
+  ],
+  "paths": {
+    "/api/v1/travel/weather": {
+      "get": {
+        "operationId": "getTravelWeather",
+        "description": "Authenticated users; shares the 60/min per-user travel bucket.",
+        "parameters": [
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SUCCESS, or NO_RESULT (data null) when the date is outside the forecast window (warnings: FORECAST_OUT_OF_RANGE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": ["object", "null"],
+                      "properties": {
+                        "date": {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        "temperature_max_c": {
+                          "type": ["number", "null"]
+                        },
+                        "temperature_min_c": {
+                          "type": ["number", "null"]
+                        },
+                        "rain_probability": {
+                          "type": ["number", "null"],
+                          "description": "0..1"
+                        },
+                        "uv_index": {
+                          "type": ["number", "null"]
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "enum": ["SUCCESS", "NO_RESULT"]
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "fetched_at": {
+                          "type": ["string", "null"],
+                          "format": "date-time"
+                        },
+                        "stale": {
+                          "type": "boolean"
+                        },
+                        "is_mock": {
+                          "type": "boolean"
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "attribution": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "description": "Open-Meteo unreachable or daily quota reached with no cache.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "wolfari_access"
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Validation, authentication, rate limit.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "details": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

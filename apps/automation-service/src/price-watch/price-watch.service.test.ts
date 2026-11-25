@@ -48,7 +48,12 @@ function watch(overrides: Partial<PriceWatchRecord> = {}): PriceWatchRecord {
 }
 
 function setup(
-  options: { state?: 'ACTIVE' | 'ARCHIVED'; role?: 'OWNER' | 'MEMBER'; member?: string } = {},
+  options: {
+    state?: 'ACTIVE' | 'ARCHIVED';
+    role?: 'OWNER' | 'MEMBER';
+    member?: string;
+    config?: Record<string, string>;
+  } = {},
 ) {
   const access = {
     get: vi.fn().mockResolvedValue({
@@ -78,12 +83,61 @@ function setup(
     ),
   };
   const service = new PriceWatchService(
-    { get: () => 's'.repeat(32) } as never,
+    {
+      get: (key: string) =>
+        key === 'AUTOMATION_CURSOR_SECRET' ? 's'.repeat(32) : options.config?.[key],
+    } as never,
     access as never,
     repository as never,
   );
   return { service, access, repository };
 }
+
+describe('PriceWatchService source selection', () => {
+  const request = {
+    actor_user_id: userId,
+    trip_id: tripId,
+    client_request_id: watch().client_request_id,
+    watch: {
+      origin: 'DAD',
+      destination: 'SGN',
+      departure_date: '2099-11-01',
+      journey_type: 1,
+      passengers: { adults: 1 },
+      currency: 'VND',
+      threshold_price: '2000000',
+      departure_at: { seconds: String(Date.parse('2099-11-01T02:00:00Z') / 1000), nanos: 0 },
+    },
+  } as Parameters<PriceWatchService['create']>[0];
+
+  it('uses the configured real provider when mobile omits it', async () => {
+    const { service, repository } = setup({
+      config: {
+        NODE_ENV: 'production',
+        PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE',
+        PRICE_WATCH_WORKER_ENABLED: 'true',
+        TRAVELPAYOUTS_TOKEN: 'test-provider-token',
+        TRAVELPAYOUTS_VND_VERIFIED: 'true',
+      },
+    });
+    await service.create(request, 'c');
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        value: expect.objectContaining({
+          query: expect.objectContaining({ provider: 'TRAVELPAYOUTS_CACHE' }),
+        }),
+      }),
+    );
+  });
+
+  it('reports an unavailable source on production without provider credentials', async () => {
+    const { service, repository } = setup({ config: { NODE_ENV: 'production' } });
+    await expect(service.create(request, 'c')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+    });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+});
 
 describe('PriceWatchService authorization', () => {
   it('allows current members to read archived Trip watches', async () => {

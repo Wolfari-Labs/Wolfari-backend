@@ -211,6 +211,11 @@ export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
     tx({ content: `CK ${ownerReference}`, transferAmount: 200000, accountNumber: '9999999999' }),
   );
   assert.equal(wrongAccount.body.status, 'NEEDS_REVIEW');
+  const wrongBank = await post(
+    tx({ content: `CK ${ownerReference}`, transferAmount: 200000, gateway: 'MBBank' }),
+  );
+  assert.equal(wrongBank.body.status, 'NEEDS_REVIEW');
+  assert.equal((await contribution(ownerContribution.id)).status, 'PENDING');
   const outgoing = await post(tx({ transferType: 'out', content: 'rut tien mat' }));
   assert.equal(outgoing.body.status, 'IGNORED');
   const unknown = await post(tx({ content: 'CK khong ro noi dung' }));
@@ -228,7 +233,7 @@ export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
   assert.equal(await ledgerCount(), 2);
   assert.equal((await contribution(ownerContribution.id)).status, 'CONFIRMED');
   pass(
-    'bank webhook: wrong amount/account, outgoing, unknown or ambiguous references are kept for review and never posted',
+    'bank webhook: wrong amount/bank/account, outgoing, unknown or ambiguous references are kept for review and never posted',
   );
 
   const listPath = `/api/v1/funds/${fund}/bank-transfers`;
@@ -265,7 +270,12 @@ export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
 
   // Holder resolution of transfers needing review, and the closure blocker it clears.
   const readiness = async () => {
-    const r = await request(`/api/v1/funds/${fund}/closure-readiness`, 'GET', undefined, bearer(owner));
+    const r = await request(
+      `/api/v1/funds/${fund}/closure-readiness`,
+      'GET',
+      undefined,
+      bearer(owner),
+    );
     assert.equal(r.status, 200, JSON.stringify(r.body));
     return r.body.data;
   };
@@ -276,7 +286,10 @@ export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
       [fund],
     )
   ).map((row) => row.id);
-  assert.ok(reviewIds.length >= 3, `expected several transfers needing review, got ${reviewIds.length}`);
+  assert.ok(
+    reviewIds.length >= 3,
+    `expected several transfers needing review, got ${reviewIds.length}`,
+  );
   const blocked = await readiness();
   assert.equal(blocked.ready, false);
   assert.deepEqual(
@@ -329,9 +342,19 @@ export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
     409,
     'same key, different intent',
   );
-  assert.equal((await resolveAs(first, holder, await resolveBody())).status, 409, 'already resolved');
   assert.equal(
-    (await resolveAs(second, holder, await resolveBody({ expected_finance_version: versionBefore }))).status,
+    (await resolveAs(first, holder, await resolveBody())).status,
+    409,
+    'already resolved',
+  );
+  assert.equal(
+    (
+      await resolveAs(
+        second,
+        holder,
+        await resolveBody({ expected_finance_version: versionBefore }),
+      )
+    ).status,
     409,
     'stale Fund version',
   );
@@ -347,7 +370,11 @@ export async function runBankWebhookTests(h, { newTrip, write, enableBody }) {
     1,
   );
   for (const transfer of [second, ...rest]) {
-    const r = await resolveAs(transfer, holder, await resolveBody({ resolution: 'NOT_OURS', note: 'Không thuộc quỹ' }));
+    const r = await resolveAs(
+      transfer,
+      holder,
+      await resolveBody({ resolution: 'NOT_OURS', note: 'Không thuộc quỹ' }),
+    );
     assert.equal(r.status, 200, JSON.stringify(r.body));
   }
   const cleared = await readiness();

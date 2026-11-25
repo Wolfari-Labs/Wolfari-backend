@@ -524,8 +524,8 @@
     "callers": [
       "Trip"
     ],
-    "deadline_ms": 2000,
-    "source": "DDL/API/Event v1.0 section 6 - Travel.GetRecommendation"
+    "deadline_ms": 8000,
+    "source": "DDL/API/Event v1.0 section 6 - Travel.GetRecommendation; FR-DS01: weather lookups need more than 2 s on a cold cache"
   },
   {
     "package": "wolfari.travel.v1",
@@ -1346,6 +1346,36 @@
     ],
     "deadline_ms": 2000,
     "source": "Mobile Plan collection integration: dress code and packing writes"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "PreviewRecommendation",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 9000,
+    "source": "FR-DS01: preview packing and dress-code suggestions; Trip calls Travel.GetRecommendation (8 s)"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ApplyRecommendation",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 2000,
+    "source": "FR-DS01: apply selected suggestions with an idempotent apply_request_id"
+  },
+  {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "IgnoreRecommendation",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 2000,
+    "source": "FR-DS01: mark a preview as rejected"
   },
   {
     "package": "wolfari.trip.v1",

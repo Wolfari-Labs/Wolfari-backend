@@ -117,6 +117,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'TRAVEL_TRIP_SECRET',
     'AUTOMATION_TRIP_SECRET',
     'TRIP_GRPC_PORT',
+    'TRAVEL_GRPC_TARGET',
+    'TRIP_TRAVEL_SECRET',
   ];
   const gatewayKeys = [
     'GATEWAY_TRAVEL_SECRET',
@@ -201,6 +203,9 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_TRAVEL_SECRET',
     'PLACE_SELECTION_SECRET',
     'GEOAPIFY_API_KEY',
+    'TRIP_TRAVEL_SECRET',
+    'OPEN_METEO_URL',
+    'TRAVEL_WEATHER_MOCK',
     'OSRM_URL',
     'OSRM_WALKING_URL',
     'OSRM_CYCLING_URL',
@@ -280,6 +285,7 @@ export async function initEnvironment(
     FINANCE_TRIP_SECRET: randomBytes(32).toString('hex'),
     TRIP_FINANCE_SECRET: randomBytes(32).toString('hex'),
     TRAVEL_TRIP_SECRET: randomBytes(32).toString('hex'),
+    TRIP_TRAVEL_SECRET: randomBytes(32).toString('hex'),
     AUTOMATION_TRIP_SECRET: randomBytes(32).toString('hex'),
     AUTOMATION_IDENTITY_SECRET: randomBytes(32).toString('hex'),
     TRIP_IDENTITY_SECRET: randomBytes(32).toString('hex'),
@@ -353,6 +359,9 @@ export async function initEnvironment(
               FINANCE_TRIP_SECRET: shared.FINANCE_TRIP_SECRET,
               TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
               AUTOMATION_TRIP_SECRET: shared.AUTOMATION_TRIP_SECRET,
+              // FR-DS01: Trip asks Travel for recommendations with its own secret.
+              TRAVEL_GRPC_TARGET: '127.0.0.1:3203',
+              TRIP_TRAVEL_SECRET: shared.TRIP_TRAVEL_SECRET,
               // Trip covers and dress-code reference images are private MinIO objects.
               MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
               MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
@@ -422,6 +431,10 @@ export async function initEnvironment(
                       PLACE_SELECTION_SECRET: shared.PLACE_SELECTION_SECRET,
                       TRIP_GRPC_TARGET: '127.0.0.1:3202',
                       TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
+                      TRIP_TRAVEL_SECRET: shared.TRIP_TRAVEL_SECRET,
+                      // FR-TI01: Open-Meteo free API (non-commercial, no key).
+                      OPEN_METEO_URL: 'https://api.open-meteo.com/v1/',
+                      TRAVEL_WEATHER_MOCK: 'false',
                       MINIO_ENDPOINT: `127.0.0.1:${shared.MINIO_API_PORT}`,
                       MINIO_ACCESS_KEY: shared.MINIO_ROOT_USER,
                       MINIO_SECRET_KEY: shared.MINIO_ROOT_PASSWORD,

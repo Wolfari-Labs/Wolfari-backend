@@ -133,6 +133,7 @@ message Weather {
   double temperature_c = 2;
   double rain_probability = 3;
   optional double uv_index = 4;
+  optional double temperature_min_c = 5; // Lowest of the day; temperature_c is the highest.
 }
 message GetWeatherResponse {
   Weather data = 1;
@@ -157,6 +158,7 @@ message ProposalItem {
   }
   string reason = 5;
   repeated string rule_ids = 6;
+  repeated string warnings = 7; // e.g. ALREADY_IN_PLAN: shown, never applied silently.
 }
 message GetRecommendationResponse {
   repeated ProposalItem proposal = 1;

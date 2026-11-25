@@ -5,6 +5,10 @@ import { PlacesService } from './places.service';
 import { PlacesController } from './places.grpc';
 import { RouteService } from './route.service';
 import { RouteController } from './route.grpc';
+import { WeatherService } from './weather.service';
+import { WeatherController } from './weather.grpc';
+import { RecommendationService } from './recommendation.service';
+import { RecommendationController } from './recommendation.grpc';
 import { PoiImageController } from './poi-image.grpc';
 
 @Module({
@@ -12,7 +16,13 @@ import { PoiImageController } from './poi-image.grpc';
     InfrastructureModule.forApp('travel-intelligence-service'),
     DatabaseModule.forService('travel'),
   ],
-  controllers: [PlacesController, RouteController, PoiImageController],
-  providers: [PlacesService, RouteService],
+  controllers: [
+    PlacesController,
+    RouteController,
+    WeatherController,
+    RecommendationController,
+    PoiImageController,
+  ],
+  providers: [PlacesService, RouteService, WeatherService, RecommendationService],
 })
 export class AppModule {}

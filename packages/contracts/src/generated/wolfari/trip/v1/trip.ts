@@ -494,7 +494,11 @@ export interface Activity {
   ends_at?: Timestamp | undefined;
   position?: number | undefined;
   status?: ActivityStatus | undefined;
-  source?: EntitySource | undefined;
+  source?:
+    | EntitySource
+    | undefined;
+  /** YYYY-MM-DD for a day without a time. */
+  scheduled_date?: string | undefined;
 }
 
 export interface OpeningPeriod {
@@ -777,6 +781,50 @@ export interface MutatePlanItemResponse {
   item_json?: string | undefined;
 }
 
+/** FR-DS01: Trip asks Travel for a proposal, keeps it 30 minutes, applies only chosen items. */
+export interface PreviewRecommendationRequest {
+  actor_user_id?: string | undefined;
+  trip_id?:
+    | string
+    | undefined;
+  /** PACKING, DRESS_CODE or ALL */
+  type?: string | undefined;
+  date?: string | undefined;
+  activity_ids?: string[] | undefined;
+}
+
+export interface ApplyRecommendationRequest {
+  actor_user_id?: string | undefined;
+  recommendation_id?:
+    | string
+    | undefined;
+  /** Idempotency-Key: a repeated apply returns the first result. */
+  apply_request_id?: string | undefined;
+  item_ids?: string[] | undefined;
+  expected_plan_version?: number | undefined;
+}
+
+export interface IgnoreRecommendationRequest {
+  actor_user_id?: string | undefined;
+  recommendation_id?: string | undefined;
+}
+
+/** Each RPC has its own response (buf STANDARD lint); all three carry the same projection. */
+export interface PreviewRecommendationResponse {
+  /** Public projection, built and allowlisted by Trip. */
+  recommendation_json?: string | undefined;
+}
+
+export interface ApplyRecommendationResponse {
+  /** Public projection, built and allowlisted by Trip. */
+  recommendation_json?: string | undefined;
+}
+
+export interface IgnoreRecommendationResponse {
+  /** Public projection, built and allowlisted by Trip. */
+  recommendation_json?: string | undefined;
+}
+
 export interface ManageTripRequest {
   operation_id?: string | undefined;
   actor_user_id?: string | undefined;
@@ -999,6 +1047,21 @@ export interface TripServiceClient {
 
   mutatePlanItem(request: MutatePlanItemRequest, metadata?: Metadata): Observable<MutatePlanItemResponse>;
 
+  previewRecommendation(
+    request: PreviewRecommendationRequest,
+    metadata?: Metadata,
+  ): Observable<PreviewRecommendationResponse>;
+
+  applyRecommendation(
+    request: ApplyRecommendationRequest,
+    metadata?: Metadata,
+  ): Observable<ApplyRecommendationResponse>;
+
+  ignoreRecommendation(
+    request: IgnoreRecommendationRequest,
+    metadata?: Metadata,
+  ): Observable<IgnoreRecommendationResponse>;
+
   createActivity(request: CreateActivityRequest, metadata?: Metadata): Observable<CreateActivityResponse>;
 
   updateActivity(request: UpdateActivityRequest, metadata?: Metadata): Observable<UpdateActivityResponse>;
@@ -1192,6 +1255,21 @@ export interface TripServiceController {
     metadata?: Metadata,
   ): Promise<MutatePlanItemResponse> | Observable<MutatePlanItemResponse> | MutatePlanItemResponse;
 
+  previewRecommendation(
+    request: PreviewRecommendationRequest,
+    metadata?: Metadata,
+  ): Promise<PreviewRecommendationResponse> | Observable<PreviewRecommendationResponse> | PreviewRecommendationResponse;
+
+  applyRecommendation(
+    request: ApplyRecommendationRequest,
+    metadata?: Metadata,
+  ): Promise<ApplyRecommendationResponse> | Observable<ApplyRecommendationResponse> | ApplyRecommendationResponse;
+
+  ignoreRecommendation(
+    request: IgnoreRecommendationRequest,
+    metadata?: Metadata,
+  ): Promise<IgnoreRecommendationResponse> | Observable<IgnoreRecommendationResponse> | IgnoreRecommendationResponse;
+
   createActivity(
     request: CreateActivityRequest,
     metadata?: Metadata,
@@ -1291,6 +1369,9 @@ export function TripServiceControllerMethods() {
       "getExportWorkerContext",
       "getPlan",
       "mutatePlanItem",
+      "previewRecommendation",
+      "applyRecommendation",
+      "ignoreRecommendation",
       "createActivity",
       "updateActivity",
       "deleteActivity",
