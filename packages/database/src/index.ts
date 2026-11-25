@@ -145,7 +145,7 @@ export class DatabaseProvider implements OnApplicationShutdown {
                 : this.name === 'identity'
                   ? ['V001', 'V002']
                   : this.name === 'travel'
-                    ? ['V001', 'V002', 'V003', 'V004', 'V005']
+                    ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
                     : ['V001'];
         const migrations = await client.query(
           'SELECT version FROM public.schema_migrations WHERE version=ANY($1::text[])',
