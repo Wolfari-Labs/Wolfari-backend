@@ -35,6 +35,9 @@ service TripService {
   rpc GetExportWorkerContext(GetExportWorkerContextRequest) returns (GetExportWorkerContextResponse);
   rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
   rpc MutatePlanItem(MutatePlanItemRequest) returns (MutatePlanItemResponse);
+  rpc PreviewRecommendation(PreviewRecommendationRequest) returns (RecommendationResponse);
+  rpc ApplyRecommendation(ApplyRecommendationRequest) returns (RecommendationResponse);
+  rpc IgnoreRecommendation(IgnoreRecommendationRequest) returns (RecommendationResponse);
   rpc CreateActivity(CreateActivityRequest) returns (CreateActivityResponse);
   rpc UpdateActivity(UpdateActivityRequest) returns (UpdateActivityResponse);
   rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
@@ -441,6 +444,7 @@ message Activity {
   int32 position = 9;
   ActivityStatus status = 10;
   EntitySource source = 11;
+  optional string scheduled_date = 12; // YYYY-MM-DD for a day without a time.
 }
 message OpeningPeriod {
   int32 weekday = 1;
@@ -597,6 +601,28 @@ message MutatePlanItemRequest {
 message MutatePlanItemResponse {
   PlanVersion version = 1;
   optional string item_json = 2;
+}
+// FR-DS01: Trip asks Travel for a proposal, keeps it 30 minutes, applies only chosen items.
+message PreviewRecommendationRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+  string type = 3; // PACKING, DRESS_CODE or ALL
+  optional string date = 4;
+  repeated string activity_ids = 5;
+}
+message ApplyRecommendationRequest {
+  string actor_user_id = 1;
+  string recommendation_id = 2;
+  string apply_request_id = 3; // Idempotency-Key: a repeated apply returns the first result.
+  repeated string item_ids = 4;
+  int32 expected_plan_version = 5;
+}
+message IgnoreRecommendationRequest {
+  string actor_user_id = 1;
+  string recommendation_id = 2;
+}
+message RecommendationResponse {
+  string recommendation_json = 1; // Public projection, built and allowlisted by Trip.
 }
 
 message ManageTripRequest {

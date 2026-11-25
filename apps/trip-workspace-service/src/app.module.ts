@@ -1,6 +1,8 @@
 import { TripManagementService } from './trip-management.service';
 import { PlanPdfService } from './plan-pdf.service';
 import { PlanItemsService } from './planning/plan-items.service';
+import { RecommendationService } from './planning/recommendation.service';
+import { TravelClient } from './planning/travel.client';
 import { PlanService } from './planning/plan.service';
 import { LocationService } from './planning/location.service';
 import { MembershipRepository } from './membership/membership.repository';
@@ -48,6 +50,8 @@ import { TripOutboxService, TripDependenciesController } from './trip-outbox.ser
     TripPlanAccessService,
     TripInvitationsService,
     TripOutboxService,
+    TravelClient,
+    RecommendationService,
   ],
 })
 export class AppModule {}

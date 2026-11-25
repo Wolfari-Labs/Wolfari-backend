@@ -2,6 +2,7 @@ import { TripToolsProxy } from './trip-tools-proxy';
 import { TravelProxy } from './travel-proxy';
 import { TravelPlacesProxy } from './travel-places-proxy';
 import { PlanItemsProxy } from './plan-items-proxy';
+import { RecommendationProxy } from './recommendation-proxy';
 import { PlanProxy } from './plan-proxy';
 import { PlacesProxy } from './places-proxy';
 import { MembershipProxy } from './membership-proxy';
@@ -43,6 +44,9 @@ export class GatewayRouter implements OnApplicationShutdown {
   private readonly planItems = new PlanItemsProxy((token, correlation) =>
     this.identity.validateSession(token, correlation),
   );
+  private readonly recommendations = new RecommendationProxy((token, correlation) =>
+    this.identity.validateSession(token, correlation),
+  );
   private readonly plan = new PlanProxy((accessToken, correlationId) =>
     this.identity.validateSession(accessToken, correlationId),
   );
@@ -66,6 +70,8 @@ export class GatewayRouter implements OnApplicationShutdown {
     if (this.finance.matches(request)) return this.finance.handle(request, response);
     if (this.membership.matches(request)) return this.membership.handle(request, response);
     if (this.invitations.matches(request)) return this.invitations.handle(request, response);
+    if (this.recommendations.matches(request))
+      return this.recommendations.handle(request, response);
     if (this.plan.matches(request)) return this.plan.handle(request, response);
     if (this.planItems.matches(request)) return this.planItems.handle(request, response);
     if (this.trip.matches(request)) return this.trip.handle(request, response);
@@ -82,6 +88,7 @@ export class GatewayRouter implements OnApplicationShutdown {
     this.invitations.close();
     this.plan.close();
     this.planItems.close();
+    this.recommendations.close();
     this.travelPlaces.close();
     this.tripTools.close();
     this.trip.close();

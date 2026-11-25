@@ -7,13 +7,15 @@ import { RouteService } from './route.service';
 import { RouteController } from './route.grpc';
 import { WeatherService } from './weather.service';
 import { WeatherController } from './weather.grpc';
+import { RecommendationService } from './recommendation.service';
+import { RecommendationController } from './recommendation.grpc';
 
 @Module({
   imports: [
     InfrastructureModule.forApp('travel-intelligence-service'),
     DatabaseModule.forService('travel'),
   ],
-  controllers: [PlacesController, RouteController, WeatherController],
-  providers: [PlacesService, RouteService, WeatherService],
+  controllers: [PlacesController, RouteController, WeatherController, RecommendationController],
+  providers: [PlacesService, RouteService, WeatherService, RecommendationService],
 })
 export class AppModule {}

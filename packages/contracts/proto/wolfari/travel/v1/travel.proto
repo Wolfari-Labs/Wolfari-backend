@@ -133,6 +133,7 @@ message ProposalItem {
   }
   string reason = 5;
   repeated string rule_ids = 6;
+  repeated string warnings = 7; // e.g. ALREADY_IN_PLAN: shown, never applied silently.
 }
 message GetRecommendationResponse {
   repeated ProposalItem proposal = 1;

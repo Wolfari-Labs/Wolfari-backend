@@ -3,6 +3,7 @@ import { PlanPdfService } from './plan-pdf.service';
 import { DressCodeImageService } from './planning/dress-code-image.service';
 import { TripCoverService } from './trip-cover.service';
 import { PlanItemsService } from './planning/plan-items.service';
+import { RecommendationService } from './planning/recommendation.service';
 import { PlanGrpcHandlers } from './planning/plan.grpc';
 import { LocationService } from './planning/location.service';
 import { LifecycleService } from './operations/lifecycle.service';
@@ -151,6 +152,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
     private readonly pdf?: PlanPdfService,
     private readonly dressImages?: DressCodeImageService,
     private readonly covers?: TripCoverService,
+    private readonly recommendations?: RecommendationService,
   ) {}
 
   saveSelectedLocation(request: TripV1.SaveSelectedLocationRequest, metadata?: Metadata) {
@@ -267,6 +269,43 @@ export class TripGrpcController implements TripV1.TripServiceController {
         version: result.version,
         item_json: result.item ? JSON.stringify(result.item) : undefined,
       };
+    });
+  }
+
+  previewRecommendation(
+    request: TripV1.PreviewRecommendationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.RecommendationResponse> {
+    const correlation = this.authorize('PreviewRecommendation', metadata);
+    return this.execute(async () => {
+      if (!this.recommendations) throw Error('Recommendations unavailable');
+      return {
+        recommendation_json: JSON.stringify(
+          await this.recommendations.preview(request, correlation),
+        ),
+      };
+    });
+  }
+  applyRecommendation(
+    request: TripV1.ApplyRecommendationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.RecommendationResponse> {
+    const correlation = this.authorize('ApplyRecommendation', metadata);
+    return this.execute(async () => {
+      if (!this.recommendations) throw Error('Recommendations unavailable');
+      return {
+        recommendation_json: JSON.stringify(await this.recommendations.apply(request, correlation)),
+      };
+    });
+  }
+  ignoreRecommendation(
+    request: TripV1.IgnoreRecommendationRequest,
+    metadata?: Metadata,
+  ): Promise<TripV1.RecommendationResponse> {
+    this.authorize('IgnoreRecommendation', metadata);
+    return this.execute(async () => {
+      if (!this.recommendations) throw Error('Recommendations unavailable');
+      return { recommendation_json: JSON.stringify(await this.recommendations.ignore(request)) };
     });
   }
 

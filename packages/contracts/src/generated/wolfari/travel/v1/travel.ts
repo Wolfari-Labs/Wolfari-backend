@@ -201,7 +201,11 @@ export interface ProposalItem {
   dress_code?: DressCode | undefined;
   packing_item?: PackingItem | undefined;
   reason?: string | undefined;
-  rule_ids?: string[] | undefined;
+  rule_ids?:
+    | string[]
+    | undefined;
+  /** e.g. ALREADY_IN_PLAN: shown, never applied silently. */
+  warnings?: string[] | undefined;
 }
 
 export interface GetRecommendationResponse {

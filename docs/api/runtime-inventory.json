@@ -658,6 +658,21 @@
       "document": "qr-sandbox.openapi.json"
     },
     {
+      "method": "POST",
+      "path": "/api/v1/trips/{id}/recommendations",
+      "document": "recommendations.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/recommendations/{id}/apply",
+      "document": "recommendations.openapi.json"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/recommendations/{id}/ignore",
+      "document": "recommendations.openapi.json"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/travel/places",
       "document": "travel-places.openapi.json"
@@ -798,6 +813,7 @@
     "price-watch-proxy.ts": "abec19826b0e6b18bbe9edeafa5057e4ba1dc83e1dc2747ae24a1636908dbb64",
     "qr-payment-http.ts": "7484f5ef923f799574eefe45303aea8b97271b4a8c718e8b0265006dc43e89f7",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
+    "recommendation-proxy.ts": "46009de337527c270bcda152f0d9cfc51bc304c62d30a0257dd9393da0ef468f",
     "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
     "travel-places-proxy.ts": "4c30cd91e69a0ccadddeedbda41bb9715251b2ee6c17bd3b004f5de162ff5705",
     "travel-proxy.ts": "d42330a1cc54a10488225a7ecdf947aa38cc4353c8678f555724e826d1ca7bdd",

@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest';
+import { recommendationRoute } from './recommendation-proxy';
 import { weatherRequest } from './travel-proxy';
+
+const trip = '10000000-0000-4000-8000-000000000001';
+const rec = '30000000-0000-4000-8000-000000000003';
+
+describe('Recommendation Gateway routes', () => {
+  it('maps preview, apply and ignore and rejects other methods', () => {
+    expect(recommendationRoute('POST', `/api/v1/trips/${trip}/recommendations`)).toEqual({
+      action: 'PREVIEW',
+      id: trip,
+    });
+    expect(recommendationRoute('POST', `/api/v1/recommendations/${rec}/apply`)).toEqual({
+      action: 'APPLY',
+      id: rec,
+    });
+    expect(recommendationRoute('POST', `/api/v1/recommendations/${rec}/ignore`)).toEqual({
+      action: 'IGNORE',
+      id: rec,
+    });
+    expect(recommendationRoute('GET', `/api/v1/trips/${trip}/recommendations`)).toBeNull();
+    expect(recommendationRoute('DELETE', `/api/v1/recommendations/${rec}/apply`)).toBeNull();
+    expect(recommendationRoute('POST', `/api/v1/recommendations/${rec}`)).toBeNull();
+    expect(() => recommendationRoute('POST', '/api/v1/recommendations/nope/apply')).toThrow();
+  });
+});
 
 describe('Weather query', () => {
   it('accepts a coordinate and an ISO date', () => {
