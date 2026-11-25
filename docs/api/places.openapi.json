@@ -373,7 +373,29 @@
             "type": ["string", "null"],
             "format": "date-time",
             "description": "When the record was fetched from its provider."
+          },
+          "hero_image": {
+            "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/PlaceImage" }],
+            "description": "POI-IMAGES (additive): best licensed photo of the place (Wolfari catalogue only); null when none passed the precision and licence rules. Clients show the attribution next to the photo and a neutral icon otherwise."
           }
+        }
+      },
+      "PlaceImage": {
+        "type": "object",
+        "required": ["url", "thumbnail_url", "small_url", "license", "source_url", "attribution", "is_placeholder"],
+        "properties": {
+          "url": { "type": "string", "description": "Gateway-relative URL of the 1280 px WebP variant, e.g. /api/v1/travel/poi-images/{sha256}/1280.webp." },
+          "thumbnail_url": { "type": "string", "description": "640 px variant (cards)." },
+          "small_url": { "type": "string", "description": "320 px variant (map pins, lists)." },
+          "width": { "type": ["integer", "null"], "minimum": 1 },
+          "height": { "type": ["integer", "null"], "minimum": 1 },
+          "author": { "type": ["string", "null"] },
+          "license": { "type": "string", "description": "CC0-1.0 | PD | CC-BY-x.y | CC-BY-SA-x.y (allowlist; NC, ND and GFDL-only are excluded)." },
+          "license_url": { "type": ["string", "null"] },
+          "source_url": { "type": "string", "description": "File page on Wikimedia Commons (https)." },
+          "attribution": { "type": "string", "description": "Credit line to show with the photo, e.g. \"Ảnh: An · CC BY-SA 4.0 · Wikimedia Commons\"." },
+          "source": { "type": ["string", "null"], "description": "manual | wikidata | wikipedia | commons_category | commons_geo | osm_tag" },
+          "is_placeholder": { "type": "boolean", "const": false, "description": "Always false today; reserved for category illustrations." }
         }
       },
       "SearchResponse": {

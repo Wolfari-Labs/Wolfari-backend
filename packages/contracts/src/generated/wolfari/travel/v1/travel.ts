@@ -114,7 +114,56 @@ export interface Place {
     | undefined;
   /** Provider data release, e.g. Overture 2026-10-21.0. */
   data_release?: string | undefined;
-  fetched_at?: Timestamp | undefined;
+  fetched_at?:
+    | Timestamp
+    | undefined;
+  /** POI-IMAGES (additive): best licensed photo of the place; absent when none was found. */
+  hero_image?: PlaceImage | undefined;
+}
+
+/** A licensed photo stored by Wolfari; `sha256` names it, variants are 320/640/1280 px wide WebP. */
+export interface PlaceImage {
+  sha256?:
+    | string
+    | undefined;
+  /** 1280 variant */
+  width?: number | undefined;
+  height?: number | undefined;
+  author?:
+    | string
+    | undefined;
+  /** CC0-1.0 | PD | CC-BY-x.y | CC-BY-SA-x.y */
+  license?: string | undefined;
+  license_url?:
+    | string
+    | undefined;
+  /** File page on Wikimedia Commons */
+  source_url?:
+    | string
+    | undefined;
+  /** Line to show next to the photo */
+  attribution?:
+    | string
+    | undefined;
+  /** manual | wikidata | wikipedia | commons_category | commons_geo | osm_tag */
+  source?: string | undefined;
+}
+
+export interface GetPoiImageRequest {
+  sha256?:
+    | string
+    | undefined;
+  /** 320 | 640 | 1280 */
+  width?: number | undefined;
+}
+
+export interface GetPoiImageResponse {
+  content?:
+    | Uint8Array
+    | undefined;
+  /** image/webp */
+  mime_type?: string | undefined;
+  size_bytes?: number | undefined;
 }
 
 /** Map frame for POI exploration, WGS84 degrees. */
@@ -226,6 +275,10 @@ export interface TravelServiceClient {
   getWeather(request: GetWeatherRequest, metadata?: Metadata): Observable<GetWeatherResponse>;
 
   getRecommendation(request: GetRecommendationRequest, metadata?: Metadata): Observable<GetRecommendationResponse>;
+
+  /** POI-IMAGES: one stored WebP variant of a licensed POI photo (public, content-addressed). */
+
+  getPoiImage(request: GetPoiImageRequest, metadata?: Metadata): Observable<GetPoiImageResponse>;
 }
 
 export interface TravelServiceController {
@@ -248,11 +301,18 @@ export interface TravelServiceController {
     request: GetRecommendationRequest,
     metadata?: Metadata,
   ): Promise<GetRecommendationResponse> | Observable<GetRecommendationResponse> | GetRecommendationResponse;
+
+  /** POI-IMAGES: one stored WebP variant of a licensed POI photo (public, content-addressed). */
+
+  getPoiImage(
+    request: GetPoiImageRequest,
+    metadata?: Metadata,
+  ): Promise<GetPoiImageResponse> | Observable<GetPoiImageResponse> | GetPoiImageResponse;
 }
 
 export function TravelServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["searchPlaces", "getRoute", "getWeather", "getRecommendation"];
+    const grpcMethods: string[] = ["searchPlaces", "getRoute", "getWeather", "getRecommendation", "getPoiImage"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("TravelService", method)(constructor.prototype[method], method, descriptor);

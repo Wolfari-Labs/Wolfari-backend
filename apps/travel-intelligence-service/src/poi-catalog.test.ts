@@ -11,6 +11,7 @@ import {
 } from './poi-catalog';
 
 const choHan: CatalogPoi = {
+  poi_id: '00000000-0000-4000-8000-000000000001',
   wolfari_key: 'dn-cho-han',
   tier: 1,
   name_vi: 'Chợ Hàn',
