@@ -201,6 +201,8 @@ export function appEnvironment(app, values, inherited = process.env) {
     'GATEWAY_TRAVEL_SECRET',
     'PLACE_SELECTION_SECRET',
     'GEOAPIFY_API_KEY',
+    'OPEN_METEO_URL',
+    'TRAVEL_WEATHER_MOCK',
   ];
   const allowed = [
     'NODE_ENV',
@@ -413,6 +415,9 @@ export async function initEnvironment(
                       PLACE_SELECTION_SECRET: shared.PLACE_SELECTION_SECRET,
                       TRIP_GRPC_TARGET: '127.0.0.1:3202',
                       TRAVEL_TRIP_SECRET: shared.TRAVEL_TRIP_SECRET,
+                      // FR-TI01: Open-Meteo free API (non-commercial, no key).
+                      OPEN_METEO_URL: 'https://api.open-meteo.com/v1/',
+                      TRAVEL_WEATHER_MOCK: 'false',
                     }
                   : {};
     const current = await readEnv(path);

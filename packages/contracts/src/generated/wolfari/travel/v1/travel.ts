@@ -171,7 +171,11 @@ export interface Weather {
   forecast_at?: Timestamp | undefined;
   temperature_c?: number | undefined;
   rain_probability?: number | undefined;
-  uv_index?: number | undefined;
+  uv_index?:
+    | number
+    | undefined;
+  /** Lowest of the day; temperature_c is the highest. */
+  temperature_min_c?: number | undefined;
 }
 
 export interface GetWeatherResponse {

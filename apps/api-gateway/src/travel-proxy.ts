@@ -73,7 +73,7 @@ export class TravelProxy {
   constructor(private readonly validate: SessionValidator) {}
   matches(request: IncomingMessage & { originalUrl?: string }) {
     try {
-      return /^\/api\/v1\/travel\/route\/?$/.test(
+      return /^\/api\/v1\/travel\/(route|weather)\/?$/.test(
         new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname,
       );
     } catch {
@@ -83,13 +83,14 @@ export class TravelProxy {
   private getRoute(
     input: Record<string, unknown>,
     correlation: string,
+    name: 'GetRoute' | 'GetWeather' = 'GetRoute',
   ): Promise<Record<string, unknown>> {
     const target = process.env.TRAVEL_GRPC_TARGET ?? '127.0.0.1:3203';
     const secret = process.env.GATEWAY_TRAVEL_SECRET ?? '';
     if (!isLoopbackGrpcTarget(target) || secret.length < 32)
       return Promise.reject(new Error('Travel unavailable'));
     this.travel ??= new Client(target, credentials.createInsecure());
-    const method = service.GetRoute as MethodDefinition<
+    const method = service[name] as MethodDefinition<
       Record<string, unknown>,
       Record<string, unknown>
     >;
@@ -114,6 +115,8 @@ export class TravelProxy {
     response.setHeader('Cache-Control', 'no-store');
     try {
       const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
+      if (url.pathname.replace(/\/$/, '') === '/api/v1/travel/weather' && request.method === 'GET')
+        return await this.weather(url, request, response);
       if (url.pathname.replace(/\/$/, '') !== '/api/v1/travel/route' || request.method !== 'POST')
         return fail(response, 404, 'RESOURCE_NOT_FOUND');
       const auth = await authenticate(request, response, this.validate, false);
@@ -158,7 +161,74 @@ export class TravelProxy {
       return grpcFailure(response, error, false);
     }
   }
+  /** FR-TI01: GET /api/v1/travel/weather?latitude=&longitude=&date= (Open-Meteo via Travel). */
+  private async weather(url: URL, request: IncomingMessage, response: ServerResponse) {
+    const auth = await authenticate(request, response, this.validate, false);
+    if (!auth) return;
+    if (!allowRouteRequest(auth.actorUserId))
+      return fail(response, 429, 'RESOURCE_EXHAUSTED', { retryable: true });
+    ensureQuery(url, ['latitude', 'longitude', 'date']);
+    const result = await this.getRoute(
+      weatherRequest(url.searchParams),
+      auth.correlationId,
+      'GetWeather',
+    );
+    const meta = responseRecord(result.meta);
+    const status = { 1: 'SUCCESS', 2: 'NO_RESULT', 3: 'ERROR' }[Number(meta.status)];
+    const warnings = Array.isArray(meta.warnings) ? meta.warnings.map(String) : [];
+    if (status !== 'SUCCESS' && status !== 'NO_RESULT')
+      return fail(response, 503, 'SERVICE_UNAVAILABLE', {
+        retryable: true,
+        details: {
+          provider: String(meta.provider ?? 'OPEN_METEO'),
+          reason: warnings[0] ?? 'PROVIDER_UNAVAILABLE',
+        },
+      });
+    const data = result.data ? responseRecord(result.data) : null;
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    return json(response, 200, {
+      data: data
+        ? {
+            date: url.searchParams.get('date'),
+            temperature_max_c: num(data.temperature_c),
+            temperature_min_c: num(data.temperature_min_c),
+            rain_probability: num(data.rain_probability),
+            uv_index: num(data.uv_index),
+          }
+        : null,
+      meta: {
+        status,
+        provider: String(meta.provider ?? 'OPEN_METEO'),
+        fetched_at: meta.fetched_at ? timestampToIso(meta.fetched_at) : null,
+        stale: meta.stale === true,
+        is_mock: meta.is_mock === true,
+        warnings,
+        attribution: (Array.isArray(meta.attribution) ? meta.attribution : []).map((a) => {
+          const r = responseRecord(a);
+          return { text: String(r.text ?? ''), url: String(r.url ?? '') };
+        }),
+      },
+    });
+  }
   close() {
     this.travel?.close();
   }
+}
+
+/** Query string → Travel GetWeatherRequest; Travel re-validates the Vietnam bounds. */
+export function weatherRequest(query: URLSearchParams) {
+  const latitude = Number(query.get('latitude')),
+    longitude = Number(query.get('longitude')),
+    date = query.get('date') ?? '';
+  if (
+    !query.get('latitude') ||
+    !query.get('longitude') ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    Math.abs(latitude) > 90 ||
+    Math.abs(longitude) > 180 ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(date)
+  )
+    throw new RequestError('Invalid weather query');
+  return { coordinate: { latitude, longitude }, date };
 }

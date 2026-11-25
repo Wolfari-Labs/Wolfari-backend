@@ -108,6 +108,7 @@ message Weather {
   double temperature_c = 2;
   double rain_probability = 3;
   optional double uv_index = 4;
+  optional double temperature_min_c = 5; // Lowest of the day; temperature_c is the highest.
 }
 message GetWeatherResponse {
   Weather data = 1;
