@@ -269,6 +269,7 @@ export interface TravelServiceClient {
   getRecommendation(request: GetRecommendationRequest, metadata?: Metadata): Observable<GetRecommendationResponse>;
 
   /** POI-IMAGES: one stored WebP variant of a licensed POI photo (public, content-addressed). */
+
   getPoiImage(request: GetPoiImageRequest, metadata?: Metadata): Observable<GetPoiImageResponse>;
 }
 
@@ -294,6 +295,7 @@ export interface TravelServiceController {
   ): Promise<GetRecommendationResponse> | Observable<GetRecommendationResponse> | GetRecommendationResponse;
 
   /** POI-IMAGES: one stored WebP variant of a licensed POI photo (public, content-addressed). */
+
   getPoiImage(
     request: GetPoiImageRequest,
     metadata?: Metadata,
