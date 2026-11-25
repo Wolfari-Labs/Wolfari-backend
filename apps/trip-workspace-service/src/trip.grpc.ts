@@ -275,7 +275,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
   previewRecommendation(
     request: TripV1.PreviewRecommendationRequest,
     metadata?: Metadata,
-  ): Promise<TripV1.RecommendationResponse> {
+  ): Promise<TripV1.PreviewRecommendationResponse> {
     const correlation = this.authorize('PreviewRecommendation', metadata);
     return this.execute(async () => {
       if (!this.recommendations) throw Error('Recommendations unavailable');
@@ -289,7 +289,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
   applyRecommendation(
     request: TripV1.ApplyRecommendationRequest,
     metadata?: Metadata,
-  ): Promise<TripV1.RecommendationResponse> {
+  ): Promise<TripV1.ApplyRecommendationResponse> {
     const correlation = this.authorize('ApplyRecommendation', metadata);
     return this.execute(async () => {
       if (!this.recommendations) throw Error('Recommendations unavailable');
@@ -301,7 +301,7 @@ export class TripGrpcController implements TripV1.TripServiceController {
   ignoreRecommendation(
     request: TripV1.IgnoreRecommendationRequest,
     metadata?: Metadata,
-  ): Promise<TripV1.RecommendationResponse> {
+  ): Promise<TripV1.IgnoreRecommendationResponse> {
     this.authorize('IgnoreRecommendation', metadata);
     return this.execute(async () => {
       if (!this.recommendations) throw Error('Recommendations unavailable');

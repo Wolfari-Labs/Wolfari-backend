@@ -35,9 +35,9 @@ service TripService {
   rpc GetExportWorkerContext(GetExportWorkerContextRequest) returns (GetExportWorkerContextResponse);
   rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
   rpc MutatePlanItem(MutatePlanItemRequest) returns (MutatePlanItemResponse);
-  rpc PreviewRecommendation(PreviewRecommendationRequest) returns (RecommendationResponse);
-  rpc ApplyRecommendation(ApplyRecommendationRequest) returns (RecommendationResponse);
-  rpc IgnoreRecommendation(IgnoreRecommendationRequest) returns (RecommendationResponse);
+  rpc PreviewRecommendation(PreviewRecommendationRequest) returns (PreviewRecommendationResponse);
+  rpc ApplyRecommendation(ApplyRecommendationRequest) returns (ApplyRecommendationResponse);
+  rpc IgnoreRecommendation(IgnoreRecommendationRequest) returns (IgnoreRecommendationResponse);
   rpc CreateActivity(CreateActivityRequest) returns (CreateActivityResponse);
   rpc UpdateActivity(UpdateActivityRequest) returns (UpdateActivityResponse);
   rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
@@ -621,7 +621,14 @@ message IgnoreRecommendationRequest {
   string actor_user_id = 1;
   string recommendation_id = 2;
 }
-message RecommendationResponse {
+// Each RPC has its own response (buf STANDARD lint); all three carry the same projection.
+message PreviewRecommendationResponse {
+  string recommendation_json = 1; // Public projection, built and allowlisted by Trip.
+}
+message ApplyRecommendationResponse {
+  string recommendation_json = 1; // Public projection, built and allowlisted by Trip.
+}
+message IgnoreRecommendationResponse {
   string recommendation_json = 1; // Public projection, built and allowlisted by Trip.
 }
 

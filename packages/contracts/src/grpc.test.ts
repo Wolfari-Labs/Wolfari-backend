@@ -156,7 +156,7 @@ describe('gRPC contracts', () => {
     expect(clear.ends_at).toEqual({ clear: true, change: 'clear' });
   });
 
-  it('loads exactly the 145 RPCs declared by the catalog', () => {
+  it('loads exactly the 148 RPCs declared by the catalog', () => {
     const loaded = [
       [
         GRPC_PACKAGES.identity,
