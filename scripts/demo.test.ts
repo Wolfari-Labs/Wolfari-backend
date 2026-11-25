@@ -3,9 +3,48 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { initEnvironment, root, apps, appEnvironment, readEnv } from './config.mjs';
-import { appOverrides, infraPorts, assertOwnedResource } from './demo-config.mjs';
+import {
+  appOverrides,
+  infraPorts,
+  assertOwnedResource,
+  demoProviderEnv,
+} from './demo-config.mjs';
 import { randomUUID } from 'node:crypto';
 import { requestStop, serveControl } from './demo-control.mjs';
+
+describe('demo live provider pass-through', () => {
+  const shell = {
+    TRAVELPAYOUTS_TOKEN: ' shell-token ',
+    PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE',
+    TRAVELPAYOUTS_VND_VERIFIED: '',
+    OSRM_PUBLIC_DEMO: 'true',
+    BANK_WEBHOOK_SEPAY_API_KEY: 'shell-key',
+    DATABASE_URL: 'postgresql://elsewhere',
+  };
+  it('forwards only non-empty provider keys to their owning app', () => {
+    expect(demoProviderEnv('automation-service', shell)).toEqual({
+      TRAVELPAYOUTS_TOKEN: 'shell-token',
+      PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE',
+    });
+    expect(demoProviderEnv('travel-intelligence-service', shell)).toEqual({
+      OSRM_PUBLIC_DEMO: 'true',
+    });
+    expect(demoProviderEnv('api-gateway', shell)).toEqual({ BANK_WEBHOOK_SEPAY_API_KEY: 'shell-key' });
+    expect(demoProviderEnv('finance-service', shell)).toEqual({});
+  });
+  it('lets the forwarded values reach only their app through the allow-list', () => {
+    for (const app of apps) {
+      const env = appEnvironment(app, demoProviderEnv(app.name, shell), {});
+      expect(env.TRAVELPAYOUTS_TOKEN).toBe(
+        app.name === 'automation-service' ? 'shell-token' : undefined,
+      );
+      expect(env.OSRM_PUBLIC_DEMO).toBe(
+        app.name === 'travel-intelligence-service' ? 'true' : undefined,
+      );
+      expect(env).not.toHaveProperty('DATABASE_URL', 'postgresql://elsewhere');
+    }
+  });
+});
 
 describe('isolated demo configuration', () => {
   it('acknowledges shutdown only after the owned launcher has exited', async () => {

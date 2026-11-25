@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RequestError } from './trip-http';
-import { priceWatchRoute, priceWatchWrite } from './price-watch-proxy';
+import { priceSourceFailure, priceWatchRoute, priceWatchWrite } from './price-watch-proxy';
 
 const trip = '11111111-1111-4111-8111-111111111111';
 const watch = '22222222-2222-4222-8222-222222222222';
@@ -56,6 +56,46 @@ describe('price watch HTTP boundary', () => {
       threshold_price: '2000000',
       departure_at: { seconds: expect.any(String), nanos: 0 },
     });
+  });
+
+  it('lets a new watch omit the provider so Automation picks the configured source', () => {
+    const result = priceWatchWrite(
+      {
+        origin: 'SGN',
+        destination: 'HAN',
+        departure_date: '2099-12-14',
+        journey_type: 'ONE_WAY',
+        passengers: { adults: 1 },
+        currency: 'VND',
+        threshold_price: '1500000',
+        departure_at: '2099-12-14T02:00:00Z',
+      },
+      false,
+    );
+    expect(result).not.toHaveProperty('provider');
+    expect(result).toMatchObject({ origin: 'SGN', destination: 'HAN', journey_type: 1 });
+    expect(() => priceWatchWrite({ provider: 7 } as never, false)).toThrowError(RequestError);
+  });
+
+  it('keeps only the actionable price-source reasons from Automation errors', () => {
+    const grpc = (code: string, details: unknown) => ({
+      details: JSON.stringify({ code, details }),
+    });
+    expect(
+      priceSourceFailure(grpc('VALIDATION_FAILED', { reason: 'PROVIDER_QUERY_UNSUPPORTED' })),
+    ).toEqual({ statusCode: 400, code: 'VALIDATION_FAILED', reason: 'PROVIDER_QUERY_UNSUPPORTED' });
+    expect(
+      priceSourceFailure(grpc('SERVICE_UNAVAILABLE', { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' })),
+    ).toEqual({
+      statusCode: 503,
+      code: 'SERVICE_UNAVAILABLE',
+      reason: 'PRICE_PROVIDER_NOT_CONFIGURED',
+    });
+    expect(priceSourceFailure(grpc('VALIDATION_FAILED', null))).toBeNull();
+    expect(
+      priceSourceFailure(grpc('SERVICE_UNAVAILABLE', { reason: 'SOMETHING_ELSE' })),
+    ).toBeNull();
+    expect(priceSourceFailure(new Error('boom'))).toBeNull();
   });
 
   it('encodes nullable patch fields as explicit oneof changes', () => {

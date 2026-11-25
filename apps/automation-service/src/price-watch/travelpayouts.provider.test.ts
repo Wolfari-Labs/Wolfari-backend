@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTravelpayouts } from './travelpayouts.provider';
+import { parseTravelpayouts, travelpayoutsUrl } from './travelpayouts.provider';
 import { referencePriceFresh } from './price-watch-worker.domain';
 const now = Date.parse('2026-11-12T12:00:00Z');
 const query = {
@@ -39,9 +39,36 @@ describe('cached price contract', () => {
   ])('ignores mismatched record %j', (patch) =>
     expect(parse([{ ...row, ...patch }])).toEqual({ kind: 'NO_RESULT' }),
   );
-  it.each([0, -1, 1.5, '123', Number.MAX_SAFE_INTEGER + 1])('rejects invalid price %s', (value) =>
-    expect(() => parse([{ ...row, value }])).toThrow(),
+  it.each([0, -1, 0.4, Number.NaN, '123', Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid price %s',
+    (value) => expect(() => parse([{ ...row, value }])).toThrow(),
   );
+  it('rounds a converted VND price to whole dong', () =>
+    expect(parse([{ ...row, value: 1234000.6 }])).toMatchObject({ price: '1234001' }));
+  it('accepts rows without trip_class because the request already asks for economy', () => {
+    const withoutClass: Record<string, unknown> = { ...row };
+    delete withoutClass.trip_class;
+    expect(parse([withoutClass])).toMatchObject({ kind: 'SUCCESS', price: '1234000' });
+  });
+  it('asks for one departure day of every cached one-way economy price in VND', () =>
+    expect(
+      Object.fromEntries(
+        travelpayoutsUrl({ origin: 'SGN', destination: 'HAN', departure_date: '2026-12-14' })
+          .searchParams,
+      ),
+    ).toEqual({
+      origin: 'SGN',
+      destination: 'HAN',
+      period_type: 'day',
+      beginning_of_period: '2026-12-14',
+      one_way: 'true',
+      trip_class: '0',
+      currency: 'vnd',
+      sorting: 'price',
+      show_to_affiliates: 'false',
+      limit: '20',
+      page: '1',
+    }));
   it('refuses unverified currency and explicit currency mismatch', () => {
     expect(() => parseTravelpayouts({ success: true, data: [row] }, query, false, now)).toThrow();
     expect(() => parse([row], { currency: 'USD' })).toThrow();

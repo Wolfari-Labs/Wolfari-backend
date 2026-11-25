@@ -21,7 +21,7 @@ import {
 const service = loadSync(PROTO_PATHS.travel, GRPC_LOADER_OPTIONS)[
   'wolfari.travel.v1.TravelService'
 ] as ServiceDefinition;
-const MODES: Record<string, number> = { DRIVING: 2, WALKING: 1 };
+const MODES: Record<string, number> = { DRIVING: 2, WALKING: 1, CYCLING: 3 };
 const ROUTE_LIMIT_PER_MINUTE = 60;
 
 /** Per-user token bucket for POST /api/v1/travel/route (60 requests/minute). */
@@ -66,6 +66,19 @@ export function routeRequest(body: Record<string, unknown>) {
     return { latitude, longitude };
   });
   return { coordinates, mode: MODES[mode]! };
+}
+
+/** OpenStreetMap credit the client must show next to a road route (https only, short text). */
+export function routeAttribution(value: unknown): { text: string; url: string | null }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== 'object' || item === null) return [];
+    const entry = item as Record<string, unknown>;
+    const text = typeof entry.text === 'string' ? entry.text.trim().slice(0, 120) : '';
+    const url =
+      typeof entry.url === 'string' && /^https:\/\/[^\s]+$/.test(entry.url) ? entry.url : null;
+    return text ? [{ text, url }] : [];
+  });
 }
 
 export class TravelProxy {
@@ -151,6 +164,7 @@ export class TravelProxy {
           stale: meta.stale === true,
           is_mock: false,
           warnings,
+          attribution: routeAttribution(meta.attribution),
         },
       });
     } catch (error) {

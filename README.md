@@ -71,6 +71,8 @@ curl "http://127.0.0.1:5001/route/v1/driving/108.22,16.06;108.24,16.05?overview=
 
 Trên Windows dùng đường dẫn tuyệt đối cho `-v` nếu `$PWD` không được Docker nhận. OSRM chưa chạy thì endpoint trả `503 SERVICE_UNAVAILABLE`, web vẽ nét đứt "Đường chim bay".
 
+`WALKING`/`CYCLING` dùng `OSRM_WALKING_URL`/`OSRM_CYCLING_URL` (chạy thêm container với `/opt/foot.lua`, `/opt/bicycle.lua`). Demo không có OSRM local có thể đặt `OSRM_PUBLIC_DEMO=true` để dùng máy chủ OSRM công khai (tối đa 1 request/giây, phi thương mại, cache 7 ngày); xem [nguồn thật cho demo](docs/architecture/demo-live-providers.md), cùng chỗ hướng dẫn giá vé Travelpayouts và tiền về SePay.
+
 ### Ảnh POI (POI-IMAGES)
 
 Ảnh có giấy phép mở (CC0, PD, CC BY, CC BY-SA) từ Wikidata, Wikipedia, Wikimedia Commons và thẻ OSM, khớp cục bộ rồi tự lưu (WebP 320/640/1280 trong MinIO, bucket `wolfari-poi-images`). Thiết kế, quyết định và kết quả pilot: [docs/architecture/poi-images.md](docs/architecture/poi-images.md).

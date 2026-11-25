@@ -171,3 +171,88 @@ describe('PriceWatchService authorization', () => {
     ).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
   });
 });
+
+describe('PriceWatchService provider selection', () => {
+  const write = (overrides: Record<string, unknown> = {}) => ({
+    provider: '',
+    origin: 'SGN',
+    destination: 'HAN',
+    departure_date: '2099-12-14',
+    journey_type: 1,
+    passengers: { adults: 1, children: 0, infants: 0 },
+    cabin_class: 'ECONOMY',
+    currency: 'VND',
+    threshold_price: '1500000',
+    departure_at: { seconds: String(Date.parse('2099-12-14T02:00:00Z') / 1000), nanos: 0 },
+    ...overrides,
+  });
+  const create = (config: Record<string, string>, overrides: Record<string, unknown> = {}) => {
+    const access = {
+      get: vi.fn().mockResolvedValue({ membershipId, role: 'MEMBER', state: 'ACTIVE' }),
+    };
+    const repository = { create: vi.fn(async (input: unknown) => input) };
+    const service = new PriceWatchService(
+      {
+        get: (key: string) =>
+          config[key] ?? (key === 'AUTOMATION_CURSOR_SECRET' ? 's'.repeat(32) : undefined),
+      } as never,
+      access as never,
+      repository as never,
+    );
+    return {
+      repository,
+      run: () =>
+        service.create(
+          {
+            actor_user_id: userId,
+            trip_id: tripId,
+            client_request_id: '66666666-6666-4666-8666-666666666666',
+            watch: write(overrides) as never,
+          },
+          'c',
+        ),
+    };
+  };
+  const live = {
+    PRICE_WATCH_PROVIDER: 'TRAVELPAYOUTS_CACHE',
+    PRICE_WATCH_WORKER_ENABLED: 'true',
+    TRAVELPAYOUTS_TOKEN: 'unit-only-token',
+    TRAVELPAYOUTS_VND_VERIFIED: 'true',
+  };
+
+  it('uses the configured real provider when the client omits it', async () => {
+    const { run, repository } = create(live);
+    await run();
+    expect(repository.create.mock.calls[0]![0]).toMatchObject({
+      value: { query: { provider: 'TRAVELPAYOUTS_CACHE', origin: 'SGN', destination: 'HAN' } },
+    });
+  });
+
+  it('falls back to MOCK_FLIGHT outside production when no real provider is configured', async () => {
+    const { run, repository } = create({});
+    await run();
+    expect(repository.create.mock.calls[0]![0]).toMatchObject({
+      value: { query: { provider: 'MOCK_FLIGHT' } },
+    });
+  });
+
+  it('explains a query the real provider cannot price', async () => {
+    const { run, repository } = create(live, {
+      journey_type: 2,
+      return_date: '2099-12-20',
+    });
+    await expect(run()).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { reason: 'PROVIDER_QUERY_UNSUPPORTED' },
+    });
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('reports a real provider that is selected but not configured', async () => {
+    const { run } = create({ ...live, TRAVELPAYOUTS_TOKEN: '' });
+    await expect(run()).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      details: { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' },
+    });
+  });
+});
