@@ -235,6 +235,7 @@ export class TripManagementService {
       actor = uuid(raw.user_id),
       source = uuid(raw.source_id);
     const type = raw.source_type;
+    if (type === 'MEMBER_JOINED') return this.memberJoinedContext(tripId, actor, source);
     if (!['ACTIVITY', 'PACKING'].includes(type ?? '')) return fail('VALIDATION_FAILED', 400);
     return this.repo.db.withTransaction(async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
@@ -266,5 +267,37 @@ export class TripManagementService {
         },
       };
     });
+  }
+
+  /**
+   * Who is told that someone accepted an invitation: the active Owner, while the new membership
+   * (source_id, of user_id) is still active. The Owner joining their own Trip tells nobody.
+   */
+  private async memberJoinedContext(
+    tripId: string,
+    userId: string,
+    memberId: string,
+  ): Promise<TripV1.GetAutomationContextResponse> {
+    const row =
+      (
+        await this.repo.db.query<{ owner: string; revision: number }>(
+          `SELECT o.user_id AS owner,t.membership_revision AS revision FROM trips t
+          JOIN trip_members m ON m.trip_id=t.id AND m.id=$3 AND m.user_id=$2 AND m.left_at IS NULL
+          JOIN trip_members o ON o.trip_id=t.id AND o.role='OWNER' AND o.left_at IS NULL
+          WHERE t.id=$1 AND t.deleted_at IS NULL`,
+          [tripId, userId, memberId],
+        )
+      ).rows[0] ?? fail('RESOURCE_NOT_FOUND', 404);
+    const notify = row.owner !== userId;
+    return {
+      context: {
+        source_type: 'MEMBER_JOINED',
+        source_id: memberId,
+        source_revision: row.revision,
+        state: 'ACTIVE',
+        allowed: notify,
+        recipients: notify ? [{ user_id: row.owner }] : [],
+      },
+    };
   }
 }

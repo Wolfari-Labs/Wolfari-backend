@@ -484,7 +484,7 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 11, 20, 15];
+  const counts = [8, 19, 11, 20, 15];
   let fks = 0;
   for (const [index, service] of services.entries())
     await db(service, async (client) => {
@@ -503,7 +503,7 @@ async function main() {
         service === 'automation'
           ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008', 'V009']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
+            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
             : service === 'finance'
               ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008']
               : service === 'identity'
@@ -513,8 +513,8 @@ async function main() {
                   : ['V001'],
       );
     });
-  assert.equal(fks, 59);
-  pass('64 bảng mô hình + 5 lịch sử, 57 FK');
+  assert.equal(fks, 61);
+  pass('68 bảng mô hình + 5 lịch sử, 61 FK');
   await db('finance', async (client) => {
     await client.query(
       await readFile(
@@ -578,6 +578,15 @@ async function main() {
     );
   });
   pass('V003 date/timestamp exclusivity, calendar bounds and failed-update rollback');
+  await db('trip', async (client) => {
+    await client.query(
+      await readFile(
+        resolve(root, 'apps/trip-workspace-service/tests/database/V007_constraints.sql'),
+        'utf8',
+      ),
+    );
+  });
+  pass('V007 group-link use limits and one admission per membership');
   await db('automation', checkPriceWatchRepository);
   pass(
     'Automation PriceWatchRepository: idempotency, shared query, version, transition and observations',

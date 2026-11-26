@@ -1,6 +1,6 @@
 # Trip invitations
 
-Phạm vi nhánh `feat/trip-invitations`: quản lý lời mời, gia nhập nhóm bằng token, email delivery và notification tối thiểu. Đây không phải toàn bộ membership lifecycle, Finance closure, inbox UI hoặc push notification.
+Phạm vi: quản lý lời mời (chỉ Owner), gia nhập nhóm bằng token/mã/link nhóm, email delivery, notification và push cho người được mời đã có tài khoản, danh sách lời mời đang chờ. Đây không phải toàn bộ membership lifecycle hay Finance closure.
 
 ## Quyền và API
 
@@ -15,10 +15,19 @@ Phạm vi nhánh `feat/trip-invitations`: quản lý lời mời, gia nhập nh�
 | `POST /invitations/decline`                                | Người nhận đã đăng nhập | Projection giới hạn, trạng thái DECLINED  |
 | `POST /trips/{trip_id}/invitations/{invitation_id}/revoke` | Owner đang hoạt động    | Invitation REVOKED                        |
 | `POST /trips/{trip_id}/invitations/{invitation_id}/resend` | Owner đang hoạt động    | EMAIL xoay token và tăng version          |
+| `GET /me/invitations`                                      | Người nhận đã đăng nhập | Tối đa 20 lời mời EMAIL đang chờ của tôi  |
 
-Mutation bắt buộc UUID `Idempotency-Key`; preview không cần. Create nhận `invitation_type`, `email` chỉ cho EMAIL, `expires_at` tùy chọn và `expected_membership_revision`. Revoke/resend nhận `expected_version`. Unknown field, query trùng, UUID/version không hợp lệ bị từ chối. Không có Admin bypass hay quyền quản lý cho Plan Editor.
+Mutation bắt buộc UUID `Idempotency-Key`; preview không cần. Create nhận `invitation_type`, `email` chỉ cho EMAIL, `expires_at` tùy chọn, `max_uses` tùy chọn (chỉ LINK, 1–50, mặc định 1) và `expected_membership_revision`. Revoke/resend nhận `expected_version`. Unknown field, query trùng, UUID/version không hợp lệ bị từ chối. Không có Admin bypass hay quyền quản lý cho Plan Editor (mọi chính sách sửa lịch trình): chỉ Owner thấy `can_invite`.
 
-EMAIL so khớp email chuẩn hóa với Identity và yêu cầu đã xác minh khi preview/accept/decline. LINK cho phép tài khoản ACTIVE chưa xác minh email; accept hoặc decline đầu tiên giải quyết lời mời. Người nhận không cần membership hiện có. Token sai hoặc sai người nhận trả 404; hết hạn/terminal/busy guard trả 409. Trip bị xóa trả 404; archived chỉ cho phép Owner liệt kê và replay hợp lệ, không mutation mới.
+EMAIL so khớp email chuẩn hóa với Identity và yêu cầu đã xác minh khi preview/accept/decline. Ngoài token, người nhận đó trả lời được bằng `invitation_id` lấy từ `GET /me/invitations` (chính email đã xác minh là bằng chứng, giống link trong email); LINK không bao giờ trả lời bằng ID. LINK cho phép tài khoản ACTIVE chưa xác minh email. LINK một lần (mặc định): accept hoặc decline đầu tiên giải quyết lời mời. Link nhóm (`max_uses` > 1): mỗi tài khoản vào một lần, lời mời ở PENDING tới lượt cuối rồi ACCEPTED; decline chỉ là bỏ qua cho người đó. Người nhận không cần membership hiện có. Token sai hoặc sai người nhận trả 404; hết hạn/terminal/busy guard/hết lượt trả 409. Trip bị xóa trả 404; archived chỉ cho phép Owner liệt kê và replay hợp lệ, không mutation mới.
+
+## Trải nghiệm người nhận (bổ sung 26/11/2026)
+
+- **Email**: tiêu đề “<Người mời> mời bạn tham gia chuyến đi “<Tên chuyến>” trên Wolfari”; nội dung có ngày đi theo múi giờ Trip, hạn lời mời, nút “Xem lời mời” và cách trả lời. HTML escape tên do người dùng nhập; tiêu đề không chứa ký tự điều khiển.
+- **Link**: `<TRIP_INVITATION_LINK_BASE_URL>/invitations#token=…` (EMAIL) và `share_link` = `…/invitations#code=XXXX-XXXX` (LINK, dùng cho QR/chia sẻ). Bí mật nằm trong fragment nên không vào log server hay Referer. Đặt base là origin web công khai để mở được trên mọi thiết bị.
+- **Trong app**: người đã có tài khoản (email đã xác minh) thấy notification “Lời mời chuyến đi” (không lộ Trip ID khi chưa là thành viên) và push nếu bật; người đăng ký sau thấy lời mời ở `GET /me/invitations` ngay khi xác minh email, không cần lại email.
+- **Owner** nhận notification `INVITATION_ACCEPTED` khi có người vào (Trip `GetAutomationContext` nguồn `MEMBER_JOINED`).
+- DB: Trip V007 thêm `max_uses`, `use_count`, bảng `invitation_acceptances` (mỗi membership một lần vào; backfill từ ACCEPTED cũ) và index email PENDING.
 
 ## Token, trạng thái và replay
 
@@ -56,7 +65,7 @@ Retry theo 10s/30s/120s/300s/900s. Consumer dùng retry queue bền vững, khô
 
 Sau review cấu hình, chạy `corepack pnpm db:migrate --service trip` trên môi trường cần nâng cấp. Nhánh này không tự migrate database phát triển của người dùng. Trip readiness yêu cầu V001 và V002. V002 dùng [forward manifest](../database/SHA256SUMS.forward.txt), không đổi SQL/checksum migration đã áp dụng. Acceptance link đã được phản ánh trong [bộ tài liệu chính thức](../README.md). ACCEPTED cũ thiếu liên kết hoặc duplicate pending làm migration dừng để xử lý dữ liệu có kiểm soát, không tự suy đoán membership.
 
-Local link: `<TRIP_INVITATION_LINK_BASE_URL>/invitations/local#token=...`. Trang local có login, preview, accept, decline; GET không consume, token fragment bị xóa khỏi address bar, không lưu credential/token vào localStorage. Trang này không phải frontend production. Runtime vẫn từ chối transport không TLS khi `NODE_ENV=production`.
+Local link: `<TRIP_INVITATION_LINK_BASE_URL>/invitations#token=...` (hoặc `#code=`; đường dẫn cũ `/invitations/local` vẫn chạy). Khi base là Gateway (env:init), Gateway phục vụ trang local có login, preview, accept, decline; GET không consume, token fragment bị xóa khỏi address bar, không lưu credential/token vào localStorage. Trang này không phải frontend production. Runtime vẫn từ chối transport không TLS khi `NODE_ENV=production`.
 
 Diagnostics không có secret: Trip `/health/dependencies`, Automation `/health/invitations`. Có thể replay chính xác ID, kèm lý do:
 

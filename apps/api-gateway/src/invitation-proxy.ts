@@ -56,7 +56,15 @@ function invitation(value: unknown) {
             })(),
     invited_by_user_id:
       row.invited_by_user_id === undefined ? null : requiredString(row.invited_by_user_id),
+    // Older Trip builds send neither field; a fresh invitation may send use_count 0 or omit it.
+    max_uses: row.max_uses === undefined ? 1 : requiredInteger(row.max_uses),
+    use_count: row.use_count === undefined ? 0 : count(row.use_count),
   };
+}
+function count(value: unknown) {
+  if (!Number.isInteger(value) || Number(value) < 0 || Number(value) > 50)
+    throw new Error('Invalid invitation use count');
+  return Number(value);
 }
 /** Normalized 8-character join code (Crockford base32), or undefined. */
 export function joinCode(value: unknown): string | undefined {
@@ -72,13 +80,35 @@ const CODE_WINDOW_MS = 15 * 60_000;
 const CODE_FAILURES = 10;
 function preview(value: Message) {
   if (!states.includes(String(value.status))) throw new Error('Invalid preview response');
+  if (value.invitation_type !== undefined && !['EMAIL', 'LINK'].includes(String(value.invitation_type)))
+    throw new Error('Invalid preview response');
   return {
     id: requiredString(value.id),
     trip_name: requiredString(value.trip_name),
-    inviter_display_name: requiredString(value.inviter_display_name),
+    // An inviter whose profile is gone arrives as an empty (omitted) name.
+    inviter_display_name:
+      value.inviter_display_name === undefined ? '' : requiredString(value.inviter_display_name),
     status: value.status,
     expires_at: timestampToIso(value.expires_at),
+    invitation_type: value.invitation_type ?? null,
+    trip_start_at: value.trip_start_at ? timestampToIso(value.trip_start_at) : null,
+    trip_end_at: value.trip_end_at ? timestampToIso(value.trip_end_at) : null,
   };
+}
+/** The LINK share page: the configured web origin, path /invitations and only a #code fragment. */
+function shareLink(value: unknown) {
+  const link = requiredString(value);
+  const url = new URL(link);
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    !url.pathname.endsWith('/invitations') ||
+    !/^#code=[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(url.hash)
+  )
+    throw new Error('Invalid share link');
+  return link;
 }
 
 export class InvitationProxy {
@@ -105,7 +135,9 @@ export class InvitationProxy {
     const path = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname;
     return (
       path.startsWith('/api/v1/invitations') ||
+      path === '/api/v1/me/invitations' ||
       /^\/api\/v1\/trips\/[^/]+\/invitations(?:\/|$)/.test(path) ||
+      path === '/invitations' ||
       path === '/invitations/local'
     );
   }
@@ -113,14 +145,21 @@ export class InvitationProxy {
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('Referrer-Policy', 'no-referrer');
     const url = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost');
-    if (url.pathname === '/invitations/local') return this.localPage(request, response);
+    // Emailed links point at /invitations; when that base is this Gateway (local env), serve the
+    // test page there too. The older /invitations/local path keeps working for sent links.
+    if (url.pathname === '/invitations' || url.pathname === '/invitations/local')
+      return this.localPage(request, response);
     const correlation = currentCorrelationId();
     const tokenRoute = /^\/api\/v1\/invitations\/(preview|accept|decline)$/.exec(url.pathname);
+    const mine = url.pathname === '/api/v1/me/invitations';
     const management =
       /^\/api\/v1\/trips\/([^/]+)\/invitations(?:\/([^/]+)\/(revoke|resend))?$/.exec(url.pathname);
     if (
-      (!tokenRoute && !management) ||
-      (request.method !== 'POST' && !(management && !management[2] && request.method === 'GET'))
+      (!tokenRoute && !management && !mine) ||
+      (mine && request.method !== 'GET') ||
+      (!mine &&
+        request.method !== 'POST' &&
+        !(management && !management[2] && request.method === 'GET'))
     )
       return fail(response, 404, 'RESOURCE_NOT_FOUND');
     const write = request.method === 'POST' && tokenRoute?.[1] !== 'preview';
@@ -152,7 +191,10 @@ export class InvitationProxy {
         rpc.trip_id = management[1]!.toLowerCase();
         if (management[2]) rpc.invitation_id = management[2].toLowerCase();
       }
-      if (request.method === 'GET') {
+      if (mine) {
+        ensureQuery(url, []);
+        method = 'ListMyInvitations';
+      } else if (request.method === 'GET') {
         ensureQuery(url, ['limit', 'cursor', 'status']);
         const limit = url.searchParams.get('limit') ?? '20';
         if (!/^(?:[1-9]|[1-9]\d|100)$/.test(limit)) throw new RequestError('Invalid limit');
@@ -169,9 +211,16 @@ export class InvitationProxy {
         const body = await requestBody(request);
         if (write) rpc.operation_id = idempotencyKey(request, true);
         if (tokenRoute) {
-          onlyKeys(body, ['token', 'code']);
-          if (Object.hasOwn(body, 'code')) {
-            if (Object.hasOwn(body, 'token')) throw new RequestError('Token or code');
+          onlyKeys(body, ['token', 'code', 'invitation_id']);
+          const given = ['token', 'code', 'invitation_id'].filter((key) => Object.hasOwn(body, key));
+          if (given.length !== 1) throw new RequestError('Token, code or invitation_id');
+          if (Object.hasOwn(body, 'invitation_id')) {
+            // EMAIL invitations listed by GET /me/invitations; Trip checks the verified email.
+            if (typeof body.invitation_id !== 'string' || !uuid.test(body.invitation_id))
+              throw new RequestError('Invalid invitation id');
+            rpc.invitation_id = body.invitation_id.toLowerCase();
+            rpc.token = '';
+          } else if (Object.hasOwn(body, 'code')) {
             const code = joinCode(body.code);
             if (!code) throw new RequestError('Invalid code');
             const now = Date.now();
@@ -200,7 +249,18 @@ export class InvitationProxy {
             'email',
             'expires_at',
             'expected_membership_revision',
+            'max_uses',
           ]);
+          if (Object.hasOwn(body, 'max_uses')) {
+            if (
+              body.invitation_type !== 'LINK' ||
+              !Number.isInteger(body.max_uses) ||
+              Number(body.max_uses) < 1 ||
+              Number(body.max_uses) > 50
+            )
+              throw new RequestError('Invalid max uses');
+            rpc.max_uses = body.max_uses;
+          }
           if (!['EMAIL', 'LINK'].includes(String(body.invitation_type)))
             throw new RequestError('Invalid invitation type');
           rpc.invitation_type = body.invitation_type;
@@ -236,7 +296,11 @@ export class InvitationProxy {
         throw cause;
       }
       let data: unknown;
-      if (method === 'ListInvitations') {
+      if (method === 'ListMyInvitations') {
+        if (result.items !== undefined && !Array.isArray(result.items))
+          throw new Error('Invalid list');
+        data = { items: ((result.items ?? []) as Message[]).map(preview) };
+      } else if (method === 'ListInvitations') {
         if (result.items !== undefined && !Array.isArray(result.items))
           throw new Error('Invalid list');
         data = {
@@ -270,6 +334,7 @@ export class InvitationProxy {
                       throw new Error('Invalid join code');
                     })(),
               }),
+          ...(result.share_link === undefined ? {} : { share_link: shareLink(result.share_link) }),
         };
       return json(response, method === 'CreateInvitation' ? 201 : 200, {
         data,
@@ -290,9 +355,9 @@ export class InvitationProxy {
       "default-src 'none'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     );
     response.end(`<!doctype html><html lang="vi"><meta charset="utf-8"><title>Lời mời Wolfari (local)</title><h1>Lời mời chuyến đi</h1><p>Trang kiểm thử local. Đăng nhập hoặc dán access token hiện tại. Không lưu thông tin đăng nhập vào bộ nhớ trình duyệt.</p><label>Email <input id="email" type="email" autocomplete="username"></label><label>Mật khẩu <input id="password" type="password" autocomplete="current-password"></label><button id="login">Đăng nhập</button><label>Access token <input id="access" type="password" autocomplete="off"></label><button id="preview">Xem trước</button><button id="accept">Chấp nhận</button><button id="decline">Từ chối</button><pre id="result"></pre><script>
-    const token=new URLSearchParams(location.hash.slice(1)).get('token');history.replaceState(null,'',location.pathname);const keys={};
+    const hash=new URLSearchParams(location.hash.slice(1));const token=hash.get('token'),code=hash.get('code');history.replaceState(null,'',location.pathname);const keys={};
     document.getElementById('login').onclick=async()=>{try{const response=await fetch('/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json','x-client-type':'mobile'},body:JSON.stringify({email:document.getElementById('email').value,password:document.getElementById('password').value})});const payload=await response.json();if(response.ok){document.getElementById('access').value=payload.data.access_token;document.getElementById('result').textContent='Đã đăng nhập. Chọn Xem trước để kiểm tra lời mời.';}else document.getElementById('result').textContent=payload.error?.code??'Đăng nhập thất bại';}catch{document.getElementById('result').textContent='Không kết nối được';}finally{document.getElementById('password').value='';}};
-    for(const action of ['preview','accept','decline'])document.getElementById(action).onclick=async()=>{try{const headers={'Content-Type':'application/json',Authorization:'Bearer '+document.getElementById('access').value};if(action!=='preview')headers['Idempotency-Key']=keys[action]??=crypto.randomUUID();const response=await fetch('/api/v1/invitations/'+action,{method:'POST',headers,body:JSON.stringify({token})});document.getElementById('result').textContent=JSON.stringify(await response.json(),null,2);}catch{document.getElementById('result').textContent='Không kết nối được';}};
+    for(const action of ['preview','accept','decline'])document.getElementById(action).onclick=async()=>{try{const headers={'Content-Type':'application/json',Authorization:'Bearer '+document.getElementById('access').value};if(action!=='preview')headers['Idempotency-Key']=keys[action]??=crypto.randomUUID();const response=await fetch('/api/v1/invitations/'+action,{method:'POST',headers,body:JSON.stringify(token?{token}:{code})});document.getElementById('result').textContent=JSON.stringify(await response.json(),null,2);}catch{document.getElementById('result').textContent='Không kết nối được';}};
     </script></html>`);
   }
   close() {

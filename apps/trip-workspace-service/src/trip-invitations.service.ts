@@ -17,7 +17,6 @@ import {
   mintJoinCode,
   normalizeJoinCode,
 } from './invitation-crypto';
-import { isPlanEditor } from './planning/plan.service';
 
 type InvitationRow = {
   id: string;
@@ -35,10 +34,15 @@ type InvitationRow = {
   delivery_token_ciphertext: string | null;
   code_hash: string | null;
   code_hint: string | null;
+  max_uses: number;
+  use_count: number;
 };
 type TripRow = {
   id: string;
   name: string;
+  start_at: Date;
+  end_at: Date;
+  timezone: string;
   archived_at: Date | null;
   deleted_at: Date | null;
   closure_lock_id: string | null;
@@ -85,7 +89,23 @@ function view(row: InvitationRow): TripV1.Invitation {
     resolved_at: row.resolved_at ? stamp(row.resolved_at) : undefined,
     code_hint: row.code_hint ?? undefined,
     invited_by_user_id: row.invited_by_user_id,
+    max_uses: row.max_uses,
+    use_count: row.use_count,
   };
+}
+/** A LINK may admit several people; it stays PENDING until the last use. */
+const groupLink = (row: InvitationRow) => row.invitation_type === 'LINK' && row.max_uses > 1;
+/** LINK only; 1 (default) keeps the SRS single-use invitation, up to 50 makes a group link. */
+function requestedUses(input: TripV1.CreateInvitationRequest): number {
+  if (input.max_uses === undefined) return 1;
+  if (
+    input.invitation_type !== 'LINK' ||
+    !Number.isInteger(input.max_uses) ||
+    input.max_uses < 1 ||
+    input.max_uses > 50
+  )
+    return fail('VALIDATION_FAILED', 400);
+  return input.max_uses;
 }
 function requestedExpiry(value: TripV1.CreateInvitationRequest['expires_at']): Date | undefined {
   if (value === undefined) return undefined;
@@ -146,8 +166,12 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     await this.maintenance;
     this.identity.close();
   }
+  // Secrets ride in the fragment, so they never reach a server log or a Referer header.
   private link(token: string) {
-    return `${this.linkBase}/invitations/local#token=${token}`;
+    return `${this.linkBase}/invitations#token=${token}`;
+  }
+  private shareLink(code: string) {
+    return `${this.linkBase}/invitations#code=${formatJoinCode(code)}`;
   }
   private async lock(client: PoolClient, tripId: string, operationId?: string) {
     if (operationId)
@@ -168,25 +192,16 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     if (!row) return fail('RESOURCE_NOT_FOUND', 404);
     return row;
   }
-  /** Owner and anyone allowed to edit the plan may invite; returns whether the actor is Owner. */
+  /** Only the active Owner manages invitations (SRS FR-TR03); plan editors may not. */
   private async inviter(client: PoolClient, tripId: string, actor: string) {
     const row = (
-      await client.query<{
-        role: 'OWNER' | 'MEMBER';
-        plan_edit_policy: 'OWNER_ONLY' | 'SELECTED_MEMBERS' | 'ALL_MEMBERS';
-        selected_editor: boolean;
-      }>(
-        `SELECT m.role,t.plan_edit_policy,
-          EXISTS (SELECT 1 FROM trip_plan_editors e WHERE e.trip_id=t.id AND e.trip_member_id=m.id) AS selected_editor
-        FROM trip_members m JOIN trips t ON t.id=m.trip_id
-        WHERE m.trip_id=$1 AND m.user_id=$2 AND m.left_at IS NULL`,
+      await client.query<{ role: 'OWNER' | 'MEMBER' }>(
+        'SELECT role FROM trip_members WHERE trip_id=$1 AND user_id=$2 AND left_at IS NULL',
         [tripId, actor],
       )
     ).rows[0];
     if (!row) return fail('RESOURCE_NOT_FOUND', 404);
-    if (!isPlanEditor(row.role, row.plan_edit_policy, row.selected_editor))
-      return fail('PERMISSION_DENIED', 403);
-    return { owner: row.role === 'OWNER' };
+    if (row.role !== 'OWNER') return fail('PERMISSION_DENIED', 403);
   }
   private async audit(
     client: PoolClient,
@@ -348,6 +363,7 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     if (input.invitation_type === 'LINK' && input.email !== undefined)
       return fail('VALIDATION_FAILED', 400);
     const expiry = requestedExpiry(input.expires_at);
+    const maxUses = requestedUses(input);
     const requestHash = hash({
       actor,
       command: 'CREATE_INVITATION',
@@ -356,6 +372,8 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       email,
       expiry: expiry?.toISOString() ?? null,
       expected,
+      // Only present when chosen, so receipts written before group links still replay.
+      ...(input.max_uses === undefined ? {} : { maxUses }),
     });
     // Remote lookup is outside SQL locks. Outage means no local business mutation.
     const recipient = email
@@ -415,8 +433,8 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       if (!email && !code) return fail('SERVICE_UNAVAILABLE', 503);
       const row = (
         await client.query<InvitationRow>(
-          `INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,delivery_token_ciphertext,delivery_token_expires_at,code_hash,code_hint,created_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,clock_timestamp()) RETURNING *`,
+          `INSERT INTO invitations(trip_id,email,invited_by_user_id,token_hash,expires_at,invitation_type,delivery_token_ciphertext,delivery_token_expires_at,code_hash,code_hint,max_uses,created_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,clock_timestamp()) RETURNING *`,
           [
             tripId,
             email,
@@ -428,6 +446,7 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
             email ? expiresAt : null,
             code ? joinCodeHash(code) : null,
             code ? code.slice(4) : null,
+            maxUses,
           ],
         )
       ).rows[0]!;
@@ -438,7 +457,7 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       return {
         ...outcome,
         one_time_link: this.link(token),
-        ...(code ? { join_code: formatJoinCode(code) } : {}),
+        ...(code ? { join_code: formatJoinCode(code), share_link: this.shareLink(code) } : {}),
       };
     });
   }
@@ -473,6 +492,61 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       };
     });
   }
+  /**
+   * Pending EMAIL invitations addressed to the caller's verified email, for the in-app list: a
+   * person who signs up (or installs the app) after being invited finds them without the email.
+   */
+  async listMine(
+    input: TripV1.ListMyInvitationsRequest,
+    correlation: string,
+    deadlineMs = Date.now() + 1800,
+  ): Promise<TripV1.ListMyInvitationsResponse> {
+    const actor = accessUuid(input.actor_user_id);
+    const identity = await this.identity.getInvitationIdentity(
+      { user_id: actor },
+      correlation,
+      deadlineMs,
+    );
+    if (
+      !identity.found ||
+      identity.status !== CommonV1.AccountStatus.ACCOUNT_STATUS_ACTIVE ||
+      !identity.email_verified_at ||
+      !identity.normalized_email
+    )
+      return { items: [] };
+    const rows = (
+      await this.db.query<InvitationRow & { trip_name: string; trip_start: Date; trip_end: Date }>(
+        `SELECT i.*,t.name AS trip_name,t.start_at AS trip_start,t.end_at AS trip_end
+        FROM invitations i JOIN trips t ON t.id=i.trip_id
+        WHERE i.invitation_type='EMAIL' AND i.status='PENDING' AND i.expires_at>clock_timestamp()
+          AND lower(btrim(i.email))=$1 AND t.deleted_at IS NULL AND t.archived_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM trip_members m WHERE m.trip_id=i.trip_id AND m.user_id=$2 AND m.left_at IS NULL)
+        ORDER BY i.created_at DESC,i.id LIMIT 20`,
+        [identity.normalized_email, actor],
+      )
+    ).rows;
+    if (!rows.length) return { items: [] };
+    const profiles = await this.identity.getProfiles(
+      { user_ids: [...new Set(rows.map((row) => row.invited_by_user_id))] },
+      correlation,
+      deadlineMs,
+    );
+    const names = new Map(
+      (profiles.profiles ?? []).map((profile) => [profile.id, profile.display_name ?? '']),
+    );
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        trip_name: row.trip_name,
+        inviter_display_name: names.get(row.invited_by_user_id) ?? '',
+        status: row.status,
+        expires_at: stamp(row.expires_at),
+        invitation_type: row.invitation_type,
+        trip_start_at: stamp(row.trip_start),
+        trip_end_at: stamp(row.trip_end),
+      })),
+    };
+  }
   async versionCommand(
     input: TripV1.RevokeInvitationRequest,
     correlation: string,
@@ -486,7 +560,7 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     const requestHash = hash({ actor, command, tripId, id, expected });
     const result = await this.db.withTransaction(async (client) => {
       const trip = await this.lock(client, tripId, operation);
-      const { owner } = await this.inviter(client, tripId, actor);
+      await this.inviter(client, tripId, actor);
       const replay = await this.replay(client, operation, actor, command, tripId, requestHash);
       if (replay) return replay as TripV1.CreateInvitationResponse;
       if (trip.archived_at) return fail('STATE_CONFLICT', 409);
@@ -498,8 +572,6 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
         ])
       ).rows[0];
       if (!row) return fail('RESOURCE_NOT_FOUND', 404);
-      // Editors manage only invitations they sent; the Owner manages all.
-      if (!owner && row.invited_by_user_id !== actor) return fail('PERMISSION_DENIED', 403);
       if (row.status === 'EXPIRED') return expired;
       if (row.version !== expected)
         return fail('VERSION_CONFLICT', 409, { invitation_version: row.version });
@@ -547,7 +619,8 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       (actor.normalized_email !== row.email?.trim().toLowerCase() || !actor.email_verified_at)
     )
       return fail('RESOURCE_NOT_FOUND', 404);
-    if (row.resolved_by_user_id && row.resolved_by_user_id !== actor.user_id)
+    // A single-use invitation belongs to whoever resolved it; a group link admits many people.
+    if (!groupLink(row) && row.resolved_by_user_id && row.resolved_by_user_id !== actor.user_id)
       return fail('RESOURCE_NOT_FOUND', 404);
   }
   async tokenCommand(
@@ -557,11 +630,17 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     deadlineMs = Date.now() + 1800,
   ): Promise<TripV1.PreviewInvitationResponse | TripV1.AcceptInvitationResponse> {
     const actor = accessUuid(input.actor_user_id);
-    // The token field carries either the long link secret or a short join code.
-    const code = normalizeJoinCode(input.token);
-    const lookup = code
-      ? { column: 'code_hash', value: joinCodeHash(code) }
-      : { column: 'token_hash', value: invitationTokenHash(input.token) };
+    // An EMAIL invitation can be answered from the in-app list by ID: the caller's verified
+    // email is the credential there (checked in recipient()), exactly as with the emailed link.
+    const byId = input.invitation_id !== undefined && input.invitation_id !== '';
+    if (byId && input.token) return fail('VALIDATION_FAILED', 400);
+    // Otherwise the token field carries either the long link secret or a short join code.
+    const code = byId ? undefined : normalizeJoinCode(input.token);
+    const lookup = byId
+      ? { column: 'id', value: accessUuid(input.invitation_id) }
+      : code
+        ? { column: 'code_hash', value: joinCodeHash(code) }
+        : { column: 'token_hash', value: invitationTokenHash(input.token) };
     const operation = command === 'PREVIEW_INVITATION' ? undefined : accessUuid(input.operation_id);
     const candidate = (
       await this.db.query<InvitationRow>(
@@ -569,7 +648,8 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
         [lookup.value],
       )
     ).rows[0];
-    if (!candidate) return fail('RESOURCE_NOT_FOUND', 404);
+    if (!candidate || (byId && candidate.invitation_type !== 'EMAIL'))
+      return fail('RESOURCE_NOT_FOUND', 404);
     // Both entry forms resolve to the same receipt identity.
     const tokenHash = candidate.token_hash;
     const identity = await this.identity.getInvitationIdentity(
@@ -595,31 +675,35 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       ).rows[0];
       if (!row) return fail('RESOURCE_NOT_FOUND', 404);
       this.recipient(row, identity);
-      const activeOriginal = async () => {
-        if (
-          !row!.accepted_member_id ||
-          !(
-            await client.query(
-              'SELECT 1 FROM trip_members WHERE id=$1 AND trip_id=$2 AND user_id=$3 AND left_at IS NULL',
-              [row!.accepted_member_id, trip.id, actor],
-            )
-          ).rowCount
-        )
-          return fail('RESOURCE_NOT_FOUND', 404);
-      };
+      // The caller's own admission through this invitation, while that membership is active.
+      const admitted = async () =>
+        (
+          await client.query<{ member_id: string }>(
+            `SELECT a.member_id FROM invitation_acceptances a JOIN trip_members m ON m.id=a.member_id
+            WHERE a.invitation_id=$1 AND a.user_id=$2 AND m.trip_id=$3 AND m.left_at IS NULL LIMIT 1`,
+            [row!.id, actor, trip.id],
+          )
+        ).rows[0]?.member_id;
       if (operation) {
         const replay = await this.replay(client, operation, actor, command, trip.id, requestHash);
         if (replay) {
-          if (command === 'ACCEPT_INVITATION') await activeOriginal();
+          if (command === 'ACCEPT_INVITATION' && !(await admitted()))
+            return fail('RESOURCE_NOT_FOUND', 404);
           return replay as TripV1.PreviewInvitationResponse | TripV1.AcceptInvitationResponse;
         }
       }
-      if (command === 'ACCEPT_INVITATION' && row.status === 'ACCEPTED') {
-        await activeOriginal();
+      // Accepting again with a new key returns the original snapshot: no event, no revision bump.
+      const original =
+        command === 'ACCEPT_INVITATION' && (row.status === 'ACCEPTED' || groupLink(row))
+          ? await admitted()
+          : undefined;
+      if (command === 'ACCEPT_INVITATION' && row.status === 'ACCEPTED' && !original)
+        return groupLink(row) ? fail('STATE_CONFLICT', 409) : fail('RESOURCE_NOT_FOUND', 404);
+      if (original) {
         const stored = (
           await client.query<{ outcome: TripV1.AcceptInvitationResponse }>(
             `SELECT outcome FROM trip_operations WHERE trip_id=$1 AND operation_type='ACCEPT_INVITATION' AND state='SUCCEEDED' AND outcome->'membership'->>'id'=$2 ORDER BY started_at LIMIT 1`,
-            [trip.id, row.accepted_member_id],
+            [trip.id, original],
           )
         ).rows[0];
         if (!stored) throw new Error('Missing acceptance receipt');
@@ -638,9 +722,18 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
         inviter_display_name: inviter,
         status: row!.status,
         expires_at: stamp(row!.expires_at),
+        invitation_type: row!.invitation_type,
+        trip_start_at: stamp(trip.start_at),
+        trip_end_at: stamp(trip.end_at),
       });
       if (command === 'PREVIEW_INVITATION') return preview();
       if (row.version >= maximumRevision) return fail('STATE_CONFLICT', 409);
+      // Declining a group link only dismisses it for this person; it stays open for the others.
+      if (command === 'DECLINE_INVITATION' && groupLink(row)) {
+        const outcome = preview();
+        await this.receipt(client, operation!, actor, command, trip, requestHash, outcome);
+        return outcome;
+      }
       let outcome: TripV1.PreviewInvitationResponse | TripV1.AcceptInvitationResponse;
       if (command === 'ACCEPT_INVITATION') {
         // Rejoin needs a genuinely new invitation after the last departure; resend
@@ -682,11 +775,21 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
             [trip.id, actor],
           )
         ).rows[0]!;
+        await client.query(
+          'INSERT INTO invitation_acceptances(invitation_id,trip_id,member_id,user_id) VALUES($1,$2,$3,$4)',
+          [row.id, trip.id, member.id, actor],
+        );
+        // The last allowed use closes the invitation; a group link with uses left stays PENDING.
         row = (
-          await client.query<InvitationRow>(
-            `UPDATE invitations SET status='ACCEPTED',accepted_member_id=$2,resolved_by_user_id=$3,resolved_at=clock_timestamp(),version=version+1,delivery_token_ciphertext=NULL,delivery_token_expires_at=NULL WHERE id=$1 RETURNING *`,
-            [row.id, member.id, actor],
-          )
+          row.use_count + 1 >= row.max_uses
+            ? await client.query<InvitationRow>(
+                `UPDATE invitations SET status='ACCEPTED',use_count=use_count+1,accepted_member_id=$2,resolved_by_user_id=$3,resolved_at=clock_timestamp(),version=version+1,delivery_token_ciphertext=NULL,delivery_token_expires_at=NULL WHERE id=$1 RETURNING *`,
+                [row.id, member.id, actor],
+              )
+            : await client.query<InvitationRow>(
+                'UPDATE invitations SET use_count=use_count+1,version=version+1 WHERE id=$1 RETURNING *',
+                [row.id],
+              )
         ).rows[0]!;
         await client.query(
           'UPDATE trips SET membership_revision=membership_revision+1,export_revision=export_revision+1,updated_at=clock_timestamp() WHERE id=$1',
@@ -742,8 +845,10 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
       accessRevision(input.expected_invitation_version);
     const select = async () =>
       (
-        await this.db.query<InvitationRow>(
-          `SELECT i.* FROM invitations i JOIN trips t ON t.id=i.trip_id WHERE i.id=$1 AND i.invitation_type='EMAIL' AND i.status='PENDING' AND i.expires_at>clock_timestamp() AND i.delivery_token_expires_at>clock_timestamp() AND i.delivery_token_ciphertext IS NOT NULL AND t.archived_at IS NULL AND t.deleted_at IS NULL AND ($2::int IS NULL OR i.version=$2)`,
+        await this.db.query<
+          InvitationRow & { trip_name: string; trip_start: Date; trip_end: Date; trip_tz: string }
+        >(
+          `SELECT i.*,t.name AS trip_name,t.start_at AS trip_start,t.end_at AS trip_end,t.timezone AS trip_tz FROM invitations i JOIN trips t ON t.id=i.trip_id WHERE i.id=$1 AND i.invitation_type='EMAIL' AND i.status='PENDING' AND i.expires_at>clock_timestamp() AND i.delivery_token_expires_at>clock_timestamp() AND i.delivery_token_ciphertext IS NOT NULL AND t.archived_at IS NULL AND t.deleted_at IS NULL AND ($2::int IS NULL OR i.version=$2)`,
           [id, input.expected_invitation_version ?? null],
         )
       ).rows[0];
@@ -756,6 +861,11 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
     );
     if (recipient.found && recipient.status !== CommonV1.AccountStatus.ACCOUNT_STATUS_ACTIVE)
       return { valid: false };
+    const profiles = await this.identity.getProfiles(
+      { user_ids: [row.invited_by_user_id] },
+      correlation,
+      deadlineMs,
+    );
     // Recheck after network wait; source authority wins over queued event state.
     row = await select();
     if (!row) return { valid: false };
@@ -768,6 +878,11 @@ export class TripInvitationsService implements OnModuleInit, OnApplicationShutdo
         invitation_version: row.version,
         recipient_user_id:
           recipient.found && recipient.email_verified_at ? recipient.user_id : undefined,
+        trip_name: row.trip_name,
+        inviter_display_name: profiles.profiles?.[0]?.display_name ?? '',
+        trip_start_at: stamp(row.trip_start),
+        trip_end_at: stamp(row.trip_end),
+        trip_timezone: row.trip_tz,
       },
     };
   }

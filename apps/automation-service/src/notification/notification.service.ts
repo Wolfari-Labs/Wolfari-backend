@@ -21,6 +21,8 @@ import {
 
 const MASKED_TITLE = 'Thông báo không còn khả dụng';
 const MASKED_BODY = 'Nội dung này không còn khả dụng theo quyền hiện tại.';
+const INVITATION_TITLE = 'Lời mời chuyến đi';
+const INVITATION_BODY = 'Bạn có lời mời tham gia chuyến đi. Mở để xem và trả lời.';
 
 @Injectable()
 export class NotificationService {
@@ -138,6 +140,16 @@ export class NotificationService {
     access: Map<string, boolean>,
   ): NotificationRecord {
     if (!value.trip_id || access.get(value.trip_id) === true) return value;
+    // An invitee is not a member yet: keep the invitation visible without revealing the Trip.
+    // The app then opens the recipient's pending invitations, which re-checks everything.
+    if (value.type === 'TRIP_INVITATION')
+      return {
+        ...value,
+        trip_id: null,
+        source_id: null,
+        title: INVITATION_TITLE,
+        body: INVITATION_BODY,
+      };
     return {
       ...value,
       trip_id: null,

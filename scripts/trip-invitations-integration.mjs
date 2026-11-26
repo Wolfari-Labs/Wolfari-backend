@@ -80,7 +80,7 @@ export async function runInvitationTests(ctx) {
       const found = list.messages.filter(
         (item) =>
           item.To?.some((address) => address.Address === email) &&
-          item.Subject === 'Lời mời chuyến đi Wolfari',
+          item.Subject === 'Lời mời tham gia chuyến đi “Invitation integration” từ Invitation Owner',
       );
       if (found.length < count) return null;
       const latest = found.sort((a, b) => Date.parse(b.Created) - Date.parse(a.Created))[0];
@@ -163,10 +163,22 @@ export async function runInvitationTests(ctx) {
   assert.deepEqual(Object.keys(preview.body.data).sort(), [
     'expires_at',
     'id',
+    'invitation_type',
     'inviter_display_name',
     'status',
+    'trip_end_at',
     'trip_name',
+    'trip_start_at',
   ]);
+  assert.equal(preview.body.data.invitation_type, 'LINK');
+  assert.equal(Date.parse(preview.body.data.trip_start_at), Date.parse(trip.start_at));
+  assert.equal(created.body.data.invitation.max_uses, 1);
+  assert.equal(created.body.data.invitation.use_count, 0);
+  const share = new URL(created.body.data.share_link);
+  assert.equal(share.pathname, '/invitations');
+  assert.equal(new URLSearchParams(share.hash.slice(1)).get('code'), created.body.data.join_code);
+  assert.equal(new URL(created.body.data.one_time_link).pathname, '/invitations');
+  assert.equal((await request('/invitations')).status, 200);
   assert.equal((await inviteRow(id)).status, 'PENDING');
   const landing = await request('/invitations/local');
   assert.equal(landing.status, 200);
@@ -330,6 +342,117 @@ export async function runInvitationTests(ctx) {
     1,
   );
   pass('decline resolves LINK once; expiration commits even when request returns conflict');
+
+  // SRS FR-TR03: only the Owner manages invitations, whatever the plan editing policy is.
+  await query('trip', "UPDATE trips SET plan_edit_policy='ALL_MEMBERS' WHERE id=$1", [trip.id]);
+  assert.equal(
+    (await write(path, recipient, { invitation_type: 'LINK', expected_membership_revision: (await revision()).membership_revision })).status,
+    403,
+  );
+  assert.equal((await request(path, 'GET', undefined, bearer(recipient))).status, 403);
+  const editorView = await request(`/api/v1/trips/${trip.id}`, 'GET', undefined, bearer(recipient));
+  assert.equal(editorView.body.data.permissions.can_invite, false);
+  await query('trip', "UPDATE trips SET plan_edit_policy='OWNER_ONLY' WHERE id=$1", [trip.id]);
+  pass('plan editors cannot create or list invitations; only the Owner sees can_invite');
+
+  // Group link: one code admits up to max_uses people; declining only dismisses it.
+  assert.equal((await create('LINK', undefined, { max_uses: 51 })).status, 400);
+  assert.equal((await create('EMAIL', 'nobody@example.test', { max_uses: 2 })).status, 400);
+  const group = await create('LINK', undefined, { max_uses: 3 });
+  assert.equal(group.status, 201);
+  assert.equal(group.body.data.invitation.max_uses, 3);
+  const groupId = group.body.data.invitation.id;
+  const groupCode = new URLSearchParams(new URL(group.body.data.share_link).hash.slice(1)).get('code');
+  const byCode = (action, user, key = randomUUID()) =>
+    write(`/api/v1/invitations/${action}`, user, { code: groupCode }, key);
+  const guests = [];
+  for (const label of ['Group guest one', 'Group guest two', 'Group guest three', 'Group guest four'])
+    guests.push(await account(label));
+  const dismissed = await byCode('decline', guests[0]);
+  assert.equal(dismissed.status, 200);
+  assert.equal(dismissed.body.data.status, 'PENDING');
+  assert.equal((await inviteRow(groupId)).status, 'PENDING');
+  const admitted = [];
+  for (const guest of guests.slice(0, 3)) {
+    const joined = await byCode('accept', guest);
+    assert.equal(joined.status, 200);
+    assert.equal(joined.body.data.membership.user_id, guest.id);
+    admitted.push(joined.body.data);
+  }
+  const used = await inviteRow(groupId);
+  assert.equal(used.status, 'ACCEPTED');
+  assert.equal(used.use_count, 3);
+  assert.equal(
+    (await query('trip', 'SELECT 1 FROM invitation_acceptances WHERE invitation_id=$1', [groupId])).length,
+    3,
+  );
+  assert.deepEqual((await byCode('accept', guests[0])).body.data, admitted[0]);
+  assert.equal((await byCode('accept', guests[3])).status, 409);
+  const listed = await request(path, 'GET', undefined, bearer(owner));
+  assert.deepEqual(
+    (({ max_uses, use_count, status }) => ({ max_uses, use_count, status }))(
+      listed.body.data.items.find((item) => item.id === groupId),
+    ),
+    { max_uses: 3, use_count: 3, status: 'ACCEPTED' },
+  );
+  await waitFor(
+    async () =>
+      (
+        await query(
+          'automation',
+          "SELECT 1 FROM notifications WHERE type='INVITATION_ACCEPTED' AND user_id=$1 AND source_id=$2",
+          [owner.id, admitted[0].membership.id],
+        )
+      ).length === 1,
+  );
+  pass('group link admits up to max_uses people once each; the Owner is told who joined');
+
+  // In-app pending list: an EMAIL invitation reaches its verified recipient without the email.
+  const invitee = await account('Pending list invitee');
+  const addressed = await create('EMAIL', invitee.email);
+  assert.equal(addressed.status, 201);
+  const mine = (user) => request('/api/v1/me/invitations', 'GET', undefined, bearer(user));
+  assert.deepEqual((await mine(invitee)).body.data, { items: [] });
+  await query('identity', 'UPDATE users SET email_verified_at=clock_timestamp() WHERE id=$1', [
+    invitee.id,
+  ]);
+  const pendingList = await mine(invitee);
+  assert.equal(pendingList.status, 200);
+  assert.equal(pendingList.body.data.items.length, 1);
+  assert.deepEqual(
+    (({ id, trip_name, inviter_display_name, status, invitation_type }) => ({
+      id,
+      trip_name,
+      inviter_display_name,
+      status,
+      invitation_type,
+    }))(pendingList.body.data.items[0]),
+    {
+      id: addressed.body.data.invitation.id,
+      trip_name: 'Invitation integration',
+      inviter_display_name: 'Invitation Owner',
+      status: 'PENDING',
+      invitation_type: 'EMAIL',
+    },
+  );
+  assert.equal((await request('/api/v1/me/invitations?x=1', 'GET', undefined, bearer(invitee))).status, 400);
+  const byId = (action, user, body) => write(`/api/v1/invitations/${action}`, user, body);
+  const pendingId = addressed.body.data.invitation.id;
+  assert.equal((await byId('accept', outsider, { invitation_id: pendingId })).status, 404);
+  assert.equal((await byId('preview', invitee, { invitation_id: groupId })).status, 404);
+  assert.equal(
+    (await byId('accept', invitee, { invitation_id: pendingId, code: groupCode })).status,
+    400,
+  );
+  // The email is only sent while the invitation is pending, so read it before answering.
+  const invitedMail = await mail(invitee.email);
+  assert.match(invitedMail.text, /Invitation Owner mời bạn tham gia chuyến đi “Invitation integration”/);
+  assert.match(invitedMail.text, /\/invitations#token=inv1_/);
+  const answered = await byId('accept', invitee, { invitation_id: pendingId });
+  assert.equal(answered.status, 200);
+  assert.equal(answered.body.data.membership.user_id, invitee.id);
+  assert.deepEqual((await mine(invitee)).body.data, { items: [] });
+  pass('verified recipient lists and answers an EMAIL invitation by ID; email names trip and inviter');
   const waitingUser = await account('Waiting recipient');
   const waitingInvite = await create();
   const waitingToken = token(waitingInvite);

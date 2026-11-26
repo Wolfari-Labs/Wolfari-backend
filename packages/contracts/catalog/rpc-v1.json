@@ -266,6 +266,16 @@
     "source": "Trip invitations - approved vertical slice"
   },
   {
+    "package": "wolfari.trip.v1",
+    "service": "TripService",
+    "method": "ListMyInvitations",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 2000,
+    "source": "Trip invitations - pending EMAIL invitations for the signed-in recipient (SRS FR-TR03 in-app invitation)"
+  },
+  {
     "package": "wolfari.identity.v1",
     "service": "IdentityService",
     "method": "ValidateSession",

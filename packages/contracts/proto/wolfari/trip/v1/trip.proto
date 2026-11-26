@@ -20,6 +20,7 @@ service TripService {
   rpc RevokeInvitation(RevokeInvitationRequest) returns (RevokeInvitationResponse);
   rpc ResendInvitation(ResendInvitationRequest) returns (ResendInvitationResponse);
   rpc AcknowledgeInvitationDelivery(AcknowledgeInvitationDeliveryRequest) returns (AcknowledgeInvitationDeliveryResponse);
+  rpc ListMyInvitations(ListMyInvitationsRequest) returns (ListMyInvitationsResponse);
   rpc CreateTrip(CreateTripRequest) returns (CreateTripResponse);
   rpc ListTrips(ListTripsRequest) returns (ListTripsResponse);
   rpc GetTrip(GetTripRequest) returns (GetTripResponse);
@@ -297,6 +298,12 @@ message InvitationDelivery {
   google.protobuf.Timestamp expires_at = 3;
   int32 invitation_version = 4;
   optional string recipient_user_id = 5;
+  // What the email says, so the recipient knows who invites them to which trip.
+  string trip_name = 6;
+  string inviter_display_name = 7;
+  google.protobuf.Timestamp trip_start_at = 8;
+  google.protobuf.Timestamp trip_end_at = 9;
+  string trip_timezone = 10;
 }
 
 message Invitation {
@@ -309,7 +316,9 @@ message Invitation {
   google.protobuf.Timestamp resolved_at = 7;
   int32 version = 8;
   optional string code_hint = 9; // Last 4 characters of a LINK join code.
-  optional string invited_by_user_id = 10; // Lets an inviter manage the invitations they created.
+  optional string invited_by_user_id = 10; // The Owner who created the invitation.
+  int32 max_uses = 11; // LINK: how many people may join with it; EMAIL: always 1.
+  int32 use_count = 12; // People who joined with it so far.
 }
 message CreateInvitationRequest {
   string operation_id = 1;
@@ -319,11 +328,13 @@ message CreateInvitationRequest {
   optional string email = 5;
   google.protobuf.Timestamp expires_at = 6;
   int32 expected_membership_revision = 7;
+  optional int32 max_uses = 8; // LINK only, 1-50; default 1 (one person per link).
 }
 message CreateInvitationResponse {
   Invitation invitation = 1;
   optional string one_time_link = 2;
   optional string join_code = 3; // XXXX-XXXX, returned once for LINK invitations.
+  optional string share_link = 4; // LINK: web page carrying the join code, for QR and sharing.
 }
 message ListInvitationsRequest {
   string actor_user_id = 1;
@@ -340,6 +351,8 @@ message PreviewInvitationRequest {
   string actor_user_id = 1;
   string token = 2;
   optional string operation_id = 3;
+  // Instead of a token: an EMAIL invitation addressed to the caller's verified email.
+  optional string invitation_id = 4;
 }
 message PreviewInvitationResponse {
   string id = 1;
@@ -347,6 +360,15 @@ message PreviewInvitationResponse {
   string inviter_display_name = 3;
   string status = 4;
   google.protobuf.Timestamp expires_at = 5;
+  string invitation_type = 6;
+  google.protobuf.Timestamp trip_start_at = 7;
+  google.protobuf.Timestamp trip_end_at = 8;
+}
+message ListMyInvitationsRequest {
+  string actor_user_id = 1;
+}
+message ListMyInvitationsResponse {
+  repeated PreviewInvitationResponse items = 1; // Pending EMAIL invitations for the caller.
 }
 message AcceptInvitationResponse {
   wolfari.common.v1.Membership membership = 1;
@@ -371,11 +393,13 @@ message AcceptInvitationRequest {
   string actor_user_id = 1;
   string token = 2;
   optional string operation_id = 3;
+  optional string invitation_id = 4;
 }
 message DeclineInvitationRequest {
   string actor_user_id = 1;
   string token = 2;
   optional string operation_id = 3;
+  optional string invitation_id = 4;
 }
 message DeclineInvitationResponse {
   string id = 1;
@@ -383,6 +407,9 @@ message DeclineInvitationResponse {
   string inviter_display_name = 3;
   string status = 4;
   google.protobuf.Timestamp expires_at = 5;
+  string invitation_type = 6;
+  google.protobuf.Timestamp trip_start_at = 7;
+  google.protobuf.Timestamp trip_end_at = 8;
 }
 message RevokeInvitationResponse {
   Invitation invitation = 1;
