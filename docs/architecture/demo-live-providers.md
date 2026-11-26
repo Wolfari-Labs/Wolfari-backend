@@ -17,7 +17,9 @@ demo, chỉ các khóa dưới đây, không ghi ra đĩa). Không đưa token/k
 
 SearchApi.io cung cấp 100 lượt thử miễn phí khi đăng ký. Form đăng ký nhận tên, email và mật khẩu. [Gói dùng thử Google Flights](https://www.searchapi.io/google-flights-api) · [Đăng ký](https://www.searchapi.io/users/sign_up)
 
-Trong `apps/automation-service/.env` khi chạy local, hoặc file Automation tương ứng của demo, đặt:
+Khi chạy local, chạy `corepack pnpm env:init`, điền `SEARCHAPI_API_KEY` trong `apps/automation-service/.env` rồi chạy `corepack pnpm price-watch:setup`. Lệnh chọn nguồn và bật worker trên máy đó.
+
+Khi chạy demo, đặt ba biến sau trong `.local/demo/apps/automation-service/.env`:
 
 ```dotenv
 PRICE_WATCH_PROVIDER=SEARCHAPI_GOOGLE_FLIGHTS

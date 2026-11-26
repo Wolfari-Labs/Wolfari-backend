@@ -21,6 +21,12 @@ corepack pnpm dev
 
 Ở terminal khác chạy `corepack pnpm dev:check`. `env:init` giữ cấu hình đã có; root `.env` dành cho tooling/Compose, mỗi app đọc `apps/<app>/.env`. Không commit secrets. Ctrl+C dừng app; `corepack pnpm infra:down` dừng hạ tầng và giữ volume. Chi tiết cổng, health check và xử lý lỗi: [môi trường development](docs/architecture/development-environment.md).
 
+### Theo dõi giá vé máy bay trên máy mới
+
+Sau bước `corepack pnpm env:init`, mở `apps/automation-service/.env` và điền khóa SearchApi của bạn vào dòng `SEARCHAPI_API_KEY=`. Chỉ cần chuyển khóa này qua trình quản lý mật khẩu. Mỗi máy tự tạo các mật khẩu database và khóa nội bộ khi chạy `env:init`.
+
+Chạy `corepack pnpm price-watch:setup` để chọn Google Flights qua SearchApi và bật worker. Tiếp tục các bước hạ tầng và khởi động ở trên. Nếu backend đang chạy, khởi động lại `pnpm dev`. Khi tạo lượt theo dõi mới, bỏ trường `provider` để dùng nguồn vừa cấu hình. Bạn có thể thử một lần lấy giá thật bằng `corepack pnpm price-watch:live-check` (dùng một lượt API).
+
 ## Demo và triển khai thử
 
 Demo dùng cấu hình/dữ liệu riêng, không thay môi trường development:

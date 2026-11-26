@@ -454,6 +454,18 @@ export async function initEnvironment(
   }
 }
 
+export async function configureLocalFlightPriceWatch(base = root) {
+  const path = resolve(base, 'apps', appNames.automation, '.env');
+  const env = await readEnv(path);
+  if (!env.SEARCHAPI_API_KEY?.trim()) {
+    throw new Error('Điền SEARCHAPI_API_KEY trong apps/automation-service/.env rồi chạy lại pnpm price-watch:setup.');
+  }
+  await enforceOverrides(path, {
+    PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS',
+    PRICE_WATCH_WORKER_ENABLED: 'true',
+  });
+}
+
 function appPort(base, name, portKey, fallback) {
   try {
     return parseEnv(readFileSync(resolve(base, 'apps', name, '.env'), 'utf8'))[portKey] ?? fallback;
@@ -478,7 +490,7 @@ async function enforceOverrides(path, overrides) {
   if (!changed.length) return;
   let text = await readFile(path, 'utf8');
   for (const [key, value] of changed) {
-    const line = new RegExp(`^${key}=.*$`, 'gm');
+    const line = new RegExp(`^[\\t ]*(?:export[\\t ]+)?${key}[\\t ]*=.*$`, 'gm');
     text = text.match(line)
       ? text.replace(line, () => `${key}=${value}`)
       : `${text.endsWith('\n') ? text : `${text}\n`}${key}=${value}\n`;

@@ -5,11 +5,45 @@ import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 // JavaScript CLI modules are exercised directly, without a second implementation.
 // @ts-expect-error CLI is native ESM JavaScript.
-import { root, apps, initEnvironment, appEnvironment } from './config.mjs';
+import { root, apps, initEnvironment, appEnvironment, configureLocalFlightPriceWatch } from './config.mjs';
 // @ts-expect-error CLI is native ESM JavaScript.
 import { migrationFiles } from './migrations.mjs';
 
 describe('development configuration', () => {
+  it('enables live flight tracking on a fresh checkout using only the saved Automation key', async () => {
+    const target = await mkdtemp(resolve(tmpdir(), 'wolfari-flight-setup-'));
+    const automation = apps.find((app) => app.name === 'automation-service')!;
+    const path = resolve(target, 'apps', automation.name, '.env');
+    try {
+      await initEnvironment(root, { target });
+      const original = await readFile(path, 'utf8');
+      await expect(configureLocalFlightPriceWatch(target)).rejects.toThrow('SEARCHAPI_API_KEY');
+      expect(await readFile(path, 'utf8')).toBe(original);
+
+      const key = 'local-test-key';
+      const saved = original.replace(/^SEARCHAPI_API_KEY=$/m, `SEARCHAPI_API_KEY=${key}`);
+      await writeFile(path, saved);
+      await configureLocalFlightPriceWatch(target);
+      const configured = await readFile(path, 'utf8');
+      const expected = {
+        PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS',
+        PRICE_WATCH_WORKER_ENABLED: 'true',
+      };
+      expect(parseEnv(configured)).toEqual({ ...parseEnv(saved), ...expected });
+      expect(appEnvironment(automation, parseEnv(configured), {})).toMatchObject({
+        ...expected, SEARCHAPI_API_KEY: key,
+      });
+      await configureLocalFlightPriceWatch(target);
+      await initEnvironment(root, { target });
+      expect(await readFile(path, 'utf8')).toBe(configured);
+      expect(await readFile(resolve(target, '.env'), 'utf8')).not.toContain(key);
+      for (const app of apps.filter((app) => app !== automation)) {
+        expect(await readFile(resolve(target, 'apps', app.name, '.env'), 'utf8')).not.toContain(key);
+      }
+    } finally {
+      await rm(target, { recursive: true, force: true });
+    }
+  });
   it('isolates provider credentials and paired map secrets', () => {
     const owners: Record<string, string[]> = {
       GEOAPIFY_API_KEY: ['travel-intelligence-service'],
