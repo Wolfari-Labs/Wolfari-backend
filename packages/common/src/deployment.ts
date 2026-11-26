@@ -194,7 +194,9 @@ export function validateDeploymentEnvironment(values: Values, app: AppName): voi
   }
   if (
     app === 'finance-service' &&
-    (values.MOMO_SANDBOX_MODE !== 'disabled' || values.FINANCE_OUTBOX_ENABLED !== 'false')
+    (values.MOMO_SANDBOX_MODE !== 'disabled' ||
+      (values.MOMO_CHECKOUT_MODE || 'disabled') !== 'disabled' ||
+      values.FINANCE_OUTBOX_ENABLED !== 'false')
   )
     invalid('FINANCE_FEATURE_FLAGS');
   if (app === 'automation-service') {

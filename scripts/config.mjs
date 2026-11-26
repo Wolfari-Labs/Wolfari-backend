@@ -196,6 +196,10 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MOMO_QUERY_URL',
     'MOMO_REDIRECT_URL',
     'MOMO_IPN_URL',
+    'MOMO_CHECKOUT_MODE',
+    'MOMO_CHECKOUT_PARTNER_CODE',
+    'MOMO_CHECKOUT_ACCESS_KEY',
+    'MOMO_CHECKOUT_SECRET_KEY',
   ];
   const travelKeys = [
     'TRIP_GRPC_TARGET',
