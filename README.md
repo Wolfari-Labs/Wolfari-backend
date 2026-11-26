@@ -21,6 +21,17 @@ corepack pnpm dev
 
 Ở terminal khác chạy `corepack pnpm dev:check`. `env:init` giữ cấu hình đã có; root `.env` dành cho tooling/Compose, mỗi app đọc `apps/<app>/.env`. Không commit secrets. Ctrl+C dừng app; `corepack pnpm infra:down` dừng hạ tầng và giữ volume. Chi tiết cổng, health check và xử lý lỗi: [môi trường development](docs/architecture/development-environment.md).
 
+### Theo dõi giá vé máy bay trên máy mới
+
+Trên máy mới, đặt biến môi trường `SEARCHAPI_API_KEY` trước khi chạy `corepack pnpm env:init` ở bước trên. Lệnh lưu khóa vào `apps/automation-service/.env`, chọn Google Flights qua SearchApi và bật worker. Trong PowerShell 7, có thể nhập khóa ẩn bằng lệnh sau.
+
+```powershell
+$env:SEARCHAPI_API_KEY = Read-Host 'SearchApi API key' -MaskInput
+corepack pnpm env:init
+```
+
+Nếu bạn đã điền khóa vào file Automation, chỉ cần chạy lại `corepack pnpm env:init`. Lệnh ưu tiên khóa đã lưu và giữ lựa chọn provider hiện có. Để chủ động chuyển từ provider khác sang SearchApi hoặc bật lại worker đã tắt, dùng `corepack pnpm price-watch:setup`. Khởi động lại `pnpm dev` nếu backend đang chạy. Bạn có thể thử một lượt lấy giá thật bằng `corepack pnpm price-watch:live-check`.
+
 ## Demo và triển khai thử
 
 Demo dùng cấu hình/dữ liệu riêng, không thay môi trường development:

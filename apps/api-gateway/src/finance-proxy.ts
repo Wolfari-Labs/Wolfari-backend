@@ -13,7 +13,7 @@ import {
 } from './closure-http';
 import { FinanceReceiptHttp, receiptRoute } from './finance-receipt-http';
 import { handlePayment, paymentRoute } from './payment-http';
-import { qrPaymentRoute, handleQrPayment } from './qr-payment-http';
+import { qrPaymentRoute, handleQrPayment, paymentReturnRoute, handlePaymentReturn } from './qr-payment-http';
 import {
   contributionManagementRoute,
   handleContributionManagement,
@@ -146,6 +146,7 @@ export class FinanceProxy {
     const path = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname;
     return (
       qrPaymentRoute(path) !== undefined ||
+      paymentReturnRoute(path) !== undefined ||
       path === BANK_DIRECTORY_PATH ||
       /^\/api\/v1\/trips\/[^/]+\/fund(?:\/|$)/.test(path) ||
       /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path) ||
@@ -163,6 +164,8 @@ export class FinanceProxy {
     const qrTrip = qrPaymentRoute(url.pathname);
     if (qrTrip)
       return handleQrPayment(request, response, url, qrTrip, this.validateSession, this.client);
+    const paymentReturn = paymentReturnRoute(url.pathname);
+    if (paymentReturn !== undefined) return handlePaymentReturn(request, response, url, paymentReturn);
     const handover = handoverRoute(url.pathname);
     if (handover)
       return handleHandover(request, response, url, handover, this.validateSession, this.client);

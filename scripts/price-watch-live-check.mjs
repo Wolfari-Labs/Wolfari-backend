@@ -1,8 +1,10 @@
-// One real Travelpayouts call with TRAVELPAYOUTS_TOKEN from the environment, parsed exactly as the
+// One real price-source call with the Automation credential, parsed exactly as the
 // price worker would. Never prints the token or the upstream body; never enables the worker.
 //   PowerShell: $env:TRAVELPAYOUTS_TOKEN="..."; corepack pnpm price-watch:live-check
 //   Optional:   PRICE_CHECK_ORIGIN=SGN PRICE_CHECK_DESTINATION=HAN PRICE_CHECK_DATE=2026-12-14
 import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import { parseEnv } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
@@ -75,6 +77,13 @@ export function summarize(query, httpStatus, payload, provider, now = Date.now()
       next_step:
         'The cache has no fare for this exact day yet (it only holds prices found by Aviasales users). Try another date or a busier route; the worker records NO_RESULT, never price 0.',
     };
+  if (!currency)
+    return {
+      ...base,
+      status: 'CURRENCY_UNCONFIRMED',
+      next_step:
+        'The response did not identify its currency. Verify VND with the provider before enabling the worker.',
+    };
   return {
     ...base,
     status: 'OK',
@@ -101,7 +110,57 @@ export async function main(env = process.env, fetcher = fetch) {
     return;
   }
   const query = checkInput(env);
-  const token = env.TRAVELPAYOUTS_TOKEN?.trim();
+  let fileValues = {};
+  try {
+    fileValues = parseEnv(
+      await readFile(new URL('../apps/automation-service/.env', import.meta.url), 'utf8'),
+    );
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const settings = { ...fileValues, ...env };
+  const token = settings.TRAVELPAYOUTS_TOKEN?.trim();
+  const searchKey = settings.SEARCHAPI_API_KEY?.trim();
+  const selected =
+    settings.PRICE_WATCH_PROVIDER?.trim() ||
+    (searchKey && !token ? 'SEARCHAPI_GOOGLE_FLIGHTS' : 'TRAVELPAYOUTS_CACHE');
+  if (selected === 'SEARCHAPI_GOOGLE_FLIGHTS') {
+    if (!searchKey) {
+      console.log(
+        JSON.stringify({
+          status: 'NOT_RUN',
+          provider: selected,
+          next_step: 'Set SEARCHAPI_API_KEY in the shell or apps/automation-service/.env.',
+        }),
+      );
+      return;
+    }
+    const {
+      fetchSearchApiFare,
+    } = require('../apps/automation-service/dist/price-watch/searchapi.provider.js');
+    try {
+      const result = await fetchSearchApiFare(query, searchKey, AbortSignal.timeout(15000));
+      const summary =
+        result.kind === 'SUCCESS'
+          ? {
+              status: 'OK',
+              price_vnd: result.price,
+              source_freshness: result.fare_metadata.source_freshness,
+            }
+          : { status: 'NO_RESULT' };
+      console.log(JSON.stringify({ ...summary, provider: selected, request: query }, null, 2));
+    } catch (error) {
+      console.log(
+        JSON.stringify({
+          status: error.errorCode ?? 'PROVIDER_UNAVAILABLE',
+          provider: selected,
+          request: query,
+        }),
+      );
+      process.exitCode = 1;
+    }
+    return;
+  }
   if (!token) {
     process.stdout.write(
       JSON.stringify(
@@ -109,7 +168,7 @@ export async function main(env = process.env, fetcher = fetch) {
           status: 'NOT_RUN',
           request: query,
           next_step:
-            'Sign up free at https://www.travelpayouts.com, open Profile → API token, then set TRAVELPAYOUTS_TOKEN in this shell and run again.',
+            'For SearchApi set PRICE_WATCH_PROVIDER=SEARCHAPI_GOOGLE_FLIGHTS and SEARCHAPI_API_KEY in apps/automation-service/.env. For Aviasales, connect its program and set TRAVELPAYOUTS_TOKEN.',
         },
         null,
         2,

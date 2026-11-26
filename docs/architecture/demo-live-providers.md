@@ -6,11 +6,32 @@ demo, chỉ các khóa dưới đây, không ghi ra đĩa). Không đưa token/k
 
 | Nguồn | App | Biến | Cần đăng ký |
 | --- | --- | --- | --- |
-| Giá vé Travelpayouts (cache Aviasales) | `automation-service` | `PRICE_WATCH_PROVIDER=TRAVELPAYOUTS_CACHE`, `TRAVELPAYOUTS_TOKEN`, `TRAVELPAYOUTS_VND_VERIFIED=true` | Tài khoản miễn phí travelpayouts.com → Profile → API token |
+| Giá vé Google Flights qua SearchApi.io | `automation-service` | `PRICE_WATCH_PROVIDER=SEARCHAPI_GOOGLE_FLIGHTS`, `SEARCHAPI_API_KEY` | Tài khoản SearchApi.io |
+| Giá vé Travelpayouts (cache Aviasales) | `automation-service` | `PRICE_WATCH_PROVIDER=TRAVELPAYOUTS_CACHE`, `TRAVELPAYOUTS_TOKEN`, `TRAVELPAYOUTS_VND_VERIFIED=true` | Tài khoản Travelpayouts đã kết nối chương trình Aviasales |
 | Đường đi OSRM | `travel-intelligence-service` | `OSRM_URL`, `OSRM_WALKING_URL`, `OSRM_CYCLING_URL`, hoặc `OSRM_PUBLIC_DEMO=true`; tùy chọn `OSRM_USER_AGENT` | Không |
 | Tiền về SePay | `api-gateway` | `BANK_WEBHOOK_SEPAY_API_KEY` (hoặc `BANK_WEBHOOK_SEPAY_SECRET`) | Tài khoản SePay (gói FREE 50 giao dịch/tháng), liên kết tài khoản ngân hàng của Thủ quỹ |
 
 ## Giá vé thật (Price Watch)
+
+### Google Flights qua SearchApi.io
+
+SearchApi.io cung cấp 100 lượt thử miễn phí khi đăng ký. Form đăng ký nhận tên, email và mật khẩu. [Gói dùng thử Google Flights](https://www.searchapi.io/google-flights-api) · [Đăng ký](https://www.searchapi.io/users/sign_up)
+
+Khi chạy local trên máy mới, đặt `SEARCHAPI_API_KEY` trong môi trường rồi chạy `corepack pnpm env:init`. Lệnh lưu khóa cho Automation và bật worker Google Flights. Nếu đã điền khóa trong `apps/automation-service/.env`, chạy lại cùng lệnh. Khi chuyển từ một nguồn giá đã cấu hình sang SearchApi, dùng `corepack pnpm price-watch:setup`.
+
+Khi chạy demo, đặt ba biến sau trong `.local/demo/apps/automation-service/.env`:
+
+```dotenv
+PRICE_WATCH_PROVIDER=SEARCHAPI_GOOGLE_FLIGHTS
+SEARCHAPI_API_KEY=<key từ tài khoản SearchApi.io>
+PRICE_WATCH_WORKER_ENABLED=true
+```
+
+Để thử một lần, chạy `corepack pnpm price-watch:live-check` ở thư mục gốc. Lệnh lấy cấu hình từ file Automation local hoặc terminal. Nếu chạy demo tách biệt, đặt key và provider trong terminal chạy lệnh kiểm tra. Sau khi cấu hình, khởi động lại Automation và tạo lượt theo dõi. Theo lịch sáu giờ, một nhóm truy vấn hoạt động liên tục dùng khoảng bốn lượt mỗi ngày nếu mỗi lần kiểm tra thành công.
+
+Backend yêu cầu giá VND cho một người lớn, vé một chiều hạng phổ thông. Worker chọn giá thấp nhất trong các hành trình khớp sân bay và ngày đi. Lịch sử giữ tên nguồn `SEARCHAPI_GOOGLE_FLIGHTS`; cảnh báo dùng thời điểm SearchApi thực hiện tìm kiếm. [API và cấu trúc kết quả](https://www.searchapi.io/docs/google-flights-api)
+
+### Cache Aviasales qua Travelpayouts
 
 - Worker gọi `GET https://api.travelpayouts.com/aviasales/v3/get_latest_prices` cho đúng một ngày bay
   (`period_type=day`, một chiều, phổ thông, `currency=vnd`, `show_to_affiliates=false`), tối đa 1 lần/giây
@@ -23,16 +44,18 @@ demo, chỉ các khóa dưới đây, không ghi ra đĩa). Không đưa token/k
   `normalized_query.provider`; observation có `provider` và `fare_metadata.source_freshness`.
   Chọn Travelpayouts mà thiếu token/worker/xác nhận VND thì trả
   `503 SERVICE_UNAVAILABLE`, `details.reason = PRICE_PROVIDER_NOT_CONFIGURED`, `retryable=false`.
-- Kiểm tra token trước khi bật (một request, không in token):
+- Đặt `TRAVELPAYOUTS_TOKEN` trong `apps/automation-service/.env` khi chạy local, hoặc đặt trong terminal khi chạy demo. Lệnh kiểm tra ưu tiên token trong terminal, sau đó đọc token của Automation local. Chạy lệnh để thử một chuyến SGN → HAN bằng một request.
 
 ```powershell
-$env:TRAVELPAYOUTS_TOKEN="<token>"
 corepack pnpm price-watch:live-check
 # tùy chọn: $env:PRICE_CHECK_ORIGIN="HAN"; $env:PRICE_CHECK_DESTINATION="DAD"; $env:PRICE_CHECK_DATE="2026-12-20"
 ```
 
-`status: OK` và `response_currency: VND` → đặt `TRAVELPAYOUTS_VND_VERIFIED=true`. `NO_CACHED_PRICE` nghĩa là
-cache chưa có giá cho ngày đó (worker ghi NO_RESULT, không bao giờ ghi giá 0).
+Khi lệnh trả `OK` và `response_currency` là `VND`, đặt `TRAVELPAYOUTS_VND_VERIFIED=true` và `PRICE_WATCH_WORKER_ENABLED=true` trong cấu hình Automation rồi khởi động lại service. Để dùng Aviasales trong production hoặc thay thế một nguồn đã cấu hình, đặt `PRICE_WATCH_PROVIDER=TRAVELPAYOUTS_CACHE`.
+
+`NO_CACHED_PRICE` nghĩa là cache chưa có giá cho chặng và ngày đã chọn. `CURRENCY_UNCONFIRMED` nghĩa là có giá nhưng phản hồi chưa xác nhận đơn vị tiền. Xác minh VND với nhà cung cấp trước khi bật worker.
+
+Tạo lượt theo dõi qua `POST /api/v1/trips/{trip_id}/price-watches` và bỏ trường `provider` để dùng cấu hình server. Kiểm tra `normalized_query.provider` trong kết quả. Sau khi worker thu được giá, đọc lịch sử qua `GET /api/v1/price-watches/{watch_id}/observations`. [OpenAPI Price Watch](../api/price-watch.openapi.yaml)
 
 ## Đường đi thật (OSRM)
 

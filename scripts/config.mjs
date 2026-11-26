@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|OSRM_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|SEARCHAPI_|OSRM_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -146,6 +146,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const automationKeys = [
     'PRICE_WATCH_PROVIDER',
     'TRAVELPAYOUTS_TOKEN',
+    'SEARCHAPI_API_KEY',
     'TRAVELPAYOUTS_VND_VERIFIED',
     'REMINDER_WORKER_ENABLED',
     'PUSH_DELIVERY_ENABLED',
@@ -195,6 +196,10 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MOMO_QUERY_URL',
     'MOMO_REDIRECT_URL',
     'MOMO_IPN_URL',
+    'MOMO_CHECKOUT_MODE',
+    'MOMO_CHECKOUT_PARTNER_CODE',
+    'MOMO_CHECKOUT_ACCESS_KEY',
+    'MOMO_CHECKOUT_SECRET_KEY',
   ];
   const travelKeys = [
     'TRIP_GRPC_TARGET',
@@ -456,6 +461,40 @@ export async function initEnvironment(
   }
 }
 
+export async function initLocalEnvironment({ target = root, searchApiKey } = {}) {
+  await initEnvironment(root, { target });
+  return configureLocalFlightPriceWatch(target, { duringInit: true, searchApiKey });
+}
+
+export async function configureLocalFlightPriceWatch(base = root, { duringInit = false, searchApiKey } = {}) {
+  const path = resolve(base, 'apps', appNames.automation, '.env');
+  const env = await readEnv(path);
+  const provider = env.PRICE_WATCH_PROVIDER?.trim();
+  const searchProvider = 'SEARCHAPI_GOOGLE_FLIGHTS';
+  // With no explicit provider the worker already prefers an existing Travelpayouts token.
+  const usesAnotherProvider = provider ? provider !== searchProvider : Boolean(env.TRAVELPAYOUTS_TOKEN?.trim());
+  if (duringInit && (env.NODE_ENV === 'production' || usesAnotherProvider)) return false;
+
+  const savedKey = env.SEARCHAPI_API_KEY?.trim();
+  const key = savedKey || searchApiKey?.trim();
+  if (!key) {
+    if (duringInit) return false;
+    throw new Error('Điền SEARCHAPI_API_KEY trong apps/automation-service/.env rồi chạy lại pnpm price-watch:setup.');
+  }
+  // A shell-supplied bearer token is written as a single unquoted dotenv value.
+  if (!savedKey && !/^[A-Za-z0-9._~+/-]+=*$/.test(key)) {
+    throw new Error('SEARCHAPI_API_KEY trong môi trường phải là một bearer token hợp lệ.');
+  }
+  // Re-running env:init preserves a manually paused worker for an explicitly selected provider.
+  const enableWorker = !duringInit || !provider;
+  await enforceOverrides(path, {
+    ...(!savedKey && { SEARCHAPI_API_KEY: key }),
+    PRICE_WATCH_PROVIDER: searchProvider,
+    ...(enableWorker && { PRICE_WATCH_WORKER_ENABLED: 'true' }),
+  });
+  return enableWorker || env.PRICE_WATCH_WORKER_ENABLED === 'true';
+}
+
 function appPort(base, name, portKey, fallback) {
   try {
     return parseEnv(readFileSync(resolve(base, 'apps', name, '.env'), 'utf8'))[portKey] ?? fallback;
@@ -471,8 +510,7 @@ function brokerUrl(env) {
 }
 
 /**
- * Overrides are fixed ports/URLs/flags (never secrets) that the target must use; an env file
- * created by an older version keeps its secrets but gets these values rewritten on rerun.
+ * Only pass values suitable for an unquoted, single-line dotenv assignment.
  */
 async function enforceOverrides(path, overrides) {
   const current = await readEnv(path);
@@ -480,7 +518,7 @@ async function enforceOverrides(path, overrides) {
   if (!changed.length) return;
   let text = await readFile(path, 'utf8');
   for (const [key, value] of changed) {
-    const line = new RegExp(`^${key}=.*$`, 'gm');
+    const line = new RegExp(`^[\\t ]*(?:export[\\t ]+)?${key}[\\t ]*=.*$`, 'gm');
     text = text.match(line)
       ? text.replace(line, () => `${key}=${value}`)
       : `${text.endsWith('\n') ? text : `${text}\n`}${key}=${value}\n`;

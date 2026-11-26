@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import type { NormalizedPriceQuery } from './price-watch.domain';
 import { PriceProviderFailure, type PriceProviderResult } from './price-watch-worker.domain';
@@ -8,6 +9,30 @@ export interface PriceProviderRequest {
   scheduledSlot: string;
   query: NormalizedPriceQuery;
   signal: AbortSignal;
+}
+
+export function configuredFlightProvider(config: ConfigService): string | undefined {
+  const selected = config.get<string>('PRICE_WATCH_PROVIDER')?.trim();
+  if (selected) return selected;
+  // Production deployments require an explicit provider before the worker can start.
+  if (config.get<string>('NODE_ENV') === 'production') return undefined;
+  if (config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim()) return 'TRAVELPAYOUTS_CACHE';
+  return config.get<string>('SEARCHAPI_API_KEY')?.trim()
+    ? 'SEARCHAPI_GOOGLE_FLIGHTS'
+    : 'MOCK_FLIGHT';
+}
+
+export function liveFlightProviderReady(
+  config: ConfigService,
+  provider: string | undefined,
+): boolean {
+  if (provider === 'SEARCHAPI_GOOGLE_FLIGHTS')
+    return Boolean(config.get<string>('SEARCHAPI_API_KEY')?.trim());
+  return (
+    provider === 'TRAVELPAYOUTS_CACHE' &&
+    Boolean(config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim()) &&
+    config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') === 'true'
+  );
 }
 
 @Injectable()

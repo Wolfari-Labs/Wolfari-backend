@@ -24,6 +24,7 @@ export class FinanceClient {
       | 'ConfirmHolderHandover'
       | 'CancelHolderHandover'
       | 'CreateQrSandboxPayment'
+      | 'GetQrSandboxPayment'
       | 'CreatePaymentAttempt'
       | 'GetPaymentAttempt'
       | 'ReconcilePaymentAttempt'
@@ -105,7 +106,7 @@ export class FinanceClient {
         method.responseDeserialize,
         request,
         metadata,
-        { deadline: Date.now() + (methodName === 'CreateQrSandboxPayment' ? 35000 : 2000) },
+        { deadline: Date.now() + (methodName === 'CreateQrSandboxPayment' || methodName === 'GetQrSandboxPayment' ? 35000 : 2000) },
         (error: ServiceError | null, response?: RpcMessage) =>
           error ? reject(error) : resolve(response!),
       ),

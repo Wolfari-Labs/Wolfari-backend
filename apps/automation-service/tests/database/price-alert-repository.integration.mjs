@@ -114,7 +114,11 @@ export async function checkPriceAlertRepository(client) {
     ).rows[0];
 
     let slot = 0;
-    const observation = async (price) => {
+    const observation = async (
+      price,
+      provider = 'MOCK_FLIGHT',
+      fareMetadata = { carrier_code: 'WF' },
+    ) => {
       const attempt = (
         await client.query(
           `INSERT INTO price_query_attempts(
@@ -128,8 +132,8 @@ export async function checkPriceAlertRepository(client) {
         await worker.completeSuccess('provider-worker', attempt, {
           price,
           currency: 'VND',
-          provider: 'MOCK_FLIGHT',
-          fare_metadata: { carrier_code: 'WF' },
+          provider,
+          fare_metadata: fareMetadata,
         }),
         true,
       );
@@ -322,6 +326,28 @@ export async function checkPriceAlertRepository(client) {
       ).rows[0].n,
       notificationCount,
     );
+    stage = 'SEARCHAPI_PRICE_ALERT';
+    await client.query(
+      "UPDATE price_query_groups SET provider=$2::text, params=jsonb_set(params,'{provider}',to_jsonb($2::text)) WHERE id=$1",
+      [group.id, 'SEARCHAPI_GOOGLE_FLIGHTS'],
+    );
+    const clock = (await client.query('SELECT clock_timestamp() AS value')).rows[0].value;
+    const searchObservation = await observation('1575181', 'SEARCHAPI_GOOGLE_FLIGHTS', {
+      data_kind: 'FLIGHT_SEARCH',
+      provider_found_at: clock.toISOString(),
+    });
+    const candidate = await alerts.claimNext('alert-searchapi', 30_000);
+    assert.equal(candidate.observation_id, searchObservation);
+    assert.equal(
+      await alerts.completeNotification('alert-searchapi', candidate, membershipA),
+      'NOTIFIED',
+    );
+    const searchAlert = (
+      await client.query('SELECT body FROM notifications WHERE dedupe_key=$1', [
+        `price-alert:${watchA.id}:${searchObservation}`,
+      ])
+    ).rows[0];
+    assert.match(searchAlert.body, /Google Flights qua SearchApi: 1575181 VND/);
   } catch (error) {
     throw new Error(`PRICE_ALERT_DB_${stage}`, { cause: error });
   } finally {

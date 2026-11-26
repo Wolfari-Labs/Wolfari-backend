@@ -22,7 +22,7 @@ export type PriceProviderResult =
       fetched_at?: string;
       price: string;
       currency: 'VND';
-      provider: 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE';
+      provider: NormalizedPriceQuery['provider'];
       fare_metadata: Record<string, string | null>;
     }
   | { kind: 'NO_RESULT' };
@@ -40,7 +40,7 @@ export interface ValidPriceObservation {
   fetched_at?: string;
   price: string;
   currency: 'VND';
-  provider: 'MOCK_FLIGHT' | 'TRAVELPAYOUTS_CACHE';
+  provider: NormalizedPriceQuery['provider'];
   fare_metadata: Record<string, string | null>;
 }
 
@@ -80,7 +80,7 @@ export function validateProviderResult(value: PriceProviderResult): ValidPriceOb
   if (
     price > signedInt64Max ||
     value.currency !== 'VND' ||
-    !['MOCK_FLIGHT', 'TRAVELPAYOUTS_CACHE'].includes(value.provider) ||
+    !['MOCK_FLIGHT', 'TRAVELPAYOUTS_CACHE', 'SEARCHAPI_GOOGLE_FLIGHTS'].includes(value.provider) ||
     !value.fare_metadata ||
     Array.isArray(value.fare_metadata)
   )
@@ -109,7 +109,11 @@ export function referencePriceFresh(
   now = Date.now(),
 ): boolean {
   if (provider === 'MOCK_FLIGHT') return true;
-  if (provider !== 'TRAVELPAYOUTS_CACHE' || metadata.data_kind !== 'CACHED_REFERENCE') return false;
+  if (
+    !(provider === 'TRAVELPAYOUTS_CACHE' && metadata.data_kind === 'CACHED_REFERENCE') &&
+    !(provider === 'SEARCHAPI_GOOGLE_FLIGHTS' && metadata.data_kind === 'FLIGHT_SEARCH')
+  )
+    return false;
   const found =
     typeof metadata.provider_found_at === 'string' ? Date.parse(metadata.provider_found_at) : NaN;
   const expiry =

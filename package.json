@@ -46,6 +46,7 @@
     "trip:test": "corepack pnpm build && node scripts/trip-integration.mjs",
     "trip:invitations:test": "corepack pnpm build && node scripts/trip-integration.mjs --invitations",
     "trip:members:test": "corepack pnpm build && node scripts/trip-integration.mjs --members",
+    "price-watch:setup": "node scripts/cli.mjs price-watch:setup",
     "price-watch:test": "corepack pnpm build && node scripts/trip-integration.mjs --price-watch",
     "price-watch:live-check": "corepack pnpm --filter \"@wolfari/automation-service...\" build && node scripts/price-watch-live-check.mjs",
     "notification:test": "corepack pnpm build && node scripts/trip-integration.mjs --notifications",

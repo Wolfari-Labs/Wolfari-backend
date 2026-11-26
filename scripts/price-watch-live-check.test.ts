@@ -51,6 +51,12 @@ describe('price-watch live check', () => {
     expect(summarize(query, 401, null, tools, now).status).toBe('AUTH_FAILED');
     expect(summarize(query, 429, null, tools, now).status).toBe('RATE_LIMITED');
   });
+  it('does not confirm VND when a priced response omits its currency', () => {
+    expect(summarize(query, 200, { success: true, data: [row] }, tools, now)).toMatchObject({
+      status: 'CURRENCY_UNCONFIRMED',
+      response_currency: null,
+    });
+  });
   it('never echoes upstream row details beyond counts', () => {
     const output = JSON.stringify(
       summarize(

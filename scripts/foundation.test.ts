@@ -5,15 +5,90 @@ import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 // JavaScript CLI modules are exercised directly, without a second implementation.
 // @ts-expect-error CLI is native ESM JavaScript.
-import { root, apps, initEnvironment, appEnvironment } from './config.mjs';
+import { root, apps, initEnvironment, initLocalEnvironment, appEnvironment, configureLocalFlightPriceWatch } from './config.mjs';
 // @ts-expect-error CLI is native ESM JavaScript.
 import { migrationFiles } from './migrations.mjs';
 
 describe('development configuration', () => {
+  it('enables live flight tracking on a fresh checkout using only the saved Automation key', async () => {
+    const target = await mkdtemp(resolve(tmpdir(), 'wolfari-flight-setup-'));
+    const automation = apps.find((app) => app.name === 'automation-service')!;
+    const path = resolve(target, 'apps', automation.name, '.env');
+    try {
+      expect(await initLocalEnvironment({ target })).toBe(false);
+      const original = await readFile(path, 'utf8');
+      await expect(configureLocalFlightPriceWatch(target)).rejects.toThrow('SEARCHAPI_API_KEY');
+      expect(await readFile(path, 'utf8')).toBe(original);
+
+      const key = 'local-test-key';
+      const saved = original.replace(/^SEARCHAPI_API_KEY=$/m, `SEARCHAPI_API_KEY=${key}`);
+      await writeFile(path, saved);
+      expect(await initLocalEnvironment({ target })).toBe(true);
+      const configured = await readFile(path, 'utf8');
+      const expected = {
+        PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS',
+        PRICE_WATCH_WORKER_ENABLED: 'true',
+      };
+      expect(parseEnv(configured)).toEqual({ ...parseEnv(saved), ...expected });
+      expect(appEnvironment(automation, parseEnv(configured), {})).toMatchObject({
+        ...expected,
+        SEARCHAPI_API_KEY: key,
+      });
+      await configureLocalFlightPriceWatch(target);
+      expect(await initLocalEnvironment({ target, searchApiKey: 'another-key' })).toBe(true);
+      expect(await readFile(path, 'utf8')).toBe(configured);
+    } finally {
+      await rm(target, { recursive: true, force: true });
+    }
+  });
+  it('imports the shell key on first local init and respects subsequent provider and worker choices', async () => {
+    const target = await mkdtemp(resolve(tmpdir(), 'wolfari-flight-init-'));
+    const path = resolve(target, 'apps', 'automation-service', '.env');
+    const key = 'test-token_01+=';
+    try {
+      expect(await initLocalEnvironment({ target, searchApiKey: key })).toBe(true);
+      const configured = await readFile(path, 'utf8');
+      expect(parseEnv(configured)).toMatchObject({
+        SEARCHAPI_API_KEY: key,
+        PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS',
+        PRICE_WATCH_WORKER_ENABLED: 'true',
+      });
+      expect(await readFile(resolve(target, '.env'), 'utf8')).not.toContain(key);
+      for (const app of apps.filter((app) => app.name !== 'automation-service')) {
+        expect(await readFile(resolve(target, 'apps', app.name, '.env'), 'utf8')).not.toContain(key);
+      }
+      const paused = configured.replace('PRICE_WATCH_WORKER_ENABLED=true', 'PRICE_WATCH_WORKER_ENABLED=false');
+      await writeFile(path, paused);
+      expect(await initLocalEnvironment({ target })).toBe(false);
+      expect(await readFile(path, 'utf8')).toBe(paused);
+
+      const mock = paused.replace('PRICE_WATCH_PROVIDER=SEARCHAPI_GOOGLE_FLIGHTS', 'PRICE_WATCH_PROVIDER=MOCK_FLIGHT');
+      await writeFile(path, mock);
+      expect(await initLocalEnvironment({ target })).toBe(false);
+      expect(await readFile(path, 'utf8')).toBe(mock);
+      expect(await configureLocalFlightPriceWatch(target)).toBe(true);
+      expect(await readFile(path, 'utf8')).toBe(configured);
+    } finally {
+      await rm(target, { recursive: true, force: true });
+    }
+  });
+  it('keeps shell input out of dotenv assignments when the token is malformed', async () => {
+    const target = await mkdtemp(resolve(tmpdir(), 'wolfari-flight-key-'));
+    try {
+      await expect(initLocalEnvironment({ target, searchApiKey: 'test\nOTHER_FLAG=true' }))
+        .rejects.toThrow('bearer token');
+      const env = parseEnv(await readFile(resolve(target, 'apps/automation-service/.env'), 'utf8'));
+      expect(env).toMatchObject({ SEARCHAPI_API_KEY: '', PRICE_WATCH_WORKER_ENABLED: 'false' });
+      expect(env).not.toHaveProperty('OTHER_FLAG');
+    } finally {
+      await rm(target, { recursive: true, force: true });
+    }
+  });
   it('isolates provider credentials and paired map secrets', () => {
     const owners: Record<string, string[]> = {
       GEOAPIFY_API_KEY: ['travel-intelligence-service'],
       TRAVELPAYOUTS_TOKEN: ['automation-service'],
+      SEARCHAPI_API_KEY: ['automation-service'],
       PLACE_SELECTION_SECRET: ['trip-workspace-service', 'travel-intelligence-service'],
       GATEWAY_TRAVEL_SECRET: ['api-gateway', 'travel-intelligence-service'],
       BANK_WEBHOOK_SEPAY_SECRET: ['api-gateway'],

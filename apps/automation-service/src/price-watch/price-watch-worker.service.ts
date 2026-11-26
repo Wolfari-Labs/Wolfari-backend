@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { Inject } from '@nestjs/common';
 import { FLIGHT_PRICE_PROVIDER, type FlightPriceProvider } from './travelpayouts.provider';
+import { configuredFlightProvider, liveFlightProviderReady } from './price-watch-provider';
 import {
   PriceProviderFailure,
   safeProviderFailure,
@@ -91,9 +92,7 @@ export class PriceWatchWorkerService implements OnApplicationBootstrap, OnApplic
     if (
       this.workerEnabled &&
       config.get<string>('NODE_ENV') === 'production' &&
-      (config.get<string>('PRICE_WATCH_PROVIDER') !== 'TRAVELPAYOUTS_CACHE' ||
-        !config.get<string>('TRAVELPAYOUTS_TOKEN') ||
-        config.get<string>('TRAVELPAYOUTS_VND_VERIFIED') !== 'true')
+      !liveFlightProviderReady(config, configuredFlightProvider(config))
     )
       throw new Error('MOCK_FLIGHT worker cannot run in production');
   }

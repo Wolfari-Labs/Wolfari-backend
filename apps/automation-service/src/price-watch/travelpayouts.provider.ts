@@ -3,13 +3,18 @@ import { ConfigService } from '@nestjs/config';
 import { DatabaseProvider } from '@wolfari/database';
 import { createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { MockFlightPriceProvider, type PriceProviderRequest } from './price-watch-provider';
+import {
+  configuredFlightProvider,
+  MockFlightPriceProvider,
+  type PriceProviderRequest,
+} from './price-watch-provider';
 import {
   PriceProviderFailure,
   referencePriceFresh,
   type PriceProviderResult,
 } from './price-watch-worker.domain';
 import type { NormalizedPriceQuery } from './price-watch.domain';
+import { fetchSearchApiFare } from './searchapi.provider';
 export const FLIGHT_PRICE_PROVIDER = 'FLIGHT_PRICE_PROVIDER';
 export interface FlightPriceProvider {
   fetch(request: PriceProviderRequest): Promise<PriceProviderResult>;
@@ -121,7 +126,7 @@ export class ConfiguredFlightPriceProvider implements FlightPriceProvider {
     private readonly mock: MockFlightPriceProvider,
   ) {}
   async fetch(request: PriceProviderRequest): Promise<PriceProviderResult> {
-    const provider = this.config.get<string>('PRICE_WATCH_PROVIDER') ?? 'MOCK_FLIGHT';
+    const provider = configuredFlightProvider(this.config);
     if (request.query.provider !== provider)
       throw new PriceProviderFailure('PROVIDER_NOT_SUPPORTED', false);
     if (provider === 'MOCK_FLIGHT') {
@@ -129,7 +134,12 @@ export class ConfiguredFlightPriceProvider implements FlightPriceProvider {
         throw new PriceProviderFailure('PROVIDER_NOT_SUPPORTED', false);
       return this.mock.fetch(request);
     }
-    const token = this.config.get<string>('TRAVELPAYOUTS_TOKEN');
+    if (provider === 'SEARCHAPI_GOOGLE_FLIGHTS') {
+      const key = this.config.get<string>('SEARCHAPI_API_KEY')?.trim();
+      if (!key) throw new PriceProviderFailure('PROVIDER_NOT_CONFIGURED', false);
+      return fetchSearchApiFare(request.query, key, request.signal);
+    }
+    const token = this.config.get<string>('TRAVELPAYOUTS_TOKEN')?.trim();
     if (
       provider !== 'TRAVELPAYOUTS_CACHE' ||
       !token ||

@@ -100,3 +100,46 @@ describe('QR MoMo Sandbox HTTP', () => {
     }
   });
 });
+
+describe('QR MoMo checkout sandbox HTTP', () => {
+  const order = '261125_w' + 'd'.repeat(24);
+  const token = Buffer.from('exp://127.0.0.1:8081/--/payment-return').toString('base64url');
+  const redirect = `http://192.168.1.5:3000/api/v1/qr-payments/payment-return/${token}`;
+  async function call(path: string, client: object, method = 'GET', body?: unknown, authorization = 'Bearer fixture') {
+    const proxy = new FinanceProxy(vi.fn().mockResolvedValue({ user_id: id }), client as unknown as ConstructorParameters<typeof FinanceProxy>[1]);
+    let payload: unknown;
+    const headers: Record<string, unknown> = {};
+    const response = {
+      statusCode: 0,
+      setHeader: vi.fn(),
+      writeHead: vi.fn((status: number, values: Record<string, unknown>) => { response.statusCode = status; Object.assign(headers, values); }),
+      end: (value?: string) => { payload = value ? JSON.parse(value) : undefined; },
+    };
+    const request = { url: path, method, body, headers: { authorization, 'idempotency-key': id, 'content-type': 'application/json' } } as unknown as IncomingMessage;
+    expect(proxy.matches(request)).toBe(true);
+    await new Promise<void>((resolve, reject) =>
+      new CorrelationMiddleware().use(request, response as unknown as ServerResponse, () => {
+        void Promise.resolve(proxy.handle(request, response as unknown as ServerResponse)).then(() => resolve(), reject);
+      }),
+    );
+    return { status: response.statusCode, payload, headers };
+  }
+  it('creates MoMo checkout orders and only accepts MoMo test pay links', async () => {
+    const client = { call: vi.fn().mockResolvedValue({ ...input, order_id: order, payment_url: 'https://test-payment.momo.vn/v2/gateway/pay?t=x', environment: 'SANDBOX' }), close: vi.fn() };
+    const created = await call(`/api/v1/trips/${id}/qr-payments/momo-checkout`, client, 'POST', { ...input, redirect_url: redirect });
+    expect(created.status).toBe(201);
+    expect(client.call).toHaveBeenCalledWith('CreateQrSandboxPayment', { ...input, actor_user_id: id, trip_id: id, provider: 'MOMO_CHECKOUT', redirect_url: redirect }, expect.any(String));
+    client.call.mockResolvedValueOnce({ ...input, order_id: order, payment_url: 'https://evil.example/x', environment: 'SANDBOX' });
+    expect((await call(`/api/v1/trips/${id}/qr-payments/momo-checkout`, client, 'POST', { ...input, redirect_url: redirect })).status).toBe(503);
+  });
+  it('bounces MoMo results (orderId) back into the app', async () => {
+    const ok = await call(`/api/v1/qr-payments/payment-return/${token}?partnerCode=MOMO&orderId=${order}&resultCode=0`, { call: vi.fn(), close: vi.fn() }, 'GET', undefined, '');
+    expect(ok.status).toBe(302);
+    expect(ok.headers.location).toBe(`exp://127.0.0.1:8081/--/payment-return?order_id=${order}`);
+  });
+  it('refuses bounces to anything but the Wolfari app', async () => {
+    const evil = Buffer.from('https://evil.example/payment-return').toString('base64url');
+    expect((await call(`/api/v1/qr-payments/payment-return/${evil}?orderId=${order}`, { call: vi.fn(), close: vi.fn() }, 'GET', undefined, '')).status).toBe(400);
+    expect((await call(`/api/v1/qr-payments/payment-return/${token}?orderId=bad`, { call: vi.fn(), close: vi.fn() }, 'GET', undefined, '')).status).toBe(400);
+  });
+});

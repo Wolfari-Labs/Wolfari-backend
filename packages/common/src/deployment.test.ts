@@ -22,7 +22,7 @@ const request = (peer: string, ip?: string) =>
   }) as unknown as IncomingMessage;
 afterEach(() => vi.unstubAllEnvs());
 describe('single host deployment boundary', () => {
-  it('permits only verified configured cached-price production worker', () => {
+  it('requires credentials for the selected production flight provider', () => {
     const enabled = {
       ...base,
       PRICE_WATCH_WORKER_ENABLED: 'true',
@@ -46,6 +46,16 @@ describe('single host deployment boundary', () => {
       AUTOMATION_FINANCE_NOTIFICATION_ENABLED: 'false',
     };
     expect(() => validateDeploymentEnvironment(enabled, 'automation-service')).not.toThrow();
+    const searchApi = {
+      ...enabled,
+      PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS',
+      SEARCHAPI_API_KEY: 'example-key',
+      TRAVELPAYOUTS_TOKEN: '',
+    };
+    expect(() => validateDeploymentEnvironment(searchApi, 'automation-service')).not.toThrow();
+    expect(() =>
+      validateDeploymentEnvironment({ ...searchApi, SEARCHAPI_API_KEY: '' }, 'automation-service'),
+    ).toThrow('PRICE_WATCH_PROVIDER');
     for (const override of [
       { PRICE_WATCH_PROVIDER: 'MOCK_FLIGHT' },
       { TRAVELPAYOUTS_TOKEN: '' },

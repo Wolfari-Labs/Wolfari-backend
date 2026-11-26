@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { QrSandboxService } from './qr-sandbox.service';
 import type { FundQueryService } from './fund-query.service';
 import type { MomoSandboxProvider } from '../providers/momo-sandbox.provider';
+import type { MomoCheckoutProvider } from '../providers/momo-checkout.provider';
 
 const id = '10000000-0000-4000-8000-000000000001';
 const input = {
@@ -101,5 +102,28 @@ describe('isolated QR MoMo Sandbox checkout', () => {
     });
     await f.service.create(input, id, Date.now() + 35000);
     expect(f.create.mock.calls[0]).toEqual(f.create.mock.calls[1]);
+  });
+});
+
+describe('isolated QR MoMo checkout sandbox', () => {
+  const redirect = 'http://192.168.1.5:3000/api/v1/qr-payments/payment-return/ZXhwOi8vMTI3LjAuMC4xOjgwODEvLS0vemFsb3BheS1yZXR1cm4';
+  it('creates a MoMo order and reports PAID from the query, FAILED for declined orders', async () => {
+    const create = vi.fn().mockResolvedValue({ resultCode: 0, message: 'ok', payUrl: 'https://test-payment.momo.vn/v2/gateway/pay?t=x' });
+    const query = vi.fn().mockResolvedValue({ resultCode: 0, amount: 150000n, transactionId: '4088878653' });
+    const service = new QrSandboxService(
+      { authorizeQrSandbox: vi.fn().mockResolvedValue(undefined) } as unknown as FundQueryService,
+      { create: vi.fn(), ready: () => true } as unknown as MomoSandboxProvider,
+      new ConfigService({ NODE_ENV: 'test' }),
+      { create, query, ready: () => true } as unknown as MomoCheckoutProvider,
+    );
+    const order = await service.create({ ...input, provider: 'MOMO_CHECKOUT', redirect_url: redirect }, id, Date.now() + 35000);
+    expect(create.mock.calls[0][0]).toMatchObject({ orderId: order.order_id, requestId: id, amount: 150000n, redirectUrl: redirect });
+    const status = (await service.status({ actor_user_id: id, trip_id: id, order_id: order.order_id }, id, Date.now() + 35000));
+    expect(status).toMatchObject({ status: 'PAID', provider_transaction_id: '4088878653' });
+    expect(query).toHaveBeenCalledWith(order.order_id, id);
+    query.mockResolvedValueOnce({ resultCode: 1006 });
+    expect((await service.status({ actor_user_id: id, trip_id: id, order_id: order.order_id }, id, Date.now() + 35000)).status).toBe('FAILED');
+    query.mockResolvedValueOnce({ resultCode: 1000 });
+    expect((await service.status({ actor_user_id: id, trip_id: id, order_id: order.order_id }, id, Date.now() + 35000)).status).toBe('PENDING');
   });
 });

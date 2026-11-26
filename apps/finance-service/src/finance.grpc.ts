@@ -83,6 +83,24 @@ export class FinanceGrpcController {
     );
   }
 
+  @GrpcMethod('FinanceService', 'GetQrSandboxPayment')
+  getQrSandboxPayment(
+    request: FinanceV1.GetQrSandboxPaymentRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute(
+      'GetQrSandboxPayment',
+      metadata,
+      call,
+      (correlation, deadline) => {
+        if (!this.qrSandbox) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+        return this.qrSandbox.status(request, correlation, deadline);
+      },
+      34000,
+    );
+  }
+
   @GrpcMethod('FinanceService', 'GetTripLifecycleState')
   getTripLifecycleState(
     request: FinanceV1.GetTripLifecycleStateRequest,
