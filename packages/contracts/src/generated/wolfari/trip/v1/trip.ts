@@ -338,7 +338,15 @@ export interface InvitationDelivery {
   link?: string | undefined;
   expires_at?: Timestamp | undefined;
   invitation_version?: number | undefined;
-  recipient_user_id?: string | undefined;
+  recipient_user_id?:
+    | string
+    | undefined;
+  /** What the email says, so the recipient knows who invites them to which trip. */
+  trip_name?: string | undefined;
+  inviter_display_name?: string | undefined;
+  trip_start_at?: Timestamp | undefined;
+  trip_end_at?: Timestamp | undefined;
+  trip_timezone?: string | undefined;
 }
 
 export interface Invitation {
@@ -356,8 +364,16 @@ export interface Invitation {
   code_hint?:
     | string
     | undefined;
-  /** Lets an inviter manage the invitations they created. */
-  invited_by_user_id?: string | undefined;
+  /** The Owner who created the invitation. */
+  invited_by_user_id?:
+    | string
+    | undefined;
+  /** LINK: how many people may join with it; EMAIL: always 1. */
+  max_uses?:
+    | number
+    | undefined;
+  /** People who joined with it so far. */
+  use_count?: number | undefined;
 }
 
 export interface CreateInvitationRequest {
@@ -367,7 +383,11 @@ export interface CreateInvitationRequest {
   invitation_type?: string | undefined;
   email?: string | undefined;
   expires_at?: Timestamp | undefined;
-  expected_membership_revision?: number | undefined;
+  expected_membership_revision?:
+    | number
+    | undefined;
+  /** LINK only, 1-50; default 1 (one person per link). */
+  max_uses?: number | undefined;
 }
 
 export interface CreateInvitationResponse {
@@ -376,7 +396,11 @@ export interface CreateInvitationResponse {
     | string
     | undefined;
   /** XXXX-XXXX, returned once for LINK invitations. */
-  join_code?: string | undefined;
+  join_code?:
+    | string
+    | undefined;
+  /** LINK: web page carrying the join code, for QR and sharing. */
+  share_link?: string | undefined;
 }
 
 export interface ListInvitationsRequest {
@@ -395,7 +419,11 @@ export interface ListInvitationsResponse {
 export interface PreviewInvitationRequest {
   actor_user_id?: string | undefined;
   token?: string | undefined;
-  operation_id?: string | undefined;
+  operation_id?:
+    | string
+    | undefined;
+  /** Instead of a token: an EMAIL invitation addressed to the caller's verified email. */
+  invitation_id?: string | undefined;
 }
 
 export interface PreviewInvitationResponse {
@@ -404,6 +432,18 @@ export interface PreviewInvitationResponse {
   inviter_display_name?: string | undefined;
   status?: string | undefined;
   expires_at?: Timestamp | undefined;
+  invitation_type?: string | undefined;
+  trip_start_at?: Timestamp | undefined;
+  trip_end_at?: Timestamp | undefined;
+}
+
+export interface ListMyInvitationsRequest {
+  actor_user_id?: string | undefined;
+}
+
+export interface ListMyInvitationsResponse {
+  /** Pending EMAIL invitations for the caller. */
+  items?: PreviewInvitationResponse[] | undefined;
 }
 
 export interface AcceptInvitationResponse {
@@ -432,12 +472,14 @@ export interface AcceptInvitationRequest {
   actor_user_id?: string | undefined;
   token?: string | undefined;
   operation_id?: string | undefined;
+  invitation_id?: string | undefined;
 }
 
 export interface DeclineInvitationRequest {
   actor_user_id?: string | undefined;
   token?: string | undefined;
   operation_id?: string | undefined;
+  invitation_id?: string | undefined;
 }
 
 export interface DeclineInvitationResponse {
@@ -446,6 +488,9 @@ export interface DeclineInvitationResponse {
   inviter_display_name?: string | undefined;
   status?: string | undefined;
   expires_at?: Timestamp | undefined;
+  invitation_type?: string | undefined;
+  trip_start_at?: Timestamp | undefined;
+  trip_end_at?: Timestamp | undefined;
 }
 
 export interface RevokeInvitationResponse {
@@ -1005,6 +1050,8 @@ export interface TripServiceClient {
     metadata?: Metadata,
   ): Observable<AcknowledgeInvitationDeliveryResponse>;
 
+  listMyInvitations(request: ListMyInvitationsRequest, metadata?: Metadata): Observable<ListMyInvitationsResponse>;
+
   createTrip(request: CreateTripRequest, metadata?: Metadata): Observable<CreateTripResponse>;
 
   listTrips(request: ListTripsRequest, metadata?: Metadata): Observable<ListTripsResponse>;
@@ -1176,6 +1223,11 @@ export interface TripServiceController {
     | Promise<AcknowledgeInvitationDeliveryResponse>
     | Observable<AcknowledgeInvitationDeliveryResponse>
     | AcknowledgeInvitationDeliveryResponse;
+
+  listMyInvitations(
+    request: ListMyInvitationsRequest,
+    metadata?: Metadata,
+  ): Promise<ListMyInvitationsResponse> | Observable<ListMyInvitationsResponse> | ListMyInvitationsResponse;
 
   createTrip(
     request: CreateTripRequest,
@@ -1354,6 +1406,7 @@ export function TripServiceControllerMethods() {
       "revokeInvitation",
       "resendInvitation",
       "acknowledgeInvitationDelivery",
+      "listMyInvitations",
       "createTrip",
       "listTrips",
       "getTrip",

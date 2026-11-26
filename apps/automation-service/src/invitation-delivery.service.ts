@@ -1,4 +1,5 @@
 import { smtpConfiguration } from './smtp-config';
+import { invitationEmail } from './invitation-email';
 import {
   Controller,
   Get,
@@ -189,7 +190,9 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
     }
     try {
       // Nothing from delivery context, especially the link, is written to Automation storage.
-      let recipientEmail: string | undefined, recipientUserId: string | undefined;
+      let recipientEmail: string | undefined,
+        recipientUserId: string | undefined,
+        ownerUserId: string | undefined;
       if (event.event_type === 'MemberInvited') {
         const source = await this.trip.getInvitationDelivery(
           {
@@ -213,6 +216,23 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
         } catch (error) {
           if ((error as { code?: number }).code !== 5) throw error;
         }
+        // The Owner learns that the invitation was accepted (only while that membership lasts).
+        if (recipientUserId)
+          try {
+            const joined = await this.trip.getAutomationContext(
+              {
+                trip_id: event.payload.trip_id,
+                source_type: 'MEMBER_JOINED',
+                source_id: event.aggregate_id,
+                user_id: event.payload.user_id,
+              },
+              event.correlation_id,
+            );
+            if (joined.context?.allowed) ownerUserId = joined.context.recipients?.[0]?.user_id;
+          } catch (error) {
+            // NOT_FOUND: membership already gone; INVALID_ARGUMENT: a Trip without this source.
+            if (![3, 5].includes(Number((error as { code?: number }).code))) throw error;
+          }
       }
       await this.db.withTransaction(async (client) => {
         const inserted = await client.query(
@@ -235,13 +255,28 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
               event.trip_id,
               event.event_type === 'MemberInvited' ? 'TRIP_INVITATION' : 'MEMBER_JOINED',
               event.event_type === 'MemberInvited' ? 'Lời mời chuyến đi' : 'Đã tham gia chuyến đi',
-              'Mở ứng dụng Wolfari để xem thông tin.',
+              event.event_type === 'MemberInvited'
+                ? 'Bạn có lời mời tham gia chuyến đi. Mở để xem và trả lời.'
+                : 'Mở ứng dụng Wolfari để xem thông tin.',
               event.aggregate_id,
               event.event_id,
               key,
             ],
           )
         ).rows[0]!;
+        if (ownerUserId && ownerUserId !== recipientUserId)
+          await client.query(
+            `INSERT INTO notifications(user_id,trip_id,type,title,body,source_id,event_id,status,dedupe_key)
+            VALUES($1,$2,'INVITATION_ACCEPTED','Thành viên mới','Một người vừa nhận lời mời và tham gia chuyến đi.',$3,$4,'AVAILABLE',$5)
+            ON CONFLICT(dedupe_key) DO NOTHING`,
+            [
+              ownerUserId,
+              event.trip_id,
+              event.aggregate_id,
+              event.event_id,
+              `invitation-accepted:${event.aggregate_id}`,
+            ],
+          );
         if (
           event.event_type === 'MemberInvited' &&
           (await this.preference(client, recipientUserId, event.payload.trip_id))
@@ -351,11 +386,13 @@ export class InvitationDeliveryService implements OnApplicationBootstrap, OnAppl
           );
           return;
         }
+        const mail = invitationEmail(source.delivery);
         const info = await this.smtp.sendMail({
           from: this.sender,
           to: source.delivery.recipient_email,
-          subject: 'Lời mời chuyến đi Wolfari',
-          text: `Bạn được mời tham gia chuyến đi. Đăng nhập và xem trước lời mời: ${source.delivery.link}\nMở liên kết không tự động chấp nhận lời mời.`,
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html,
           messageId: `<${delivery.delivery_key.replaceAll(':', '.')}@wolfari.local>`,
         });
         const updated = await this.db.query(

@@ -172,11 +172,8 @@ function project(row: TripRow, now = new Date()): TripView {
       ...(row.membership_role === 'OWNER' && archivedAt === null
         ? (['TRIP_UPDATE_METADATA'] as TripPermission[])
         : []),
-      // Same rule as plan editing: Owner, everyone, or the selected editors.
-      ...(archivedAt === null &&
-      (row.membership_role === 'OWNER' ||
-        row.plan_edit_policy === 'ALL_MEMBERS' ||
-        (row.plan_edit_policy === 'SELECTED_MEMBERS' && row.selected_editor))
+      // Only the Owner invites (SRS FR-TR03), whatever the plan editing policy is.
+      ...(archivedAt === null && row.membership_role === 'OWNER'
         ? (['TRIP_INVITE'] as TripPermission[])
         : []),
     ],

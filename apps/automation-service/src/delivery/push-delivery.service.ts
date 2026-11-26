@@ -115,7 +115,17 @@ export class PushDeliveryService {
         await this.failed(row.id, 'PREFERENCE_DISABLED');
         return;
       }
-      if (!(await this.context.eligible(notice.user_id, notice.trip_id, undefined, notice.session_family_id!))) {
+      // An invitee is not a member yet, so an invitation checks the account only (SRS: push to
+      // the invited person when they have an account); everything else needs active membership.
+      const invitation = notice.type === 'TRIP_INVITATION';
+      if (
+        !(await this.context.eligible(
+          notice.user_id,
+          invitation ? null : notice.trip_id,
+          undefined,
+          notice.session_family_id!,
+        ))
+      ) {
         await this.failed(row.id, 'RECIPIENT_UNAVAILABLE');
         return;
       }
@@ -158,7 +168,8 @@ export class PushDeliveryService {
             {
               notification_id: row.notification_id,
               type: notice.type,
-              ...(notice.trip_id ? { trip_id: notice.trip_id } : {}),
+              // Never hand a non-member the Trip ID.
+              ...(notice.trip_id && !invitation ? { trip_id: notice.trip_id } : {}),
             },
             this.token,
           );

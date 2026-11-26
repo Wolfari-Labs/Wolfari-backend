@@ -530,6 +530,16 @@ export class TripGrpcController implements TripV1.TripServiceController {
     const correlation = this.authorize('ListInvitations', metadata);
     return this.execute(() => this.invitations.list(request, correlation));
   }
+  listMyInvitations(
+    request: TripV1.ListMyInvitationsRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ): Promise<TripV1.ListMyInvitationsResponse> {
+    const correlation = this.authorize('ListMyInvitations', metadata);
+    return this.execute(() =>
+      this.invitations.listMine(request, correlation, tripRequestDeadline(call)),
+    );
+  }
   previewInvitation(
     request: TripV1.PreviewInvitationRequest,
     metadata?: Metadata,

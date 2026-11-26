@@ -94,6 +94,26 @@ describe('NotificationService', () => {
     expect(JSON.stringify(result)).not.toContain('100 VND');
   });
 
+  it('shows an invitee their invitation without revealing the Trip', async () => {
+    const { service, repository } = setup(false);
+    repository.listNotifications.mockResolvedValue([
+      record({ type: 'TRIP_INVITATION', title: 'Lời mời chuyến đi', body: 'secret trip' }),
+    ]);
+    const result = await service.listNotifications(
+      { actor_user_id: userId, limit: 20 },
+      '55555555-5555-4555-8555-555555555555',
+    );
+    expect(result.items[0]).toMatchObject({
+      type: 'TRIP_INVITATION',
+      trip_id: null,
+      source_id: null,
+      title: 'Lời mời chuyến đi',
+      body: 'Bạn có lời mời tham gia chuyến đi. Mở để xem và trả lời.',
+    });
+    expect(JSON.stringify(result)).not.toContain(tripId);
+    expect(JSON.stringify(result)).not.toContain('secret trip');
+  });
+
   it('keeps non-Trip content and accessible Trip content', async () => {
     const { service, repository, access } = setup(true);
     repository.listNotifications.mockResolvedValue([

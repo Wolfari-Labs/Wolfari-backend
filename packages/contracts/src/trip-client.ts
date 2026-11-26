@@ -100,6 +100,14 @@ export class TripInvitationClient {
       TripV1.AcknowledgeInvitationDeliveryResponse
     >('AcknowledgeInvitationDelivery', request, correlation);
   }
+  /** MEMBER_JOINED source: the Owner to tell about an accepted invitation. */
+  getAutomationContext(request: TripV1.GetAutomationContextRequest, correlation?: string) {
+    return this.call<TripV1.GetAutomationContextRequest, TripV1.GetAutomationContextResponse>(
+      'GetAutomationContext',
+      request,
+      correlation,
+    );
+  }
   close() {
     this.client.close();
   }

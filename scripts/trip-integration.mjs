@@ -469,6 +469,8 @@ async function main() {
     GATEWAY_FINANCE_SECRET: secrets.GATEWAY_FINANCE_SECRET,
     BANK_WEBHOOK_SEPAY_SECRET: secrets.BANK_WEBHOOK_SEPAY_SECRET,
     WEB_ORIGIN: `http://127.0.0.1:${ports.gateway}`,
+    // Suites register many accounts from one loopback IP (5 sign-ups/hour at multiplier 1).
+    GATEWAY_LOCAL_RATE_LIMIT_MULTIPLIER: '20',
   });
   assert.equal((await fetch(`http://127.0.0.1:${ports.gateway}/health/ready`)).status, 200);
   pass('Gateway, Identity and Trip are ready');

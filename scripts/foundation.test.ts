@@ -321,7 +321,7 @@ describe('development configuration', () => {
         service === 'automation'
           ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008', 'V009']
           : service === 'trip'
-            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
+            ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
             : service === 'finance'
               ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008']
               : service === 'identity'

@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Wolfari Trip Invitations",
-    "version": "1.0.0",
-    "description": "Owner quản lý; recipient phải đăng nhập nhưng không cần membership. EMAIL yêu cầu email Identity đã xác minh. LINK được giải quyết bởi accept/decline đầu tiên. Xem tài liệu trip-invitations.md về concurrency, replay và email at-least-once."
+    "version": "1.1.0",
+    "description": "Chỉ Owner đang hoạt động quản lý lời mời (SRS FR-TR03). Recipient phải đăng nhập nhưng không cần membership. EMAIL yêu cầu email Identity đã xác minh và trùng sau chuẩn hóa; người nhận đó còn xem/trả lời được từ danh sách GET /me/invitations bằng invitation_id. LINK mặc định dùng một lần (max_uses=1); Owner có thể tạo link nhóm (max_uses tối đa 50) — mỗi tài khoản vào một lần, từ chối link nhóm chỉ là bỏ qua. Xem trip-invitations.md về concurrency, replay và email at-least-once."
   },
   "servers": [
     {
@@ -918,6 +918,85 @@
         },
         "description": "Owner hoặc chính người đã tạo lời mời."
       }
+    },
+    "/me/invitations": {
+      "get": {
+        "operationId": "listMyInvitations",
+        "summary": "Lời mời EMAIL đang chờ gửi tới email đã xác minh của tôi",
+        "description": "Tối đa 20 lời mời PENDING còn hạn, mới nhất trước; bỏ Trip đã lưu trữ/xóa và Trip tôi đã là thành viên. Email chưa xác minh trả danh sách rỗng.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "maxItems": 20,
+                          "items": {
+                            "$ref": "#/components/schemas/Preview"
+                          }
+                        }
+                      },
+                      "required": ["items"]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "correlation_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": ["correlation_id"]
+                    }
+                  },
+                  "required": ["data", "meta"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu không hợp lệ hoặc không được phép",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu không hợp lệ hoặc không được phép",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency lỗi/timeout; retry mutation với cùng Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -974,7 +1053,19 @@
           "invited_by_user_id": {
             "type": ["string", "null"],
             "format": "uuid",
-            "description": "Người đã tạo lời mời; người này (hoặc Owner) được gửi lại/thu hồi."
+            "description": "Owner đã tạo lời mời."
+          },
+          "max_uses": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Số người tối đa vào được bằng lời mời này; EMAIL luôn là 1."
+          },
+          "use_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50,
+            "description": "Số người đã vào bằng lời mời này."
           }
         },
         "required": [
@@ -987,7 +1078,9 @@
           "resolved_at",
           "version",
           "code_hint",
-          "invited_by_user_id"
+          "invited_by_user_id",
+          "max_uses",
+          "use_count"
         ]
       },
       "Preview": {
@@ -1011,9 +1104,30 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "invitation_type": {
+            "type": ["string", "null"],
+            "enum": ["EMAIL", "LINK", null]
+          },
+          "trip_start_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "trip_end_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
           }
         },
-        "required": ["id", "trip_name", "inviter_display_name", "status", "expires_at"]
+        "required": [
+          "id",
+          "trip_name",
+          "inviter_display_name",
+          "status",
+          "expires_at",
+          "invitation_type",
+          "trip_start_at",
+          "trip_end_at"
+        ]
       },
       "Token": {
         "type": "object",
@@ -1060,6 +1174,12 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          },
+          "max_uses": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Chỉ cho LINK; mặc định 1. Lớn hơn 1 là link nhóm."
           }
         },
         "required": ["invitation_type", "expected_membership_revision"],
@@ -1078,6 +1198,20 @@
             "else": {
               "not": {
                 "required": ["email"]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "invitation_type": {
+                  "const": "EMAIL"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "required": ["max_uses"]
               }
             }
           }
@@ -1099,6 +1233,11 @@
             "type": "string",
             "pattern": "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$",
             "description": "Mã mời ngắn (Crockford base32, XXXX-XXXX) cho LINK; chỉ có ở response tạo mới đầu tiên, server chỉ lưu hash."
+          },
+          "share_link": {
+            "type": "string",
+            "format": "uri",
+            "description": "LINK: trang web `<origin>/invitations#code=XXXX-XXXX` để chia sẻ/QR; chỉ có ở response tạo mới đầu tiên."
           }
         },
         "required": ["invitation"]
@@ -1260,8 +1399,23 @@
           },
           {
             "$ref": "#/components/schemas/Code"
+          },
+          {
+            "$ref": "#/components/schemas/InvitationId"
           }
         ]
+      },
+      "InvitationId": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "invitation_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lời mời EMAIL gửi tới email đã xác minh của người đang đăng nhập (từ GET /me/invitations)."
+          }
+        },
+        "required": ["invitation_id"]
       }
     }
   }
