@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RequestError } from './trip-http';
-import { priceSourceFailure, priceWatchRoute, priceWatchWrite } from './price-watch-proxy';
+import { priceSourceFailure, priceWatchRoute, priceWatchWrite, projectCapabilities } from './price-watch-proxy';
 
 const trip = '11111111-1111-4111-8111-111111111111';
 const watch = '22222222-2222-4222-8222-222222222222';
@@ -113,5 +113,39 @@ describe('price watch HTTP boundary', () => {
       RequestError,
     );
     expect(() => priceWatchWrite({ expected_version: 1 }, true)).toThrowError(RequestError);
+  });
+});
+
+describe('price watch capabilities route', () => {
+  it('is a read-only GET without a Trip', () => {
+    expect(priceWatchRoute('GET', '/api/v1/price-watch-capabilities')).toEqual({ kind: 'capabilities' });
+    expect(priceWatchRoute('POST', '/api/v1/price-watch-capabilities')).toBeNull();
+  });
+
+  it('projects what the fare source compares and keeps omitted zero counts at 0', () => {
+    expect(
+      projectCapabilities({
+        provider: 'SEARCHAPI_GOOGLE_FLIGHTS',
+        available: true,
+        journey_types: ['ONE_WAY'],
+        cabin_classes: ['ECONOMY'],
+        max_adults: 1,
+        max_passengers: 1,
+        currencies: ['VND'],
+      }),
+    ).toEqual({
+      provider: 'SEARCHAPI_GOOGLE_FLIGHTS',
+      available: true,
+      journey_types: ['ONE_WAY'],
+      cabin_classes: ['ECONOMY'],
+      max_adults: 1,
+      max_children: 0,
+      max_infants: 0,
+      max_passengers: 1,
+      currencies: ['VND'],
+    });
+    expect(projectCapabilities({ provider: 'MOCK_FLIGHT' }).available).toBe(false);
+    expect(() => projectCapabilities({ provider: 'X', journey_types: ['MULTI_CITY'] })).toThrow();
+    expect(() => projectCapabilities({ provider: 'X', cabin_classes: 'ECONOMY' })).toThrow();
   });
 });

@@ -166,6 +166,53 @@ describe('PriceWatchService source selection', () => {
   });
 });
 
+describe('PriceWatchService capabilities', () => {
+  it('describes the configured real source and whether a watch can be created now', () => {
+    const live = setup({
+      config: {
+        PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS',
+        SEARCHAPI_API_KEY: 'test-key',
+        PRICE_WATCH_WORKER_ENABLED: 'true',
+      },
+    }).service.capabilities({ actor_user_id: userId });
+    expect(live).toEqual({
+      provider: 'SEARCHAPI_GOOGLE_FLIGHTS',
+      available: true,
+      journey_types: ['ONE_WAY'],
+      cabin_classes: ['ECONOMY'],
+      max_adults: 1,
+      max_children: 0,
+      max_infants: 0,
+      max_passengers: 1,
+      currencies: ['VND'],
+    });
+    const stopped = setup({
+      config: { PRICE_WATCH_PROVIDER: 'SEARCHAPI_GOOGLE_FLIGHTS', SEARCHAPI_API_KEY: 'test-key' },
+    }).service.capabilities({ actor_user_id: userId });
+    expect(stopped).toMatchObject({ provider: 'SEARCHAPI_GOOGLE_FLIGHTS', available: false });
+    const production = setup({ config: { NODE_ENV: 'production' } }).service.capabilities({
+      actor_user_id: userId,
+    });
+    expect(production).toMatchObject({ provider: 'TRAVELPAYOUTS_CACHE', available: false });
+  });
+
+  it('offers every combination only for the development mock', () => {
+    const mock = setup({ config: { NODE_ENV: 'development' } }).service.capabilities({
+      actor_user_id: userId,
+    });
+    expect(mock).toMatchObject({
+      provider: 'MOCK_FLIGHT',
+      available: true,
+      journey_types: ['ONE_WAY', 'ROUND_TRIP'],
+      cabin_classes: ['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST'],
+      max_passengers: 9,
+    });
+    expect(() =>
+      setup().service.capabilities({ actor_user_id: 'not-a-uuid' }),
+    ).toThrowError('VALIDATION_FAILED');
+  });
+});
+
 describe('PriceWatchService authorization', () => {
   it('allows current members to read archived Trip watches', async () => {
     const { service, repository } = setup({ state: 'ARCHIVED' });

@@ -37,6 +37,33 @@ export async function runPriceWatchTests({
   const secondTrip = await createTrip(secondOwner, 'Price Watch B');
   pass('two isolated Trip owners are ready');
 
+  // SRS FR-AU03: clients build the form from what the configured source can compare.
+  const capabilities = await request(
+    '/api/v1/price-watch-capabilities',
+    'GET',
+    undefined,
+    bearer(outsider),
+  );
+  assert.equal(capabilities.status, 200);
+  assert.deepEqual(capabilities.body.data, {
+    provider: 'MOCK_FLIGHT',
+    available: true,
+    journey_types: ['ONE_WAY', 'ROUND_TRIP'],
+    cabin_classes: ['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST'],
+    max_adults: 9,
+    max_children: 9,
+    max_infants: 9,
+    max_passengers: 9,
+    currencies: ['VND'],
+  });
+  assert.equal((await request('/api/v1/price-watch-capabilities')).status, 401);
+  assert.equal(
+    (await request('/api/v1/price-watch-capabilities?x=1', 'GET', undefined, bearer(outsider)))
+      .status,
+    400,
+  );
+  pass('capabilities describe the configured fare source to any signed-in user');
+
   const departure = new Date(Date.now() + 30 * 86_400_000);
   departure.setUTCHours(2, 0, 0, 0);
   const body = {

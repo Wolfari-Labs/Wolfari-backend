@@ -14,6 +14,7 @@ import {
 } from './price-watch.domain';
 import { priceWatchFail } from './price-watch.errors';
 import { configuredFlightProvider, liveFlightProviderReady } from './price-watch-provider';
+import { providerCapabilities } from './price-watch-capabilities';
 import {
   PriceWatchRepository,
   type ObservationRecord,
@@ -136,20 +137,45 @@ export class PriceWatchService {
     );
   }
 
-  private validateProvider(value: NormalizedWatchWrite) {
+  /** Whether a watch for `provider` can be created and checked right now. */
+  private providerAvailable(provider: string) {
     const configured = configuredFlightProvider(this.config);
-    if (
-      value.query.provider === 'MOCK_FLIGHT' &&
-      (this.config.get<string>('NODE_ENV') === 'production' || configured !== 'MOCK_FLIGHT')
-    )
-      return priceWatchFail('VALIDATION_FAILED');
-    if (
-      value.query.provider !== 'MOCK_FLIGHT' &&
-      (configured !== value.query.provider ||
-        this.config.get<string>('PRICE_WATCH_WORKER_ENABLED') !== 'true' ||
-        !liveFlightProviderReady(this.config, configured))
-    )
-      return priceWatchFail('SERVICE_UNAVAILABLE', { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' });
+    if (provider === 'MOCK_FLIGHT')
+      return this.config.get<string>('NODE_ENV') !== 'production' && configured === 'MOCK_FLIGHT';
+    return (
+      configured === provider &&
+      this.config.get<string>('PRICE_WATCH_WORKER_ENABLED') === 'true' &&
+      liveFlightProviderReady(this.config, configured)
+    );
+  }
+
+  private validateProvider(value: NormalizedWatchWrite) {
+    if (this.providerAvailable(value.query.provider)) return;
+    if (value.query.provider === 'MOCK_FLIGHT') return priceWatchFail('VALIDATION_FAILED');
+    return priceWatchFail('SERVICE_UNAVAILABLE', { reason: 'PRICE_PROVIDER_NOT_CONFIGURED' });
+  }
+
+  /**
+   * The source new watches use (the same default as create), what it can compare and whether a
+   * watch can be created now. Clients build their form from this instead of a build-time guess.
+   */
+  capabilities(
+    request: AutomationV1.GetPriceWatchCapabilitiesRequest,
+  ): AutomationV1.GetPriceWatchCapabilitiesResponse {
+    watchUuid(request.actor_user_id);
+    const provider = configuredFlightProvider(this.config) ?? 'TRAVELPAYOUTS_CACHE';
+    const supported = providerCapabilities(provider);
+    return {
+      provider,
+      available: this.providerAvailable(provider),
+      journey_types: [...supported.journey_types],
+      cabin_classes: [...supported.cabin_classes],
+      max_adults: supported.max_adults,
+      max_children: supported.max_children,
+      max_infants: supported.max_infants,
+      max_passengers: supported.max_passengers,
+      currencies: [...supported.currencies],
+    };
   }
 
   async observations(
