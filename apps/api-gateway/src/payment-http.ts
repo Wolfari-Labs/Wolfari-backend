@@ -8,6 +8,7 @@ import {
 } from '@wolfari/common';
 import type { FinanceClient } from './finance-client';
 import { projectOperation } from './membership-proxy';
+import { allowWebhookRequest } from './bank-webhook-http';
 import { handlePayosReturn, handlePayosWebhook, PAYOS_WEBHOOK_PATH } from './payos-http';
 import {
   authenticate,
@@ -155,6 +156,10 @@ async function webhook(
   client: Pick<FinanceClient, 'call'>,
 ) {
   if (request.method !== 'POST') return fail(response, 404, 'RESOURCE_NOT_FOUND');
+  // Same per-IP budget as the SePay and payOS webhooks; MoMo retries a refused IPN later.
+  const source = String(request.socket?.remoteAddress ?? 'unknown');
+  if (!allowWebhookRequest(`momo:${source}`))
+    return fail(response, 429, 'RESOURCE_EXHAUSTED', { retryable: true, write: true });
   try {
     ensureQuery(url, []);
     const body = await requestBody(request);

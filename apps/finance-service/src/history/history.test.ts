@@ -51,6 +51,11 @@ describe('Finance history projection and navigation', () => {
     expect(
       historyResponse({ ...row, actor_user_id: null, system_actor: 'MOMO_IPN' }, fund),
     ).toMatchObject({ actor_user_id: undefined, system_actor: 'MOMO_IPN' });
+    // payOS and the SePay bank webhook confirm contributions too; their audit rows must read back.
+    for (const system of ['BANK_WEBHOOK:SEPAY', 'PAYOS_WEBHOOK', 'PAYOS_RECONCILIATION'])
+      expect(
+        historyResponse({ ...row, actor_user_id: null, system_actor: system }, fund).system_actor,
+      ).toBe(system);
   });
   it('binds cursors to actor and Fund without losing PostgreSQL precision', () => {
     const page = historyPage(input);

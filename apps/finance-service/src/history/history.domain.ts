@@ -1,3 +1,4 @@
+import { FINANCE_SYSTEM_ACTORS } from '@wolfari/common';
 import { FinanceReadError, readUuid, UUID } from '../finance.errors';
 import type { FinanceV1 } from '@wolfari/contracts/grpc';
 
@@ -154,7 +155,7 @@ export function historyResponse(row: HistoryRow, fundId: string): FinanceV1.Fund
     !HISTORY_ACTIONS.some((action) => action === row.action) ||
     !/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(row.entity_type) ||
     (row.system_actor !== null &&
-      !['MOMO_IPN', 'MOMO_RECONCILIATION', 'BANK_WEBHOOK:SEPAY'].includes(row.system_actor)) ||
+      !(FINANCE_SYSTEM_ACTORS as readonly string[]).includes(row.system_actor)) ||
     row.reason_oversized !== false ||
     (row.reason !== null && (typeof row.reason !== 'string' || [...row.reason].length > 2000)) ||
     !historyInstant(row.occurred_at)

@@ -129,3 +129,13 @@ describe('Contribution public projections', () => {
     expect(projectContribution(contribution).rejected_reason).toBeNull();
   });
 });
+
+describe('contribution transfer reference', () => {
+  it('shows the same VietQR/bank transfer content Finance prints for this contribution', () => {
+    const row = projectContribution(contribution);
+    expect(row.transfer_reference).toMatch(/^[0-9A-Z]{25}$/);
+    expect(row.transfer_reference).toBe(
+      BigInt(`0x${id.replaceAll('-', '')}`).toString(36).toUpperCase().padStart(25, '0'),
+    );
+  });
+});

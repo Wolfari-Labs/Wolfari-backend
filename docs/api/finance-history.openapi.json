@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Wolfari Finance History API",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "security": [
     {
@@ -140,7 +140,14 @@
             ]
           },
           "system_actor": {
-            "enum": ["MOMO_IPN", "MOMO_RECONCILIATION", null]
+            "enum": [
+              "MOMO_IPN",
+              "MOMO_RECONCILIATION",
+              "BANK_WEBHOOK:SEPAY",
+              "PAYOS_WEBHOOK",
+              "PAYOS_RECONCILIATION",
+              null
+            ]
           },
           "action": {
             "type": "string",

@@ -1,3 +1,4 @@
+import { contributionTransferReference } from '@wolfari/common';
 import { UUID } from '../finance.errors';
 import { VIETQR_BANKS, findVietQrBank } from './vietqr-banks';
 
@@ -10,12 +11,7 @@ import { VIETQR_BANKS, findVietQrBank } from './vietqr-banks';
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /** The transfer content shown to the member for this contribution (same formula as API086). */
-export function contributionTransferReference(contributionId: string): string {
-  return BigInt(`0x${contributionId.replaceAll('-', '')}`)
-    .toString(36)
-    .toUpperCase()
-    .padStart(25, '0');
-}
+export { contributionTransferReference };
 
 /** Inverse of contributionTransferReference; undefined unless the token round-trips exactly. */
 export function decodeTransferReference(token: string): string | undefined {

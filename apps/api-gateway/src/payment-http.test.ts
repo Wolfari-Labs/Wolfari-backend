@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { paymentRoute, projectPaymentAttempt, projectPaymentException } from './payment-http';
+import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
+import {
+  handlePayment,
+  paymentRoute,
+  projectPaymentAttempt,
+  projectPaymentException,
+} from './payment-http';
 
 const id = '10000000-0000-4000-8000-000000000001';
 describe('Payment HTTP', () => {
@@ -51,5 +58,34 @@ describe('Payment HTTP', () => {
         payload: { signature: 'private' },
       }),
     ).not.toHaveProperty('payload');
+  });
+});
+
+describe('MoMo webhook budget', () => {
+  it('refuses a flood from one IP with 429 before calling Finance', async () => {
+    const ip = `203.0.113.${Math.floor(Math.random() * 200)}`;
+    const client = { call: async () => ({}) };
+    const statuses: number[] = [];
+    for (let index = 0; index < 61; index++) {
+      const req = Object.assign(Readable.from([Buffer.from('{}')]), {
+        method: 'POST',
+        url: '/api/v1/webhooks/momo',
+        headers: { 'content-type': 'application/json' },
+        socket: { remoteAddress: ip },
+      });
+      const res = Object.assign(new EventEmitter(), {
+        statusCode: 200,
+        headersSent: false,
+        setHeader: () => {},
+        end() {
+          this.headersSent = true;
+        },
+      });
+      const url = new URL('/api/v1/webhooks/momo', 'http://gateway');
+      await handlePayment(req as never, res as never, url, paymentRoute(url.pathname)!, (() => {}) as never, client as never);
+      statuses.push(res.statusCode);
+    }
+    expect(statuses.slice(0, 60).every((code) => code !== 429)).toBe(true);
+    expect(statuses[60]).toBe(429);
   });
 });
