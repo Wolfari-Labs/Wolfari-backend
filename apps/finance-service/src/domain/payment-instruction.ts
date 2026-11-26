@@ -1,4 +1,9 @@
-import { buildVietQrPayload, findVietQrBank, VietQrPayloadError } from '@wolfari/common';
+import {
+  buildVietQrPayload,
+  contributionTransferReference,
+  findVietQrBank,
+  VietQrPayloadError,
+} from '@wolfari/common';
 import { FinanceReadError, UUID } from '../finance.errors';
 import { renderQrSvg } from './qr-svg';
 
@@ -75,10 +80,7 @@ export function paymentInstruction(row: PaymentInstructionRow) {
   // Destinations written before directory validation may carry unknown codes: fail closed.
   const bank = findVietQrBank(bankCode);
   if (!bank || !bank.transfer_supported || [...name].length > 150) return conflict();
-  const reference = BigInt(`0x${row.id.replaceAll('-', '')}`)
-    .toString(36)
-    .toUpperCase()
-    .padStart(25, '0');
+  const reference = contributionTransferReference(row.id);
   let payload: string;
   try {
     payload = buildVietQrPayload({

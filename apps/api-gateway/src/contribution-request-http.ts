@@ -1,3 +1,4 @@
+import { contributionTransferReference } from '@wolfari/common';
 import {
   onlyKeys,
   RequestError,
@@ -78,13 +79,16 @@ export function projectContribution(value: unknown) {
     typeof row.self_contribution !== 'boolean'
   )
     throw new Error('Invalid contribution');
+  const id = identifier(row.id);
   return {
-    id: identifier(row.id),
+    id,
     request_id: identifier(row.request_id),
     fund_id: identifier(row.fund_id),
     member_user_id: identifier(row.member_user_id),
     amount: money(row.amount),
     status: row.status as string,
+    // The VietQR/bank transfer content for this contribution, so a Holder can match a statement.
+    transfer_reference: contributionTransferReference(id),
     self_contribution: row.self_contribution,
     version: versionNumber(row.version),
     finance_version: versionNumber(row.finance_version),

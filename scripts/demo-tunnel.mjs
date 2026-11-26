@@ -44,11 +44,16 @@ export function tunnelUrl(line) {
 }
 
 /**
- * A new quick tunnel hostname takes a few seconds to resolve, and payOS probes the webhook URL as
- * soon as it is registered (it refused with code 20 when asked too early). Waits until the tunnel
- * answers the payOS path; an unsigned `{}` is ignored by Finance and answered 200.
+ * A new quick tunnel can take one to two minutes before it answers, and payOS probes the webhook
+ * URL as soon as it is registered (it refuses with code 20 "Webhook url invalid" until then).
+ * Waits up to 3 minutes until the tunnel answers the payOS path; an unsigned `{}` is ignored by
+ * Finance and answered 200.
  */
-export async function waitForTunnel(tunnel, fetcher = fetch, { attempts = 20, delayMs = 1500 } = {}) {
+export async function waitForTunnel(
+  tunnel,
+  fetcher = fetch,
+  { attempts = 60, delayMs = 3000 } = {},
+) {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const response = await fetcher(`${tunnel}${PAYOS_WEBHOOK_PATH}`, {
@@ -84,10 +89,16 @@ export async function confirmPayosWebhook(tunnel, env, fetcher = fetch) {
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body?.code !== '00')
-      return { configured: true, ok: false, code: String(body?.code ?? response.status).slice(0, 20) };
+      return {
+        configured: true,
+        ok: false,
+        code: String(body?.code ?? response.status).slice(0, 20),
+      };
     const data = body.data ?? {};
     const account = String(data.accountNumber ?? '');
-    const expected = String(env.PAYOS_ACCOUNT_NUMBER ?? '').replace(/\s+/g, '').toUpperCase();
+    const expected = String(env.PAYOS_ACCOUNT_NUMBER ?? '')
+      .replace(/\s+/g, '')
+      .toUpperCase();
     return {
       configured: true,
       ok: true,
@@ -245,8 +256,8 @@ export async function main() {
       void (async () => {
         await waitForTunnel(url);
         let result = await confirmPayosWebhook(url, financeEnv);
-        for (let retry = 0; retry < 2 && result.configured && !result.ok; retry++) {
-          await new Promise((done) => setTimeout(done, 3000));
+        for (let retry = 0; retry < 4 && result.configured && !result.ok; retry++) {
+          await new Promise((done) => setTimeout(done, 10_000));
           result = await confirmPayosWebhook(url, financeEnv);
         }
         return result;

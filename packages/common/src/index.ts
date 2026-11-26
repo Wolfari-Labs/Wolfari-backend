@@ -58,3 +58,4 @@ export {
   payosReturnTarget,
   payosReturnToken,
 } from './payos-return';
+export { contributionTransferReference, FINANCE_SYSTEM_ACTORS } from './contribution-reference';

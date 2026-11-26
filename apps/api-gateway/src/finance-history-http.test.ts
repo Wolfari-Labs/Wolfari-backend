@@ -85,6 +85,11 @@ describe('API162 Gateway', () => {
       expect.any(String),
     );
   });
+  it('passes every Finance system actor and refuses unknown ones', () => {
+    for (const actor of ['MOMO_IPN', 'MOMO_RECONCILIATION', 'BANK_WEBHOOK:SEPAY', 'PAYOS_WEBHOOK', 'PAYOS_RECONCILIATION'])
+      expect(projectFundHistory({ items: [{ ...entry, actor_user_id: undefined, system_actor: actor }] }, fund, 20).items[0]?.system_actor).toBe(actor);
+    expect(() => projectFundHistory({ items: [{ ...entry, system_actor: 'UNKNOWN_PROVIDER' }] }, fund, 20)).toThrow();
+  });
   it('accepts protobuf omitted empty repeated fields and zero nanos', () => {
     expect(projectFundHistory({}, fund, 20)).toEqual({ items: [], next_cursor: null });
     expect(

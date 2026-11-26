@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Finance Contributions",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "Implemented API078-084 and API087-089 for shared group activity funds. Manual confirmation records the full issued amount after the current Holder checks their bank externally. No automatic bank verification, provider callback, partial payment, reversal or refund writer. Local service-secret transport rejects production mode. API086 provides Self-only TEST VietQR QuickLink instructions from the issued destination snapshot. The external image request discloses recipient/amount/reference to Casso; no automatic payment verification."
   },
   "security": [
@@ -1986,6 +1986,11 @@
             "type": "string",
             "format": "uuid",
             "description": "Most recent attempt for resume; GET still requires Self or current Holder."
+          },
+          "transfer_reference": {
+            "type": "string",
+            "pattern": "^[0-9A-Z]{25}$",
+            "description": "Nội dung chuyển khoản VietQR của khoản góp (giống `reference` của API086), để Holder đối chiếu sao kê ngân hàng. Cố định theo ID; Gateway luôn trả."
           }
         }
       },
