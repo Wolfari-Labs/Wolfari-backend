@@ -1508,7 +1508,15 @@ export interface CreateQrSandboxPaymentRequest {
   trip_id?: string | undefined;
   request_id?: string | undefined;
   amount?: string | undefined;
-  note?: string | undefined;
+  note?:
+    | string
+    | undefined;
+  /** MOMO (default) or MOMO_CHECKOUT. */
+  provider?:
+    | string
+    | undefined;
+  /** MOMO_CHECKOUT only: the Gateway return page MoMo sends the browser to after paying. */
+  redirect_url?: string | undefined;
 }
 
 export interface CreateQrSandboxPaymentResponse {
@@ -1519,6 +1527,24 @@ export interface CreateQrSandboxPaymentResponse {
   environment?: string | undefined;
 }
 
+/** Status of a MoMo checkout sandbox order the same Holder created; no ledger write. */
+export interface GetQrSandboxPaymentRequest {
+  actor_user_id?: string | undefined;
+  trip_id?: string | undefined;
+  order_id?: string | undefined;
+}
+
+export interface GetQrSandboxPaymentResponse {
+  order_id?:
+    | string
+    | undefined;
+  /** PAID, PENDING or FAILED. */
+  status?: string | undefined;
+  amount?: string | undefined;
+  provider_transaction_id?: string | undefined;
+  environment?: string | undefined;
+}
+
 export const WOLFARI_FINANCE_V1_PACKAGE_NAME = "wolfari.finance.v1";
 
 export interface FinanceServiceClient {
@@ -1526,6 +1552,11 @@ export interface FinanceServiceClient {
     request: CreateQrSandboxPaymentRequest,
     metadata?: Metadata,
   ): Observable<CreateQrSandboxPaymentResponse>;
+
+  getQrSandboxPayment(
+    request: GetQrSandboxPaymentRequest,
+    metadata?: Metadata,
+  ): Observable<GetQrSandboxPaymentResponse>;
 
   getTripLifecycleState(
     request: GetTripLifecycleStateRequest,
@@ -1814,6 +1845,11 @@ export interface FinanceServiceController {
     | Promise<CreateQrSandboxPaymentResponse>
     | Observable<CreateQrSandboxPaymentResponse>
     | CreateQrSandboxPaymentResponse;
+
+  getQrSandboxPayment(
+    request: GetQrSandboxPaymentRequest,
+    metadata?: Metadata,
+  ): Promise<GetQrSandboxPaymentResponse> | Observable<GetQrSandboxPaymentResponse> | GetQrSandboxPaymentResponse;
 
   getTripLifecycleState(
     request: GetTripLifecycleStateRequest,
@@ -2251,6 +2287,7 @@ export function FinanceServiceControllerMethods() {
   return function (constructor: Function) {
     const grpcMethods: string[] = [
       "createQrSandboxPayment",
+      "getQrSandboxPayment",
       "getTripLifecycleState",
       "listFundHistory",
       "createPaymentAttempt",

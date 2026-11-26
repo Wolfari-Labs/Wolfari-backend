@@ -5,6 +5,7 @@ import "wolfari/common/v1/types.proto";
 
 service FinanceService {
   rpc CreateQrSandboxPayment(CreateQrSandboxPaymentRequest) returns (CreateQrSandboxPaymentResponse);
+  rpc GetQrSandboxPayment(GetQrSandboxPaymentRequest) returns (GetQrSandboxPaymentResponse);
   rpc GetTripLifecycleState(GetTripLifecycleStateRequest) returns (GetTripLifecycleStateResponse);
   rpc ListFundHistory(ListFundHistoryRequest) returns (ListFundHistoryResponse);
   rpc CreatePaymentAttempt(CreatePaymentAttemptRequest) returns (CreatePaymentAttemptResponse);
@@ -1318,11 +1319,29 @@ message CreateQrSandboxPaymentRequest {
   string request_id = 3;
   string amount = 4;
   string note = 5;
+  // MOMO (default) or MOMO_CHECKOUT.
+  string provider = 6;
+  // MOMO_CHECKOUT only: the Gateway return page MoMo sends the browser to after paying.
+  string redirect_url = 7;
 }
 message CreateQrSandboxPaymentResponse {
   string request_id = 1;
   string order_id = 2;
   string amount = 3;
   string payment_url = 4;
+  string environment = 5;
+}
+// Status of a MoMo checkout sandbox order the same Holder created; no ledger write.
+message GetQrSandboxPaymentRequest {
+  string actor_user_id = 1;
+  string trip_id = 2;
+  string order_id = 3;
+}
+message GetQrSandboxPaymentResponse {
+  string order_id = 1;
+  // PAID, PENDING or FAILED.
+  string status = 2;
+  string amount = 3;
+  string provider_transaction_id = 4;
   string environment = 5;
 }

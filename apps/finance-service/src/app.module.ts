@@ -41,6 +41,7 @@ import { PaymentService } from './application/payment.service';
 import { PaymentProcessor } from './application/payment-processor';
 import { PaymentRepository } from './repositories/payment.repository';
 import { MomoSandboxProvider } from './providers/momo-sandbox.provider';
+import { MomoCheckoutProvider } from './providers/momo-checkout.provider';
 import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
 import { HandoverRepository } from './repositories/handover.repository';
 import { HandoverService } from './application/handover.service';
@@ -95,6 +96,7 @@ import { BankTransferService } from './application/bank-transfer.service';
     PaymentProcessor,
     PaymentRepository,
     MomoSandboxProvider,
+    MomoCheckoutProvider,
     LifecycleFinanceRepository,
   ],
 })

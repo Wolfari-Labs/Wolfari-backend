@@ -1438,6 +1438,16 @@
     "source": "QR checkout sandbox demo; no fund ledger writes"
   },
   {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
+    "method": "GetQrSandboxPayment",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 35000,
+    "source": "QR checkout sandbox demo; MoMo checkout order status, no fund ledger writes"
+  },
+  {
     "package": "wolfari.trip.v1",
     "service": "TripService",
     "method": "UploadDressCodeImage",
