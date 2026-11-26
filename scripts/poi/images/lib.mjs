@@ -11,6 +11,19 @@ export function fold(value) {
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
+/** Like fold() but diacritics are kept (NFC), so "cờ" (flag) stays apart from "cổ" (old) and "có". */
+export function lower(value) {
+  return spaced(value).toLowerCase();
+}
+/** NFC, punctuation → single spaces, case kept (for rules that tell "my son" from "My Son"). */
+function spaced(value) {
+  return String(value ?? '')
+    .normalize('NFC')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+/** Whole-phrase matcher for spaced()/lower() text, where words are separated by single spaces. */
+const phrases = (list) => new RegExp(`(?:^| )(?:${list.join('|')})(?= |$)`, 'u');
 
 function trigrams(value) {
   const padded = `  ${fold(value)} `;
@@ -35,14 +48,27 @@ export function distanceMeters(aLat, aLon, bLat, bLon) {
   return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** Taxonomy codes whose POI is an area (beach, park, theme park, old town…): wider match radius. */
-const AREA = /^(beach|theme_park|water_park|amusement_park|park|nature|nature_area|nature_reserve|national_park|mountain|island|old_town|old_quarter|historic_district|craft_village|resort|lake|bay|waterfall|cave|zoo|garden|market|stadium|university|campus|peninsula)$/;
+/**
+ * Taxonomy codes whose POI is an area (beach, park, theme park, old town…) or is seen from afar
+ * (viewpoint, mountain pass): wider match radius.
+ */
+const AREA = /^(beach|theme_park|water_park|amusement_park|park|nature|nature_area|nature_reserve|national_park|mountain|island|old_town|old_quarter|historic_district|craft_village|resort|lake|bay|waterfall|cave|zoo|garden|market|stadium|university|campus|peninsula|viewpoint)$/;
 export function isArea(category) {
   return AREA.test(String(category ?? ''));
 }
 /** How far a POI and an external item/photo may be apart (metres). */
 export function matchRadius(category) {
   return isArea(category) ? 1500 : 150;
+}
+/** Large features (pass, peninsula, island…): the Wikidata point may sit kilometres from the pin. */
+const LARGE = /^(viewpoint|mountain|island|peninsula|bay|nature_area|nature_reserve|national_park)$/;
+/**
+ * Farthest Wikidata link for an exact, specific name (metres). Beyond matchRadius only such a name
+ * links, so a wide radius never pairs a POI with a merely similar neighbour. Points get no extra.
+ */
+export function exactNameRadius(category) {
+  if (LARGE.test(String(category ?? ''))) return 5000;
+  return isArea(category) ? 3000 : matchRadius(category);
 }
 
 /** Words that name the place in a POI (name, English name, aliases), folded, at least 4 chars. */
@@ -72,6 +98,12 @@ export function nameScore(poi, labels) {
   }
   return best;
 }
+/** True when a specific (non-generic) POI name equals a label; `primary` ignores the POI's aliases. */
+export function sameName(poi, labels, { primary = false } = {}) {
+  const names = poiNames(primary ? { name_vi: poi.name_vi, name_en: poi.name_en } : poi).filter((n) => !GENERIC.test(n));
+  const folded = new Set(labels.filter(Boolean).map(fold));
+  return names.some((name) => folded.has(name));
+}
 
 /**
  * Wikidata "instance of" (P31) families vs Wolfari categories. Unknown types are neutral; a
@@ -100,7 +132,9 @@ export function typeCompatible(category, p31) {
 }
 
 /**
- * POI ↔ Wikidata links. One-to-one; a POI with two close candidates is left unlinked.
+ * POI ↔ Wikidata links. One-to-one; a POI with two close candidates is left unlinked unless exactly
+ * one of them carries the POI's own name (not an alias). Large features may link up to
+ * exactNameRadius by an exact name, scored below any near match (0.6–0.7).
  * Pile-up coordinates (area centroids) are linked only by an exact, unique name.
  */
 export function linkEntities(pois, items, { osmWikidata = new Map() } = {}) {
@@ -116,23 +150,37 @@ export function linkEntities(pois, items, { osmWikidata = new Map() } = {}) {
       }
     }
     const radius = matchRadius(poi.category);
+    const far = exactNameRadius(poi.category);
     const scored = [];
     for (const item of items) {
       const d = distanceMeters(poi.latitude, poi.longitude, item.latitude, item.longitude);
-      const name = nameScore(poi, [item.label_vi, item.label_en, ...(item.aliases ?? [])]);
+      const labels = [item.label_vi, item.label_en, ...(item.aliases ?? [])];
+      const name = nameScore(poi, labels);
       if (poi.coord_pileup) {
         if (name === 1 && d <= 50_000) scored.push({ item, score: 0.9, method: 'exact_name' });
         continue;
       }
-      if (d > radius || name < 0.6 || !typeCompatible(poi.category, item.p31)) continue;
-      const proximity = 1 - d / radius;
-      scored.push({ item, score: Math.min(0.99, 0.6 * name + 0.3 * proximity + 0.1), method: 'geo_name' });
+      if (d > far || name < 0.6 || !typeCompatible(poi.category, item.p31)) continue;
+      const primary = sameName(poi, labels, { primary: true });
+      if (d <= radius) {
+        const proximity = 1 - d / radius;
+        scored.push({ item, primary, score: Math.min(0.99, 0.6 * name + 0.3 * proximity + 0.1), method: 'geo_name' });
+      } else if (sameName(poi, labels)) {
+        scored.push({ item, primary, score: 0.7 - (0.1 * (d - radius)) / (far - radius), method: 'exact_name_far' });
+      }
     }
     scored.sort((a, b) => b.score - a.score);
     if (!scored.length) continue;
     if (poi.coord_pileup && scored.length > 1) continue;
-    if (scored[1] && scored[0].score - scored[1].score < 0.05) continue;
-    proposals.push({ poi, qid: scored[0].item.qid, item: scored[0].item, score: scored[0].score, method: scored[0].method });
+    let best = scored[0];
+    const close = scored.filter((s) => best.score - s.score < 0.05);
+    if (close.length > 1) {
+      // "Đèo Hải Vân" beats "Hải Vân Quan" (an alias of the POI) at the same distance.
+      const own = close.filter((s) => s.primary);
+      if (own.length !== 1) continue;
+      best = own[0];
+    }
+    proposals.push({ poi, qid: best.item.qid, item: best.item, score: best.score, method: best.method });
   }
   // One item serves one POI: keep the strongest claim.
   const byItem = new Map();
@@ -185,11 +233,53 @@ export function normalizeAuthor(value) {
   return text.slice(0, 200);
 }
 
+/*
+ * Content rules run on lower() text (diacritics kept), never on fold(): folded, "cờ" (flag) is
+ * "co" like "cổ" (phố cổ, nhà cổ), "Bàn Cờ" or "Lăng Cô", and "tiền" (money) is "tien" like
+ * "Suối Tiên" or "Tiên Sa". English words have no diacritics, so they match as before. Vietnamese
+ * words match in their accented form; an unaccented spelling ("ban do") is listed only when it
+ * cannot be another word.
+ */
 /** Things that are not a picture of the place itself (maps, logos, documents, portraits…). */
-const NOT_A_VIEW = /\b(map|ban do|bando|plan|so do|diagram|logo|coat of arms|flag|co|menu|poster|ticket|ve vao cong|document|tai lieu|scan|signature|chu ky|portrait|chan dung|selfie|screenshot|chup man hinh|stamp|tem|banknote|tien|seal|icon|svg|drawing|ban ve|sign|bien bao|bien hieu|text|inscription|bia ky|construction|development|under construction|xay dung|cong truong|du an)\b/;
-const PEOPLE = /\b(people|nguoi|portrait|wedding|dam cuoi|crowd|festival participants|family|gia dinh|selfie|boys|girls|kids|children|friends|couple|tre em|ban be|cap doi|my wife|my son|my daughter)\b/;
+const NOT_A_VIEW = phrases([
+  'map', 'plan', 'diagram', 'logo', 'coat of arms', 'flag(?! tower| pole)', 'menu', 'poster', 'ticket', 'document', 'scan',
+  'signature', 'portrait', 'selfie', 'screenshot', 'stamp', 'banknote', 'seal', 'icon', 'svg', 'drawing', 'sign', 'text',
+  'inscription', 'under construction', 'construction site',
+  'bản đồ', 'ban do', 'bando', 'sơ đồ', 'so do', 'lá cờ', 'quốc kỳ', 'quốc kì', 'quoc ky', 'cờ tổ quốc', 'vé vào cổng',
+  've vao cong', 'tài liệu', 'tai lieu', 'chữ ký', 'chữ kí', 'chu ky', 'chân dung', 'chan dung', 'chụp màn hình',
+  'chup man hinh', 'tem', 'tiền giấy', 'tien giay', 'tờ tiền', 'tiền xu', 'bản vẽ', 'ban ve', 'biển báo',
+  'bien bao', 'biển hiệu', 'bien hieu', 'bia ký', 'bia kí', 'bia ky', 'đang xây dựng', 'dang xay dung',
+  'công trường xây dựng', 'cong truong xay dung',
+]);
+/**
+ * Building works, only in a title or category: descriptions say "được xây dựng năm 1630" (built in)
+ * or "construction began in…" about perfectly good views. Bare "công trường" is also a square
+ * (Công trường Lam Sơn), so only "công trường xây dựng" counts. Watermarked files (Commons
+ * category "Images with watermarks") are not shown either.
+ */
+const NOT_A_VIEW_LABEL = phrases(['construction', 'development', 'xây dựng', 'xay dung', 'dự án', 'du an', 'watermarks?', 'watermarked']);
+/**
+ * "people's" (People's Committee, People's Air Force Museum) is a name, not a crowd; "Mr. X speaks
+ * at the … meeting" is a person, a "meeting house" (đình) is not.
+ */
+const PEOPLE = phrases([
+  "people(?! s(?: |$))", 'mr', 'mrs', 'meeting(?! house| hall| point)', 'portrait', 'wedding', 'crowd', 'festival participants', 'family', 'selfie', 'boys', 'girls',
+  'kids', 'children', 'friends', 'couple', 'đám cưới', 'dam cuoi', 'gia đình', 'trẻ em', 'tre em', 'bạn bè', 'ban be',
+  'cặp đôi', 'cap doi', 'đám đông', 'dam dong', 'những người', 'nhung nguoi', 'nhiều người', 'nhieu nguoi',
+]);
+/**
+ * "my son", "my wife"… in the original case: lowercase relation word, not followed by a place word.
+ * "Mỹ Sơn", "My Son Sanctuary", "My Son Group B" and "at my son sanctuary" are the temple complex.
+ */
+const OWN_PEOPLE = /(?:^| )(?:[Mm]y|[Oo]ur) (?:son|daughter|wife|husband|baby)(?= |$)(?! (?:sanctuary|temples?|towers?|groups?|ruins?|relics?|hindu|cham|champa|heritage|complex|site|valley|museum|village)(?= |$))/u;
+function showsPeople(text) {
+  return PEOPLE.test(lower(text)) || OWN_PEOPLE.test(spaced(text));
+}
 /** A wildlife/plant photo ("Rhesus macaque (Macaca mulatta) … Son Tra") shows a species, not the place. */
-const SPECIES = /\b(macaque|langur|douc|monkey|bird|butterfly|insect|flower|orchid|lizard|snake|frog|species|fauna|flora|voc|chim|buom|con trung|phong lan)\b/; // not "khi": also the word "when"
+const SPECIES = phrases([
+  'macaque', 'langur', 'douc', 'monkey(?! mountain)', 'bird', 'butterfly', 'insect', 'flower', 'orchid', 'lizard', 'snake',
+  'frog', 'species', 'fauna', 'flora', 'voọc', 'chim', 'bướm', 'côn trùng', 'con trung', 'phong lan',
+]); // not "khi" (also "when"), not "buom" ("buồm" is a sail), not "chìm"
 const BINOMIAL = /\([A-Z][a-z]+ [a-z]{3,}( [a-z]{3,})?\)/; // genus species [subspecies]
 const MIME_OK = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/tiff']);
 
@@ -207,11 +297,12 @@ export function qualityScore(info, { hero }) {
 }
 /** 0..1 "looks like a view of the place", from title/description/categories (no vision model yet). */
 export function semanticScore(info) {
-  const text = fold(`${info.title} ${info.description ?? ''} ${(info.categories ?? []).join(' ')}`);
-  if (NOT_A_VIEW.test(text)) return 0;
-  if (BINOMIAL.test(info.title ?? '') || SPECIES.test(fold(info.title))) return 0.2;
-  if (PEOPLE.test(text)) return 0.3;
-  return /\b(view|panorama|toan canh|exterior|facade|mat tien|aerial|flycam|landscape|canh)\b/.test(text) ? 0.8 : 0.5;
+  const raw = `${info.title} ${info.description ?? ''} ${(info.categories ?? []).join(' | ')}`;
+  const label = lower(`${info.title} ${(info.categories ?? []).join(' | ')}`);
+  if (NOT_A_VIEW.test(lower(raw)) || NOT_A_VIEW_LABEL.test(label)) return 0;
+  if (BINOMIAL.test(info.title ?? '') || SPECIES.test(lower(info.title))) return 0.2;
+  if (showsPeople(raw)) return 0.3;
+  return /\b(view|panorama|toan canh|exterior|facade|mat tien|aerial|flycam|landscape|canh)\b/.test(fold(raw)) ? 0.8 : 0.5;
 }
 export function prominenceScore(info) {
   const cats = (info.categories ?? []).join('|');
@@ -274,7 +365,7 @@ export function scoreCandidate(poi, info, evidence, { link } = {}) {
   const quality = qualityScore(info, { hero: true }) || qualityScore(info, { hero: false }) * 0.7;
   const semantic = evidence.kind === 'manual' ? 1 : semanticScore(info);
   const prominence = prominenceScore({ ...info, p18: evidence.kind === 'p18', lead: evidence.kind === 'lead' });
-  const penalties = PEOPLE.test(fold(`${info.title} ${(info.categories ?? []).join(' ')}`)) ? 0.1 : 0;
+  const penalties = showsPeople(`${info.title} ${(info.categories ?? []).join(' | ')}`) ? 0.1 : 0;
   const final = 0.35 * match + 0.25 * quality + 0.2 * semantic + 0.1 * prominence + 0.1 * (SOURCE_PRIOR[source] ?? 0.5) - penalties;
   const round = (n) => Math.max(0, Math.min(1, Math.round(n * 1000) / 1000));
   return {
@@ -285,9 +376,23 @@ export function scoreCandidate(poi, info, evidence, { link } = {}) {
     galleryEligible: evidence.kind !== 'geo' || named || (evidence.distance <= 30 && isTourism(poi.category)),
   };
 }
-const TOURISM = /^(museum|gallery|beach|bridge|pagoda|temple|church|market|park|theme_park|water_park|amusement_park|viewpoint|attraction|monument|historic|landmark|island|mountain|waterfall|cave|zoo|garden|nature|old_town|old_quarter|craft_village|performance_venue)/;
+const TOURISM = /^(museum|gallery|beach|bridge|pagoda|temple|church|market|park|theme_park|water_park|amusement_park|viewpoint|attraction|monument|historic|landmark|island|mountain|waterfall|cave|zoo|garden|nature|old_town|old_quarter|craft_village|performance_venue|playground|walking_street|campground|trailhead)/;
 export function isTourism(category) {
   return TOURISM.test(String(category ?? ''));
+}
+
+/**
+ * Category codes of the search groups in `spec` ("tourism,accommodation"); "all" = no filter (null).
+ * `groups` is POI_SEARCH_CATEGORIES (packages/common): the same groups as the Places API, fed by
+ * the Overture → Wolfari mapping in scripts/poi/overture-taxonomy.mjs.
+ */
+export function groupCategories(spec, groups) {
+  const names = String(spec ?? '').split(',').map((name) => name.trim()).filter(Boolean);
+  if (names.includes('all')) return null;
+  const unknown = names.filter((name) => !Object.hasOwn(groups, name));
+  if (!names.length || unknown.length)
+    throw new Error(`--groups: nhóm không hợp lệ "${unknown.join(',') || spec}"; dùng ${Object.keys(groups).join(', ')} hoặc all.`);
+  return [...new Set(names.flatMap((name) => groups[name]))];
 }
 
 export const HERO_THRESHOLD = 0.6;
@@ -345,6 +450,14 @@ export function cellCircle(cell) {
   const lat = (cell.minLat + cell.maxLat) / 2, lon = (cell.minLon + cell.maxLon) / 2;
   const radius = Math.ceil(distanceMeters(lat, lon, cell.maxLat, cell.maxLon));
   return { latitude: lat, longitude: lon, radius: Math.min(10_000, Math.max(10, radius)) };
+}
+/**
+ * POIs whose surroundings are geosearched: golden POIs and sights. Geosearch is the slowest call
+ * (8 s apart) and hotels, shops or restaurants rarely have a named, geotagged Commons photo; they
+ * still get the files found in a searched cell nearby.
+ */
+export function geoSearchPoints(pois) {
+  return pois.filter((poi) => !poi.coord_pileup && (poi.kind === 'golden' || isTourism(poi.category)));
 }
 
 /** "Ảnh: <author> · <licence> · Wikimedia Commons" — the line shown next to every photo. */

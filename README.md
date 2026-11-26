@@ -96,7 +96,7 @@ corepack pnpm poi:images all --batch img-dn-1 --activate   # pull → harvest �
 corepack pnpm poi:images gates --batch img-dn-1            # báo cáo .local/poi/reports/images-<batch>.md
 ```
 
-Mặc định chỉ chạy các điểm golden; thêm `--tiers all --province <mã>` để chạy POI Overture của một tỉnh. Ảnh chọn tay ghi vào `data/poi/image_overrides.csv` (`key,commons_file,note`) và luôn thắng nguồn khác. Đổi hoặc quay lại batch: `corepack pnpm poi:images activate --batch <batch>`.
+Mặc định chỉ chạy các điểm golden; thêm `--tiers all --province <mã>` để chạy POI Overture của một tỉnh (chỉ nhóm `--groups tourism` mặc định; `tourism,accommodation` hoặc `all` để mở rộng). `--hero-only` chỉ tải ảnh hero; `--into <batch>` nạp cộng dồn từng tỉnh vào một batch (chỉ thay ảnh của POI trong lượt); `--replace` nạp lại cả batch. Ảnh chọn tay ghi vào `data/poi/image_overrides.csv` (`key,commons_file,note`) và luôn thắng nguồn khác. Đổi hoặc quay lại batch: `corepack pnpm poi:images activate --batch <batch>`. Chạy toàn quốc (thứ tự lệnh, cấu hình, thời gian, dung lượng): [poi-images.md mục 6](docs/architecture/poi-images.md#6-chạy-toàn-quốc).
 
 ## Cấu trúc
 
