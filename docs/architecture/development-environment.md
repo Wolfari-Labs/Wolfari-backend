@@ -16,7 +16,7 @@ corepack pnpm dev
 
 Terminal khác chạy `corepack pnpm dev:check`. Có thể bỏ `corepack` nếu đã có pnpm trong PATH. Máy chưa có Corepack cần cài Corepack trước. `.npmrc` dùng store cục bộ `.pnpm-store`; `.node-version` pin Node 24.
 
-`env:init` sinh secret ngẫu nhiên một lần, không in secret hoặc ghi đè file cũ. Root `.env` dùng cho Compose/công cụ hạ tầng; app đọc `apps/<app>/.env`. Launcher loại credential service khác, Gateway/Worker không nhận credential DB. Nếu app URL khác root `.env`, lệnh báo lệch để đồng bộ thủ công. Production phải cấp cấu hình riêng qua môi trường triển khai.
+`env:init` sinh secret nội bộ ngẫu nhiên một lần. Với cấu hình mặc định, nếu có `SEARCHAPI_API_KEY` trong môi trường hoặc trong file Automation, lệnh thiết lập nguồn Google Flights và bật worker theo dõi giá vé. Root `.env` dùng cho Compose/công cụ hạ tầng; app đọc `apps/<app>/.env`. Launcher loại credential service khác, Gateway/Worker không nhận credential DB. Nếu app URL khác root `.env`, lệnh báo lệch để đồng bộ thủ công. Production phải cấp cấu hình riêng qua môi trường triển khai.
 
 Tên database/role cố định theo V001; mật khẩu/cổng được đổi trước khi tạo volume. Sửa `.env` sau đó không tự đổi mật khẩu PostgreSQL. Nếu đổi cổng DB, cập nhật URL cả 5 app. Secret `.env` được Git bỏ qua; chỉ commit template `.env.example`.
 

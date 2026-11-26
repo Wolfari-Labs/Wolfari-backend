@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { root, services, apps, appNames, readEnv, initEnvironment, configureLocalFlightPriceWatch } from './config.mjs';
+import { root, services, apps, appNames, readEnv, initLocalEnvironment, configureLocalFlightPriceWatch } from './config.mjs';
 import { compose, infrastructureCheck } from './infrastructure.mjs';
 import { connectDatabase, migrate, migrationFiles, history, safeError } from './migrations.mjs';
 
@@ -11,7 +11,12 @@ async function main() {
     console.log('Đã bật theo dõi giá vé qua SearchApi. Khởi động lại pnpm dev để áp dụng.');
     return;
   }
-  if (command === 'env:init') { await initEnvironment(); console.log('Cấu hình local sẵn sàng; giữ nguyên mọi file đã tồn tại.'); return; }
+  if (command === 'env:init') {
+    const tracking = await initLocalEnvironment({ searchApiKey: process.env.SEARCHAPI_API_KEY });
+    console.log('Cấu hình local đã sẵn sàng.');
+    if (tracking) console.log('Theo dõi giá vé qua SearchApi đã bật.');
+    return;
+  }
   if (command?.startsWith('infra:')) {
     if (args.length) throw new Error('Lệnh hạ tầng không nhận tham số.');
     const env = await readEnv(resolve(root, '.env'));

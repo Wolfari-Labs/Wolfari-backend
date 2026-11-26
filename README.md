@@ -23,9 +23,14 @@ corepack pnpm dev
 
 ### Theo dõi giá vé máy bay trên máy mới
 
-Sau bước `corepack pnpm env:init`, mở `apps/automation-service/.env` và điền khóa SearchApi của bạn vào dòng `SEARCHAPI_API_KEY=`. Chỉ cần chuyển khóa này qua trình quản lý mật khẩu. Mỗi máy tự tạo các mật khẩu database và khóa nội bộ khi chạy `env:init`.
+Trên máy mới, đặt biến môi trường `SEARCHAPI_API_KEY` trước khi chạy `corepack pnpm env:init` ở bước trên. Lệnh lưu khóa vào `apps/automation-service/.env`, chọn Google Flights qua SearchApi và bật worker. Trong PowerShell 7, có thể nhập khóa ẩn bằng lệnh sau.
 
-Chạy `corepack pnpm price-watch:setup` để chọn Google Flights qua SearchApi và bật worker. Tiếp tục các bước hạ tầng và khởi động ở trên. Nếu backend đang chạy, khởi động lại `pnpm dev`. Khi tạo lượt theo dõi mới, bỏ trường `provider` để dùng nguồn vừa cấu hình. Bạn có thể thử một lần lấy giá thật bằng `corepack pnpm price-watch:live-check` (dùng một lượt API).
+```powershell
+$env:SEARCHAPI_API_KEY = Read-Host 'SearchApi API key' -MaskInput
+corepack pnpm env:init
+```
+
+Nếu bạn đã điền khóa vào file Automation, chỉ cần chạy lại `corepack pnpm env:init`. Lệnh ưu tiên khóa đã lưu và giữ lựa chọn provider hiện có. Để chủ động chuyển từ provider khác sang SearchApi hoặc bật lại worker đã tắt, dùng `corepack pnpm price-watch:setup`. Khởi động lại `pnpm dev` nếu backend đang chạy. Bạn có thể thử một lượt lấy giá thật bằng `corepack pnpm price-watch:live-check`.
 
 ## Demo và triển khai thử
 
