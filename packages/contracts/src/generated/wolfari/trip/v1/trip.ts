@@ -809,7 +809,18 @@ export interface IgnoreRecommendationRequest {
   recommendation_id?: string | undefined;
 }
 
-export interface RecommendationResponse {
+/** Each RPC has its own response (buf STANDARD lint); all three carry the same projection. */
+export interface PreviewRecommendationResponse {
+  /** Public projection, built and allowlisted by Trip. */
+  recommendation_json?: string | undefined;
+}
+
+export interface ApplyRecommendationResponse {
+  /** Public projection, built and allowlisted by Trip. */
+  recommendation_json?: string | undefined;
+}
+
+export interface IgnoreRecommendationResponse {
   /** Public projection, built and allowlisted by Trip. */
   recommendation_json?: string | undefined;
 }
@@ -1036,11 +1047,20 @@ export interface TripServiceClient {
 
   mutatePlanItem(request: MutatePlanItemRequest, metadata?: Metadata): Observable<MutatePlanItemResponse>;
 
-  previewRecommendation(request: PreviewRecommendationRequest, metadata?: Metadata): Observable<RecommendationResponse>;
+  previewRecommendation(
+    request: PreviewRecommendationRequest,
+    metadata?: Metadata,
+  ): Observable<PreviewRecommendationResponse>;
 
-  applyRecommendation(request: ApplyRecommendationRequest, metadata?: Metadata): Observable<RecommendationResponse>;
+  applyRecommendation(
+    request: ApplyRecommendationRequest,
+    metadata?: Metadata,
+  ): Observable<ApplyRecommendationResponse>;
 
-  ignoreRecommendation(request: IgnoreRecommendationRequest, metadata?: Metadata): Observable<RecommendationResponse>;
+  ignoreRecommendation(
+    request: IgnoreRecommendationRequest,
+    metadata?: Metadata,
+  ): Observable<IgnoreRecommendationResponse>;
 
   createActivity(request: CreateActivityRequest, metadata?: Metadata): Observable<CreateActivityResponse>;
 
@@ -1238,17 +1258,17 @@ export interface TripServiceController {
   previewRecommendation(
     request: PreviewRecommendationRequest,
     metadata?: Metadata,
-  ): Promise<RecommendationResponse> | Observable<RecommendationResponse> | RecommendationResponse;
+  ): Promise<PreviewRecommendationResponse> | Observable<PreviewRecommendationResponse> | PreviewRecommendationResponse;
 
   applyRecommendation(
     request: ApplyRecommendationRequest,
     metadata?: Metadata,
-  ): Promise<RecommendationResponse> | Observable<RecommendationResponse> | RecommendationResponse;
+  ): Promise<ApplyRecommendationResponse> | Observable<ApplyRecommendationResponse> | ApplyRecommendationResponse;
 
   ignoreRecommendation(
     request: IgnoreRecommendationRequest,
     metadata?: Metadata,
-  ): Promise<RecommendationResponse> | Observable<RecommendationResponse> | RecommendationResponse;
+  ): Promise<IgnoreRecommendationResponse> | Observable<IgnoreRecommendationResponse> | IgnoreRecommendationResponse;
 
   createActivity(
     request: CreateActivityRequest,

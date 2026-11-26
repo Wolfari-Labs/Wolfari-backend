@@ -105,6 +105,9 @@ describe('isolated demo configuration', () => {
       const root_ = await readEnv(resolve(target, '.env'));
       expect(trip.MINIO_ENDPOINT).toBe(`127.0.0.1:${root_.MINIO_API_PORT}`);
       expect(trip.MINIO_ACCESS_KEY).toBe(root_.MINIO_ROOT_USER);
+      // POI photos: the travel service reads the same MinIO.
+      const travel = await readEnv(resolve(target, 'apps', 'travel-intelligence-service', '.env'));
+      expect(travel.MINIO_ENDPOINT).toBe(`127.0.0.1:${root_.MINIO_API_PORT}`);
     } finally { await rm(target, { recursive: true, force: true }); }
   });
   it('rejects development volumes, foreign instances and arbitrary volume names', () => {

@@ -613,6 +613,11 @@
       "document": "plan.openapi.json"
     },
     {
+      "method": "GET",
+      "path": "/api/v1/travel/poi-images/{id}/{id}.webp",
+      "document": "poi-images.openapi.json"
+    },
+    {
       "method": "POST",
       "path": "/api/v1/trips/{id}/price-watches",
       "document": "price-watch.openapi.yaml"
@@ -822,9 +827,10 @@
     "notification-proxy.ts": "f5a5f2086b0c1270c2701db35a6e1d9fe2f1f113769161f9d427c81b79fa2e03",
     "payment-http.ts": "e36d12ce5249aeebd599a281c1bf713c371d051e5971a243f1135c4cb11c1adc",
     "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
-    "places-proxy.ts": "eb5eefec761c69a408f438e06b4750eaf15137e26a96fa6e0f87981cc9aa6924",
+    "places-proxy.ts": "cfba106f1c5309437c9f3c788afde927c352c88846e381d64f446c331d174d7e",
     "plan-items-proxy.ts": "96d7aef5e3cb6af0319728eb702b3e8b019118156ece492d3c162982006d29ce",
     "plan-proxy.ts": "8dcb7bd8db2521018460a0b9cb18bed5ff31363ae67b1b74dd3de46972b2f21b",
+    "poi-image-http.ts": "3c5d74a6be0acccd7df7049e95fa9b51c9e02489d71c9a1bf7966315764071a9",
     "price-watch-proxy.ts": "c4986e800f5e8dd5baf5a9ae5f92959cd541af859157478eb9b8e65ba60ae080",
     "qr-payment-http.ts": "0c62fea4dfbbf8175c5ec02efa78ad7f8a29e480d558f43aeea94169de075e2d",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",

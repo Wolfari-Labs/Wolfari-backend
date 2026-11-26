@@ -30,6 +30,8 @@ try {
       ['wolfari-trip-covers', 'wolfari-trip-dress-images'],
       'wolfari-trip',
     ],
+    // POI-IMAGES: licensed public photos, still private in MinIO (served through the Gateway).
+    ['travel-intelligence-service', ['wolfari-poi-images'], 'wolfari-travel'],
   ]) {
     const config = configs.get(app);
     for (const bucket of buckets) {

@@ -63,6 +63,7 @@
     "poi:activate": "node scripts/poi/snapshots.mjs activate",
     "poi:prune": "node scripts/poi/snapshots.mjs prune",
     "poi:gates": "node scripts/poi/gates.mjs",
+    "poi:images": "node scripts/poi/images/run.mjs",
     "contracts:lint": "node scripts/contracts.mjs lint",
     "contracts:rest": "node scripts/rest-contracts.mjs && corepack pnpm exec vitest run packages/contracts/src/demo1-openapi.test.ts",
     "contracts:generate": "node scripts/contracts.mjs generate",

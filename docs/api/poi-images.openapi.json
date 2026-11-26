@@ -1,0 +1,121 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wolfari POI images (POI-IMAGES)",
+    "version": "1.0.0",
+    "description": "Licensed photos of curated places, stored by Wolfari (WebP 320/640/1280). Public and content-addressed: no session, cached for a year. Taken-down or inactive photos answer 404."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000"
+    }
+  ],
+  "paths": {
+    "/api/v1/travel/poi-images/{sha256}/{width}.webp": {
+      "get": {
+        "operationId": "getPoiImage",
+        "summary": "One stored WebP variant of a POI photo",
+        "security": [],
+        "parameters": [
+          {
+            "name": "sha256",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "width",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                320,
+                640,
+                1280
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WebP image",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "public, max-age=31536000, immutable"
+                }
+              }
+            },
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, inactive or taken-down photo, or an unsupported width/path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage or Travel service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error",
+          "meta"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "retryable"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {},
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          },
+          "meta": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}
