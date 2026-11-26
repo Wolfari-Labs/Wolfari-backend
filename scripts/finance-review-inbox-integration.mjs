@@ -175,12 +175,20 @@ export async function runReviewInboxTests(h, s) {
   assert.equal((await notices(f)).length, 2);
   assert.equal((await inbox(reportedAgain))[0].result.source_revision, revision + 2);
   const confirmed = await action(f, 'confirm-received', holder);
-  await assertNoNotice(confirmed);
+  await processed(confirmed);
+  // A manual confirmation tells only the payer that money arrived; the confirming Holder already knows.
+  const received = await notifications(confirmed);
+  assert.equal(received.length, 1);
+  assert.equal(received[0].type, 'CONTRIBUTION_CONFIRMED');
+  assert.equal(received[0].user_id, f.debtor.id);
+  assert.equal(received[0].source_id, f.id);
+  assert.equal((await notices(f)).length, 2);
   const late = copied(reportedAgain);
   await publish(late);
   await assertNoNotice(late);
+  assert.equal((await notices(f)).length, 2);
   pass(
-    'reject/report creates a new revision notice; confirmation and delayed report events cannot revive a settled review',
+    'reject/report creates a new revision notice; confirmation notifies only the payer and delayed report events cannot revive a settled review',
   );
 
   const self = await create(holder);
