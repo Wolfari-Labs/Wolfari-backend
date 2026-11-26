@@ -5,11 +5,14 @@
 //            OSM tags, Commons geosearch) and their licence metadata
 //   select   score candidates, choose hero + gallery (pure rules in lib.mjs)
 //   load     download only the chosen photos, store WebP 320/640/1280 in MinIO, write poi_media
+//            (--hero-only: heroes only; --into <batch>: add this run's POIs to a cumulative batch)
 //   gates    coverage / licence / source report (reports only)
 //   activate make --batch the only active batch (switch or roll back)
 //   all      pull → harvest → select → load → gates
 // Usage: node scripts/poi/images/run.mjs <step> [--env <travel .env>] [--batch <id>] [--province <code>]
-//        [--tiers golden|all] [--activate]
+//        [--tiers golden|all] [--groups tourism[,accommodation…]|all] [--hero-only] [--into <batch>]
+//        [--replace] [--activate]
+// --batch names the run's work dir (.local/poi/images/<batch>) and, without --into, the DB batch.
 import { createRequire } from 'node:module';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -20,9 +23,10 @@ import { safeError } from '../../migrations.mjs';
 import { parseCsv } from '../csv.mjs';
 import { DEFAULT_ENV, connectTravel, travelUrl } from '../poi-db.mjs';
 import { COMMONS_API, USER_AGENT, createHttp, mediawiki, wikipediaApi } from './http.mjs';
+import { photosToStore, replacedKeys, writeBatch } from './batch.mjs';
 import {
-  attributionLine, cellCircle, cellsFor, distanceMeters, linkEntities, matchRadius, normalizeAuthor, normalizeLicense,
-  plainText, scoreCandidate, selectPhotos, splitCell, HERO_THRESHOLD, GALLERY_THRESHOLD,
+  attributionLine, cellCircle, cellsFor, distanceMeters, geoSearchPoints, groupCategories, linkEntities, matchRadius,
+  normalizeAuthor, normalizeLicense, plainText, scoreCandidate, selectPhotos, splitCell, HERO_THRESHOLD, GALLERY_THRESHOLD,
 } from './lib.mjs';
 
 const { values: args, positionals } = parseArgs({
@@ -32,13 +36,20 @@ const { values: args, positionals } = parseArgs({
     batch: { type: 'string' },
     province: { type: 'string' },
     tiers: { type: 'string', default: 'golden' },
+    // Overture POIs only (golden POIs are always kept): search groups of packages/common.
+    groups: { type: 'string', default: 'tourism' },
+    'hero-only': { type: 'boolean', default: false },
+    into: { type: 'string' },
     activate: { type: 'boolean', default: false },
     replace: { type: 'boolean', default: false },
   },
 });
 const step = positionals[0];
 const batch = args.batch ?? `img-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`;
-if (!/^[a-z0-9-]{4,40}$/.test(batch)) throw new Error('--batch: 4–40 ký tự a-z, 0-9, "-".');
+const BATCH_ID = /^[a-z0-9-]{4,40}$/;
+if (!BATCH_ID.test(batch)) throw new Error('--batch: 4–40 ký tự a-z, 0-9, "-".');
+if (args.into !== undefined && !BATCH_ID.test(args.into)) throw new Error('--into: 4–40 ký tự a-z, 0-9, "-".');
+if (args.into && args.replace) throw new Error('--into thay ảnh theo từng POI; không dùng cùng --replace.');
 const work = resolve(root, '.local/poi/images', batch);
 const http = createHttp(resolve(root, '.local/poi/images/cache'), { log: console.log });
 const save = async (name, value) => {
@@ -52,9 +63,23 @@ const explain = (error) => (error?.code || /postgres(ql)?:\/\//.test(String(erro
 const WIDTHS = [320, 640, 1280];
 
 // ---------------------------------------------------------------- pull
+/** Category codes for --groups (Overture POIs only); null = every category. */
+function overtureCategories() {
+  if (args.tiers !== 'all') return null;
+  let groups;
+  try {
+    // Same search groups as the Places API; poi:overture builds this package before loading.
+    groups = createRequire(import.meta.url)(resolve(root, 'packages/common/dist/poi-taxonomy.js')).POI_SEARCH_CATEGORIES;
+  } catch (error) {
+    if (error.code !== 'MODULE_NOT_FOUND') throw error;
+    throw new Error('Thiếu packages/common/dist; chạy corepack pnpm --filter @wolfari/common build rồi chạy lại.');
+  }
+  return groupCategories(args.groups, groups);
+}
 async function pull() {
+  const categories = overtureCategories();
   const client = await connectTravel(await travelUrl(args.env), { statementTimeout: '5min' });
-  let pois;
+  let pois, version;
   try {
     const snapshot = (await client.query('SELECT id, version FROM poi_snapshots WHERE is_active')).rows[0];
     if (!snapshot) throw new Error('Chưa có snapshot POI đang hoạt động.');
@@ -67,8 +92,9 @@ async function pull() {
          FROM pois p LEFT JOIN poi_sources s ON s.poi_id = p.id
          WHERE p.snapshot_id = $1 AND ($2::text IS NULL OR p.province_code = $2)
            AND ($3 OR p.tier IN (1, 2, 3))
+           AND (p.tier IN (1, 2, 3) OR $4::text[] IS NULL OR p.category = ANY($4::text[]))
          GROUP BY p.id ORDER BY p.tier, p.wolfari_key`,
-        [snapshot.id, args.province ?? null, args.tiers === 'all'],
+        [snapshot.id, args.province ?? null, args.tiers === 'all', categories],
       )
     ).rows.map((row) => ({
       ...row,
@@ -76,7 +102,8 @@ async function pull() {
       key: row.tier <= 3 ? row.wolfari_key : row.gers[0],
       kind: row.tier <= 3 ? 'golden' : 'overture',
     })).filter((poi) => poi.key);
-    console.log(`POI: ${pois.length} (snapshot ${snapshot.version})`);
+    version = snapshot.version;
+    console.log(`POI: ${pois.length} (snapshot ${version}${categories ? `, nhóm Overture ${args.groups}` : ''})`);
   } finally {
     await client.end();
   }
@@ -103,6 +130,8 @@ async function pull() {
   for (const item of await wikidataItems(tagged)) items.set(item.qid, item);
   console.log(`Wikidata: ${items.size} mục có tọa độ`);
   await save('pois.json', pois);
+  // What this run covers; the load step copies it into the batch manifest.
+  await save('run.json', { snapshot: version, province: args.province ?? null, tiers: args.tiers, groups: args.tiers === 'all' ? args.groups : null, pulled_at: new Date().toISOString() });
   await save('osm.json', osm);
   await save('items.json', [...items.values()]);
 }
@@ -249,7 +278,8 @@ async function manualOverrides() {
 async function geosearchFiles(pois) {
   const found = new Map();
   // Small cells and 100-row pages keep each geosearch cheap for Commons (large ones get throttled).
-  const queue = cellsFor(pois.filter((p) => !p.coord_pileup), 0.02).map((cell) => ({ cell, depth: 0 }));
+  const queue = cellsFor(geoSearchPoints(pois), 0.02).map((cell) => ({ cell, depth: 0 }));
+  console.log(`  geosearch: ${queue.length} ô quanh POI golden/tham quan (≥ ${Math.ceil((queue.length * 8) / 60)} phút nếu chưa có trong cache)`);
   while (queue.length) {
     const { cell, depth } = queue.shift();
     const circle = cellCircle(cell);
@@ -338,6 +368,10 @@ function pick(c) {
 async function store() {
   const selection = await load('selection.json');
   const links = await load('links.json');
+  // Runs pulled before run.json existed (img-pilot-dn1) load without it.
+  const run = await load('run.json').catch(() => ({}));
+  const target = args.into ?? batch;
+  const heroOnly = args['hero-only'];
   const env = await readEnv(resolve(args.env));
   const [host, port] = (env.MINIO_ENDPOINT ?? '').split(':');
   if (!host || !port || !env.MINIO_ACCESS_KEY || !env.MINIO_SECRET_KEY)
@@ -349,8 +383,9 @@ async function store() {
   const minio = new Client({ endPoint: host, port: Number(port), useSSL: false, accessKey: env.MINIO_ACCESS_KEY, secretKey: env.MINIO_SECRET_KEY });
   if (!(await minio.bucketExists(BUCKET))) await minio.makeBucket(BUCKET);
   const rows = [];
-  const photos = selection.flatMap((s) => [...(s.hero ? [{ s, photo: s.hero, role: 'hero', rank: 0 }] : []), ...s.gallery.map((photo, i) => ({ s, photo, role: 'gallery', rank: i + 1 }))]);
+  const photos = photosToStore(selection, { heroOnly });
   const stored = new Map();
+  const failedHeroes = new Set();
   for (const [i, { s, photo, role, rank }] of photos.entries()) {
     let file = stored.get(photo.title);
     if (!file) {
@@ -375,6 +410,7 @@ async function store() {
         stored.set(photo.title, file);
       } catch (error) {
         console.log(`  bỏ ${photo.title}: ${explain(error)}`);
+        if (role === 'hero') failedHeroes.add(s.key);
         continue;
       }
     }
@@ -388,54 +424,34 @@ async function store() {
     });
     if (i % 20 === 19) console.log(`  ảnh ${i + 1}/${photos.length}`);
   }
+  const base = {
+    created_by: 'scripts/poi/images/run.mjs', user_agent: USER_AGENT, thresholds: { hero: HERO_THRESHOLD, gallery: GALLERY_THRESHOLD },
+    sources: ['manual', 'wikidata', 'wikipedia', 'commons_category', 'commons_geo', 'osm_tag'],
+  };
+  const counts = { pois: selection.length, heroes: rows.filter((r) => r.role === 'hero').length, gallery: rows.filter((r) => r.role === 'gallery').length };
+  const entityRows = links.flatMap((l) => [
+    { scheme: 'wikidata', value: l.qid },
+    ...(l.commons_category ? [{ scheme: 'commons_category', value: l.commons_category }] : []),
+    ...(l.wiki_vi ? [{ scheme: 'wikipedia_vi', value: l.wiki_vi }] : []),
+    ...(l.wiki_en ? [{ scheme: 'wikipedia_en', value: l.wiki_en }] : []),
+  ].map((e) => ({ ...e, gers_id: l.kind === 'overture' ? l.key : null, golden_key: l.kind === 'golden' ? l.key : null, method: l.method, score: Math.round(l.score * 1000) / 1000 })));
+  const keys = replacedKeys(selection, failedHeroes);
+  // --into: this run is one entry of the batch manifest; its POIs' rows are replaced, others kept.
+  const runEntry = { run: batch, ...run, hero_only: heroOnly, ...counts, kept_on_error: failedHeroes.size, loaded_at: new Date().toISOString() };
   const client = await connectTravel(await travelUrl(args.env), { statementTimeout: '5min' });
+  let result;
   try {
-    await client.query('BEGIN');
-    const manifest = {
-      created_by: 'scripts/poi/images/run.mjs', user_agent: USER_AGENT, thresholds: { hero: HERO_THRESHOLD, gallery: GALLERY_THRESHOLD },
-      pois: selection.length, heroes: rows.filter((r) => r.role === 'hero').length, gallery: rows.filter((r) => r.role === 'gallery').length,
-      sources: ['manual', 'wikidata', 'wikipedia', 'commons_category', 'commons_geo', 'osm_tag'],
-    };
-    const existing = await client.query('SELECT is_active FROM poi_media_batches WHERE id = $1', [batch]);
-    if (existing.rowCount && !args.replace) throw new Error(`Batch ${batch} đã có; thêm --replace để nạp lại.`);
-    // --replace: drop the old rows of this batch (cascade) and load again in the same transaction.
-    if (existing.rowCount) await client.query('DELETE FROM poi_media_batches WHERE id = $1', [batch]);
-    await client.query('INSERT INTO poi_media_batches(id, manifest) VALUES ($1, $2)', [batch, manifest]);
-    await client.query(
-      `INSERT INTO poi_media(gers_id, golden_key, role, rank, source, source_url, original_url, storage_key, width, height, bytes, mime,
-         sha256, license_code, license_url, author, attribution, match_method, match_score, quality_score, final_score, batch_id, fetched_at)
-       SELECT r.gers_id, r.golden_key, r.role, r.rank, r.source, r.source_url, r.original_url, r.storage_key, r.width, r.height, r.bytes, r.mime,
-         r.sha256, r.license_code, r.license_url, r.author, r.attribution, r.match_method, r.match_score, r.quality_score, r.final_score, $2, now()
-       FROM jsonb_to_recordset($1::jsonb) AS r(gers_id text, golden_key text, role text, rank int, source text, source_url text, original_url text,
-         storage_key text, width int, height int, bytes int, mime text, sha256 text, license_code text, license_url text, author text,
-         attribution text, match_method text, match_score numeric, quality_score numeric, final_score numeric)
-       ON CONFLICT DO NOTHING`,
-      [JSON.stringify(rows), batch],
-    );
-    const entityRows = links.flatMap((l) => [
-      { scheme: 'wikidata', value: l.qid },
-      ...(l.commons_category ? [{ scheme: 'commons_category', value: l.commons_category }] : []),
-      ...(l.wiki_vi ? [{ scheme: 'wikipedia_vi', value: l.wiki_vi }] : []),
-      ...(l.wiki_en ? [{ scheme: 'wikipedia_en', value: l.wiki_en }] : []),
-    ].map((e) => ({ ...e, gers_id: l.kind === 'overture' ? l.key : null, golden_key: l.kind === 'golden' ? l.key : null, method: l.method, score: Math.round(l.score * 1000) / 1000 })));
-    await client.query(
-      `INSERT INTO poi_entity_links(gers_id, golden_key, scheme, value, method, score, batch_id)
-       SELECT gers_id, golden_key, scheme, value, method, score, $2 FROM jsonb_to_recordset($1::jsonb)
-         AS e(gers_id text, golden_key text, scheme text, value text, method text, score numeric)`,
-      [JSON.stringify(entityRows), batch],
-    );
-    if (args.activate) {
-      await client.query('UPDATE poi_media_batches SET is_active = false WHERE is_active AND id <> $1', [batch]);
-      await client.query('UPDATE poi_media_batches SET is_active = true WHERE id = $1', [batch]);
-    }
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
+    result = await writeBatch(client, {
+      batch: target, mode: args.into ? 'merge' : args.replace ? 'replace' : 'create', rows, links: entityRows, keys,
+      manifest: args.into ? { ...base, run: runEntry } : { ...base, ...counts, hero_only: heroOnly, ...run },
+      activate: args.activate,
+    });
   } finally {
     await client.end();
   }
-  console.log(`Đã nạp batch ${batch}: ${rows.length} ảnh (${stored.size} tệp)${args.activate ? ' · đang hoạt động' : ' · chưa kích hoạt (dùng --activate)'}`);
+  if (failedHeroes.size) console.log(`  ${failedHeroes.size} POI tải hero lỗi${args.into ? ': giữ ảnh cũ trong batch, chạy lại load để thử tiếp' : ''}`);
+  const totals = args.into ? ` · batch ${target}: ${result.manifest.heroes} hero, ${result.manifest.gallery} gallery sau ${result.manifest.runs.length} lượt` : '';
+  console.log(`Đã nạp batch ${target}: ${result.rows} ảnh (${stored.size} tệp)${totals}${args.activate ? ' · đang hoạt động' : ' · chưa kích hoạt (dùng --activate)'}`);
 }
 
 // ---------------------------------------------------------------- gates
@@ -520,7 +536,7 @@ const steps = { pull, harvest, select, load: store, gates, activate };
 try {
   if (step === 'all') for (const name of ['pull', 'harvest', 'select', 'load', 'gates']) { console.log(`== ${name}`); await steps[name](); }
   else if (steps[step]) await steps[step]();
-  else throw new Error('Lệnh: run.mjs <pull|harvest|select|load|gates|activate|all> [--batch id] [--env travel.env] [--province code] [--tiers golden|all] [--activate]');
+  else throw new Error('Lệnh: run.mjs <pull|harvest|select|load|gates|activate|all> [--batch id] [--env travel.env] [--province code] [--tiers golden|all] [--groups tourism,…|all] [--hero-only] [--into batch] [--replace] [--activate]');
   console.log(`HTTP: ${http.stats.requests} request, ${http.stats.cached} từ cache, ${http.stats.retries} thử lại`);
 } catch (error) {
   console.error(explain(error));
