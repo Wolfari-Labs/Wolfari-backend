@@ -87,6 +87,33 @@ export class FinanceNotificationClient implements OnApplicationShutdown {
     );
   }
 
+  /** A source read by ID, for scheduled reminders (CONTRIBUTION_REQUEST or CLOSURE). */
+  getSourceContext(
+    source: { fundId: string; sourceType: 'CONTRIBUTION_REQUEST' | 'CLOSURE'; sourceId: string },
+    correlation: string,
+    deadline: number,
+  ): Promise<FinanceV1.GetAutomationContextResponse> {
+    const client = this.finance;
+    if (!client || Date.now() >= deadline)
+      return Promise.reject(new Error('FINANCE_NOTIFICATION_RPC_UNAVAILABLE'));
+    const metadata = new Metadata();
+    metadata.set('x-caller-service', 'Automation');
+    metadata.set('x-service-secret', this.secret);
+    metadata.set('x-correlation-id', correlation);
+    return new Promise((resolve, reject) =>
+      client.makeUnaryRequest(
+        method.path,
+        method.requestSerialize,
+        method.responseDeserialize,
+        { fund_id: source.fundId, source_type: source.sourceType, source_id: source.sourceId },
+        metadata,
+        { deadline: Math.min(deadline, Date.now() + 2000) },
+        (error: ServiceError | null, response?: FinanceV1.GetAutomationContextResponse) =>
+          error ? reject(error) : resolve(response!),
+      ),
+    );
+  }
+
   getEligibility(
     userIds: string[],
     correlation: string,

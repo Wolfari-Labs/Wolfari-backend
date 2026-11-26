@@ -66,6 +66,7 @@ describe('Finance Automation current audience', () => {
       finance_version: 8,
       status: FinanceV1.FundStatus.FUND_STATUS_OPEN,
       authorized_recipients: [{ user_id: userId }],
+      eligible: true,
       due_at: { seconds: '1793498400', nanos: 123000000 },
     });
     expect(s.trip.getAccessContext).toHaveBeenCalledWith(

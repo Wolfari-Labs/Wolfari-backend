@@ -484,7 +484,7 @@ async function main() {
   }
   pass('cài mới và chạy lại cả 5 migration');
   stage = 'schema-and-constraints';
-  const counts = [8, 18, 11, 20, 15];
+  const counts = [8, 18, 11, 20, 16];
   let fks = 0;
   for (const [index, service] of services.entries())
     await db(service, async (client) => {
@@ -501,7 +501,7 @@ async function main() {
       assert.deepEqual(
         await history(client, files[service]),
         service === 'automation'
-          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008', 'V009']
+          ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008', 'V009', 'V010']
           : service === 'trip'
             ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
             : service === 'finance'
@@ -514,7 +514,7 @@ async function main() {
       );
     });
   assert.equal(fks, 59);
-  pass('64 bảng mô hình + 5 lịch sử, 57 FK');
+  pass('67 bảng mô hình + 5 lịch sử, 59 FK');
   await db('finance', async (client) => {
     await client.query(
       await readFile(

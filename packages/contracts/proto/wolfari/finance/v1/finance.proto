@@ -1039,6 +1039,9 @@ message GetAutomationContextResponse {
   google.protobuf.Timestamp due_at = 4;
   // Present for CONTRIBUTION_REVIEW: current contribution version, not Fund version.
   optional int32 source_revision = 5;
+  // The source is still in the state its notices are about (request OPEN, contribution PENDING,
+  // closure PENDING_CONFIRMATIONS…); scheduled reminders stop when it is false.
+  optional bool eligible = 6;
 }
 enum FundStatus {
   FUND_STATUS_UNSPECIFIED = 0;
