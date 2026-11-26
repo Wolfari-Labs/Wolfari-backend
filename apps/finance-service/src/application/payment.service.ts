@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { CommonV1, type FinanceV1 } from '@wolfari/contracts/grpc';
 import { FinanceReadError, readUuid } from '../finance.errors';
 import {
@@ -14,6 +14,9 @@ import { PaymentRepository } from '../repositories/payment.repository';
 import { FundCommandService } from './fund-command.service';
 import { FundQueryService } from './fund-query.service';
 import { PaymentProcessor } from './payment-processor';
+import { PayosPaymentProcessor } from './payos-payment-processor';
+import { PayosProvider } from '../providers/payos.provider';
+import { PayosPaymentRepository } from '../repositories/payos-payment.repository';
 import { paymentAttemptResponse } from '../projections/payment-response';
 
 @Injectable()
@@ -24,7 +27,13 @@ export class PaymentService {
     private readonly commands: FundCommandService,
     private readonly provider: MomoSandboxProvider,
     private readonly processor: PaymentProcessor,
+    @Optional() private readonly payos?: PayosProvider,
+    @Optional() private readonly payosRows?: PayosPaymentRepository,
+    @Optional() private readonly payosProcessor?: PayosPaymentProcessor,
   ) {}
+  private payosReady() {
+    return Boolean(this.payos && this.payosRows && this.payos.ready());
+  }
   private input<T>(work: () => T) {
     try {
       return work();
@@ -38,6 +47,7 @@ export class PaymentService {
     correlation: string,
     deadline: number,
   ) {
+    if (request.provider === 'PAYOS') return this.createPayos(request, correlation, deadline);
     if (!this.provider.ready()) throw new FinanceReadError('PAYMENT_PROVIDER_NOT_CONFIGURED');
     const operationId = readUuid(request.operation_id),
       actor = readUuid(request.actor_user_id),
@@ -69,6 +79,70 @@ export class PaymentService {
     this.processor.kick();
     return result;
   }
+  /** Real money: the link pays into the payOS channel account, which must be the destination. */
+  private async createPayos(
+    request: FinanceV1.CreatePaymentAttemptRequest,
+    correlation: string,
+    deadline: number,
+  ) {
+    if (!this.payosReady()) throw new FinanceReadError('PAYMENT_PROVIDER_NOT_CONFIGURED');
+    const payos = this.payos!;
+    const operationId = readUuid(request.operation_id),
+      actor = readUuid(request.actor_user_id),
+      contributionId = readUuid(request.contribution_id);
+    const body = this.input(() =>
+      parseCreatePaymentAttemptInput(
+        {
+          provider: request.provider,
+          expected_version: request.expected_version,
+          expected_finance_version: request.expected_finance_version,
+          return_url: request.return_url,
+        },
+        payos.production(),
+      ),
+    );
+    const returnUrl = body.returnUrl ?? payos.defaultReturnUrl();
+    if (!returnUrl) throw new FinanceReadError('VALIDATION_FAILED');
+    const account = payos.account()!;
+    const scope = await this.rows.contributionScope(contributionId);
+    if (!scope) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    await this.queries.authorizePaymentInstruction(scope.fund_id, actor, correlation, deadline);
+    if (scope.member_user_id !== actor) throw new FinanceReadError('PERMISSION_DENIED');
+    const result = await this.commands.run(
+      {
+        scope: 'CREATE_PAYMENT_ATTEMPT',
+        operationId,
+        actor,
+        tripId: scope.trip_id,
+        fundId: scope.fund_id,
+        contributionId,
+        body: {
+          ...body,
+          returnUrl,
+          merchantId: payos.merchantId(),
+          payosAccount: { bankBin: account.bankBin, accountNumber: account.accountNumber },
+        },
+      },
+      correlation,
+      deadline,
+    );
+    this.payosProcessor?.kick();
+    return result;
+  }
+  /**
+   * The Gateway forwards the raw payOS body. Only a body whose `data` carries a valid checksum
+   * signature is stored; a forged or malformed one leaves no trace and is refused.
+   */
+  async payosWebhook(request: FinanceV1.ReceivePayosWebhookRequest) {
+    if (!this.payosReady()) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+    const body = typeof request.body === 'string' ? request.body : '';
+    if (!body || body.length > 64 * 1024) throw new FinanceReadError('VALIDATION_FAILED');
+    const verified = this.payos!.verifyWebhook(body);
+    if (!verified.valid) throw new FinanceReadError('PERMISSION_DENIED');
+    await this.payosRows!.receiveWebhook(verified.data);
+    this.payosProcessor?.kick();
+    return {};
+  }
   async get(request: FinanceV1.GetPaymentAttemptRequest, correlation: string, deadline: number) {
     const actor = readUuid(request.actor_user_id),
       id = readUuid(request.payment_attempt_id);
@@ -86,13 +160,17 @@ export class PaymentService {
     correlation: string,
     deadline: number,
   ): Promise<FinanceV1.ReconcilePaymentAttemptResponse> {
-    if (!this.provider.ready()) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+    // Each attempt is reconciled with its own provider; MoMo keeps its original check order.
+    if (!this.provider.ready() && !this.payosReady())
+      throw new FinanceReadError('SERVICE_UNAVAILABLE');
     const operationId = readUuid(request.operation_id),
       actor = readUuid(request.actor_user_id),
       id = readUuid(request.payment_attempt_id);
     const body = this.input(() => parseReconcilePaymentAttemptInput({ reason: request.reason }));
     const row = await this.rows.attemptScope(id);
     if (!row) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    if (row.provider === 'PAYOS' ? !this.payosReady() : !this.provider.ready())
+      throw new FinanceReadError('SERVICE_UNAVAILABLE');
     await this.queries.authorizeFundRead(row.fund_id, actor, correlation, deadline);
     if (actor !== row.holder_user_id) throw new FinanceReadError('PERMISSION_DENIED');
     const result = await this.commands.run(
@@ -108,7 +186,8 @@ export class PaymentService {
       correlation,
       deadline,
     );
-    this.processor.kick();
+    if (row.provider === 'PAYOS') this.payosProcessor?.kick();
+    else this.processor.kick();
     return {
       operation:
         result.operation ??

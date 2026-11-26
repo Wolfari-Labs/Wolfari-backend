@@ -14,6 +14,7 @@ const sourceTypes: readonly AutomationSourceType[] = [
   'CONTRIBUTION_REQUEST',
   'CONTRIBUTION_DUE',
   'CONTRIBUTION_REVIEW',
+  'CONTRIBUTION_CONFIRMED',
   'CLOSURE',
 ];
 function unavailable(): never {
@@ -189,7 +190,9 @@ export class FinanceAutomationContextService {
         CLOSED: FinanceV1.FundStatus.FUND_STATUS_CLOSED,
       }[snapshot.fundStatus],
       authorized_recipients: recipients,
-      ...(sourceType === 'CONTRIBUTION_REVIEW' ? { source_revision: snapshot.sourceVersion } : {}),
+      ...(sourceType === 'CONTRIBUTION_REVIEW' || sourceType === 'CONTRIBUTION_CONFIRMED'
+        ? { source_revision: snapshot.sourceVersion }
+        : {}),
       due_at:
         recipients.length &&
         snapshot.eligible &&

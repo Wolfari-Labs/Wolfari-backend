@@ -310,7 +310,11 @@ export interface CreatePaymentAttemptRequest {
   contribution_id?: string | undefined;
   provider?: string | undefined;
   expected_version?: number | undefined;
-  expected_finance_version?: number | undefined;
+  expected_finance_version?:
+    | number
+    | undefined;
+  /** PAYOS only: Gateway return page (PAYOS_RETURN_PATH + app-link token) for the payer's browser. */
+  return_url?: string | undefined;
 }
 
 export interface CreatePaymentAttemptResponse {
@@ -355,6 +359,14 @@ export interface ReceiveMomoWebhookRequest {
 }
 
 export interface ReceiveMomoWebhookResponse {
+}
+
+/** The exact JSON body payOS posted (at most 64 KiB): its signature covers every `data` field. */
+export interface ReceivePayosWebhookRequest {
+  body?: string | undefined;
+}
+
+export interface ReceivePayosWebhookResponse {
 }
 
 export interface ListPaymentExceptionsRequest {
@@ -1482,7 +1494,11 @@ export interface PaymentInstruction {
     | undefined;
   /** NAPAS VietQR QRIBFTTA payload (printable ASCII with CRC) and its plain SVG rendering. */
   qr_payload?: string | undefined;
-  qr_svg?: string | undefined;
+  qr_svg?:
+    | string
+    | undefined;
+  /** Online checkouts that pay into exactly this destination, e.g. PAYOS; empty when none. */
+  online_payment_providers?: string[] | undefined;
 }
 
 export interface GetPaymentInstructionResponse {
@@ -1578,6 +1594,13 @@ export interface FinanceServiceClient {
   ): Observable<ReconcilePaymentAttemptResponse>;
 
   receiveMomoWebhook(request: ReceiveMomoWebhookRequest, metadata?: Metadata): Observable<ReceiveMomoWebhookResponse>;
+
+  /** payOS: the Gateway forwards the raw webhook body; Finance verifies its checksum signature. */
+
+  receivePayosWebhook(
+    request: ReceivePayosWebhookRequest,
+    metadata?: Metadata,
+  ): Observable<ReceivePayosWebhookResponse>;
 
   listPaymentExceptions(
     request: ListPaymentExceptionsRequest,
@@ -1883,6 +1906,13 @@ export interface FinanceServiceController {
     request: ReceiveMomoWebhookRequest,
     metadata?: Metadata,
   ): Promise<ReceiveMomoWebhookResponse> | Observable<ReceiveMomoWebhookResponse> | ReceiveMomoWebhookResponse;
+
+  /** payOS: the Gateway forwards the raw webhook body; Finance verifies its checksum signature. */
+
+  receivePayosWebhook(
+    request: ReceivePayosWebhookRequest,
+    metadata?: Metadata,
+  ): Promise<ReceivePayosWebhookResponse> | Observable<ReceivePayosWebhookResponse> | ReceivePayosWebhookResponse;
 
   listPaymentExceptions(
     request: ListPaymentExceptionsRequest,
@@ -2294,6 +2324,7 @@ export function FinanceServiceControllerMethods() {
       "getPaymentAttempt",
       "reconcilePaymentAttempt",
       "receiveMomoWebhook",
+      "receivePayosWebhook",
       "listPaymentExceptions",
       "resolvePaymentException",
       "listClosures",

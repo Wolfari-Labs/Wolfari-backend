@@ -1310,6 +1310,16 @@
   {
     "package": "wolfari.finance.v1",
     "service": "FinanceService",
+    "method": "ReceivePayosWebhook",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 2000,
+    "source": "payOS VietQR payment links; signed webhook (checksum key) 2026-11-26"
+  },
+  {
+    "package": "wolfari.finance.v1",
+    "service": "FinanceService",
     "method": "ListPaymentExceptions",
     "callers": [
       "ApiGateway"

@@ -3,7 +3,11 @@ import { DatabaseProvider } from '@wolfari/database';
 import { FinanceReadError, UUID } from '../finance.errors';
 
 export type AutomationSourceType =
-  'CONTRIBUTION_REQUEST' | 'CONTRIBUTION_DUE' | 'CONTRIBUTION_REVIEW' | 'CLOSURE';
+  | 'CONTRIBUTION_REQUEST'
+  | 'CONTRIBUTION_DUE'
+  | 'CONTRIBUTION_REVIEW'
+  | 'CONTRIBUTION_CONFIRMED'
+  | 'CLOSURE';
 export interface AutomationCandidate {
   userId: string;
   /** Source time in epoch microseconds; null means the current Holder has no historical cutoff. */
@@ -59,6 +63,21 @@ function contributionSql(review: boolean): string {
     JOIN contribution_requests r ON r.id=c.request_id AND r.fund_id=f.id
     WHERE f.id=$1 AND c.id=$2`;
 }
+/**
+ * "Money received": the paying member, plus the Holder when nobody confirmed by hand (payOS or a
+ * bank webhook settled it), since the Holder has not seen that money arrive yet.
+ */
+const confirmedSql = `SELECT ${fundColumns},
+  c.id AS source_id,c.status AS source_status,c.version AS source_version,
+  r.status AS request_status,r.version AS request_version,r.due_at,true AS source_consistent,
+  jsonb_build_array(jsonb_build_object('user_id',c.member_user_id,
+    'cutoff_micros',(EXTRACT(EPOCH FROM c.created_at)*1000000)::bigint::text))
+  || CASE WHEN c.confirmed_by_user_id IS NULL AND f.holder_user_id<>c.member_user_id
+     THEN jsonb_build_array(jsonb_build_object('user_id',f.holder_user_id,'cutoff_micros',NULL::text))
+     ELSE '[]'::jsonb END AS candidates
+  FROM funds f JOIN contributions c ON c.fund_id=f.id
+  JOIN contribution_requests r ON r.id=c.request_id AND r.fund_id=f.id
+  WHERE f.id=$1 AND c.id=$2`;
 const closureSql = `SELECT ${fundColumns},
   c.id AS source_id,c.status AS source_status,c.snapshot_finance_version AS source_version,
   NULL::text AS request_status,NULL::integer AS request_version,NULL::timestamptz AS due_at,
@@ -74,6 +93,7 @@ const queries: Record<AutomationSourceType, string> = {
   CONTRIBUTION_REQUEST: requestSql,
   CONTRIBUTION_DUE: contributionSql(false),
   CONTRIBUTION_REVIEW: contributionSql(true),
+  CONTRIBUTION_CONFIRMED: confirmedSql,
   CLOSURE: closureSql,
 };
 function unavailable(): never {
@@ -112,20 +132,28 @@ function project(row: SnapshotRow, type: AutomationSourceType): AutomationContex
     return unavailable();
   const due = row.due_at === null ? null : new Date(row.due_at);
   if (due && !Number.isFinite(due.getTime())) return unavailable();
+  const confirmed = type === 'CONTRIBUTION_CONFIRMED';
+  // A confirmation may close its request, so only the Fund has to stay OPEN for the notice.
   const eligible = closure
     ? row.fund_status === 'CLOSING' && row.source_status === 'PENDING_CONFIRMATIONS'
-    : row.fund_status === 'OPEN' &&
-      row.request_status === 'OPEN' &&
-      (request ||
-        row.source_status === (type === 'CONTRIBUTION_REVIEW' ? 'TRANSFER_REPORTED' : 'PENDING'));
+    : confirmed
+      ? row.fund_status === 'OPEN' && row.source_status === 'CONFIRMED'
+      : row.fund_status === 'OPEN' &&
+        row.request_status === 'OPEN' &&
+        (request ||
+          row.source_status ===
+            (type === 'CONTRIBUTION_REVIEW' ? 'TRANSFER_REPORTED' : 'PENDING'));
   const candidates = row.candidates
     .map((candidate) => {
       if (!candidate || typeof candidate !== 'object') return unavailable();
       const cutoff = candidate.cutoff_micros;
+      const timed = typeof cutoff === 'string' && /^-?\d{1,20}$/.test(cutoff);
       if (
         type === 'CONTRIBUTION_REVIEW'
           ? cutoff !== null
-          : typeof cutoff !== 'string' || !/^-?\d{1,20}$/.test(cutoff)
+          : confirmed
+            ? cutoff !== null && !timed
+            : !timed
       )
         return unavailable();
       return { userId: storedUuid(candidate.user_id), cutoffMicros: cutoff };

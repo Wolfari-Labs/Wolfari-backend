@@ -69,7 +69,14 @@ export class FinanceNotificationClient implements OnApplicationShutdown {
           ...('closureId' in event
             ? { source_type: 'CLOSURE', source_id: event.closureId }
             : 'contributionId' in event
-              ? { source_type: 'CONTRIBUTION_REVIEW', source_id: event.contributionId }
+              ? {
+                  // A confirmed contribution tells the payer (and an unaware Holder) money arrived.
+                  source_type:
+                    event.contributionStatus === 'CONFIRMED'
+                      ? 'CONTRIBUTION_CONFIRMED'
+                      : 'CONTRIBUTION_REVIEW',
+                  source_id: event.contributionId,
+                }
               : { source_type: 'CONTRIBUTION_REQUEST', source_id: event.requestId }),
         },
         metadata,

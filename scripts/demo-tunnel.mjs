@@ -12,6 +12,10 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 export const WEBHOOK_PATH = '/api/v1/webhooks/bank/sepay';
+/** payOS payment webhook (docs/architecture/finance-payos.md); Finance verifies its signature. */
+export const PAYOS_WEBHOOK_PATH = '/api/v1/webhooks/payos';
+const RELAYED_PATHS = new Set([WEBHOOK_PATH, PAYOS_WEBHOOK_PATH]);
+const PAYOS_CONFIRM_URL = 'https://api-merchant.payos.vn/confirm-webhook';
 const MAX_BODY = 64 * 1024;
 const FORWARDED_HEADERS = [
   'content-type',
@@ -39,12 +43,70 @@ export function tunnelUrl(line) {
   return /https:\/\/[a-z0-9-]+\.trycloudflare\.com/.exec(line)?.[0] ?? null;
 }
 
-/** Relay that accepts only the SePay webhook and forwards a minimal header set to the Gateway. */
+/**
+ * A new quick tunnel hostname takes a few seconds to resolve, and payOS probes the webhook URL as
+ * soon as it is registered (it refused with code 20 when asked too early). Waits until the tunnel
+ * answers the payOS path; an unsigned `{}` is ignored by Finance and answered 200.
+ */
+export async function waitForTunnel(tunnel, fetcher = fetch, { attempts = 20, delayMs = 1500 } = {}) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const response = await fetcher(`${tunnel}${PAYOS_WEBHOOK_PATH}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+        signal: AbortSignal.timeout(5000),
+      });
+      if (response.ok) return true;
+    } catch {
+      // The hostname is not resolvable yet.
+    }
+    await new Promise((done) => setTimeout(done, delayMs));
+  }
+  return false;
+}
+
+/**
+ * Registers `${tunnel}${PAYOS_WEBHOOK_PATH}` with payOS (it probes the URL once) and returns the
+ * bank account its channel pays into, so the operator can compare it with PAYOS_ACCOUNT_NUMBER.
+ * Keys are sent only to payOS and never printed.
+ */
+export async function confirmPayosWebhook(tunnel, env, fetcher = fetch) {
+  const clientId = env.PAYOS_CLIENT_ID?.trim(),
+    apiKey = env.PAYOS_API_KEY?.trim();
+  if (!clientId || !apiKey) return { configured: false };
+  try {
+    const response = await fetcher(PAYOS_CONFIRM_URL, {
+      method: 'POST',
+      headers: { 'x-client-id': clientId, 'x-api-key': apiKey, 'content-type': 'application/json' },
+      body: JSON.stringify({ webhookUrl: `${tunnel}${PAYOS_WEBHOOK_PATH}` }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body?.code !== '00')
+      return { configured: true, ok: false, code: String(body?.code ?? response.status).slice(0, 20) };
+    const data = body.data ?? {};
+    const account = String(data.accountNumber ?? '');
+    const expected = String(env.PAYOS_ACCOUNT_NUMBER ?? '').replace(/\s+/g, '').toUpperCase();
+    return {
+      configured: true,
+      ok: true,
+      accountName: String(data.accountName ?? ''),
+      accountNumber: account,
+      bank: String(data.shortName ?? data.name ?? ''),
+      matches: Boolean(expected) && account.replace(/\s+/g, '').toUpperCase() === expected,
+    };
+  } catch {
+    return { configured: true, ok: false, code: 'NETWORK' };
+  }
+}
+
+/** Relay that accepts only the bank and payOS webhooks and forwards a minimal header set. */
 export function createWebhookRelay(gatewayUrl) {
   const gateway = new URL(gatewayUrl);
   return createServer((incoming, outgoing) => {
     const path = new URL(incoming.url ?? '/', 'http://relay').pathname.replace(/\/$/, '');
-    if (incoming.method !== 'POST' || path !== WEBHOOK_PATH) {
+    if (incoming.method !== 'POST' || !RELAYED_PATHS.has(path)) {
       outgoing.writeHead(404, { 'content-type': 'application/json' }).end('{"success":false}');
       incoming.resume();
       return;
@@ -72,7 +134,7 @@ export function createWebhookRelay(gatewayUrl) {
         {
           hostname: gateway.hostname,
           port: gateway.port,
-          path: WEBHOOK_PATH,
+          path,
           method: 'POST',
           headers: { ...headers, 'content-length': String(body.length) },
           timeout: 25000,
@@ -115,6 +177,9 @@ export async function main() {
   for (const key of ['BANK_WEBHOOK_SEPAY_API_KEY', 'BANK_WEBHOOK_SEPAY_SECRET'])
     if (process.env[key]?.trim()) gatewayEnv[key] = process.env[key];
   const auth = webhookAuthModes(gatewayEnv);
+  const financeEnv = { ...(await readOptionalEnv(resolve(demo, 'apps/finance-service/.env'))) };
+  for (const key of ['PAYOS_MODE', 'PAYOS_CLIENT_ID', 'PAYOS_API_KEY', 'PAYOS_ACCOUNT_NUMBER'])
+    if (process.env[key]?.trim()) financeEnv[key] = process.env[key];
 
   const probe = spawnSync('cloudflared', ['--version'], { encoding: 'utf8', windowsHide: true });
   if (probe.error || probe.status !== 0) {
@@ -176,6 +241,33 @@ export async function main() {
         'Lưu ý của SePay: webhook không hỗ trợ tài khoản chỉ dùng QR tĩnh NAPAS. Ctrl+C để đóng đường hầm.',
       ].join('\n'),
     );
+    if (financeEnv.PAYOS_MODE === 'live')
+      void (async () => {
+        await waitForTunnel(url);
+        let result = await confirmPayosWebhook(url, financeEnv);
+        for (let retry = 0; retry < 2 && result.configured && !result.ok; retry++) {
+          await new Promise((done) => setTimeout(done, 3000));
+          result = await confirmPayosWebhook(url, financeEnv);
+        }
+        return result;
+      })().then((result) => {
+        if (!result.configured)
+          return console.log('\npayOS: thiếu PAYOS_CLIENT_ID/PAYOS_API_KEY, chưa đăng ký webhook.');
+        if (!result.ok)
+          return console.log(
+            `\npayOS: đăng ký webhook thất bại (mã ${result.code}). Kiểm tra khóa kênh thanh toán trên my.payos.vn.`,
+          );
+        console.log(
+          [
+            '',
+            `payOS: đã đăng ký webhook ${url}${PAYOS_WEBHOOK_PATH} (payOS vừa gửi một yêu cầu thử).`,
+            `payOS trả tiền vào: ${result.bank} · ${result.accountNumber} · ${result.accountName}`,
+            result.matches
+              ? 'Khớp PAYOS_ACCOUNT_NUMBER: chỉ quỹ có tài khoản nhận này mới hiện nút "Thanh toán qua payOS".'
+              : 'KHÔNG khớp PAYOS_ACCOUNT_NUMBER: sửa PAYOS_BANK_CODE/PAYOS_ACCOUNT_NUMBER cho đúng tài khoản trên rồi chạy lại demo.',
+          ].join('\n'),
+        );
+      });
   };
   child.stdout.on('data', onLine);
   child.stderr.on('data', onLine);

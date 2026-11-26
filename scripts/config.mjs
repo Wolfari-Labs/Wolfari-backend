@@ -75,7 +75,7 @@ export function appEnvironment(app, values, inherited = process.env) {
   const clean = Object.fromEntries(
     Object.entries(inherited).filter(
       ([key]) =>
-        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|SEARCHAPI_|OSRM_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
+        !/^(BANK_WEBHOOK_|GEOAPIFY_|TRAVELPAYOUTS_|SEARCHAPI_|OSRM_|PLACE_SELECTION_|PRICE_WATCH_|DATABASE_|PG|POSTGRES_|IDENTITY_|TRIP_|TRAVEL_|FINANCE_|AUTOMATION_|RABBITMQ_|MINIO_|MOMO_|PAYOS_|GATEWAY_|SMTP_|WOLFARI_|WEB_ORIGIN$|NODE_OPTIONS$|EXPORT_WORKER_PORT$)/i.test(
           key,
         ),
     ),
@@ -200,6 +200,13 @@ export function appEnvironment(app, values, inherited = process.env) {
     'MOMO_CHECKOUT_PARTNER_CODE',
     'MOMO_CHECKOUT_ACCESS_KEY',
     'MOMO_CHECKOUT_SECRET_KEY',
+    'PAYOS_MODE',
+    'PAYOS_CLIENT_ID',
+    'PAYOS_API_KEY',
+    'PAYOS_CHECKSUM_KEY',
+    'PAYOS_BANK_CODE',
+    'PAYOS_ACCOUNT_NUMBER',
+    'PAYOS_RETURN_URL',
   ];
   const travelKeys = [
     'TRIP_GRPC_TARGET',

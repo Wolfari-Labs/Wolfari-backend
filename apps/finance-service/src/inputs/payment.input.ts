@@ -1,3 +1,4 @@
+import { isPayosReturnUrl } from '@wolfari/common';
 import { parsePositiveVndAmount } from '../domain/money';
 
 export class PaymentInputError extends TypeError {}
@@ -20,16 +21,27 @@ const version = (value: unknown) => {
 };
 
 export type CreatePaymentAttemptInput = Readonly<{
-  provider: 'MOMO_SANDBOX';
+  provider: 'MOMO_SANDBOX' | 'PAYOS';
   expectedVersion: number;
   expectedFinanceVersion: number;
+  /** PAYOS only: the Gateway return page payOS sends the payer's browser to. */
+  returnUrl?: string;
 }>;
-export function parseCreatePaymentAttemptInput(value: Record<string, unknown>) {
-  if (value.provider !== 'MOMO_SANDBOX') throw new PaymentInputError('Invalid provider');
+export function parseCreatePaymentAttemptInput(
+  value: Record<string, unknown>,
+  production = false,
+): CreatePaymentAttemptInput {
+  if (value.provider !== 'MOMO_SANDBOX' && value.provider !== 'PAYOS')
+    throw new PaymentInputError('Invalid provider');
+  // proto3 strings arrive as '' when the client sends nothing.
+  const returnUrl = value.return_url === undefined || value.return_url === '' ? undefined : value.return_url;
+  if (returnUrl !== undefined && (value.provider !== 'PAYOS' || !isPayosReturnUrl(returnUrl, production)))
+    throw new PaymentInputError('Invalid return URL');
   return {
-    provider: 'MOMO_SANDBOX' as const,
+    provider: value.provider,
     expectedVersion: version(value.expected_version),
     expectedFinanceVersion: version(value.expected_finance_version),
+    ...(returnUrl !== undefined ? { returnUrl: returnUrl as string } : {}),
   };
 }
 

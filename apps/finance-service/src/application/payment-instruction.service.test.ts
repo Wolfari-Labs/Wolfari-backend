@@ -66,7 +66,14 @@ describe('VietQR payment instruction', () => {
       { ...value, destination_snapshot: {}, evidence_object_key: 'secret' },
       id,
     );
-    expect(published).toEqual({ ...value, qr_url: undefined });
+    expect(published).toEqual({ ...value, qr_url: undefined, online_payment_providers: [] });
+    expect(
+      projectPaymentInstruction({ ...value, online_payment_providers: ['PAYOS'] }, id)
+        .online_payment_providers,
+    ).toEqual(['PAYOS']);
+    expect(() =>
+      projectPaymentInstruction({ ...value, online_payment_providers: ['ELSEWHERE'] }, id),
+    ).toThrow();
     expect(published).not.toHaveProperty('qr_url');
     // A payload that disagrees with the printed text, or a foreign SVG, is never published.
     expect(() => projectPaymentInstruction({ ...value, amount: '300001' }, id)).toThrow();

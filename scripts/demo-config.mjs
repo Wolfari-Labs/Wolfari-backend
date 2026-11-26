@@ -110,6 +110,16 @@ export const demoProviderKeys = {
     'OSRM_USER_AGENT',
   ],
   'api-gateway': ['BANK_WEBHOOK_SEPAY_SECRET', 'BANK_WEBHOOK_SEPAY_API_KEY'],
+  // payOS real-money links (see docs/architecture/finance-payos.md); keys stay in the shell.
+  'finance-service': [
+    'PAYOS_MODE',
+    'PAYOS_CLIENT_ID',
+    'PAYOS_API_KEY',
+    'PAYOS_CHECKSUM_KEY',
+    'PAYOS_BANK_CODE',
+    'PAYOS_ACCOUNT_NUMBER',
+    'PAYOS_RETURN_URL',
+  ],
 };
 export function demoProviderEnv(appName, inherited = process.env) {
   return Object.fromEntries(

@@ -178,3 +178,27 @@ describe('Holder review event and current source boundary', () => {
     expect(h.repository.complete).not.toHaveBeenCalled();
   });
 });
+
+describe('Money received notice for a confirmed contribution', () => {
+  it('notifies the payer and an unaware Holder, never more than two people', async () => {
+    const h = setup('CONFIRMED');
+    const member = randomUUID();
+    h.client.getContext.mockResolvedValue({
+      ...h.context,
+      authorized_recipients: [{ user_id: member }, { user_id: h.holder }],
+    });
+    h.client.getEligibility.mockResolvedValue({
+      recipients: [
+        { user_id: member, eligible: true },
+        { user_id: h.holder, eligible: true },
+      ].sort((left, right) => left.user_id.localeCompare(right.user_id)),
+    });
+    await h.service.process(h.event);
+    expect(h.repository.complete).toHaveBeenCalledWith(h.event, [member, h.holder].sort(), 4);
+    h.client.getContext.mockResolvedValue({
+      ...h.context,
+      authorized_recipients: [{ user_id: randomUUID() }, { user_id: randomUUID() }, { user_id: randomUUID() }],
+    });
+    await expect(h.service.process(h.event)).rejects.toThrow();
+  });
+});

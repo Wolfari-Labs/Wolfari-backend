@@ -1,8 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { currentCorrelationId } from '@wolfari/common';
+import {
+  currentCorrelationId,
+  PAYOS_RETURN_PATH,
+  payosReturnTarget,
+  payosReturnToken,
+} from '@wolfari/common';
 import type { FinanceClient } from './finance-client';
 import { projectOperation } from './membership-proxy';
+import { handlePayosReturn, handlePayosWebhook, PAYOS_WEBHOOK_PATH } from './payos-http';
 import {
   authenticate,
   ensureQuery,
@@ -25,10 +31,14 @@ export type PaymentRoute =
   | { kind: 'create'; contributionId: string }
   | { kind: 'attempt'; paymentAttemptId: string; reconcile: boolean }
   | { kind: 'webhook' }
+  | { kind: 'payos-webhook' }
+  | { kind: 'payos-return' }
   | { kind: 'exceptions'; fundId: string }
   | { kind: 'resolve'; paymentExceptionId: string };
 
 export function paymentRoute(path: string): PaymentRoute | undefined {
+  if (path === PAYOS_WEBHOOK_PATH) return { kind: 'payos-webhook' };
+  if (path.startsWith(PAYOS_RETURN_PATH)) return { kind: 'payos-return' };
   const create = /^\/api\/v1\/contributions\/([^/]+)\/payment-attempts$/.exec(path);
   if (create) return { kind: 'create', contributionId: create[1]! };
   const attempt = /^\/api\/v1\/payment-attempts\/([^/]+)(\/reconcile)?$/.exec(path);
@@ -78,28 +88,36 @@ const noReadBody = (request: Request) => {
     throw new RequestError('Invalid read body');
 };
 
+/** Each provider runs in one environment and may only link to its own hosted payment page. */
+const PAYMENT_PROVIDERS = {
+  MOMO_SANDBOX: { environment: 'SANDBOX', page: /^https:\/\/test-payment\.momo\.vn(?:\/|$)/ },
+  PAYOS: { environment: 'LIVE', page: /^https:\/\/pay\.payos\.vn\/[^\s]*$/ },
+} as const;
+
 export function projectPaymentAttempt(value: unknown) {
   const row = responseRecord(value);
   const amount = requiredString(row.amount);
+  const provider =
+    row.provider === 'MOMO_SANDBOX' || row.provider === 'PAYOS' ? row.provider : undefined;
   if (
     !/^[1-9]\d*$/.test(amount) ||
     amount.length > 19 ||
     BigInt(amount) > 9_223_372_036_854_775_807n ||
-    row.provider !== 'MOMO_SANDBOX' ||
-    row.environment !== 'SANDBOX' ||
+    !provider ||
+    row.environment !== PAYMENT_PROVIDERS[provider].environment ||
     row.currency !== 'VND' ||
     !['CREATED', 'PENDING', 'SUCCEEDED', 'FAILED', 'EXPIRED'].includes(String(row.status)) ||
     typeof row.needs_reconciliation !== 'boolean'
   )
     throw new Error('Invalid Payment attempt');
   const paymentUrl = row.payment_url === undefined ? null : requiredString(row.payment_url);
-  if (paymentUrl && !/^https:\/\/test-payment\.momo\.vn(?:\/|$)/.test(paymentUrl))
+  if (paymentUrl && !PAYMENT_PROVIDERS[provider].page.test(paymentUrl))
     throw new Error('Invalid Payment URL');
   return {
     id: identifier(row.id),
     contribution_id: identifier(row.contribution_id),
-    provider: 'MOMO_SANDBOX',
-    environment: 'SANDBOX',
+    provider,
+    environment: PAYMENT_PROVIDERS[provider].environment,
     amount,
     currency: 'VND',
     status: String(row.status),
@@ -210,6 +228,8 @@ export async function handlePayment(
   client: Pick<FinanceClient, 'call'>,
 ) {
   if (route.kind === 'webhook') return webhook(request, response, url, client);
+  if (route.kind === 'payos-webhook') return handlePayosWebhook(request, response, url, client);
+  if (route.kind === 'payos-return') return handlePayosReturn(request, response, url);
   const readAttempt = route.kind === 'attempt' && !route.reconcile && request.method === 'GET';
   const list = route.kind === 'exceptions' && request.method === 'GET';
   const create = route.kind === 'create' && request.method === 'POST';
@@ -281,8 +301,19 @@ export async function handlePayment(
     let method: Parameters<FinanceClient['call']>[0];
     let payload: Record<string, unknown>;
     if (create) {
-      onlyKeys(body, ['provider', 'expected_version', 'expected_finance_version']);
-      if (body.provider !== 'MOMO_SANDBOX') throw new RequestError('Invalid provider');
+      onlyKeys(body, ['provider', 'expected_version', 'expected_finance_version', 'return_url']);
+      if (body.provider !== 'MOMO_SANDBOX' && body.provider !== 'PAYOS')
+        throw new RequestError('Invalid provider');
+      // Finance validates the exact return page (PAYOS_RETURN_PATH + client-link token); the
+      // Gateway owns WEB_ORIGIN, so it refuses a web link to any other site here.
+      if (
+        body.return_url !== undefined &&
+        (body.provider !== 'PAYOS' ||
+          typeof body.return_url !== 'string' ||
+          body.return_url.length > 1000 ||
+          !payosReturnTarget(payosReturnToken(body.return_url), process.env.WEB_ORIGIN))
+      )
+        throw new RequestError('Invalid return URL');
       version(body.expected_version);
       version(body.expected_finance_version);
       method = 'CreatePaymentAttempt';

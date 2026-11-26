@@ -336,6 +336,17 @@ export class FinanceGrpcController {
       return this.payments.webhook(request);
     });
   }
+  @GrpcMethod('FinanceService', 'ReceivePayosWebhook')
+  receivePayosWebhook(
+    request: FinanceV1.ReceivePayosWebhookRequest,
+    metadata?: Metadata,
+    call?: DeadlineCall,
+  ) {
+    return this.execute('ReceivePayosWebhook', metadata, call, () => {
+      if (!this.payments) throw new FinanceReadError('SERVICE_UNAVAILABLE');
+      return this.payments.payosWebhook(request);
+    });
+  }
   @GrpcMethod('FinanceService', 'ListPaymentExceptions')
   listPaymentExceptions(
     request: FinanceV1.ListPaymentExceptionsRequest,

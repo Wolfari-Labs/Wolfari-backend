@@ -1,8 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { FinanceReadError, readUuid } from '../finance.errors';
 import { FundQueryService } from './fund-query.service';
 import { PaymentInstructionRepository } from '../repositories/payment-instruction.repository';
 import { paymentInstruction } from '../domain/payment-instruction';
+import { PayosProvider } from '../providers/payos.provider';
 
 @Injectable()
 export class PaymentInstructionService {
@@ -11,7 +12,14 @@ export class PaymentInstructionService {
     private readonly auth: Pick<FundQueryService, 'authorizePaymentInstruction'>,
     @Inject(PaymentInstructionRepository)
     private readonly rows: Pick<PaymentInstructionRepository, 'scope' | 'read'>,
+    @Optional()
+    @Inject(PayosProvider)
+    private readonly payos?: Pick<PayosProvider, 'ready' | 'acceptsDestination'>,
   ) {}
+  /** payOS is offered only when its channel pays into exactly this contribution's destination. */
+  private onlineProviders(snapshot: unknown): string[] {
+    return this.payos?.ready() && this.payos.acceptsDestination(snapshot) ? ['PAYOS'] : [];
+  }
   async get(
     input: { contribution_id?: unknown; actor_user_id?: unknown },
     correlation: string,
@@ -26,6 +34,11 @@ export class PaymentInstructionService {
     if (Date.now() >= deadline) throw new FinanceReadError('SERVICE_UNAVAILABLE');
     if (!row || row.id !== id || row.member_user_id !== actor || row.fund_id !== scope.fund_id)
       throw new FinanceReadError('RESOURCE_NOT_FOUND');
-    return { instruction: paymentInstruction(row) };
+    return {
+      instruction: {
+        ...paymentInstruction(row),
+        online_payment_providers: this.onlineProviders(row.destination_snapshot),
+      },
+    };
   }
 }

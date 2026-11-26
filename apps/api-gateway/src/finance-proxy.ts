@@ -151,6 +151,8 @@ export class FinanceProxy {
       /^\/api\/v1\/trips\/[^/]+\/fund(?:\/|$)/.test(path) ||
       /^\/api\/v1\/(?:funds|contributions)(?:\/|$)/.test(path) ||
       /^\/api\/v1\/(?:payment-attempts|payment-exceptions|webhooks\/momo)(?:\/|$)/.test(path) ||
+      path === '/api/v1/webhooks/payos' ||
+      path.startsWith('/api/v1/payments/payos/return/') ||
       /^\/api\/v1\/webhooks\/bank\/[^/]+$/.test(path) ||
       /^\/api\/v1\/expenses(?:\/|$)/.test(path) ||
       /^\/api\/v1\/notes(?:\/|$)/.test(path) ||
