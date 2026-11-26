@@ -758,6 +758,16 @@
     "source": "DDL/API/Event v1.1 API139"
   },
   {
+    "package": "wolfari.automation.v1",
+    "service": "AutomationService",
+    "method": "GetPriceWatchCapabilities",
+    "callers": [
+      "ApiGateway"
+    ],
+    "deadline_ms": 2000,
+    "source": "SRS v2.3 FR-AU03 - the UI offers only parameters the fare source supports"
+  },
+  {
     "package": "wolfari.finance.v1",
     "service": "FinanceService",
     "method": "ListFundTransactions",

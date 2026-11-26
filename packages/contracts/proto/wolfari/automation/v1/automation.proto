@@ -20,6 +20,7 @@ service AutomationService {
   rpc ResumePriceWatch(ResumePriceWatchRequest) returns (ResumePriceWatchResponse);
   rpc StopPriceWatch(StopPriceWatchRequest) returns (StopPriceWatchResponse);
   rpc ListPriceObservations(ListPriceObservationsRequest) returns (ListPriceObservationsResponse);
+  rpc GetPriceWatchCapabilities(GetPriceWatchCapabilitiesRequest) returns (GetPriceWatchCapabilitiesResponse);
 }
 
 enum NotificationGroup {
@@ -258,6 +259,21 @@ message StopPriceWatchRequest {
   int32 expected_version = 3;
 }
 
+// The fare source new watches use and what it can compare (SRS FR-AU03): clients offer only these.
+message GetPriceWatchCapabilitiesRequest {
+  string actor_user_id = 1;
+}
+message GetPriceWatchCapabilitiesResponse {
+  string provider = 1;
+  bool available = 2; // false: creating a watch answers PRICE_PROVIDER_NOT_CONFIGURED.
+  repeated string journey_types = 3; // ONE_WAY, ROUND_TRIP
+  repeated string cabin_classes = 4; // ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST
+  int32 max_adults = 5;
+  int32 max_children = 6;
+  int32 max_infants = 7;
+  int32 max_passengers = 8;
+  repeated string currencies = 9;
+}
 message ListPriceObservationsRequest {
   string actor_user_id = 1;
   string watch_id = 2;

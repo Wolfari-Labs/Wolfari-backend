@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { AutomationV1 } from '@wolfari/contracts/grpc';
 import { priceWatchFail } from './price-watch.errors';
+import { providerCapabilities, supportsQuery } from './price-watch-capabilities';
 
 export type WatchStatus = 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'STOPPED';
 export type Journey = 'ONE_WAY' | 'ROUND_TRIP';
@@ -169,14 +170,15 @@ export function normalizeWatch(
   if (new Date(departureAt).getTime() <= now.getTime()) return priceWatchFail('VALIDATION_FAILED');
   if (departureAt.slice(0, 10) !== departureDate) return priceWatchFail('VALIDATION_FAILED');
   const mix = passengers(value.passengers);
-  // Compare published reference fares for the same passenger mix and cabin.
+  // Compare published reference fares for the same passenger mix and cabin; clients read the same
+  // table from GET /price-watch-capabilities and never offer what the source cannot compare.
   if (
-    provider !== 'MOCK_FLIGHT' &&
-    (tripJourney !== 'ONE_WAY' ||
-      cabin !== 'ECONOMY' ||
-      mix.adults !== 1 ||
-      mix.children !== 0 ||
-      mix.infants !== 0)
+    !supportsQuery(providerCapabilities(provider), {
+      journey_type: tripJourney,
+      cabin_class: cabin,
+      ...mix,
+      currency,
+    })
   )
     return priceWatchFail('VALIDATION_FAILED', { reason: 'PROVIDER_QUERY_UNSUPPORTED' });
   const query: NormalizedPriceQuery = {

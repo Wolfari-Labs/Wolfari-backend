@@ -353,6 +353,14 @@ export class PriceWatchGrpcController implements AutomationV1.AutomationServiceC
     }));
   }
 
+  getPriceWatchCapabilities(
+    request: AutomationV1.GetPriceWatchCapabilitiesRequest,
+    metadata?: Metadata,
+  ) {
+    this.authorize('GetPriceWatchCapabilities', metadata);
+    return this.execute(async () => this.service.capabilities(request));
+  }
+
   listPriceObservations(request: AutomationV1.ListPriceObservationsRequest, metadata?: Metadata) {
     const correlation = this.authorize('ListPriceObservations', metadata);
     return this.execute(async () => {

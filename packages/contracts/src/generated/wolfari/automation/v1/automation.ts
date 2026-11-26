@@ -270,6 +270,32 @@ export interface StopPriceWatchRequest {
   expected_version?: number | undefined;
 }
 
+/** The fare source new watches use and what it can compare (SRS FR-AU03): clients offer only these. */
+export interface GetPriceWatchCapabilitiesRequest {
+  actor_user_id?: string | undefined;
+}
+
+export interface GetPriceWatchCapabilitiesResponse {
+  provider?:
+    | string
+    | undefined;
+  /** false: creating a watch answers PRICE_PROVIDER_NOT_CONFIGURED. */
+  available?:
+    | boolean
+    | undefined;
+  /** ONE_WAY, ROUND_TRIP */
+  journey_types?:
+    | string[]
+    | undefined;
+  /** ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST */
+  cabin_classes?: string[] | undefined;
+  max_adults?: number | undefined;
+  max_children?: number | undefined;
+  max_infants?: number | undefined;
+  max_passengers?: number | undefined;
+  currencies?: string[] | undefined;
+}
+
 export interface ListPriceObservationsRequest {
   actor_user_id?: string | undefined;
   watch_id?: string | undefined;
@@ -390,6 +416,11 @@ export interface AutomationServiceClient {
     request: ListPriceObservationsRequest,
     metadata?: Metadata,
   ): Observable<ListPriceObservationsResponse>;
+
+  getPriceWatchCapabilities(
+    request: GetPriceWatchCapabilitiesRequest,
+    metadata?: Metadata,
+  ): Observable<GetPriceWatchCapabilitiesResponse>;
 }
 
 export interface AutomationServiceController {
@@ -478,6 +509,14 @@ export interface AutomationServiceController {
     request: ListPriceObservationsRequest,
     metadata?: Metadata,
   ): Promise<ListPriceObservationsResponse> | Observable<ListPriceObservationsResponse> | ListPriceObservationsResponse;
+
+  getPriceWatchCapabilities(
+    request: GetPriceWatchCapabilitiesRequest,
+    metadata?: Metadata,
+  ):
+    | Promise<GetPriceWatchCapabilitiesResponse>
+    | Observable<GetPriceWatchCapabilitiesResponse>
+    | GetPriceWatchCapabilitiesResponse;
 }
 
 export function AutomationServiceControllerMethods() {
@@ -499,6 +538,7 @@ export function AutomationServiceControllerMethods() {
       "resumePriceWatch",
       "stopPriceWatch",
       "listPriceObservations",
+      "getPriceWatchCapabilities",
     ];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);

@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Wolfari Price Watch API
-  version: 1.1.0
-  description: API133–139 manages watches and reads observations. The configured provider supplies reference prices in VND. SearchApi Google Flights and Travelpayouts support one-way economy for one adult. Clients can omit provider to use the configured source.
+  version: 1.2.0
+  description: API133–139 manages watches and reads observations. The configured provider supplies reference prices in VND. SearchApi Google Flights and Travelpayouts support one-way economy for one adult. Clients can omit provider to use the configured source, and read GET /price-watch-capabilities to offer only the parameters that source supports.
 servers:
   - url: http://127.0.0.1:3000/api/v1
 security:
@@ -203,6 +203,48 @@ components:
       properties:
         correlation_id: { type: string, format: uuid }
         next_cursor: { type: [string, 'null'] }
+    Capabilities:
+      type: object
+      additionalProperties: false
+      description: The source new watches use and what it can compare. Clients offer only these options (SRS FR-AU03).
+      required:
+        [
+          provider,
+          available,
+          journey_types,
+          cabin_classes,
+          max_adults,
+          max_children,
+          max_infants,
+          max_passengers,
+          currencies,
+        ]
+      properties:
+        provider:
+          { type: string, enum: [MOCK_FLIGHT, TRAVELPAYOUTS_CACHE, SEARCHAPI_GOOGLE_FLIGHTS] }
+        available:
+          type: boolean
+          description: false means creating a watch now answers 503 PRICE_PROVIDER_NOT_CONFIGURED.
+        journey_types:
+          type: array
+          items: { type: string, enum: [ONE_WAY, ROUND_TRIP] }
+        cabin_classes:
+          type: array
+          items: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+        max_adults: { type: integer, minimum: 0, maximum: 9 }
+        max_children: { type: integer, minimum: 0, maximum: 9 }
+        max_infants: { type: integer, minimum: 0, maximum: 9 }
+        max_passengers: { type: integer, minimum: 0, maximum: 9 }
+        currencies:
+          type: array
+          items: { type: string, enum: [VND] }
+    CapabilitiesResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Capabilities' }
+        meta: { $ref: '#/components/schemas/Meta' }
     PriceWatchResponse:
       type: object
       additionalProperties: false
@@ -334,6 +376,17 @@ components:
         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
       }
 paths:
+  /price-watch-capabilities:
+    get:
+      operationId: getPriceWatchCapabilities
+      summary: Fare source and the parameters it supports
+      responses:
+        '200':
+          description: Current source capabilities
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/CapabilitiesResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /trips/{trip_id}/price-watches:
     parameters: [{ $ref: '#/components/parameters/TripId' }]
     post:

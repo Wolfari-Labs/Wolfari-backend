@@ -26,15 +26,38 @@ import {
 } from './trip-http';
 
 type Route = {
-  kind: 'create' | 'list' | 'update' | 'pause' | 'resume' | 'stop' | 'observations';
+  kind: 'create' | 'list' | 'update' | 'pause' | 'resume' | 'stop' | 'observations' | 'capabilities';
   tripId?: string;
   watchId?: string;
 };
+const CAPABILITIES_PATH = '/api/v1/price-watch-capabilities';
+const strings = (value: unknown, allowed: readonly string[]) => {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.some((item) => !allowed.includes(String(item))))
+    throw new Error('Invalid capabilities');
+  return value.map(String);
+};
+/** What the current fare source can compare; zero counts arrive omitted (proto3). */
+export function projectCapabilities(value: RpcMessage) {
+  const count = (field: unknown) => (field === undefined ? 0 : integer(field));
+  return {
+    provider: requiredString(value.provider),
+    available: value.available === true,
+    journey_types: strings(value.journey_types, ['ONE_WAY', 'ROUND_TRIP']),
+    cabin_classes: strings(value.cabin_classes, ['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST']),
+    max_adults: count(value.max_adults),
+    max_children: count(value.max_children),
+    max_infants: count(value.max_infants),
+    max_passengers: count(value.max_passengers),
+    currencies: strings(value.currencies, ['VND']),
+  };
+}
 
 const watchStatuses = { 1: 'ACTIVE', 2: 'PAUSED', 3: 'EXPIRED', 4: 'STOPPED' };
 const journeyTypes = { 1: 'ONE_WAY', 2: 'ROUND_TRIP' };
 
 export function priceWatchRoute(method: string, path: string): Route | null {
+  if (path === CAPABILITIES_PATH) return method === 'GET' ? { kind: 'capabilities' } : null;
   let match = /^\/api\/v1\/trips\/([^/]+)\/price-watches$/.exec(path);
   if (match) {
     if (!uuid.test(match[1]!)) throw new RequestError('Invalid trip id');
@@ -259,7 +282,7 @@ export class PriceWatchProxy {
   matches(request: IncomingMessage & { originalUrl?: string }): boolean {
     try {
       const path = new URL(request.originalUrl ?? request.url ?? '/', 'http://localhost').pathname;
-      return /\/price-watches(?:\/|$)/.test(path);
+      return /\/price-watches(?:\/|$)/.test(path) || path === CAPABILITIES_PATH;
     } catch {
       return false;
     }
@@ -281,10 +304,23 @@ export class PriceWatchProxy {
       );
     }
     if (!parsed) return fail(response, 404, 'RESOURCE_NOT_FOUND');
-    const writeRequest = parsed.kind !== 'list' && parsed.kind !== 'observations';
+    const writeRequest =
+      parsed.kind !== 'list' && parsed.kind !== 'observations' && parsed.kind !== 'capabilities';
     const auth = await authenticate(request, response, this.validateSession, writeRequest);
     if (!auth) return;
     try {
+      if (parsed.kind === 'capabilities') {
+        ensureQuery(url, []);
+        const result = await this.client.call<RpcMessage, RpcMessage>(
+          'GetPriceWatchCapabilities',
+          { actor_user_id: auth.actorUserId },
+          auth.correlationId,
+        );
+        return json(response, 200, {
+          data: projectCapabilities(result),
+          meta: { correlation_id: auth.correlationId },
+        });
+      }
       if (parsed.kind === 'list' || parsed.kind === 'observations') {
         const page = queryPage(url);
         const result = await this.client.call<RpcMessage, RpcMessage>(
