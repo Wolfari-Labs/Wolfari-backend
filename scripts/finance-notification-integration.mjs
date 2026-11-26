@@ -549,6 +549,76 @@ export async function runFinanceNotificationTests(h) {
       storedEvent: require('../apps/finance-service/dist/outbox/finance-outbox.event.js')
         .storedFinanceEvent,
     });
+
+    // SRS FR-AU01: a request is reminded 24 h before its deadline, then once a day while overdue.
+    const dueFund = await setupFund();
+    const [dueVersion] = await query('finance', 'SELECT finance_version FROM funds WHERE id=$1', [
+      dueFund.fundId,
+    ]);
+    const dueRequest = await write(`/api/v1/funds/${dueFund.fundId}/contribution-requests`, {
+      title: 'PRIVATE deadline request',
+      due_at: new Date(Date.now() + 2 * 3_600_000).toISOString(),
+      expected_finance_version: dueVersion.finance_version,
+      contributions: [owner, member].map((user) => ({
+        member_user_id: user.id,
+        amount: '50000',
+        destination_id: dueFund.destinationId,
+      })),
+    });
+    assert.equal(dueRequest.status, 201, JSON.stringify(dueRequest.body));
+    const requestId = dueRequest.body.data.id;
+    const reminders = (kind) =>
+      query(
+        'automation',
+        'SELECT user_id,title,body,dedupe_key FROM notifications WHERE type=$1 AND source_id=$2 ORDER BY user_id',
+        [kind, requestId],
+      );
+    const soon = await waitFor(async () => {
+      const rows = await reminders('CONTRIBUTION_DUE_SOON');
+      return rows.length === 2 ? rows : null;
+    }, 30_000);
+    assert.deepEqual(soon.map((row) => row.user_id), [owner.id, member.id].sort());
+    assert.equal(soon[0].body, 'Bạn còn một khoản góp sắp đến hạn. Mở chuyến đi để xem.');
+    assert(!JSON.stringify(soon).includes('PRIVATE'));
+    // Deadline passed: the next look sends one overdue notice per person for today, never two.
+    await query(
+      'finance',
+      "UPDATE contribution_requests SET due_at=clock_timestamp()-interval '2 hours' WHERE id=$1",
+      [requestId],
+    );
+    for (let round = 0; round < 2; round++) {
+      await query(
+        'automation',
+        "UPDATE finance_reminder_schedules SET next_at=clock_timestamp() WHERE source_type='CONTRIBUTION_REQUEST' AND source_id=$1",
+        [requestId],
+      );
+      await waitFor(async () => (await reminders('CONTRIBUTION_OVERDUE')).length === 2, 30_000);
+    }
+    await new Promise((done) => setTimeout(done, 1500));
+    assert.equal((await reminders('CONTRIBUTION_OVERDUE')).length, 2);
+    // Nobody owes any more: the schedule removes itself.
+    await query(
+      'finance',
+      "UPDATE contribution_requests SET status='CANCELLED' WHERE id=$1",
+      [requestId],
+    );
+    await query(
+      'automation',
+      "UPDATE finance_reminder_schedules SET next_at=clock_timestamp() WHERE source_id=$1",
+      [requestId],
+    );
+    await waitFor(
+      async () =>
+        (
+          await query('automation', 'SELECT 1 FROM finance_reminder_schedules WHERE source_id=$1', [
+            requestId,
+          ])
+        ).length === 0,
+      30_000,
+    );
+    pass(
+      'deadline reminder 24 h before, one overdue notice per person per day, and the schedule stops when the request closes',
+    );
   } finally {
     await channel?.close().catch(() => {});
     await connection?.close().catch(() => {});

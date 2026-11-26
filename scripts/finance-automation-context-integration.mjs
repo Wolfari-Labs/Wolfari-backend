@@ -109,6 +109,9 @@ export async function runFinanceAutomationContextTests(h) {
       'finance_version',
       'status',
       'authorized_recipients',
+      // Scheduled reminders stop when the source left the state its notices are about.
+      'eligible',
+      '_eligible',
       // proto-loader oneofs:true exposes the presence marker for a proto3 optional field.
       ...(input.source_type === 'CONTRIBUTION_REVIEW'
         ? ['source_revision', '_source_revision']
@@ -117,6 +120,9 @@ export async function runFinanceAutomationContextTests(h) {
     ]);
     for (const key of Object.keys(result))
       assert(allowed.has(key), `Unexpected context field ${key}`);
+    assert.equal(typeof result.eligible, 'boolean');
+    // A deadline is only given while the source is eligible and someone still owes.
+    if (dueAt) assert.equal(result.eligible, true);
     if (input.source_type === 'CONTRIBUTION_REVIEW') {
       const [contribution] = await query(
         'finance',

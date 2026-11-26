@@ -1232,7 +1232,14 @@ export interface GetAutomationContextResponse {
     | Timestamp
     | undefined;
   /** Present for CONTRIBUTION_REVIEW: current contribution version, not Fund version. */
-  source_revision?: number | undefined;
+  source_revision?:
+    | number
+    | undefined;
+  /**
+   * The source is still in the state its notices are about (request OPEN, contribution PENDING,
+   * closure PENDING_CONFIRMATIONS…); scheduled reminders stop when it is false.
+   */
+  eligible?: boolean | undefined;
 }
 
 export interface Fund {

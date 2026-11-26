@@ -52,6 +52,25 @@ export class FinanceNotificationRepository {
     return true;
   }
 
+  /**
+   * Remember to look at a contribution request (deadline reminders) or a closure (daily
+   * reminders) later. Idempotent: replays and retries keep the first schedule.
+   */
+  schedule(event: FinanceNotificationEvent): Promise<void> {
+    if ('terminalType' in event || 'contributionId' in event) return Promise.resolve();
+    const [type, id] =
+      'closureId' in event
+        ? ['CLOSURE', event.closureId]
+        : ['CONTRIBUTION_REQUEST', event.requestId];
+    return this.withClient(async (query) => {
+      await query(
+        `INSERT INTO finance_reminder_schedules(source_type,source_id,fund_id,trip_id,next_at)
+        VALUES($1,$2,$3,$4,clock_timestamp()) ON CONFLICT DO NOTHING`,
+        [type, id, event.fundId, event.tripId],
+      );
+    });
+  }
+
   isProcessed(event: FinanceNotificationEvent): Promise<boolean> {
     return this.withClient((query) => this.existing(query, event));
   }

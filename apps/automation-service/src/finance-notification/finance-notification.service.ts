@@ -108,7 +108,8 @@ export class FinanceNotificationService {
     @Inject(FinanceNotificationClient)
     private readonly client: Pick<FinanceNotificationClient, 'getContext' | 'getEligibility'>,
     @Inject(FinanceNotificationRepository)
-    private readonly repository: Pick<FinanceNotificationRepository, 'isProcessed' | 'complete'>,
+    private readonly repository: Pick<FinanceNotificationRepository, 'isProcessed' | 'complete'> &
+      Partial<Pick<FinanceNotificationRepository, 'schedule'>>,
   ) {}
 
   async process(event: FinanceNotificationEvent, signal?: AbortSignal): Promise<void> {
@@ -151,5 +152,7 @@ export class FinanceNotificationService {
     if ('contributionId' in event)
       await this.repository.complete(event, accepted, last?.sourceRevision);
     else await this.repository.complete(event, accepted);
+    // Deadline and closure reminders re-read Finance when due (FinanceReminderService).
+    await this.repository.schedule?.(event);
   }
 }

@@ -30,6 +30,7 @@ import { FinanceNotificationClient } from './finance-notification/finance-notifi
 import { FinanceNotificationRepository } from './finance-notification/finance-notification.repository';
 import { FinanceNotificationService } from './finance-notification/finance-notification.service';
 import { FinanceNotificationConsumer } from './finance-notification/finance-notification.consumer';
+import { FinanceReminderService } from './finance-notification/finance-reminder.service';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { FinanceNotificationConsumer } from './finance-notification/finance-noti
     FinanceNotificationRepository,
     FinanceNotificationService,
     FinanceNotificationConsumer,
+    FinanceReminderService,
     AccountEmailService,
     InvitationDeliveryService,
     NotificationRepository,
