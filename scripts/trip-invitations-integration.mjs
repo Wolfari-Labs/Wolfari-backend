@@ -80,7 +80,7 @@ export async function runInvitationTests(ctx) {
       const found = list.messages.filter(
         (item) =>
           item.To?.some((address) => address.Address === email) &&
-          item.Subject === 'Invitation Owner mời bạn tham gia chuyến đi “Invitation integration” trên Wolfari',
+          item.Subject === 'Lời mời tham gia chuyến đi “Invitation integration” từ Invitation Owner',
       );
       if (found.length < count) return null;
       const latest = found.sort((a, b) => Date.parse(b.Created) - Date.parse(a.Created))[0];

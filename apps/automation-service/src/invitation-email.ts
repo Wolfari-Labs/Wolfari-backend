@@ -62,7 +62,8 @@ export function invitationEmail(delivery: TripV1.InvitationDelivery) {
       : '';
   const link = delivery.link ?? '';
   const expiry = expires ? `Lời mời hết hạn lúc ${moment(expires, timeZone)}.` : '';
-  const subject = plain(`${inviter} mời bạn tham gia chuyến đi “${trip}” trên Wolfari`, 200);
+  // Starts with "Lời mời" like every earlier invitation email, so inbox searches keep working.
+  const subject = plain(`Lời mời tham gia chuyến đi “${trip}” từ ${inviter}`, 200);
   const steps =
     'Mở liên kết không tự động tham gia: đăng nhập hoặc tạo tài khoản Wolfari bằng chính địa chỉ email này, rồi chọn Tham gia hoặc Từ chối. Nếu đã cài ứng dụng Wolfari, đăng nhập bằng email này để thấy lời mời trong mục “Lời mời đang chờ”.';
   const ignore = 'Nếu bạn không biết người mời, hãy bỏ qua email này.';

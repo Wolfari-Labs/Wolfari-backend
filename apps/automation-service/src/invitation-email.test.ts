@@ -17,7 +17,7 @@ const delivery = {
 describe('invitation email', () => {
   it('says who invites the recipient to which trip, when, and links once', () => {
     const mail = invitationEmail(delivery);
-    expect(mail.subject).toBe('Huỳnh An mời bạn tham gia chuyến đi “Đà Nẵng 3N2Đ” trên Wolfari');
+    expect(mail.subject).toBe('Lời mời tham gia chuyến đi “Đà Nẵng 3N2Đ” từ Huỳnh An');
     expect(mail.text).toContain('Huỳnh An mời bạn tham gia chuyến đi “Đà Nẵng 3N2Đ” (20/12/2026 – 22/12/2026)');
     expect(mail.text).toContain(`Xem lời mời: ${delivery.link}`);
     expect(mail.text).toContain('Lời mời hết hạn lúc 10:00 03/12/2026.');
@@ -46,7 +46,7 @@ describe('invitation email', () => {
       trip_end_at: undefined,
       trip_timezone: 'Not/AZone',
     });
-    expect(mail.subject).toBe('Một thành viên Wolfari mời bạn tham gia chuyến đi “Đà Nẵng 3N2Đ” trên Wolfari');
+    expect(mail.subject).toBe('Lời mời tham gia chuyến đi “Đà Nẵng 3N2Đ” từ Một thành viên Wolfari');
     expect(mail.text).toContain('chuyến đi “Đà Nẵng 3N2Đ” trên Wolfari.');
   });
 });
