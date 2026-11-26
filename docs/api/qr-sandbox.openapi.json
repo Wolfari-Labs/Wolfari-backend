@@ -151,9 +151,78 @@
           }
         }
       }
+    },
+    "/trips/{tripId}/qr-payments/momo-checkout": {
+      "post": {
+        "operationId": "createMomoCheckout",
+        "summary": "Create a test wallet order for the current fund holder",
+        "parameters": [
+          { "$ref": "#/components/parameters/TripId" },
+          { "name": "Idempotency-Key", "in": "header", "required": true, "description": "Must equal request_id.", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["request_id", "amount", "note", "redirect_url"],
+                "properties": {
+                  "request_id": { "type": "string", "format": "uuid" },
+                  "amount": { "type": "string", "pattern": "^[1-9][0-9]{0,7}$", "description": "Whole VND from 1000 to 50000000 inclusive." },
+                  "note": { "type": "string", "minLength": 1, "maxLength": 150, "description": "Trimmed single-line order note." },
+                  "redirect_url": { "type": "string", "format": "uri", "maxLength": 1000, "description": "Absolute URL of the Gateway payment-return route with the encoded app link." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "The data object contains request_id, order_id, amount, the MoMo sandbox payment_url and environment SANDBOX." },
+          "409": { "description": "Reused request ID with different checkout details or archived trip." },
+          "503": { "description": "Sandbox checkout unavailable." }
+        }
+      }
+    },
+    "/trips/{tripId}/qr-payments/momo-checkout/{orderId}": {
+      "get": {
+        "operationId": "getMomoCheckoutStatus",
+        "summary": "Ask MoMo for the status of an order created by this holder on this trip",
+        "parameters": [
+          { "$ref": "#/components/parameters/TripId" },
+          { "name": "orderId", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/CheckoutOrderId" } }
+        ],
+        "responses": {
+          "200": { "description": "The data object contains order_id, status (PAID, PENDING or FAILED), amount, nullable provider_transaction_id and environment SANDBOX." },
+          "404": { "description": "Order unavailable or expired." },
+          "503": { "description": "Sandbox checkout unavailable." }
+        }
+      }
+    },
+    "/qr-payments/payment-return/{token}": {
+      "get": {
+        "operationId": "returnToWalletApp",
+        "summary": "Redirect the browser back to the app with the order ID",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "description": "Base64url-encoded app payment-return link.", "schema": { "type": "string", "pattern": "^[A-Za-z0-9_-]{8,700}$" } },
+          { "name": "orderId", "in": "query", "required": true, "schema": { "$ref": "#/components/schemas/CheckoutOrderId" } }
+        ],
+        "responses": {
+          "302": { "description": "App reads order_id from the redirect and queries checkout status.", "headers": { "Location": { "schema": { "type": "string", "format": "uri" } } } },
+          "400": { "description": "Invalid return link or order ID." }
+        }
+      }
     }
   },
   "components": {
+    "parameters": {
+      "TripId": { "name": "tripId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+    },
+    "schemas": {
+      "CheckoutOrderId": { "type": "string", "pattern": "^[0-9]{6}_w[a-f0-9]{24}$" }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",

@@ -659,6 +659,21 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/trips/{id}/qr-payments/momo-checkout",
+      "document": "qr-sandbox.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trips/{id}/qr-payments/momo-checkout/{id}",
+      "document": "qr-sandbox.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/qr-payments/payment-return/{id}",
+      "document": "qr-sandbox.openapi.json"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/trips/{id}/recommendations",
       "document": "recommendations.openapi.json"
     },
@@ -797,7 +812,7 @@
     "dress-code-image-http.ts": "73807adac2e250d82a172c69ba70ffef6643509a9f500c0f11bfd88df2508322",
     "expense-http.ts": "d85759333839eb195b70960ed8b5d63c56ea5e73c671819e6c89aa312cafdda0",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
-    "finance-proxy.ts": "4fc93bdaa75811fa74464a4a2a6873577f20ce35b83de15c0f00268a681d3598",
+    "finance-proxy.ts": "10347f2509ae7cceb91c665d0a92274d2b25a014e80bcdecc198da268be9ff74",
     "finance-receipt-http.ts": "5b2eb52dc9fc3cc3e5863ac901b1c23c51be0c6a0f2940283c66ac69aa4fc461",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "00431d6965eaba03ce5ec16468219005b5ce91da7faf937eb2f70be9076707c9",
@@ -811,7 +826,7 @@
     "plan-items-proxy.ts": "96d7aef5e3cb6af0319728eb702b3e8b019118156ece492d3c162982006d29ce",
     "plan-proxy.ts": "8dcb7bd8db2521018460a0b9cb18bed5ff31363ae67b1b74dd3de46972b2f21b",
     "price-watch-proxy.ts": "c4986e800f5e8dd5baf5a9ae5f92959cd541af859157478eb9b8e65ba60ae080",
-    "qr-payment-http.ts": "7484f5ef923f799574eefe45303aea8b97271b4a8c718e8b0265006dc43e89f7",
+    "qr-payment-http.ts": "0c62fea4dfbbf8175c5ec02efa78ad7f8a29e480d558f43aeea94169de075e2d",
     "readiness.controller.ts": "e72e10024680f9fbf0f8c2f6e1f121ddbe6895016f6533d740bd1131cf954624",
     "recommendation-proxy.ts": "46009de337527c270bcda152f0d9cfc51bc304c62d30a0257dd9393da0ef468f",
     "refund-http.ts": "788baa9e7010cb02faa10ed4cc698591054469ec1751a43453f0be4d5c42680d",
