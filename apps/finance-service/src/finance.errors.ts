@@ -23,6 +23,8 @@ export const FINANCE_CONFLICT_REASONS = [
   'INSUFFICIENT_AVAILABLE_BALANCE',
   'HANDOVER_IN_PROGRESS',
   'INVALID_TRANSITION',
+  /** payOS would pay into an account other than this contribution's destination. */
+  'PAYMENT_PROVIDER_ACCOUNT_MISMATCH',
 ] as const;
 export type FinanceConflictReason = (typeof FINANCE_CONFLICT_REASONS)[number];
 export function isFinanceConflictReason(value: unknown): value is FinanceConflictReason {

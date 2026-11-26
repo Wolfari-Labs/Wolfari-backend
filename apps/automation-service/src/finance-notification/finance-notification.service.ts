@@ -42,8 +42,10 @@ function context(value: FinanceV1.GetAutomationContextResponse, event: FinanceNo
     return unavailable();
   const closure = 'closureId' in event;
   const review = 'contributionId' in event;
+  // A confirmation notice may reach the member and the Holder; a review notice only the Holder.
+  const limit = review ? (event.contributionStatus === 'CONFIRMED' ? 2 : 1) : 0;
   const raw = value.authorized_recipients === undefined ? [] : value.authorized_recipients;
-  if (!Array.isArray(raw) || (!closure && raw.length > (review ? 1 : event.contributionCount)))
+  if (!Array.isArray(raw) || (!closure && raw.length > (review ? limit : event.contributionCount)))
     return unavailable();
   const users = raw.map((item) => recipientUuid(item?.user_id)).sort();
   if (new Set(users).size !== users.length || (value.status !== (closure ? 2 : 1) && users.length))

@@ -27,13 +27,19 @@ import {
 import type { FundWrite, StoredResult } from './fund-command.repository';
 import type { MomoCreateResult, MomoQueryResult } from '../providers/momo-sandbox.provider';
 import { destinationHolder, previousHolderReceiptAudit } from '../domain/destination-holder';
+import { newPayosOrderCode, PAYOS_REFERENCE, payosDescription } from '../domain/payos-payment';
+import { findVietQrBank } from '@wolfari/common';
 
 export type PaymentWriteCommand =
   | {
       scope: 'CREATE_PAYMENT_ATTEMPT';
       fundId: string;
       contributionId: string;
-      body: CreatePaymentAttemptInput & { merchantId: string };
+      body: CreatePaymentAttemptInput & {
+        merchantId: string;
+        /** PAYOS only: the account the payOS channel pays into (from Finance configuration). */
+        payosAccount?: { bankBin: string; accountNumber: string };
+      };
     }
   | {
       scope: 'RECONCILE_PAYMENT_ATTEMPT';
@@ -189,11 +195,14 @@ export class PaymentRepository {
     };
   }
 
-  private async lockFund(client: Client, fundId: string) {
+  // lockFund, lockAttemptFund, lockedAttempt, fundStatus, settleSuccess and completeWebhookReceipt
+  // are shared with PayosPaymentRepository so both providers keep one lock order and one ledger
+  // writer.
+  async lockFund(client: Client, fundId: string) {
     await client.query('SELECT id FROM funds WHERE id=$1 FOR UPDATE', [fundId]);
   }
 
-  private async lockAttemptFund(client: Client, id: string, expectedFundId?: string) {
+  async lockAttemptFund(client: Client, id: string, expectedFundId?: string) {
     // The attempt's contribution/Fund identity is immutable. Lock the Fund before
     // any child row; the joined attempt read below then observes current state.
     const scope = (
@@ -208,7 +217,7 @@ export class PaymentRepository {
     return true;
   }
 
-  private async lockedAttempt(client: Client, id: string, expectedFundId?: string) {
+  async lockedAttempt(client: Client, id: string, expectedFundId?: string) {
     if (!(await this.lockAttemptFund(client, id, expectedFundId))) return undefined;
     return (
       await client.query<AttemptScope>(
@@ -224,23 +233,71 @@ export class PaymentRepository {
       )
     ).rows[0];
   }
-  private destination(value: unknown, fund: string, holder: string) {
+  private destination(
+    value: unknown,
+    fund: string,
+    holder: string,
+    provider: CreatePaymentAttemptInput['provider'],
+  ) {
     const snapshot = payloadRecord(value);
     const recipient = payloadRecord(snapshot.recipient);
+    const filled = (key: string) => typeof recipient[key] === 'string' && Boolean(recipient[key]);
     if (
       snapshot.schema_version !== 1 ||
       snapshot.fund_id !== fund ||
-      snapshot.destination_type !== 'MOMO_SANDBOX' ||
+      snapshot.destination_type !== (provider === 'PAYOS' ? 'VIETQR' : 'MOMO_SANDBOX') ||
       snapshot.holder_user_id !== holder ||
       typeof snapshot.destination_id !== 'string' ||
       typeof snapshot.destination_version !== 'number' ||
       typeof snapshot.confirmed_by_holder_at !== 'string' ||
       !Number.isFinite(new Date(snapshot.confirmed_by_holder_at).getTime()) ||
-      typeof recipient.momo_phone !== 'string' ||
-      !recipient.momo_phone
+      !(provider === 'PAYOS'
+        ? ['bank_code', 'account_number', 'account_name'].every(filled)
+        : filled('momo_phone'))
     )
       throw new FinanceReadError('STATE_CONFLICT');
     return snapshot;
+  }
+  /** A payOS link pays into the payOS channel account, so it must be this destination exactly. */
+  private payosDestinationMatches(
+    snapshot: Record<string, unknown>,
+    account: { bankBin: string; accountNumber: string } | undefined,
+  ) {
+    const recipient = payloadRecord(snapshot.recipient);
+    const bank = findVietQrBank(String(recipient.bank_code ?? ''));
+    const number = String(recipient.account_number ?? '')
+      .replace(/\s+/g, '')
+      .toUpperCase();
+    return Boolean(account && bank?.bin === account.bankBin && number === account.accountNumber);
+  }
+  /**
+   * Tapping "pay with payOS" again while a link is still open returns that link instead of
+   * refusing, so a payer who closed the browser can come back to the same order.
+   */
+  private async reusablePayosAttempt(
+    client: Client,
+    contributionId: string,
+    actor: string,
+    active: ReadonlySet<string>,
+    row: { member_user_id: string; fund_status: string; request_status: string; contribution_status: string },
+  ) {
+    if (
+      actor !== row.member_user_id ||
+      !active.has(actor) ||
+      row.fund_status !== 'OPEN' ||
+      row.request_status !== 'OPEN' ||
+      row.contribution_status !== 'PENDING'
+    )
+      return undefined;
+    return (
+      await client.query<PaymentAttemptRow>(
+        `SELECT ${attemptColumns} FROM payment_attempts p WHERE p.contribution_id=$1
+         AND p.provider='PAYOS' AND p.environment='LIVE' AND p.status='PENDING'
+         AND NOT p.needs_reconciliation AND p.provider_payload ? 'payment_url'
+         AND p.expires_at>clock_timestamp()+interval '2 minutes' FOR UPDATE`,
+        [contributionId],
+      )
+    ).rows[0];
   }
 
   async execute(
@@ -292,6 +349,18 @@ export class PaymentRepository {
       )
     ).rows[0];
     if (!row) throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    const payos = input.body.provider === 'PAYOS';
+    if (payos) {
+      const reused = await this.reusablePayosAttempt(
+        client,
+        input.contributionId,
+        input.actor,
+        authority.activeMemberUserIds,
+        row,
+      );
+      if (reused)
+        return { version: 1, tripId: input.tripId, paymentAttempt: paymentAttemptResponse(reused) };
+    }
     assertCanCreatePaymentAttempt(input.body, {
       ...authority,
       actorUserId: input.actor,
@@ -305,7 +374,15 @@ export class PaymentRepository {
     });
     const amount = BigInt(row.amount);
     if (amount < 1_000n || amount > 50_000_000n) throw new FinanceReadError('STATE_CONFLICT');
-    const snapshot = this.destination(row.destination_snapshot, row.fund_id, row.holder_user_id);
+    const snapshot = this.destination(
+      row.destination_snapshot,
+      row.fund_id,
+      row.holder_user_id,
+      input.body.provider,
+    );
+    if (payos && !this.payosDestinationMatches(snapshot, input.body.payosAccount))
+      throw new FinanceReadError('STATE_CONFLICT', 'PAYMENT_PROVIDER_ACCOUNT_MISMATCH');
+    if (payos && !input.body.returnUrl) throw new FinanceReadError('VALIDATION_FAILED');
     const existing = await client.query(
       `SELECT 1 FROM payment_attempts WHERE contribution_id=$1 AND
        (status IN ('CREATED','PENDING','SUCCEEDED') OR needs_reconciliation) FOR UPDATE`,
@@ -319,11 +396,12 @@ export class PaymentRepository {
     if (ledger.rowCount || row.finance_version >= MAX_INT32)
       throw new FinanceReadError('STATE_CONFLICT');
     const id = randomUUID();
+    const orderCode = payos ? newPayosOrderCode() : undefined;
     const attempt = (
       await client.query<PaymentAttemptRow>(
         `INSERT INTO payment_attempts(id,contribution_id,provider,environment,amount,currency,
          client_request_id,status,provider_payload,merchant_id,provider_order_id,destination_snapshot)
-         VALUES($1,$2,'MOMO_SANDBOX','SANDBOX',$3,'VND',$4,'CREATED',$5::jsonb,$6,$7,$8::jsonb)
+         VALUES($1,$2,$9,$10,$3,'VND',$4,'CREATED',$5::jsonb,$6,$7,$8::jsonb)
          RETURNING id,contribution_id,provider,environment,amount::text,currency,status,provider_payload,
          needs_reconciliation,expires_at,error_code,created_at,updated_at`,
         [
@@ -331,10 +409,18 @@ export class PaymentRepository {
           input.contributionId,
           amount.toString(),
           input.operationId,
-          JSON.stringify({ schema_version: 1, phase: 'READY_TO_CREATE' }),
+          JSON.stringify({
+            schema_version: 1,
+            phase: 'READY_TO_CREATE',
+            ...(payos
+              ? { return_url: input.body.returnUrl, description: payosDescription(orderCode!) }
+              : {}),
+          }),
           input.body.merchantId,
-          `WLF-${id}`,
+          payos ? String(orderCode) : `WLF-${id}`,
           JSON.stringify(snapshot),
+          payos ? 'PAYOS' : 'MOMO_SANDBOX',
+          payos ? 'LIVE' : 'SANDBOX',
         ],
       )
     ).rows[0]!;
@@ -353,7 +439,11 @@ export class PaymentRepository {
       from: row.finance_version,
       to: financeVersion,
       correlation,
-      details: { operation_id: input.operationId, contribution_id: input.contributionId },
+      details: {
+        operation_id: input.operationId,
+        contribution_id: input.contributionId,
+        ...(payos ? { provider: 'PAYOS' } : {}),
+      },
     });
     return { version: 1, tripId: input.tripId, paymentAttempt: paymentAttemptResponse(attempt) };
   }
@@ -412,7 +502,7 @@ export class PaymentRepository {
     return { version: 1, tripId: input.tripId, paymentAttempt: paymentAttemptResponse(next) };
   }
 
-  private async fundStatus(client: Client, fundId: string) {
+  async fundStatus(client: Client, fundId: string) {
     return (
       await client.query<{ status: 'OPEN' | 'CLOSING' | 'CLOSED' }>(
         'SELECT status FROM funds WHERE id=$1',
@@ -448,9 +538,11 @@ export class PaymentRepository {
       throw new FinanceReadError('VERSION_CONFLICT');
     if (fund.finance_version >= MAX_INT32) throw new FinanceReadError('STATE_CONFLICT');
     let exception = (
-      await client.query<PaymentExceptionRow & { payload: unknown; signature_valid: boolean }>(
+      await client.query<
+        PaymentExceptionRow & { payload: unknown; signature_valid: boolean; provider: string }
+      >(
         `SELECT id,payment_attempt_id,processing_status,review_reason,received_at,reviewed_at,
-         payload,signature_valid FROM payment_webhook_receipts WHERE id=$1 FOR UPDATE`,
+         payload,signature_valid,provider FROM payment_webhook_receipts WHERE id=$1 FOR UPDATE`,
         [input.paymentExceptionId],
       )
     ).rows[0];
@@ -462,10 +554,30 @@ export class PaymentRepository {
     )
       throw new FinanceReadError(exception ? 'STATE_CONFLICT' : 'RESOURCE_NOT_FOUND');
     const payload = payloadRecord(exception.payload);
-    const resultCode = Number(payload.result_code);
-    if (!Number.isInteger(resultCode)) throw new FinanceReadError('STATE_CONFLICT');
     let resolutionAudit: Record<string, unknown> = {};
-    if (input.body.resolution === 'NO_FINANCIAL_EFFECT') {
+    if (exception.provider === 'PAYOS') {
+      resolutionAudit = await this.resolvePayosException(
+        client,
+        input,
+        fund.holder_user_id,
+        exception,
+        payload,
+        correlation,
+      );
+      exception = (
+        await client.query<typeof exception>(
+          `SELECT id,payment_attempt_id,processing_status,review_reason,received_at,reviewed_at,
+           payload,signature_valid,provider FROM payment_webhook_receipts WHERE id=$1`,
+          [exception.id],
+        )
+      ).rows[0]!;
+    }
+    const resultCode = Number(payload.result_code);
+    if (exception.provider === 'PAYOS') {
+      // Resolved above; the shared tail below records the audit entry and returns the view.
+    } else if (!Number.isInteger(resultCode)) {
+      throw new FinanceReadError('STATE_CONFLICT');
+    } else if (input.body.resolution === 'NO_FINANCIAL_EFFECT') {
       if (resultCode === 0 && typeof payload.transaction_id === 'string')
         throw new FinanceReadError('STATE_CONFLICT');
       exception = (
@@ -574,6 +686,87 @@ export class PaymentRepository {
     };
   }
 
+  /**
+   * Holder decision on a payOS receipt. Paid evidence for a still-pending contribution must be
+   * linked (posting the IN entry once); NO_FINANCIAL_EFFECT closes evidence that cannot settle
+   * the contribution (underpaid, late or duplicate money the Holder handles outside Wolfari).
+   */
+  private async resolvePayosException(
+    client: Client,
+    input: FundWrite & Extract<PaymentWriteCommand, { scope: 'RESOLVE_PAYMENT_EXCEPTION' }>,
+    holder: string,
+    exception: { id: string; payment_attempt_id: string | null },
+    payload: Record<string, unknown>,
+    correlation: string,
+  ): Promise<Record<string, unknown>> {
+    const paid = payload.code === '00' || payload.status === 'PAID';
+    const reference = typeof payload.reference === 'string' ? payload.reference : undefined;
+    const amount = typeof payload.amount === 'string' ? payload.amount : undefined;
+    if (input.body.resolution === 'NO_FINANCIAL_EFFECT') {
+      const linked = exception.payment_attempt_id
+        ? await this.lockedAttempt(client, exception.payment_attempt_id, input.fundId)
+        : undefined;
+      if (
+        paid &&
+        reference &&
+        linked &&
+        linked.contribution_status === 'PENDING' &&
+        amount === linked.amount
+      )
+        throw new FinanceReadError('STATE_CONFLICT');
+      await client.query(
+        `UPDATE payment_webhook_receipts SET processing_status='IGNORED',review_reason=$2,
+         reviewed_by_user_id=$3,reviewed_at=clock_timestamp(),processed_at=clock_timestamp()
+         WHERE id=$1`,
+        [exception.id, input.body.reason, input.actor],
+      );
+      if (linked && linked.status !== 'SUCCEEDED')
+        await client.query(
+          `UPDATE payment_attempts SET status=CASE WHEN status IN ('CREATED','PENDING') THEN 'FAILED' ELSE status END,
+           needs_reconciliation=false,error_code='PAYOS_REVIEWED',updated_at=clock_timestamp() WHERE id=$1`,
+          [linked.id],
+        );
+      await client.query(
+        'UPDATE funds SET finance_version=finance_version+1,updated_at=clock_timestamp() WHERE id=$1',
+        [input.fundId],
+      );
+      return {};
+    }
+    const attempt = await this.lockedAttempt(client, input.body.linkedAttemptId!, input.fundId);
+    if (!attempt || attempt.fund_id !== input.fundId || attempt.provider !== 'PAYOS')
+      throw new FinanceReadError('RESOURCE_NOT_FOUND');
+    if (
+      !paid ||
+      !reference ||
+      amount !== attempt.amount ||
+      (payload.order_code !== undefined && String(payload.order_code) !== attempt.provider_order_id)
+    )
+      throw new FinanceReadError('STATE_CONFLICT');
+    await client.query('UPDATE payment_webhook_receipts SET payment_attempt_id=$2 WHERE id=$1', [
+      exception.id,
+      attempt.id,
+    ]);
+    const settled = await this.settleSuccess(client, attempt.id, {
+      transactionId: reference,
+      receiptId: exception.id,
+      correlation,
+      actor: input.actor,
+      system: null,
+      previousHolderTransferConfirmed: input.body.previousHolderTransferConfirmed,
+    });
+    if (!settled) throw new FinanceReadError('STATE_CONFLICT');
+    await client.query(
+      `UPDATE payment_webhook_receipts SET review_reason=$2,reviewed_by_user_id=$3,
+       reviewed_at=clock_timestamp() WHERE id=$1`,
+      [exception.id, input.body.reason, input.actor],
+    );
+    return previousHolderReceiptAudit(
+      destinationHolder(attempt.destination_snapshot, input.fundId),
+      holder,
+      input.body.previousHolderTransferConfirmed,
+    );
+  }
+
   async receiveWebhook(input: MomoWebhookInput, signatureValid: boolean, expectedPartner: string) {
     return this.db.withTransaction(async (client) => {
       const attempt = (
@@ -662,7 +855,7 @@ export class PaymentRepository {
   async markStaleDispatches() {
     const candidates = (
       await this.db.query<{ id: string }>(
-        `SELECT id FROM payment_attempts WHERE status='PENDING' AND NOT needs_reconciliation
+        `SELECT id FROM payment_attempts WHERE provider='MOMO_SANDBOX' AND status='PENDING' AND NOT needs_reconciliation
        AND ((provider_payload->>'phase'='CREATE_DISPATCH' AND updated_at<clock_timestamp()-interval '45 seconds') OR expires_at<=clock_timestamp())
        ORDER BY updated_at,id LIMIT 100`,
       )
@@ -951,7 +1144,7 @@ export class PaymentRepository {
     });
   }
 
-  private async settleSuccess(
+  async settleSuccess(
     client: Client,
     attemptId: string,
     source: {
@@ -963,9 +1156,11 @@ export class PaymentRepository {
       previousHolderTransferConfirmed?: true;
     },
   ) {
-    if (!/^\d{1,40}$/.test(source.transactionId)) return false;
     const row = await this.lockedAttempt(client, attemptId);
     if (!row) return false;
+    // MoMo transaction ids are digits; payOS reports the bank reference (FT23…, TF2302…).
+    if (!(row.provider === 'PAYOS' ? PAYOS_REFERENCE : /^\d{1,40}$/).test(source.transactionId))
+      return false;
     const duplicate = (
       await client.query<{ id: string }>(
         `SELECT id FROM payment_attempts WHERE provider=$1 AND environment=$2
@@ -1131,7 +1326,7 @@ export class PaymentRepository {
     return true;
   }
 
-  private async completeWebhookReceipt(client: Client, id: string) {
+  async completeWebhookReceipt(client: Client, id: string) {
     await client.query(
       `UPDATE payment_webhook_receipts SET processing_status='PROCESSED',processed_at=clock_timestamp(),
        reviewed_at=CASE WHEN review_reason IS NULL THEN reviewed_at ELSE clock_timestamp() END

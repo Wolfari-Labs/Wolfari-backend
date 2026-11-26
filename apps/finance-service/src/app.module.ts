@@ -42,6 +42,9 @@ import { PaymentProcessor } from './application/payment-processor';
 import { PaymentRepository } from './repositories/payment.repository';
 import { MomoSandboxProvider } from './providers/momo-sandbox.provider';
 import { MomoCheckoutProvider } from './providers/momo-checkout.provider';
+import { PayosProvider } from './providers/payos.provider';
+import { PayosPaymentRepository } from './repositories/payos-payment.repository';
+import { PayosPaymentProcessor } from './application/payos-payment-processor';
 import { LifecycleFinanceRepository } from './repositories/lifecycle-finance.repository';
 import { HandoverRepository } from './repositories/handover.repository';
 import { HandoverService } from './application/handover.service';
@@ -97,6 +100,9 @@ import { BankTransferService } from './application/bank-transfer.service';
     PaymentRepository,
     MomoSandboxProvider,
     MomoCheckoutProvider,
+    PayosProvider,
+    PayosPaymentRepository,
+    PayosPaymentProcessor,
     LifecycleFinanceRepository,
   ],
 })

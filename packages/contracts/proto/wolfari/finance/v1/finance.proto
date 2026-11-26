@@ -12,6 +12,8 @@ service FinanceService {
   rpc GetPaymentAttempt(GetPaymentAttemptRequest) returns (GetPaymentAttemptResponse);
   rpc ReconcilePaymentAttempt(ReconcilePaymentAttemptRequest) returns (ReconcilePaymentAttemptResponse);
   rpc ReceiveMomoWebhook(ReceiveMomoWebhookRequest) returns (ReceiveMomoWebhookResponse);
+  // payOS: the Gateway forwards the raw webhook body; Finance verifies its checksum signature.
+  rpc ReceivePayosWebhook(ReceivePayosWebhookRequest) returns (ReceivePayosWebhookResponse);
   rpc ListPaymentExceptions(ListPaymentExceptionsRequest) returns (ListPaymentExceptionsResponse);
   rpc ResolvePaymentException(ResolvePaymentExceptionRequest) returns (ResolvePaymentExceptionResponse);
   rpc ListClosures(ListClosuresRequest) returns (ListClosuresResponse);
@@ -271,6 +273,8 @@ message CreatePaymentAttemptRequest {
   string provider = 4;
   int32 expected_version = 5;
   int32 expected_finance_version = 6;
+  // PAYOS only: Gateway return page (PAYOS_RETURN_PATH + app-link token) for the payer's browser.
+  string return_url = 7;
 }
 message CreatePaymentAttemptResponse {
   oneof result {
@@ -303,6 +307,11 @@ message ReceiveMomoWebhookRequest {
   string signature = 13;
 }
 message ReceiveMomoWebhookResponse {}
+// The exact JSON body payOS posted (at most 64 KiB): its signature covers every `data` field.
+message ReceivePayosWebhookRequest {
+  string body = 1;
+}
+message ReceivePayosWebhookResponse {}
 message ListPaymentExceptionsRequest {
   string actor_user_id = 1;
   string fund_id = 2;
@@ -1299,6 +1308,8 @@ message PaymentInstruction {
   // NAPAS VietQR QRIBFTTA payload (printable ASCII with CRC) and its plain SVG rendering.
   string qr_payload = 13;
   string qr_svg = 14;
+  // Online checkouts that pay into exactly this destination, e.g. PAYOS; empty when none.
+  repeated string online_payment_providers = 15;
 }
 message GetPaymentInstructionResponse {
   PaymentInstruction instruction = 1;

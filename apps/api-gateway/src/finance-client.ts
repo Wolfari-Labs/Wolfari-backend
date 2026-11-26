@@ -29,6 +29,7 @@ export class FinanceClient {
       | 'GetPaymentAttempt'
       | 'ReconcilePaymentAttempt'
       | 'ReceiveMomoWebhook'
+      | 'ReceivePayosWebhook'
       | 'ReceiveBankTransfer'
       | 'ListBankTransfers'
       | 'ResolveBankTransfer'

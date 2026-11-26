@@ -505,7 +505,7 @@ async function main() {
           : service === 'trip'
             ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006']
             : service === 'finance'
-              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007']
+              ? ['V001', 'V002', 'V003', 'V004', 'V005', 'V006', 'V007', 'V008']
               : service === 'identity'
                 ? ['V001', 'V002']
                 : service === 'travel'
@@ -551,6 +551,15 @@ async function main() {
     );
   });
   pass('Finance V007 bank transfer resolution is complete, known and only on RESOLVED rows');
+  await db('finance', async (client) => {
+    await client.query(
+      await readFile(
+        resolve(root, 'apps/finance-service/tests/database/V008_constraints.sql'),
+        'utf8',
+      ),
+    );
+  });
+  pass('Finance V008 accepts payOS LIVE payment attempts beside MoMo Sandbox');
   await db('trip', async (client) => {
     await client.query(
       await readFile(

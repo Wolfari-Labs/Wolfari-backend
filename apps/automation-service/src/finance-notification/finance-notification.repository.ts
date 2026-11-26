@@ -65,11 +65,12 @@ export class FinanceNotificationRepository {
     const terminal = 'terminalType' in event;
     const closure = 'closureId' in event;
     const review = 'contributionId' in event;
+    const confirmed = review && event.contributionStatus === 'CONFIRMED';
     const sourceId = closure ? event.closureId : review ? event.contributionId : event.requestId;
     if (
       new Set(recipients).size !== recipients.length ||
       (terminal && (recipients.length > 0 || sourceRevision !== undefined)) ||
-      (!closure && recipients.length > (review ? 1 : event.contributionCount)) ||
+      (!closure && recipients.length > (review ? (confirmed ? 2 : 1) : event.contributionCount)) ||
       (review &&
         (recipients.length > 0 || sourceRevision !== undefined) &&
         (!Number.isInteger(sourceRevision) || sourceRevision! < 1 || sourceRevision! > 2147483647))
@@ -146,22 +147,35 @@ export class FinanceNotificationRepository {
               event.tripId,
               closure
                 ? 'Yêu cầu xác nhận đóng quỹ'
-                : review
-                  ? 'Báo chuyển chờ xác nhận'
-                  : 'Yêu cầu đóng góp',
+                : confirmed
+                  ? 'Quỹ đã nhận tiền góp'
+                  : review
+                    ? 'Báo chuyển chờ xác nhận'
+                    : 'Yêu cầu đóng góp',
+              // Lock-screen text stays generic: no amount, account or member name (AC-AU01).
               closure
                 ? 'Có yêu cầu xác nhận đóng quỹ. Mở chuyến đi để xem thông tin hiện tại.'
-                : review
-                  ? 'Có báo chuyển cần kiểm tra. Mở chuyến đi để xem thông tin hiện tại.'
-                  : 'Một yêu cầu đóng góp đã được tạo. Mở chuyến đi để xem thông tin hiện tại.',
+                : confirmed
+                  ? 'Một khoản góp đã được xác nhận. Mở chuyến đi để xem thông tin hiện tại.'
+                  : review
+                    ? 'Có báo chuyển cần kiểm tra. Mở chuyến đi để xem thông tin hiện tại.'
+                    : 'Một yêu cầu đóng góp đã được tạo. Mở chuyến đi để xem thông tin hiện tại.',
               sourceId,
               event.eventId,
               closure
                 ? 'CLOSURE_REQUESTED'
-                : review
-                  ? 'CONTRIBUTION_REVIEW'
-                  : 'CONTRIBUTION_REQUESTED',
-              closure ? 'finance-closure:' : review ? 'finance-review:' : 'finance-request:',
+                : confirmed
+                  ? 'CONTRIBUTION_CONFIRMED'
+                  : review
+                    ? 'CONTRIBUTION_REVIEW'
+                    : 'CONTRIBUTION_REQUESTED',
+              closure
+                ? 'finance-closure:'
+                : confirmed
+                  ? 'finance-confirmed:'
+                  : review
+                    ? 'finance-review:'
+                    : 'finance-request:',
               closure,
               review ? `${sourceId}:${sourceRevision}` : event.eventId,
             ],

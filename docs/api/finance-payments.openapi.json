@@ -2,13 +2,13 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Finance Payment Sandbox API",
-    "version": "1.0.0",
-    "description": "API090-095 for creating and reading MoMo Sandbox payment attempts, requesting reconciliation, durably receiving MoMo IPN, and reviewing payment exceptions."
+    "version": "1.1.0",
+    "description": "API090-095 for creating and reading MoMo Sandbox payment attempts, requesting reconciliation, durably receiving MoMo IPN, and reviewing payment exceptions. 1.1.0 adds PAYOS: real (LIVE) VietQR payment links that settle into the Holder bank account linked to payOS; its webhook and return page are in finance-payos.openapi.json."
   },
   "paths": {
     "/api/v1/contributions/{contribution_id}/payment-attempts": {
       "post": {
-        "summary": "API090 Self creates a MoMo Sandbox payment attempt",
+        "summary": "API090 Self creates a MoMo Sandbox or payOS payment attempt",
         "parameters": [
           { "$ref": "#/components/parameters/ContributionId" },
           { "$ref": "#/components/parameters/IdempotencyKey" }
@@ -218,9 +218,18 @@
         "additionalProperties": false,
         "required": ["provider", "expected_version", "expected_finance_version"],
         "properties": {
-          "provider": { "type": "string", "enum": ["MOMO_SANDBOX"] },
+          "provider": {
+            "type": "string",
+            "enum": ["MOMO_SANDBOX", "PAYOS"],
+            "description": "PAYOS only when GET /api/v1/contributions/{contribution_id}/vietqr lists it in online_payment_providers; otherwise 409 STATE_CONFLICT with details.reason PAYMENT_PROVIDER_ACCOUNT_MISMATCH."
+          },
           "expected_version": { "$ref": "#/components/schemas/Version" },
-          "expected_finance_version": { "$ref": "#/components/schemas/Version" }
+          "expected_finance_version": { "$ref": "#/components/schemas/Version" },
+          "return_url": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "PAYOS only: the Gateway return page /api/v1/payments/payos/return/{token}; token is the base64url app link (exp, exps or wolfarimobile). https in production."
+          }
         }
       },
       "ReconcilePaymentAttemptInput": {
@@ -340,8 +349,12 @@
         "properties": {
           "id": { "$ref": "#/components/schemas/Uuid" },
           "contribution_id": { "$ref": "#/components/schemas/Uuid" },
-          "provider": { "type": "string", "enum": ["MOMO_SANDBOX"] },
-          "environment": { "type": "string", "enum": ["SANDBOX"] },
+          "provider": { "type": "string", "enum": ["MOMO_SANDBOX", "PAYOS"] },
+          "environment": {
+            "type": "string",
+            "enum": ["SANDBOX", "LIVE"],
+            "description": "MOMO_SANDBOX is SANDBOX; PAYOS is LIVE (real money)."
+          },
           "amount": { "$ref": "#/components/schemas/MomoAmount" },
           "currency": { "type": "string", "enum": ["VND"] },
           "status": { "$ref": "#/components/schemas/PaymentAttemptStatus" },
@@ -349,7 +362,7 @@
           "payment_url": {
             "type": "string",
             "format": "uri",
-            "pattern": "^https://test-payment\\.momo\\.vn(?:/|$)",
+            "pattern": "^https://(?:test-payment\\.momo\\.vn|pay\\.payos\\.vn)(?:/|$)",
             "nullable": true
           },
           "expires_at": { "type": "string", "format": "date-time", "nullable": true },

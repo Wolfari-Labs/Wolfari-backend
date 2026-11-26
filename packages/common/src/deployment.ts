@@ -196,7 +196,9 @@ export function validateDeploymentEnvironment(values: Values, app: AppName): voi
     app === 'finance-service' &&
     (values.MOMO_SANDBOX_MODE !== 'disabled' ||
       (values.MOMO_CHECKOUT_MODE || 'disabled') !== 'disabled' ||
-      values.FINANCE_OUTBOX_ENABLED !== 'false')
+      values.FINANCE_OUTBOX_ENABLED !== 'false' ||
+      // Real-money payOS is a local/demo decision until the team approves it for deployments.
+      (values.PAYOS_MODE || 'disabled') !== 'disabled')
   )
     invalid('FINANCE_FEATURE_FLAGS');
   if (app === 'automation-service') {

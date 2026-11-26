@@ -60,8 +60,13 @@ export function projectPaymentInstruction(value: unknown, id: string) {
     throw new Error('Invalid instruction payload');
   if (Buffer.byteLength(data.qr_svg!) > QR_SVG_MAX_BYTES || !QR_SVG_SHAPE.test(data.qr_svg!))
     throw new Error('Invalid instruction QR');
-  return data;
+  // proto-loader omits an empty repeated field; only known checkouts are published.
+  const providers = r.online_payment_providers ?? [];
+  if (!Array.isArray(providers) || providers.some((item) => !ONLINE_PROVIDERS.has(item)))
+    throw new Error('Invalid instruction providers');
+  return { ...data, online_payment_providers: [...new Set(providers as string[])] };
 }
+const ONLINE_PROVIDERS = new Set<unknown>(['PAYOS']);
 
 export async function handlePaymentInstruction(
   request: IncomingMessage,

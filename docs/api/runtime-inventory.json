@@ -299,6 +299,16 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/webhooks/payos",
+      "document": "finance-payos.openapi.json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/payments/payos/return/{id}",
+      "document": "finance-payos.openapi.json"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/funds/{id}/receipts",
       "document": "finance-receipts.openapi.json"
     },
@@ -810,14 +820,14 @@
   ],
   "sources": {
     "bank-directory-http.ts": "434cdaa8647b4cdc8eec07926bbd4d7d189a9b8931f8c9653df2dd9a57e1b75e",
-    "bank-webhook-http.ts": "aad99fe14ddd854a1fac1d38aa6dcd3f143201c9cc35792ccc9bd06087800df4",
+    "bank-webhook-http.ts": "c18c1d9534454c9a63b28e98a8d57050ed36a101cf9eb858c0899d0ab5968b14",
     "closure-http.ts": "560a81a422774d1f4289653093e2bb4b0a2fc73dffa22ff37fa566de2fa1406c",
     "contribution-management-http.ts": "6173449cc59358a7a8d40c7e226facd45b2ea2e632cf1503751ed0eaa296a400",
     "contribution-request-http.ts": "e8f542a896aa7c2ef21b2372f18a4c293aaacc4f6a7d9a1ce3261529de48e353",
     "dress-code-image-http.ts": "73807adac2e250d82a172c69ba70ffef6643509a9f500c0f11bfd88df2508322",
     "expense-http.ts": "d85759333839eb195b70960ed8b5d63c56ea5e73c671819e6c89aa312cafdda0",
     "finance-history-http.ts": "0ea386e5a14f4f71252143b8de6ef32a89d8cc2c46f3c18a0d3d82ac749c4b33",
-    "finance-proxy.ts": "10347f2509ae7cceb91c665d0a92274d2b25a014e80bcdecc198da268be9ff74",
+    "finance-proxy.ts": "51207bc829c30f0aa54a3cd46529f951c3949eb39130f1b785ad7a407b7156ab",
     "finance-receipt-http.ts": "5b2eb52dc9fc3cc3e5863ac901b1c23c51be0c6a0f2940283c66ac69aa4fc461",
     "financial-note-http.ts": "6e6bf2861cdecae8241d98a16b44d3e06300bf0fa57dd1857b8aabff6f2d2a9e",
     "handover-http.ts": "00431d6965eaba03ce5ec16468219005b5ce91da7faf937eb2f70be9076707c9",
@@ -825,8 +835,9 @@
     "invitation-proxy.ts": "ce29d4da295327a4c09794232f38c3c8f103aeea8a4325e4f581fb4e9122794d",
     "membership-proxy.ts": "85828e59c60f1c85ebb7ea26fac85b6c6bad0ef7e05b01f0da020ff2260dbc34",
     "notification-proxy.ts": "f5a5f2086b0c1270c2701db35a6e1d9fe2f1f113769161f9d427c81b79fa2e03",
-    "payment-http.ts": "e36d12ce5249aeebd599a281c1bf713c371d051e5971a243f1135c4cb11c1adc",
-    "payment-instruction-http.ts": "eb641bb9f6337bb9b26ac99ad419fac9880a2b2ed7a6aecfa83ebcff4fa176f6",
+    "payment-http.ts": "2d14ca9cd2bf58f26570fdff51d4b9f73642517e318f13a6328da5fdb4c36167",
+    "payment-instruction-http.ts": "36967543d80a976ccf537b1e70088247622c36dc8a234a3af0a269e501ca9542",
+    "payos-http.ts": "307083e46874e88b62dca1eb4b3cfe74504545dcee6c97b64c73d390484f73a1",
     "places-proxy.ts": "cfba106f1c5309437c9f3c788afde927c352c88846e381d64f446c331d174d7e",
     "plan-items-proxy.ts": "96d7aef5e3cb6af0319728eb702b3e8b019118156ece492d3c162982006d29ce",
     "plan-proxy.ts": "8dcb7bd8db2521018460a0b9cb18bed5ff31363ae67b1b74dd3de46972b2f21b",

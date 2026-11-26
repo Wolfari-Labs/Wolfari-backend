@@ -1,0 +1,207 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wolfari Finance payOS API",
+    "version": "1.0.0",
+    "description": "Public endpoints of the payOS (LIVE money) payment flow. Attempts are created and read through API090-092 with provider PAYOS. payOS calls the webhook after a VietQR transfer into the Holder account linked to the payOS channel; Finance verifies the HMAC-SHA256 checksum signature over data before storing anything and settles at most one IN entry per contribution. The return page only hands the payer back to the app; it never confirms money."
+  },
+  "paths": {
+    "/api/v1/webhooks/payos": {
+      "post": {
+        "summary": "payOS payment webhook (signed with the channel checksum key)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayosWebhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored, deduplicated, or ignored because the signature did not verify (nothing is stored then). payOS treats any 2xx as delivered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayosAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body is not JSON or exceeds 64 KiB"
+          },
+          "429": {
+            "description": "More than 60 requests per minute from one source"
+          },
+          "503": {
+            "description": "Finance unavailable; payOS should deliver again"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/payos/return/{token}": {
+      "get": {
+        "summary": "Return page payOS opens after paying or cancelling; hands the payer back to the app link in the token",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{4,400}$"
+            },
+            "description": "base64url of an app link with scheme exp, exps or wolfarimobile"
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cancel",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderCode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,16}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "HTML page that opens the app link (meta refresh plus a button): the app link with provider=PAYOS, status (PAID, CANCELLED, ... or UNKNOWN) and orderCode. The app then reads the attempt (API091); only the webhook or reconciliation settles money.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Token is not a valid app link"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PayosWebhook": {
+        "type": "object",
+        "required": [
+          "data",
+          "signature"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "desc": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "signature": {
+            "type": "string",
+            "description": "HMAC-SHA256 (checksum key) of data as sorted key=value pairs joined by &; null becomes empty."
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "orderCode",
+              "amount",
+              "description",
+              "accountNumber",
+              "reference",
+              "transactionDateTime",
+              "currency",
+              "paymentLinkId",
+              "code",
+              "desc"
+            ],
+            "properties": {
+              "orderCode": {
+                "type": "integer"
+              },
+              "amount": {
+                "type": "integer"
+              },
+              "description": {
+                "type": "string"
+              },
+              "accountNumber": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "transactionDateTime": {
+                "type": "string"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "paymentLinkId": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string",
+                "description": "00 means paid"
+              },
+              "desc": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        }
+      },
+      "PayosAck": {
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

@@ -105,7 +105,8 @@ export function verifySepay(
   throw new WebhookAuthError('Invalid signature');
 }
 
-async function rawBody(request: Request): Promise<Buffer> {
+/** Exact bytes of an unauthenticated webhook body (≤ 64 KiB); shared with the payOS webhook. */
+export async function rawBody(request: Request): Promise<Buffer> {
   if (request.body !== undefined) throw new Error('Webhook body was parsed before signing');
   const pieces: Buffer[] = [];
   let total = 0;

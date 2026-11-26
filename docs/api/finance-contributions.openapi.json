@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Wolfari Finance Contributions",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "Implemented API078-084 and API087-089 for shared group activity funds. Manual confirmation records the full issued amount after the current Holder checks their bank externally. No automatic bank verification, provider callback, partial payment, reversal or refund writer. Local service-secret transport rejects production mode. API086 provides Self-only TEST VietQR QuickLink instructions from the issued destination snapshot. The external image request discloses recipient/amount/reference to Casso; no automatic payment verification."
   },
   "security": [
@@ -2664,7 +2664,8 @@
           "qr_payload",
           "qr_svg",
           "environment",
-          "warning"
+          "warning",
+          "online_payment_providers"
         ],
         "properties": {
           "contribution_id": {
@@ -2729,6 +2730,17 @@
           "warning": {
             "type": "string",
             "description": "Vietnamese notice to show next to the QR."
+          },
+          "online_payment_providers": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "PAYOS"
+              ]
+            },
+            "description": "Online checkouts that pay into exactly this destination (API090 provider values). Empty when none; PAYOS is listed only when the Finance payOS channel account is this bank account."
           }
         }
       }
